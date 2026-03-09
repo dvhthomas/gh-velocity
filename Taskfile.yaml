@@ -2,11 +2,6 @@ version: '3'
 
 vars:
   BINARY_NAME: gh-velocity
-  VERSION:
-    sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
-  BUILD_TIME:
-    sh: date -u +"%Y-%m-%dT%H:%M:%SZ"
-  LDFLAGS: -s -w -X main.Version={{.VERSION}} -X main.BuildTime={{.BUILD_TIME}}
 
 tasks:
   default:
@@ -32,9 +27,14 @@ tasks:
 
   build:
     desc: Build CLI for current platform
+    vars:
+      VERSION:
+        sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
+      BUILD_TIME:
+        sh: date -u +"%Y-%m-%dT%H:%M:%SZ"
     cmds:
-      - go build -ldflags "{{.LDFLAGS}}" -o {{.BINARY_NAME}} .
-      - echo 'Built {{.BINARY_NAME}}'
+      - go build -ldflags "-s -w -X main.Version={{.VERSION}} -X main.BuildTime={{.BUILD_TIME}}" -o {{.BINARY_NAME}} .
+      - echo 'Built {{.BINARY_NAME}} {{.VERSION}}'
 
   # ── Quality ────────────────────────────────────────────────────────
 
@@ -62,11 +62,26 @@ tasks:
     cmds:
       - bash scripts/check-graphql-injection.sh
 
+  install:
+    desc: Build, remove old extension, install fresh, clean config
+    deps: [build]
+    cmds:
+      - rm -f .gh-velocity.yml
+      - gh extension remove velocity 2>/dev/null || true
+      - gh extension install .
+      - gh velocity version
+
   smoke:
     desc: Run smoke tests against real GitHub repos (requires gh auth)
     deps: [build]
     cmds:
       - bash scripts/smoke-test.sh
+
+  smoke:ext:
+    desc: Run smoke tests using the installed gh velocity extension
+    deps: [install]
+    cmds:
+      - bash scripts/smoke-test-ext.sh
 
   quality:
     desc: Run all quality checks (recommended before commit)
