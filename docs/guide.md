@@ -129,14 +129,37 @@ This shows what `pr-link`, `commit-ref`, and `changelog` each discovered, and th
 
 ### Your own repo
 
-Navigate to a local checkout and run:
+From inside a local checkout, you can omit `-R`:
 
 ```bash
 cd your-repo
 gh velocity release v1.0.0
 ```
 
-When run from inside a repo, the tool uses local git for tag listing and commit history. This is faster and enables cycle-time computation. When you use `-R` to point at a remote repo, it falls back to the GitHub API with reduced functionality.
+When run from inside a repo, the tool uses local git for tag listing and commit history. This is faster and enables cycle-time computation.
+
+### Cycle time requires a local clone
+
+The `cycle-time` command searches git history for commits that reference an issue. This only works from inside a checkout:
+
+```bash
+# Clone first, then query
+gh repo clone cli/cli
+cd cli
+gh velocity cycle-time 42
+```
+
+Without a local clone, `cycle-time` cannot find commits and will report N/A. Other commands (`release`, `scope`, `lead-time`) work fine with just `-R` because they use the GitHub API.
+
+In **GitHub Actions**, the checkout action creates a local clone — but you must fetch full history:
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0    # default is 1 (shallow), which breaks commit search
+```
+
+The tool detects shallow clones and warns you.
 
 ## Configuration reference
 

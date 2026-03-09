@@ -14,24 +14,32 @@ Requires [GitHub CLI](https://cli.github.com/) 2.0+.
 
 ## Quick start
 
+Most commands work against any repo via `-R`:
+
 ```bash
 # How did the last release go?
-gh velocity release v1.2.0
+gh velocity release v2.67.0 -R cli/cli
 
 # What's in a release? Which strategy found each issue?
-gh velocity scope v1.2.0
+gh velocity scope v2.67.0 -R cli/cli
 
 # How long did a specific issue take?
-gh velocity lead-time 42
+gh velocity lead-time 42 -R cli/cli
+```
 
-# Cycle time: first commit to close
+Cycle time requires a local checkout (it searches git history for commits):
+
+```bash
+gh repo clone cli/cli
+cd cli
 gh velocity cycle-time 42
 ```
 
-Works on any public or private repo you have access to:
+From inside any local repo, you can omit `-R`:
 
 ```bash
-gh velocity release v2.67.0 -R cli/cli
+cd your-repo
+gh velocity release v1.2.0
 ```
 
 ## Output formats
@@ -46,14 +54,15 @@ gh velocity release v1.2.0 -f markdown        # paste into an issue or PR
 
 ## Commands
 
-| Command | What it measures |
-| --- | --- |
-| `release <tag>` | Full release report: per-issue metrics, composition, aggregates, outliers |
-| `scope <tag>` | What a release contains, broken down by discovery strategy |
-| `lead-time <issue>` | Time from issue creation to close |
-| `cycle-time <issue>` | Time from first commit to close |
-| `config show` | Display resolved configuration |
-| `config validate` | Check your `.gh-velocity.yml` for errors |
+| Command | What it measures | Needs local clone? |
+| --- | --- | --- |
+| `release <tag>` | Full release report: per-issue metrics, composition, aggregates, outliers | No (but improves accuracy) |
+| `scope <tag>` | What a release contains, broken down by discovery strategy | No |
+| `lead-time <issue>` | Time from issue creation to close | No |
+| `cycle-time <issue>` | Time from first commit to close | **Yes** |
+| `config show` | Display resolved configuration | No |
+| `config create` | Generate a default `.gh-velocity.yml` | No |
+| `config validate` | Check your `.gh-velocity.yml` for errors | No |
 
 ### Common flags
 
