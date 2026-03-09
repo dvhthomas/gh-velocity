@@ -77,8 +77,8 @@ tasks:
     cmds:
       - bash scripts/smoke-test.sh
 
-  smoke:ext:
-    desc: Run smoke tests using the installed gh velocity extension
+  test:integration:
+    desc: Run integration tests using the installed gh velocity extension
     deps: [install]
     cmds:
       - bash scripts/smoke-test-ext.sh

@@ -47,6 +47,9 @@ func NewReleaseCmd() *cobra.Command {
 				if wdErr != nil {
 					return fmt.Errorf("get working directory: %w", wdErr)
 				}
+				if gitdata.IsShallowClone(wd) {
+					fmt.Fprintf(os.Stderr, "warning: shallow clone detected; commit history is incomplete. Use 'actions/checkout' with fetch-depth: 0 for accurate metrics.\n")
+				}
 				source = gitdata.NewLocalSource(wd)
 			} else {
 				fmt.Fprintf(os.Stderr, "warning: Using API for git operations (no local checkout)\n")

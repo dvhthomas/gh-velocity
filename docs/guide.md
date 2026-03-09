@@ -34,7 +34,7 @@ The tradeoff is clear: you get zero-setup velocity metrics in exchange for being
 
 ### What has limits
 
-- **Cycle time depends on local git**. When you run `gh velocity cycle-time 42`, the tool searches your local git log for commits referencing issue #42. Against a remote repo (`-R owner/name`), this data is not available. In release reports, cycle time uses the commits discovered by the linking strategies — which may not include all relevant commits.
+- **Cycle time depends on local git with full history**. When you run `gh velocity cycle-time 42`, the tool searches your local git log for commits referencing issue #42. Against a remote repo (`-R owner/name`), this data is not available. In release reports, cycle time uses the commits discovered by the linking strategies — which may not include all relevant commits. **In GitHub Actions**, the default `actions/checkout` does a shallow clone (only the latest commit). You must set `fetch-depth: 0` for accurate commit-based metrics. The tool detects shallow clones and warns you.
 - **The PR search API caps at 1000 results**. If a release window contains more than 1000 merged PRs, the `pr-link` strategy warns you and returns partial results. This is rare outside the largest monorepos.
 - **Tag ordering is by API default, not semver**. Tags are returned in the order GitHub's API provides, which is usually creation date. The tool picks the tag immediately before your target tag in this list. If your tag history is non-linear, use `--since` to specify the previous tag explicitly.
 - **"Closed" is not "merged"**. GitHub issues can be closed without a PR being merged — by a maintainer, a bot, or the author. `gh-velocity` treats closure as the end event regardless of cause. For most teams this is fine; for teams that close stale issues aggressively, it may inflate lead time counts.
@@ -596,6 +596,18 @@ Both the current and previous tags need dates for pr-link to search for merged P
 ### "Low label coverage: N/M issues have no bug/feature labels"
 
 More than half the issues lack the labels configured for bug/feature classification. Either label your issues or customize `quality.bug_labels` and `quality.feature_labels` in your config.
+
+### "shallow clone detected; commit history is incomplete"
+
+You are running in a git checkout that was cloned with limited history (common in CI). Fix this in GitHub Actions:
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0    # fetch full history
+```
+
+Without full history, the tool cannot find commits between tags or search commit messages for issue references. Lead time (which only uses issue dates) is unaffected.
 
 ### Cycle time shows N/A for all issues
 
