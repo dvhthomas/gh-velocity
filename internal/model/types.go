@@ -23,14 +23,26 @@ type Commit struct {
 	URL       string
 }
 
+// PR represents a GitHub pull request with fields needed for metrics.
+type PR struct {
+	Number    int
+	Title     string
+	State     string
+	Labels    []string
+	CreatedAt time.Time
+	MergedAt  *time.Time
+	URL       string
+}
+
 // Release represents a GitHub release or git tag.
 type Release struct {
-	TagName     string
-	Name        string
-	CreatedAt   time.Time
-	PublishedAt *time.Time
-	URL         string
-	IsDraft     bool
+	TagName      string
+	Name         string
+	Body         string // release notes body (used by changelog strategy)
+	CreatedAt    time.Time
+	PublishedAt  *time.Time
+	URL          string
+	IsDraft      bool
 	IsPrerelease bool
 }
 
@@ -61,6 +73,34 @@ type ReleaseMetrics struct {
 	LeadTimeStats   Stats
 	CycleTimeStats  Stats
 	ReleaseLagStats Stats
+}
+
+// DiscoveredItem represents an issue or PR found by a linking strategy.
+type DiscoveredItem struct {
+	Issue    *Issue   // nil if PR-only (no linked issue)
+	PR       *PR      // nil if discovered via commit-ref without a PR
+	Commits  []Commit // commits associated with this item
+	Strategy string   // "pr-link", "commit-ref", or "changelog"
+}
+
+// StrategyResult holds items found by a single strategy.
+type StrategyResult struct {
+	Name  string           // "pr-link", "commit-ref", "changelog"
+	Items []DiscoveredItem
+}
+
+// ScopeResult holds the output of running all strategies for a release.
+type ScopeResult struct {
+	Tag         string
+	PreviousTag string
+	Strategies  []StrategyResult
+	Merged      []DiscoveredItem // deduplicated union
+}
+
+// CategoryConfig defines a user-defined classification category.
+type CategoryConfig struct {
+	Name     string   // e.g., "bug", "feature", "regression"
+	Matchers []string // e.g., ["label:bug", "type:Bug", "title:/fix/i"]
 }
 
 // Stats holds aggregate statistics for a set of durations.
