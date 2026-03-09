@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/bitsbyme/gh-velocity/internal/config"
 	"github.com/bitsbyme/gh-velocity/internal/model"
@@ -18,6 +19,7 @@ func NewConfigCmd() *cobra.Command {
 
 	cmd.AddCommand(newConfigShowCmd())
 	cmd.AddCommand(newConfigValidateCmd())
+	cmd.AddCommand(newConfigCreateCmd())
 
 	return cmd
 }
@@ -82,6 +84,44 @@ func newConfigValidateCmd() *cobra.Command {
 			} else {
 				fmt.Fprintln(cmd.OutOrStdout(), "config: valid")
 			}
+			return nil
+		},
+	}
+}
+
+const defaultConfigTemplate = `# gh-velocity configuration
+# See: https://github.com/dvhthomas/gh-velocity/blob/main/docs/guide.md
+
+# Issue classification labels
+quality:
+  bug_labels: ["bug"]
+  feature_labels: ["enhancement"]
+  hotfix_window_hours: 72
+
+# Commit message scanning
+# "closes" matches: fixes #N, closes #N, resolves #N (default)
+# "refs" also matches bare #N references (more aggressive)
+commit_ref:
+  patterns: ["closes"]
+`
+
+func newConfigCreateCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "create",
+		Short: "Create a default .gh-velocity.yml in the current directory",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path := config.DefaultConfigFile
+			if _, err := os.Stat(path); err == nil {
+				return &model.AppError{
+					Code:    model.ErrConfigInvalid,
+					Message: fmt.Sprintf("%s already exists; remove it first or edit it directly", path),
+				}
+			}
+			if err := os.WriteFile(path, []byte(defaultConfigTemplate), 0644); err != nil {
+				return fmt.Errorf("write %s: %w", path, err)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Created %s\n", path)
 			return nil
 		},
 	}
