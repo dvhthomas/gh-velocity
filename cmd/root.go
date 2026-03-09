@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/bitsbyme/gh-velocity/internal/config"
 	"github.com/bitsbyme/gh-velocity/internal/format"
@@ -116,9 +117,11 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				return err
 			}
 
-			// Detect local git availability
+			// Detect local git availability — only use local git when
+			// the working directory is a git repo whose remote matches
+			// the resolved owner/repo target.
 			wd, _ := os.Getwd()
-			hasLocal := gitdata.IsLocalGitAvailable(wd)
+			hasLocal := gitdata.IsLocalGitAvailable(wd) && localRepoMatches(wd, owner, repo)
 
 			// Load config: require file when local repo exists, fall back to defaults otherwise.
 			var cfg *config.Config
@@ -169,6 +172,17 @@ func parseIssueArg(arg string) (int, error) {
 		return 0, &model.AppError{Code: model.ErrConfigInvalid, Message: fmt.Sprintf("invalid issue number %d: must be a positive integer", n)}
 	}
 	return n, nil
+}
+
+// localRepoMatches returns true when the git remote in dir matches
+// the target owner/repo. This prevents using local git operations
+// against the wrong repository when -R points elsewhere.
+func localRepoMatches(dir, owner, repo string) bool {
+	r, err := repository.Current()
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(r.Owner, owner) && strings.EqualFold(r.Name, repo)
 }
 
 // resolveRepo determines the target repository from --repo flag,

@@ -62,13 +62,21 @@ tasks:
     cmds:
       - bash scripts/check-graphql-injection.sh
 
+  smoke:
+    desc: Run smoke tests against real GitHub repos (requires gh auth)
+    deps: [build]
+    cmds:
+      - bash scripts/smoke-test.sh
+
   quality:
     desc: Run all quality checks (recommended before commit)
     cmds:
+      - task: test
       - task: lint
       - task: staticcheck
       - task: vulncheck
       - task: check:graphql-injection
+      - task: smoke
       - echo '✓ All quality checks passed'
 
   # ── Maintenance ────────────────────────────────────────────────────
