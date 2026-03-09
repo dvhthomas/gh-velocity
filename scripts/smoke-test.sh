@@ -76,6 +76,20 @@ echo "$out" | jq -e '.tag' >/dev/null 2>&1 && pass "release json" || fail "relea
 out=$($BINARY release v2.65.0 -R cli/cli --since v2.64.0 -f markdown 2>/dev/null)
 [[ "$out" == *"## Release v2.65.0"* ]] && pass "release markdown" || fail "release markdown: $out"
 
+# ── scope ──────────────────────────────────────────────────────────
+echo ""
+echo "scope (cli/cli v2.65.0)"
+
+out=$($BINARY scope v2.65.0 -R cli/cli --since v2.64.0 2>&1)
+[[ "$out" == *"Scope: v2.65.0"* ]] && pass "scope pretty" || fail "scope pretty: $out"
+[[ "$out" == *"Strategy:"* ]] && pass "scope shows strategies" || fail "scope shows strategies: $out"
+
+out=$($BINARY scope v2.65.0 -R cli/cli --since v2.64.0 -f json 2>/dev/null)
+echo "$out" | jq -e '.strategies' >/dev/null 2>&1 && pass "scope json" || fail "scope json: $out"
+
+out=$($BINARY scope v2.65.0 -R cli/cli --since v2.64.0 -f markdown 2>/dev/null)
+[[ "$out" == *"## Scope:"* ]] && pass "scope markdown" || fail "scope markdown: $out"
+
 # ── error cases ────────────────────────────────────────────────────
 echo ""
 echo "error handling"

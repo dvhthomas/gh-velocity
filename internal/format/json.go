@@ -10,13 +10,13 @@ import (
 
 // JSONLeadTimeOutput is the JSON representation of lead-time metrics.
 type JSONLeadTimeOutput struct {
-	Repository       string   `json:"repository"`
-	Issue            int      `json:"issue"`
-	Title            string   `json:"title"`
-	State            string   `json:"state"`
-	LeadTimeSeconds  *int64   `json:"lead_time_seconds"`
-	LeadTime         string   `json:"lead_time"`
-	Warnings         []string `json:"warnings,omitempty"`
+	Repository      string   `json:"repository"`
+	Issue           int      `json:"issue"`
+	Title           string   `json:"title"`
+	State           string   `json:"state"`
+	LeadTimeSeconds *int64   `json:"lead_time_seconds"`
+	LeadTime        string   `json:"lead_time"`
+	Warnings        []string `json:"warnings,omitempty"`
 }
 
 // JSONCycleTimeOutput is the JSON representation of cycle-time metrics.
@@ -33,16 +33,16 @@ type JSONCycleTimeOutput struct {
 
 // JSONReleaseOutput is the JSON representation of release metrics.
 type JSONReleaseOutput struct {
-	Repository   string              `json:"repository"`
-	Tag          string              `json:"tag"`
-	PreviousTag  string              `json:"previous_tag,omitempty"`
-	Date         time.Time           `json:"date"`
-	CadenceHours *float64            `json:"cadence_hours,omitempty"`
-	IsHotfix     bool                `json:"is_hotfix"`
-	Composition  JSONComposition     `json:"composition"`
-	Issues       []JSONIssueMetrics  `json:"issues"`
-	Aggregates   JSONAggregates      `json:"aggregates"`
-	Warnings     []string            `json:"warnings,omitempty"`
+	Repository   string             `json:"repository"`
+	Tag          string             `json:"tag"`
+	PreviousTag  string             `json:"previous_tag,omitempty"`
+	Date         time.Time          `json:"date"`
+	CadenceHours *float64           `json:"cadence_hours,omitempty"`
+	IsHotfix     bool               `json:"is_hotfix"`
+	Composition  JSONComposition    `json:"composition"`
+	Issues       []JSONIssueMetrics `json:"issues"`
+	Aggregates   JSONAggregates     `json:"aggregates"`
+	Warnings     []string           `json:"warnings,omitempty"`
 }
 
 type JSONComposition struct {
@@ -56,23 +56,23 @@ type JSONComposition struct {
 }
 
 type JSONIssueMetrics struct {
-	Number           int    `json:"number"`
-	Title            string `json:"title"`
-	LeadTimeSeconds  *int64 `json:"lead_time_seconds"`
-	CycleTimeSeconds *int64 `json:"cycle_time_seconds"`
+	Number            int    `json:"number"`
+	Title             string `json:"title"`
+	LeadTimeSeconds   *int64 `json:"lead_time_seconds"`
+	CycleTimeSeconds  *int64 `json:"cycle_time_seconds"`
 	ReleaseLagSeconds *int64 `json:"release_lag_seconds"`
-	CommitCount      int    `json:"commit_count"`
+	CommitCount       int    `json:"commit_count"`
 }
 
 type JSONAggregates struct {
-	LeadTime  JSONStats `json:"lead_time"`
-	CycleTime JSONStats `json:"cycle_time"`
+	LeadTime   JSONStats `json:"lead_time"`
+	CycleTime  JSONStats `json:"cycle_time"`
 	ReleaseLag JSONStats `json:"release_lag"`
 }
 
 type JSONStats struct {
-	Count        int    `json:"count"`
-	MeanSeconds  *int64 `json:"mean_seconds"`
+	Count         int    `json:"count"`
+	MeanSeconds   *int64 `json:"mean_seconds"`
 	MedianSeconds *int64 `json:"median_seconds"`
 	StdDevSeconds *int64 `json:"stddev_seconds,omitempty"`
 }

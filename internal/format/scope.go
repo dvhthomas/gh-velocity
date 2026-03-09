@@ -130,7 +130,7 @@ func WriteScopeJSON(w io.Writer, repo string, result *model.ScopeResult) error {
 		Repo        string               `json:"repo"`
 		Tag         string               `json:"tag"`
 		PreviousTag string               `json:"previous_tag,omitempty"`
-		Strategies  []jsonStrategyResult  `json:"strategies"`
+		Strategies  []jsonStrategyResult `json:"strategies"`
 		MergedCount int                  `json:"merged_count"`
 		Merged      []jsonItem           `json:"merged"`
 	}

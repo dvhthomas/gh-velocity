@@ -11,9 +11,9 @@ import (
 func TestCommitRef_ClosingKeywordsOnly(t *testing.T) {
 	commits := []model.Commit{
 		{SHA: "a1", Message: "fixes #42", AuthoredAt: time.Now()},
-		{SHA: "a2", Message: "update step #1", AuthoredAt: time.Now()},  // bare ref, should NOT match
+		{SHA: "a2", Message: "update step #1", AuthoredAt: time.Now()}, // bare ref, should NOT match
 		{SHA: "a3", Message: "closes #10", AuthoredAt: time.Now()},
-		{SHA: "a4", Message: "resolves #42", AuthoredAt: time.Now()},     // duplicate of #42
+		{SHA: "a4", Message: "resolves #42", AuthoredAt: time.Now()}, // duplicate of #42
 	}
 
 	s := NewCommitRef(nil) // default: closes only

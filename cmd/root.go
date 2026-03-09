@@ -86,9 +86,9 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 	)
 
 	root := &cobra.Command{
-		Use:   "gh-velocity",
-		Short: "GitHub velocity and quality metrics",
-		Long:  "Compute velocity and quality metrics from GitHub data and post them where the work happens.",
+		Use:           "gh-velocity",
+		Short:         "GitHub velocity and quality metrics",
+		Long:          "Compute velocity and quality metrics from GitHub data and post them where the work happens.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {

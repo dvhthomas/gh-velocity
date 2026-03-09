@@ -242,10 +242,10 @@ func TestBuildReleaseMetrics_HotfixDetection(t *testing.T) {
 	base := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 
 	input := ReleaseInput{
-		Tag:         "v1.0.1",
-		PreviousTag: "v1.0.0",
-		Release:     model.Release{TagName: "v1.0.1", CreatedAt: base.Add(24 * time.Hour)},
-		PrevRelease: &model.Release{TagName: "v1.0.0", CreatedAt: base},
+		Tag:               "v1.0.1",
+		PreviousTag:       "v1.0.0",
+		Release:           model.Release{TagName: "v1.0.1", CreatedAt: base.Add(24 * time.Hour)},
+		PrevRelease:       &model.Release{TagName: "v1.0.0", CreatedAt: base},
 		IssueCommits:      map[int][]model.Commit{},
 		Issues:            map[int]*model.Issue{},
 		FetchErrors:       map[int]error{},
@@ -274,10 +274,10 @@ func TestBuildReleaseMetrics_NotHotfix(t *testing.T) {
 	base := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 
 	input := ReleaseInput{
-		Tag:         "v1.1.0",
-		PreviousTag: "v1.0.0",
-		Release:     model.Release{TagName: "v1.1.0", CreatedAt: base.Add(7 * 24 * time.Hour)},
-		PrevRelease: &model.Release{TagName: "v1.0.0", CreatedAt: base},
+		Tag:               "v1.1.0",
+		PreviousTag:       "v1.0.0",
+		Release:           model.Release{TagName: "v1.1.0", CreatedAt: base.Add(7 * 24 * time.Hour)},
+		PrevRelease:       &model.Release{TagName: "v1.0.0", CreatedAt: base},
 		IssueCommits:      map[int][]model.Commit{},
 		Issues:            map[int]*model.Issue{},
 		FetchErrors:       map[int]error{},

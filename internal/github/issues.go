@@ -10,17 +10,16 @@ import (
 )
 
 type issueResponse struct {
-	Number    int       `json:"number"`
-	Title     string    `json:"title"`
-	State     string    `json:"state"`
-	CreatedAt time.Time `json:"created_at"`
+	Number    int        `json:"number"`
+	Title     string     `json:"title"`
+	State     string     `json:"state"`
+	CreatedAt time.Time  `json:"created_at"`
 	ClosedAt  *time.Time `json:"closed_at"`
-	HTMLURL   string    `json:"html_url"`
+	HTMLURL   string     `json:"html_url"`
 	Labels    []struct {
 		Name string `json:"name"`
 	} `json:"labels"`
 }
-
 
 // GetIssue fetches an issue by number.
 func (c *Client) GetIssue(ctx context.Context, number int) (*model.Issue, error) {
@@ -45,4 +44,3 @@ func (c *Client) GetIssue(ctx context.Context, number int) (*model.Issue, error)
 		URL:       resp.HTMLURL,
 	}, nil
 }
-

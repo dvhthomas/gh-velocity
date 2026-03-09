@@ -102,4 +102,3 @@ func (c *Client) CompareCommits(ctx context.Context, base, head string) ([]model
 	}
 	return allCommits, nil
 }
-

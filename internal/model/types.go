@@ -17,10 +17,10 @@ type Issue struct {
 
 // Commit represents a git commit.
 type Commit struct {
-	SHA       string
-	Message   string
+	SHA        string
+	Message    string
 	AuthoredAt time.Time
-	URL       string
+	URL        string
 }
 
 // PR represents a GitHub pull request with fields needed for metrics.
@@ -48,11 +48,11 @@ type Release struct {
 
 // IssueMetrics holds computed metrics for a single issue within a release.
 type IssueMetrics struct {
-	Issue        Issue
-	LeadTime     *time.Duration
-	CycleTime    *time.Duration
-	ReleaseLag   *time.Duration
-	CommitCount  int
+	Issue       Issue
+	LeadTime    *time.Duration
+	CycleTime   *time.Duration
+	ReleaseLag  *time.Duration
+	CommitCount int
 }
 
 // ReleaseMetrics holds computed metrics for an entire release.
@@ -85,7 +85,7 @@ type DiscoveredItem struct {
 
 // StrategyResult holds items found by a single strategy.
 type StrategyResult struct {
-	Name  string           // "pr-link", "commit-ref", "changelog"
+	Name  string // "pr-link", "commit-ref", "changelog"
 	Items []DiscoveredItem
 }
 

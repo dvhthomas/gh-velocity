@@ -26,8 +26,8 @@ type DiscoverInput struct {
 	Repo        string
 	Tag         string
 	PreviousTag string
-	TagDate     time.Time   // creation date of the target tag
-	PrevTagDate time.Time   // creation date of the previous tag (zero if none)
+	TagDate     time.Time // creation date of the target tag
+	PrevTagDate time.Time // creation date of the previous tag (zero if none)
 	Commits     []model.Commit
 	Release     *model.Release // GitHub release (for changelog body)
 	Client      *gh.Client

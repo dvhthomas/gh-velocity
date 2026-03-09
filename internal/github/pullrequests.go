@@ -90,9 +90,9 @@ type prLinkedIssuesResponse struct {
 }
 
 type prNode struct {
-	Number   int        `json:"number"`
-	Title    string     `json:"title"`
-	MergedAt *time.Time `json:"mergedAt"`
+	Number                  int        `json:"number"`
+	Title                   string     `json:"title"`
+	MergedAt                *time.Time `json:"mergedAt"`
 	ClosingIssuesReferences struct {
 		Nodes []gqlIssueNode `json:"nodes"`
 	} `json:"closingIssuesReferences"`

@@ -9,15 +9,15 @@ import (
 
 // ReleaseInput holds the data needed to compute release metrics.
 type ReleaseInput struct {
-	Tag          string
-	PreviousTag  string
-	Release      model.Release
-	PrevRelease  *model.Release // nil if no previous release
-	IssueCommits map[int][]model.Commit
-	Issues       map[int]*model.Issue // successfully fetched issues
-	FetchErrors  map[int]error        // issues that failed to fetch
-	BugLabels    []string
-	FeatureLabels []string
+	Tag               string
+	PreviousTag       string
+	Release           model.Release
+	PrevRelease       *model.Release // nil if no previous release
+	IssueCommits      map[int][]model.Commit
+	Issues            map[int]*model.Issue // successfully fetched issues
+	FetchErrors       map[int]error        // issues that failed to fetch
+	BugLabels         []string
+	FeatureLabels     []string
 	HotfixWindowHours float64
 }
 
