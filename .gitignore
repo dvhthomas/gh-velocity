@@ -1,6 +1,33 @@
+# Build artifacts
 gh-velocity
 dist/
+*.exe
+
+# Test
 coverage.out
 coverage.html
-*.exe
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Secrets and credentials
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+service-account*.json
+*secret*
+!*secret*_test.go
+token
+.token
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
