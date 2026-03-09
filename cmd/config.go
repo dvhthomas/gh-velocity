@@ -103,6 +103,17 @@ quality:
 # "refs" also matches bare #N references (more aggressive)
 commit_ref:
   patterns: ["closes"]
+
+# Cycle time status signals (uncomment to enable)
+# Option A: GitHub Projects v2 board
+# project:
+#   id: "PVT_kwDOAbc123"
+#   status_field_id: "PVTSSF_kwDOAbc123"
+
+# Option B: Label-based status (common in OSS)
+# statuses:
+#   active_labels: ["in-progress", "wip"]     # labels = work started
+#   backlog_labels: ["backlog", "icebox"]      # labels = work not started
 `
 
 func newConfigCreateCmd() *cobra.Command {

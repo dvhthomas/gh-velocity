@@ -27,12 +27,10 @@ gh velocity scope v2.67.0 -R cli/cli
 gh velocity lead-time 42 -R cli/cli
 ```
 
-Cycle time requires a local checkout (it searches git history for commits):
+Cycle time works remotely too — it uses PR creation dates and assignment events from the API:
 
 ```bash
-gh repo clone cli/cli
-cd cli
-gh velocity cycle-time 42
+gh velocity cycle-time 42 -R cli/cli
 ```
 
 From inside any local repo, you can omit `-R`:
@@ -59,7 +57,7 @@ gh velocity release v1.2.0 -f markdown        # paste into an issue or PR
 | `release <tag>` | Full release report: per-issue metrics, composition, aggregates, outliers | No (but improves accuracy) |
 | `scope <tag>` | What a release contains, broken down by discovery strategy | No |
 | `lead-time <issue>` | Time from issue creation to close | No |
-| `cycle-time <issue>` | Time from first commit to close | **Yes** |
+| `cycle-time <issue>` | Time from work started to close | No (local clone adds commit data) |
 | `config show` | Display resolved configuration | No |
 | `config create` | Generate a default `.gh-velocity.yml` | No |
 | `config validate` | Check your `.gh-velocity.yml` for errors | No |
@@ -77,7 +75,7 @@ gh velocity release v1.2.0 -f markdown        # paste into an issue or PR
 The `release` command computes these metrics for every issue in a release:
 
 - **Lead time** — issue created to issue closed
-- **Cycle time** — first commit to issue closed
+- **Cycle time** — work started (board status change, label, PR created, assigned, or first commit) to issue closed
 - **Release lag** — issue closed to release published
 
 Aggregates include mean, median, standard deviation, P90, P95, and IQR-based outlier detection. Individual issues are flagged when they exceed the outlier threshold.

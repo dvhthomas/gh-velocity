@@ -107,12 +107,12 @@ type CategoryConfig struct {
 
 // Stats holds aggregate statistics for a set of durations.
 type Stats struct {
-	Count          int
-	Mean           *time.Duration
-	Median         *time.Duration
-	StdDev         *time.Duration // sample standard deviation; nil if N < 2
-	P90            *time.Duration // 90th percentile; nil if N < 2
-	P95            *time.Duration // 95th percentile; nil if N < 2
-	OutlierCutoff  *time.Duration // Q3 + 1.5*IQR; values above are outliers
-	OutlierCount   int            // number of values above the cutoff
+	Count         int
+	Mean          *time.Duration
+	Median        *time.Duration
+	StdDev        *time.Duration // sample standard deviation; nil if N < 2
+	P90           *time.Duration // 90th percentile; nil if N < 2
+	P95           *time.Duration // 95th percentile; nil if N < 2
+	OutlierCutoff *time.Duration // Q3 + 1.5*IQR; values above are outliers
+	OutlierCount  int            // number of values above the cutoff
 }

@@ -32,13 +32,13 @@ var WarnFunc = func(format string, args ...any) {
 
 // Config represents the .gh-velocity.yml configuration.
 type Config struct {
-	Workflow      string            `yaml:"workflow" json:"workflow"`
-	Project       ProjectConfig     `yaml:"project" json:"project"`
-	Statuses      StatusConfig      `yaml:"statuses" json:"statuses"`
-	Fields        FieldsConfig      `yaml:"fields" json:"fields"`
-	Quality       QualityConfig     `yaml:"quality" json:"quality"`
-	Discussions   DiscussionsConfig `yaml:"discussions" json:"discussions"`
-	CommitRef CommitRefConfig `yaml:"commit_ref" json:"commit_ref"`
+	Workflow    string            `yaml:"workflow" json:"workflow"`
+	Project     ProjectConfig     `yaml:"project" json:"project"`
+	Statuses    StatusConfig      `yaml:"statuses" json:"statuses"`
+	Fields      FieldsConfig      `yaml:"fields" json:"fields"`
+	Quality     QualityConfig     `yaml:"quality" json:"quality"`
+	Discussions DiscussionsConfig `yaml:"discussions" json:"discussions"`
+	CommitRef   CommitRefConfig   `yaml:"commit_ref" json:"commit_ref"`
 }
 
 // CommitRefConfig controls the commit-ref strategy behavior.
@@ -57,6 +57,18 @@ type StatusConfig struct {
 	InProgress string `yaml:"in_progress" json:"in_progress"`
 	InReview   string `yaml:"in_review" json:"in_review"`
 	Done       string `yaml:"done" json:"done"`
+
+	// BacklogLabels are issue labels that indicate work has NOT started.
+	// When an issue has any of these labels, cycle time is suppressed.
+	// Example: ["backlog", "icebox", "deferred"]
+	BacklogLabels []string `yaml:"backlog_labels" json:"backlog_labels"`
+
+	// ActiveLabels are issue labels that indicate work HAS started.
+	// When one of these labels is added to an issue, that becomes a
+	// cycle time signal. Example: ["in-progress", "in progress", "wip"]
+	// This is an alternative to Projects v2 for repos that use labels
+	// to track status (common in OSS).
+	ActiveLabels []string `yaml:"active_labels" json:"active_labels"`
 }
 
 type FieldsConfig struct {
@@ -139,13 +151,13 @@ func defaults() *Config {
 
 // knownTopLevelKeys lists the YAML keys that map to Config struct fields.
 var knownTopLevelKeys = map[string]bool{
-	"workflow":        true,
-	"project":         true,
-	"statuses":        true,
-	"fields":          true,
-	"quality":         true,
-	"discussions":     true,
-	"commit_ref":      true,
+	"workflow":    true,
+	"project":     true,
+	"statuses":    true,
+	"fields":      true,
+	"quality":     true,
+	"discussions": true,
+	"commit_ref":  true,
 }
 
 // warnUnknownKeysFromMap warns about any top-level keys in the parsed map

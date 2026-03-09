@@ -12,13 +12,157 @@ The tradeoff is clear: you get zero-setup velocity metrics in exchange for being
 
 **Lead time** is the duration from when an issue is created to when it is closed. It measures the total elapsed time a piece of work existed, including time spent in backlog, waiting for review, blocked by dependencies, or simply forgotten. A long lead time does not necessarily mean slow development — it often means slow prioritization.
 
-**Cycle time** is the duration from the first commit that references an issue to when that issue is closed. It approximates active development time. Cycle time requires a local git checkout because it searches commit history for issue references. When running against a remote repo (`-R`), cycle time is unavailable for single-issue queries.
+**Cycle time** is the duration from when active work started on an issue to when it was closed. The tool detects the start signal automatically, in priority order: (1) status change out of backlog on a Projects v2 board, (2) the creation date of any PR referencing the issue (including drafts), (3) the first time someone was assigned, or (4) the earliest commit referencing the issue. Signals 1–3 come from the GitHub API and work on any repo. Signal 4 requires a local git checkout. Signal 1 requires project configuration in `.gh-velocity.yml`.
 
 **Release lag** is the duration from when an issue is closed to when the release containing it is published. It measures how long finished work waits before reaching users. High release lag often points to batch-and-release workflows where completed work sits in a staging branch.
 
 **Cadence** is the time between consecutive releases. It is not a per-issue metric but a release-level observation. Cadence combined with composition (bug ratio, feature ratio) tells you whether you are shipping improvements or fighting fires.
 
 **Hotfix** is a boolean flag. A release is marked as a hotfix when its cadence is shorter than the configured `hotfix_window_hours` (default: 72 hours). This lets you separate planned releases from emergency patches in your analysis.
+
+## How your GitHub workflow becomes metrics
+
+`gh-velocity` reads the artifacts your team already produces — issues, pull requests, assignments, releases — and turns them into metrics. Here is the typical workflow and what the tool extracts at each step.
+
+### The lifecycle of an issue
+
+```
+1. You create an issue           → lead time clock starts
+2. Issue moves out of Backlog    → cycle time signal #1 (status change)
+   on a Projects v2 board
+   OR issue gets an "in-progress" → cycle time signal #2 (label)
+   label
+3. Someone gets assigned         → cycle time signal #4 (first assignment)
+4. A developer opens a PR        → cycle time signal #3 (PR created date)
+   (even a draft PR counts)
+5. The issue is closed           → lead time + cycle time clocks stop
+6. You publish a release that    → release lag clock stops
+   includes this work
+```
+
+Steps 2–4 can happen in any order. The tool uses the highest-priority signal it finds — not the earliest. Each step is optional. The tool uses whatever signals exist.
+
+### Start and end signals
+
+**Lead time** always starts when the issue is created and ends when the issue is closed.
+
+**Cycle time** starts from the best available signal (see priority below) and ends when the issue is closed.
+
+Today, both metrics end at `issue.closed_at`. In a future version, the end signal may optionally extend to "work is in a release" — measuring the full delivery cycle rather than just the development cycle.
+
+### What you need to do (and what you probably already do)
+
+**Minimum requirement: close issues with PRs.** If your PRs include "Fixes #42" or "Closes #42" in the description — or you use GitHub's sidebar to link a PR to an issue — the tool can compute lead time, cycle time, and release lag. This is the most common GitHub workflow and requires no extra effort. The PR does not need to be merged or even finished — a draft PR referencing an issue is enough for a cycle time signal.
+
+**Better: assign issues.** When someone is assigned to an issue, that becomes a cycle time signal. This is useful for issues where a PR takes time to create — the assignment marks when work actually began.
+
+**Even better: use a Projects v2 board.** If your team uses GitHub Projects v2 with a status field (Backlog → In Progress → Done), configure the project in `.gh-velocity.yml`. When an issue moves out of the configured backlog status, that becomes the highest-priority cycle time signal — it represents an explicit team decision that work is starting.
+
+**Best: use releases.** Publishing GitHub Releases (not just tags) gives the tool precise dates for computing release lag and cadence. If you only push tags, the tool resolves dates from the tag's commit — which works but is less precise.
+
+### What the tool reads at each level
+
+| Your action | What the tool reads | Metric it enables |
+| --- | --- | --- |
+| Create an issue | `issue.created_at` | Lead time start |
+| Move issue out of Backlog | `ProjectV2ItemFieldSingleSelectValue.updatedAt` | Cycle time start (signal #1, requires project config) |
+| Add "in-progress" label | `LabeledEvent.createdAt` via timeline | Cycle time start (signal #2, requires `active_labels` config) |
+| Open any PR referencing the issue | `PullRequest.createdAt` via timeline cross-references | Cycle time start (signal #3) |
+| Assign someone | `AssignedEvent.createdAt` via timeline API | Cycle time start (signal #4) |
+| Close the issue | `issue.closed_at` | Lead time end, cycle time end |
+| Publish a release | `release.created_at` | Release lag, cadence |
+| Tag without a release | Tag commit date via git refs API | Release lag (less precise) |
+| Write commits referencing `#42` | `git log` (local clone only) | Commit count, fallback cycle time signal (#5) |
+
+### Signal priority for cycle time
+
+The tool picks the best available signal for when work started:
+
+1. **Status change** (Projects v2) — The issue moved from the configured backlog status to any other status on a Projects v2 board. Requires `project.id` and/or `project.status_field_id` in `.gh-velocity.yml`. The backlog status name is configurable via `statuses.backlog` (default: "Backlog").
+
+2. **Label** — An issue label matching `statuses.active_labels` was added (e.g., "in-progress", "wip"). This is an alternative to Projects v2 for repos that use labels to track workflow status — common in open source projects.
+
+3. **PR created** — Any PR that references the issue was opened. This includes draft PRs, open PRs, and closed PRs — the PR does not need to be merged. The tool finds these via cross-reference events and closing references in the issue timeline. If multiple PRs reference the issue, the earliest creation date wins.
+
+4. **First assigned** — The earliest `AssignedEvent` on the issue. This captures work starting before a PR exists (design, investigation, prototyping).
+
+5. **First commit** — The earliest commit message referencing the issue number (requires a local git clone with full history). This is a fallback for repos that don't use PR linking, project boards, labels, or assignments.
+
+If none of these signals exist, cycle time is N/A.
+
+**Backlog suppression:** When the issue is currently in a backlog state, cycle time is always N/A — even if other signals exist (assignment, PR). This handles the case where someone was assigned, started work, but then the issue was sent back to backlog. Backlog is detected in two ways:
+
+- **Projects v2**: The issue's status field matches `statuses.backlog` (default: "Backlog")
+- **Labels**: The issue has a label matching any entry in `statuses.backlog_labels` (e.g., "backlog", "icebox")
+
+Lead time is unaffected — it always measures the full elapsed time from creation to close.
+
+### Two ways to track status
+
+**Option A: Projects v2 board** (best for teams using GitHub Projects)
+
+```yaml
+# .gh-velocity.yml
+project:
+  id: "PVT_kwDOAbc123"
+  status_field_id: "PVTSSF_kwDOAbc123"
+statuses:
+  backlog: "Backlog"
+```
+
+The tool checks if the issue's status field has moved away from "Backlog." This is the highest-priority signal.
+
+**Option B: Labels** (best for OSS / repos without project boards)
+
+```yaml
+# .gh-velocity.yml
+statuses:
+  active_labels: ["in-progress", "in progress", "wip"]
+  backlog_labels: ["backlog", "icebox", "deferred"]
+```
+
+When a label in `active_labels` is added to an issue, that becomes the cycle start signal. If the issue currently has a label in `backlog_labels`, cycle time is suppressed.
+
+**Both options can be used together.** Projects v2 status is checked first. If no project config exists or the issue isn't in the project, label-based detection is used as a fallback.
+
+### Solo developers vs. teams
+
+**Solo developer workflow:**
+- Create an issue → work on it → open a PR → merge → tag a release
+- The tool gets everything from PR linking. No config needed.
+
+**Team workflow with project board:**
+- Create an issue → triage into Backlog → move to In Progress → open a PR → review → merge → release
+- Configure `project` in `.gh-velocity.yml`. The Backlog → In Progress transition is the cycle start.
+
+**OSS workflow with labels:**
+- Create an issue → label "in-progress" when work starts → open a PR → merge → release
+- Configure `statuses.active_labels` in `.gh-velocity.yml`. The label addition is the cycle start.
+
+**Team workflow without project board or labels:**
+- Create an issue → assign it → developer opens a PR → review → merge → release
+- No config needed. The tool uses the PR creation date or assignment.
+
+**Trunk-based / no-PR workflow:**
+- Create an issue → commit with "fixes #42" → push to main → tag
+- Cycle time falls back to commit-based signals. This requires a local clone.
+
+### Connecting PRs to issues
+
+The tool finds PR-to-issue connections through GitHub's timeline events. A PR becomes a cycle time signal when it references an issue in any of these ways:
+
+- Write `Fixes #42`, `Closes #42`, or `Resolves #42` in a PR description
+- Use GitHub's sidebar "Development" section to link a PR to an issue
+- Mention `#42` anywhere in the PR (creates a cross-reference event)
+- Any variation: `fix #42`, `close #42`, `resolve #42` (case-insensitive)
+
+The PR does **not** need to be merged, closed, or even out of draft. Opening a draft PR that mentions an issue is enough.
+
+You do **not** need to:
+- Add special labels or tags
+- Use a specific branch naming convention
+- Configure webhooks or integrations
+- Follow any commit message format (unless you want commit-based enrichment)
 
 ## What GitHub can and cannot tell you
 
@@ -34,7 +178,7 @@ The tradeoff is clear: you get zero-setup velocity metrics in exchange for being
 
 ### What has limits
 
-- **Cycle time depends on local git with full history**. When you run `gh velocity cycle-time 42`, the tool searches your local git log for commits referencing issue #42. Against a remote repo (`-R owner/name`), this data is not available. In release reports, cycle time uses the commits discovered by the linking strategies — which may not include all relevant commits. **In GitHub Actions**, the default `actions/checkout` does a shallow clone (only the latest commit). You must set `fetch-depth: 0` for accurate commit-based metrics. The tool detects shallow clones and warns you.
+- **Cycle time uses API signals first, commits as enrichment**. The tool detects the cycle start from the GitHub API: (1) the creation date of the PR that closed the issue, or (2) the first assignment event. These work on any repo, including remote (`-R`). If neither API signal is found and a local clone is available, the tool falls back to the earliest commit referencing the issue. **In GitHub Actions**, the default `actions/checkout` does a shallow clone. Set `fetch-depth: 0` for accurate commit-based enrichment. The tool detects shallow clones and warns you.
 - **The PR search API caps at 1000 results**. If a release window contains more than 1000 merged PRs, the `pr-link` strategy warns you and returns partial results. This is rare outside the largest monorepos.
 - **Tag ordering is by API default, not semver**. Tags are returned in the order GitHub's API provides, which is usually creation date. The tool picks the tag immediately before your target tag in this list. If your tag history is non-linear, use `--since` to specify the previous tag explicitly.
 - **"Closed" is not "merged"**. GitHub issues can be closed without a PR being merged — by a maintainer, a bot, or the author. `gh-velocity` treats closure as the end event regardless of cause. For most teams this is fine; for teams that close stale issues aggressively, it may inflate lead time counts.
@@ -138,25 +282,43 @@ gh velocity release v1.0.0
 
 When run from inside a repo, the tool uses local git for tag listing and commit history. This is faster and enables cycle-time computation.
 
-### Cycle time requires a local clone
+### Cycle time works remotely
 
-The `cycle-time` command searches git history for commits that reference an issue. This only works from inside a checkout:
+`cycle-time` does not require a local clone. It detects when work started using GitHub API signals:
 
 ```bash
-# Clone first, then query
-gh repo clone cli/cli
+# Works without cloning — uses PR creation date, assignment, or project status
+gh velocity cycle-time 42 -R cli/cli
+```
+
+If you run from inside a local checkout, the tool also counts commits referencing the issue and can use the earliest commit as a fallback start signal.
+
+```bash
+# From inside a clone — enriched with commit count and fallback signal
 cd cli
 gh velocity cycle-time 42
 ```
 
-Without a local clone, `cycle-time` cannot find commits and will report N/A. Other commands (`release`, `scope`, `lead-time`) work fine with just `-R` because they use the GitHub API.
+To enable the highest-priority signal (project board status change), add project configuration:
 
-In **GitHub Actions**, the checkout action creates a local clone — but you must fetch full history:
+```yaml
+# .gh-velocity.yml
+project:
+  id: "PVT_kwDOAbc123"              # your Projects v2 node ID
+  status_field_id: "PVTSSF_kwDOAbc123"  # your Status field ID
+
+statuses:
+  backlog: "Backlog"                 # issues in this status have not started
+```
+
+With this config, the tool checks if the issue has moved out of "Backlog" on the project board and uses that transition as the cycle start.
+
+In **GitHub Actions**, set `fetch-depth: 0` if you want commit enrichment:
 
 ```yaml
 - uses: actions/checkout@v4
   with:
-    fetch-depth: 0    # default is 1 (shallow), which breaks commit search
+    fetch-depth: 0    # enables commit count and fallback cycle-time signal
 ```
 
 The tool detects shallow clones and warns you.
@@ -193,18 +355,21 @@ commit_ref:
   patterns: ["closes"]           # default: only closing keywords
   # patterns: ["closes", "refs"]   # also match bare #N references
 
-# GitHub Projects v2 (for future project-level metrics)
+# GitHub Projects v2 — enables status-change cycle time signal
 project:
   id: "PVT_kwDOAbc123"
   status_field_id: "PVTSSF_kwDOAbc123"
 
-# Status field value names (match your project board)
+# Status tracking (Projects v2 board values + label-based alternatives)
 statuses:
   backlog: "Backlog"
   ready: "Ready"
   in_progress: "In progress"
   in_review: "In review"
   done: "Done"
+  # Label-based status (alternative to Projects v2, common in OSS)
+  active_labels: ["in-progress", "wip"]    # labels that mean "work started"
+  backlog_labels: ["backlog", "icebox"]    # labels that suppress cycle time
 
 # GitHub Discussions integration (for future posting)
 discussions:
@@ -221,6 +386,12 @@ discussions:
 
 - `["closes"]` (default): Only matches closing keywords — `fixes #N`, `closes #N`, `resolves #N` and their variations. This is conservative and avoids false positives from comments like "see #42" or "step #1".
 - `["closes", "refs"]`: Also matches bare `#N` references. Use this if your team writes commits like "implement #42" without closing keywords. Be aware that this can match false positives like "update step #1."
+
+**`statuses.active_labels`**: An array of issue label names that signal "work has started." When one of these labels is added to an issue, that event becomes a cycle time start signal. This is an alternative to Projects v2 for repos that track workflow status using labels. Common in open source. Matching is exact and case-sensitive.
+
+**`statuses.backlog_labels`**: An array of issue label names that signal "work has NOT started" (or was cancelled/deferred). If an issue currently has any of these labels, cycle time is suppressed — even if other signals exist (assignment, PR). This handles the case where someone was assigned, tried to work, but then the issue was deprioritized. Example: `["backlog", "icebox", "deferred", "wontfix"]`.
+
+**`project.id`** and **`project.status_field_id`**: GitHub Projects v2 node IDs. When set, the tool checks whether the issue has moved out of the configured backlog status on the project board. This is the highest-priority cycle time signal. You can find these IDs in the project's URL and GraphQL API.
 
 **Unknown keys** in the config file produce warnings to stderr but do not cause errors. This lets you add comments or future fields without breaking the tool.
 
@@ -539,7 +710,7 @@ gh velocity lead-time 500 -R charmbracelet/bubbletea
 gh velocity scope v5.2.1 -R go-chi/chi
 ```
 
-Note: cycle time for single issues requires a local checkout. In release reports, cycle time is computed from commits discovered by the linking strategies (which works via the API).
+All commands work remotely. Cycle time uses API-based signals (PR creation date, first assignment). A local checkout adds commit counts and a fallback signal from commit history.
 
 ### Generate a report for every release
 
@@ -632,6 +803,10 @@ You are running in a git checkout that was cloned with limited history (common i
 
 Without full history, the tool cannot find commits between tags or search commit messages for issue references. Lead time (which only uses issue dates) is unaffected.
 
-### Cycle time shows N/A for all issues
+### Cycle time shows N/A for an issue
 
-Cycle time requires commit-to-issue linking. When running against a remote repo (`-R`), single-issue `cycle-time` queries cannot search git history. In release reports, cycle time depends on the linking strategies finding commits — if `pr-link` finds issues through PRs (not commits), cycle time will be N/A.
+Cycle time is N/A in two situations:
+
+1. **No start signal found.** The tool checks, in order: (1) status change from backlog (requires project config), (2) any PR referencing the issue (including drafts), (3) an assignment event, (4) a commit referencing the issue (local clone only). If none exist — for example, the issue was closed manually without a PR, was never assigned, and has no referencing commits — cycle time is N/A. The most common fix is to link a PR to the issue using "Fixes #N" in the PR description.
+
+2. **Issue is in backlog.** When project configuration is active and the issue's current status matches the configured backlog status, cycle time is suppressed. This is intentional — an issue in backlog means work has not started (or was sent back). Move the issue out of backlog to start the cycle time clock.

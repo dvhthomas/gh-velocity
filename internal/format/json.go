@@ -28,6 +28,7 @@ type JSONCycleTimeOutput struct {
 	Commits          int      `json:"commits"`
 	CycleTimeSeconds *int64   `json:"cycle_time_seconds"`
 	CycleTime        string   `json:"cycle_time"`
+	Signal           string   `json:"signal,omitempty"`
 	Warnings         []string `json:"warnings,omitempty"`
 }
 
@@ -105,13 +106,14 @@ func WriteLeadTimeJSON(w io.Writer, repo string, issueNumber int, title, state s
 }
 
 // WriteCycleTimeJSON writes cycle-time metrics as JSON to the writer.
-func WriteCycleTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, commits int, ct *time.Duration, warnings []string) error {
+func WriteCycleTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, commits int, ct *time.Duration, signal string, warnings []string) error {
 	out := JSONCycleTimeOutput{
 		Repository: repo,
 		Issue:      issueNumber,
 		Title:      title,
 		State:      state,
 		Commits:    commits,
+		Signal:     signal,
 		Warnings:   warnings,
 	}
 	if ct != nil {
