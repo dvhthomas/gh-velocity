@@ -1,0 +1,82 @@
+version: '3'
+
+vars:
+  BINARY_NAME: gh-velocity
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
+  BUILD_TIME:
+    sh: date -u +"%Y-%m-%dT%H:%M:%SZ"
+  LDFLAGS: -s -w -X main.Version={{.VERSION}} -X main.BuildTime={{.BUILD_TIME}}
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  # ── Testing ────────────────────────────────────────────────────────
+
+  test:
+    desc: Run all tests
+    cmds:
+      - go test ./... -v
+
+  test:coverage:
+    desc: Run tests with coverage report
+    cmds:
+      - go test ./... -coverprofile=coverage.out
+      - go tool cover -html=coverage.out -o coverage.html
+      - echo 'Coverage report generated at coverage.html'
+
+  # ── Build ──────────────────────────────────────────────────────────
+
+  build:
+    desc: Build CLI for current platform
+    cmds:
+      - go build -ldflags "{{.LDFLAGS}}" -o {{.BINARY_NAME}} .
+      - echo 'Built {{.BINARY_NAME}}'
+
+  # ── Quality ────────────────────────────────────────────────────────
+
+  lint:
+    desc: Run basic linters (fmt, vet)
+    cmds:
+      - go fmt ./...
+      - go vet ./...
+      - echo '✓ Basic linting passed'
+
+  staticcheck:
+    internal: true
+    cmds:
+      - go run honnef.co/go/tools/cmd/staticcheck@latest ./...
+      - echo '✓ Staticcheck passed'
+
+  vulncheck:
+    internal: true
+    cmds:
+      - go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      - echo '✓ Vulnerability check passed'
+
+  check:graphql-injection:
+    internal: true
+    cmds:
+      - bash scripts/check-graphql-injection.sh
+
+  quality:
+    desc: Run all quality checks (recommended before commit)
+    cmds:
+      - task: lint
+      - task: staticcheck
+      - task: vulncheck
+      - task: check:graphql-injection
+      - echo '✓ All quality checks passed'
+
+  # ── Maintenance ────────────────────────────────────────────────────
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -f {{.BINARY_NAME}}
+      - rm -rf dist/
+      - rm -f coverage.out coverage.html
+      - go clean -cache
