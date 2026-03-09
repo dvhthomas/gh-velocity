@@ -62,6 +62,8 @@ type JSONIssueMetrics struct {
 	CycleTimeSeconds  *int64 `json:"cycle_time_seconds"`
 	ReleaseLagSeconds *int64 `json:"release_lag_seconds"`
 	CommitCount       int    `json:"commit_count"`
+	LeadTimeOutlier   bool   `json:"lead_time_outlier,omitempty"`
+	CycleTimeOutlier  bool   `json:"cycle_time_outlier,omitempty"`
 }
 
 type JSONAggregates struct {
@@ -71,10 +73,14 @@ type JSONAggregates struct {
 }
 
 type JSONStats struct {
-	Count         int    `json:"count"`
-	MeanSeconds   *int64 `json:"mean_seconds"`
-	MedianSeconds *int64 `json:"median_seconds"`
-	StdDevSeconds *int64 `json:"stddev_seconds,omitempty"`
+	Count                int    `json:"count"`
+	MeanSeconds          *int64 `json:"mean_seconds"`
+	MedianSeconds        *int64 `json:"median_seconds"`
+	StdDevSeconds        *int64 `json:"stddev_seconds,omitempty"`
+	P90Seconds           *int64 `json:"p90_seconds,omitempty"`
+	P95Seconds           *int64 `json:"p95_seconds,omitempty"`
+	OutlierCutoffSeconds *int64 `json:"outlier_cutoff_seconds,omitempty"`
+	OutlierCount         int    `json:"outlier_count,omitempty"`
 }
 
 // WriteLeadTimeJSON writes lead-time metrics as JSON to the writer.
@@ -158,6 +164,8 @@ func WriteReleaseJSON(w io.Writer, repo string, rm model.ReleaseMetrics, warning
 			CycleTimeSeconds:  durationToSeconds(im.CycleTime),
 			ReleaseLagSeconds: durationToSeconds(im.ReleaseLag),
 			CommitCount:       im.CommitCount,
+			LeadTimeOutlier:   im.LeadTimeOutlier,
+			CycleTimeOutlier:  im.CycleTimeOutlier,
 		})
 	}
 
@@ -176,9 +184,13 @@ func durationToSeconds(d *time.Duration) *int64 {
 
 func statsToJSON(s model.Stats) JSONStats {
 	return JSONStats{
-		Count:         s.Count,
-		MeanSeconds:   durationToSeconds(s.Mean),
-		MedianSeconds: durationToSeconds(s.Median),
-		StdDevSeconds: durationToSeconds(s.StdDev),
+		Count:                s.Count,
+		MeanSeconds:          durationToSeconds(s.Mean),
+		MedianSeconds:        durationToSeconds(s.Median),
+		StdDevSeconds:        durationToSeconds(s.StdDev),
+		P90Seconds:           durationToSeconds(s.P90),
+		P95Seconds:           durationToSeconds(s.P95),
+		OutlierCutoffSeconds: durationToSeconds(s.OutlierCutoff),
+		OutlierCount:         s.OutlierCount,
 	}
 }

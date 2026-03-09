@@ -10,7 +10,8 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
-// ComputeStats calculates mean, median, and sample standard deviation for a slice of durations.
+// ComputeStats calculates mean, median, standard deviation, percentiles,
+// and IQR-based outlier detection for a slice of durations.
 func ComputeStats(durations []time.Duration) model.Stats {
 	n := len(durations)
 	if n == 0 {
@@ -43,7 +44,7 @@ func ComputeStats(durations []time.Duration) model.Stats {
 		Median: &median,
 	}
 
-	// Sample standard deviation (N-1 denominator), only for N >= 2
+	// Sample standard deviation requires N >= 2
 	if n >= 2 {
 		var sumSq float64
 		for _, d := range sorted {
@@ -55,5 +56,57 @@ func ComputeStats(durations []time.Duration) model.Stats {
 		stats.StdDev = &sd
 	}
 
+	// Percentiles and IQR require meaningful sample sizes.
+	// P90/P95 need at least 5 data points to be interpretable.
+	// IQR outlier detection needs at least 4 (for distinct quartiles).
+	if n >= 5 {
+		p90 := percentile(sorted, 90)
+		p95 := percentile(sorted, 95)
+		stats.P90 = &p90
+		stats.P95 = &p95
+	}
+
+	if n >= 4 {
+		q1 := percentile(sorted, 25)
+		q3 := percentile(sorted, 75)
+		iqr := q3 - q1
+		cutoff := q3 + time.Duration(float64(iqr)*1.5)
+		stats.OutlierCutoff = &cutoff
+		for _, d := range sorted {
+			if d > cutoff {
+				stats.OutlierCount++
+			}
+		}
+	}
+
 	return stats
+}
+
+// IsOutlier returns true if duration exceeds the IQR outlier cutoff.
+func IsOutlier(d *time.Duration, stats model.Stats) bool {
+	if d == nil || stats.OutlierCutoff == nil {
+		return false
+	}
+	return *d > *stats.OutlierCutoff
+}
+
+// percentile computes the p-th percentile using nearest-rank method.
+// sorted must be sorted ascending. p is in [0, 100].
+func percentile(sorted []time.Duration, p int) time.Duration {
+	n := len(sorted)
+	if n == 0 {
+		return 0
+	}
+	if n == 1 {
+		return sorted[0]
+	}
+	// Nearest-rank: rank = ceil(p/100 * n)
+	rank := int(math.Ceil(float64(p) / 100.0 * float64(n)))
+	if rank < 1 {
+		rank = 1
+	}
+	if rank > n {
+		rank = n
+	}
+	return sorted[rank-1]
 }

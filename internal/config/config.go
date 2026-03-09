@@ -38,8 +38,7 @@ type Config struct {
 	Fields        FieldsConfig      `yaml:"fields" json:"fields"`
 	Quality       QualityConfig     `yaml:"quality" json:"quality"`
 	Discussions   DiscussionsConfig `yaml:"discussions" json:"discussions"`
-	CommitRef     CommitRefConfig   `yaml:"commit_ref" json:"commit_ref"`
-	MaxWindowDays int               `yaml:"max_window_days" json:"max_window_days"`
+	CommitRef CommitRefConfig `yaml:"commit_ref" json:"commit_ref"`
 }
 
 // CommitRefConfig controls the commit-ref strategy behavior.
@@ -147,7 +146,6 @@ var knownTopLevelKeys = map[string]bool{
 	"quality":         true,
 	"discussions":     true,
 	"commit_ref":      true,
-	"max_window_days": true,
 }
 
 // warnUnknownKeysFromMap warns about any top-level keys in the parsed map
@@ -177,14 +175,6 @@ func validate(cfg *Config) error {
 	}
 	if cfg.Quality.HotfixWindowHours > MaxHotfixWindowHours {
 		return fmt.Errorf("config: quality.hotfix_window_hours must be at most %d, got %v", MaxHotfixWindowHours, cfg.Quality.HotfixWindowHours)
-	}
-
-	// max_window_days: must be within range when set.
-	if cfg.MaxWindowDays < 0 {
-		return fmt.Errorf("config: max_window_days must be non-negative, got %d", cfg.MaxWindowDays)
-	}
-	if cfg.MaxWindowDays > 90 {
-		return fmt.Errorf("config: max_window_days must be at most 90, got %d", cfg.MaxWindowDays)
 	}
 
 	// commit_ref.patterns: validate values.

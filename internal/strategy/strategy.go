@@ -37,48 +37,20 @@ type DiscoverInput struct {
 	CommitRefPatterns []string
 }
 
-// DefaultMaxWindowDays is the default time window limit between tags.
-const DefaultMaxWindowDays = 31
-
-// HardMaxWindowDays is the absolute maximum configurable time window.
-const HardMaxWindowDays = 90
-
 // Runner executes all strategies and merges results.
 type Runner struct {
-	strategies    []Strategy
-	maxWindowDays int
+	strategies []Strategy
 }
 
 // NewRunner creates a Runner with the given strategies.
-// If maxWindowDays is 0, DefaultMaxWindowDays is used.
-func NewRunner(maxWindowDays int, strategies ...Strategy) *Runner {
-	if maxWindowDays <= 0 {
-		maxWindowDays = DefaultMaxWindowDays
-	}
-	if maxWindowDays > HardMaxWindowDays {
-		maxWindowDays = HardMaxWindowDays
-	}
-	return &Runner{
-		strategies:    strategies,
-		maxWindowDays: maxWindowDays,
-	}
+func NewRunner(strategies ...Strategy) *Runner {
+	return &Runner{strategies: strategies}
 }
 
 // Run executes all strategies and returns a ScopeResult with per-strategy
 // and merged results.
 func (r *Runner) Run(ctx context.Context, input DiscoverInput) (*model.ScopeResult, []string, error) {
 	var warnings []string
-
-	// Enforce time window guardrails
-	if !input.PrevTagDate.IsZero() && !input.TagDate.IsZero() {
-		windowDays := int(input.TagDate.Sub(input.PrevTagDate).Hours() / 24)
-		if windowDays > r.maxWindowDays {
-			return nil, nil, fmt.Errorf(
-				"time window between tags is %d days (max %d). Use --since with a closer tag or increase max_window_days in config (max %d)",
-				windowDays, r.maxWindowDays, HardMaxWindowDays,
-			)
-		}
-	}
 
 	var stratResults []model.StrategyResult
 

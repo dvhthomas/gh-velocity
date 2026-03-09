@@ -126,16 +126,20 @@ func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Cl
 		}
 	}
 
-	// Determine tag dates for strategies
+	// Determine tag dates for strategies.
+	// Use release dates when available, fall back to git tag commit dates.
 	tagDate := release.CreatedAt
 	var prevTagDate time.Time
 	if prevRelease != nil {
 		prevTagDate = prevRelease.CreatedAt
+	} else if previousTag != "" {
+		if d, err := client.GetTagDate(ctx, previousTag); err == nil {
+			prevTagDate = d
+		}
 	}
 
 	// Run linking strategies to discover issues and PRs
 	runner := strategy.NewRunner(
-		deps.Config.MaxWindowDays,
 		strategy.NewPRLink(),
 		strategy.NewCommitRef(deps.Config.CommitRef.Patterns),
 		strategy.NewChangelog(),

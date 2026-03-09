@@ -34,21 +34,26 @@ func WriteReleasePretty(w io.Writer, rm model.ReleaseMetrics, warnings []string)
 	// Per-issue table
 	if len(rm.Issues) > 0 {
 		b.WriteString("Issues\n")
-		b.WriteString(fmt.Sprintf("  %-6s %-30s %-12s %-12s %-12s %s\n",
-			"#", "Title", "Lead Time", "Cycle Time", "Rel. Lag", "Commits"))
-		b.WriteString("  " + strings.Repeat("-", 88) + "\n")
+		b.WriteString(fmt.Sprintf("  %-6s %-30s %-12s %-12s %-12s %-8s %s\n",
+			"#", "Title", "Lead Time", "Cycle Time", "Rel. Lag", "Commits", ""))
+		b.WriteString("  " + strings.Repeat("-", 96) + "\n")
 		for _, im := range rm.Issues {
 			title := im.Issue.Title
 			if len(title) > 28 {
 				title = title[:28] + ".."
 			}
-			b.WriteString(fmt.Sprintf("  %-6d %-30s %-12s %-12s %-12s %d\n",
+			flag := ""
+			if im.LeadTimeOutlier || im.CycleTimeOutlier {
+				flag = "OUTLIER"
+			}
+			b.WriteString(fmt.Sprintf("  %-6d %-30s %-12s %-12s %-12s %-8d %s\n",
 				im.Issue.Number,
 				title,
 				FormatDurationPtr(im.LeadTime),
 				FormatDurationPtr(im.CycleTime),
 				FormatDurationPtr(im.ReleaseLag),
 				im.CommitCount,
+				flag,
 			))
 		}
 		b.WriteString("\n")
@@ -56,8 +61,9 @@ func WriteReleasePretty(w io.Writer, rm model.ReleaseMetrics, warnings []string)
 
 	// Aggregates
 	b.WriteString("Aggregates\n")
-	b.WriteString(fmt.Sprintf("  %-14s %-12s %-12s %s\n", "Metric", "Mean", "Median", "Std Dev"))
-	b.WriteString("  " + strings.Repeat("-", 52) + "\n")
+	b.WriteString(fmt.Sprintf("  %-14s %-12s %-12s %-12s %-12s %-12s %s\n",
+		"Metric", "Mean", "Median", "Std Dev", "P90", "P95", "Outliers"))
+	b.WriteString("  " + strings.Repeat("-", 88) + "\n")
 	writePrettyStatsRow(&b, "Lead Time", rm.LeadTimeStats)
 	writePrettyStatsRow(&b, "Cycle Time", rm.CycleTimeStats)
 	writePrettyStatsRow(&b, "Release Lag", rm.ReleaseLagStats)
@@ -79,10 +85,25 @@ func writePrettyStatsRow(b *strings.Builder, name string, s model.Stats) {
 	if s.StdDev != nil {
 		sd = FormatDuration(*s.StdDev)
 	}
-	b.WriteString(fmt.Sprintf("  %-14s %-12s %-12s %s\n",
+	p90 := "--"
+	if s.P90 != nil {
+		p90 = FormatDuration(*s.P90)
+	}
+	p95 := "--"
+	if s.P95 != nil {
+		p95 = FormatDuration(*s.P95)
+	}
+	outliers := "--"
+	if s.OutlierCutoff != nil {
+		outliers = fmt.Sprintf("%d", s.OutlierCount)
+	}
+	b.WriteString(fmt.Sprintf("  %-14s %-12s %-12s %-12s %-12s %-12s %s\n",
 		name,
 		FormatDurationPtr(s.Mean),
 		FormatDurationPtr(s.Median),
 		sd,
+		p90,
+		p95,
+		outliers,
 	))
 }

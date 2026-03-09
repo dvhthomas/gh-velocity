@@ -75,17 +75,18 @@ func NewScopeCmd() *cobra.Command {
 				release = &model.Release{TagName: tag, CreatedAt: now}
 			}
 
-			// Get previous release for date range
+			// Get previous tag date — try release first, fall back to git tag date
 			var prevTagDate time.Time
 			if previousTag != "" {
 				if pr, err := client.GetRelease(ctx, previousTag); err == nil {
 					prevTagDate = pr.CreatedAt
+				} else if d, err := client.GetTagDate(ctx, previousTag); err == nil {
+					prevTagDate = d
 				}
 			}
 
 			// Run strategies
 			runner := strategy.NewRunner(
-				deps.Config.MaxWindowDays,
 				strategy.NewPRLink(),
 				strategy.NewCommitRef(deps.Config.CommitRef.Patterns),
 				strategy.NewChangelog(),

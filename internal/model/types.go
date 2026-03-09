@@ -48,11 +48,13 @@ type Release struct {
 
 // IssueMetrics holds computed metrics for a single issue within a release.
 type IssueMetrics struct {
-	Issue       Issue
-	LeadTime    *time.Duration
-	CycleTime   *time.Duration
-	ReleaseLag  *time.Duration
-	CommitCount int
+	Issue            Issue
+	LeadTime         *time.Duration
+	CycleTime        *time.Duration
+	ReleaseLag       *time.Duration
+	CommitCount      int
+	LeadTimeOutlier  bool // flagged by IQR method
+	CycleTimeOutlier bool
 }
 
 // ReleaseMetrics holds computed metrics for an entire release.
@@ -105,8 +107,12 @@ type CategoryConfig struct {
 
 // Stats holds aggregate statistics for a set of durations.
 type Stats struct {
-	Count  int
-	Mean   *time.Duration
-	Median *time.Duration
-	StdDev *time.Duration // sample standard deviation; nil if N < 2
+	Count          int
+	Mean           *time.Duration
+	Median         *time.Duration
+	StdDev         *time.Duration // sample standard deviation; nil if N < 2
+	P90            *time.Duration // 90th percentile; nil if N < 2
+	P95            *time.Duration // 95th percentile; nil if N < 2
+	OutlierCutoff  *time.Duration // Q3 + 1.5*IQR; values above are outliers
+	OutlierCount   int            // number of values above the cutoff
 }
