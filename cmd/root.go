@@ -158,6 +158,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 	root.AddCommand(NewReleaseCmd())
 	root.AddCommand(NewLeadTimeCmd())
 	root.AddCommand(NewCycleTimeCmd())
+	root.AddCommand(NewScopeCmd())
 
 	return root
 }

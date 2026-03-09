@@ -32,12 +32,19 @@ var WarnFunc = func(format string, args ...any) {
 
 // Config represents the .gh-velocity.yml configuration.
 type Config struct {
-	Workflow    string            `yaml:"workflow" json:"workflow"`
-	Project     ProjectConfig     `yaml:"project" json:"project"`
-	Statuses    StatusConfig      `yaml:"statuses" json:"statuses"`
-	Fields      FieldsConfig      `yaml:"fields" json:"fields"`
-	Quality     QualityConfig     `yaml:"quality" json:"quality"`
-	Discussions DiscussionsConfig `yaml:"discussions" json:"discussions"`
+	Workflow      string            `yaml:"workflow" json:"workflow"`
+	Project       ProjectConfig     `yaml:"project" json:"project"`
+	Statuses      StatusConfig      `yaml:"statuses" json:"statuses"`
+	Fields        FieldsConfig      `yaml:"fields" json:"fields"`
+	Quality       QualityConfig     `yaml:"quality" json:"quality"`
+	Discussions   DiscussionsConfig `yaml:"discussions" json:"discussions"`
+	CommitRef     CommitRefConfig   `yaml:"commit_ref" json:"commit_ref"`
+	MaxWindowDays int               `yaml:"max_window_days" json:"max_window_days"`
+}
+
+// CommitRefConfig controls the commit-ref strategy behavior.
+type CommitRefConfig struct {
+	Patterns []string `yaml:"patterns" json:"patterns"` // ["closes"] or ["closes", "refs"]
 }
 
 type ProjectConfig struct {
@@ -133,12 +140,14 @@ func defaults() *Config {
 
 // knownTopLevelKeys lists the YAML keys that map to Config struct fields.
 var knownTopLevelKeys = map[string]bool{
-	"workflow":    true,
-	"project":     true,
-	"statuses":    true,
-	"fields":      true,
-	"quality":     true,
-	"discussions": true,
+	"workflow":        true,
+	"project":         true,
+	"statuses":        true,
+	"fields":          true,
+	"quality":         true,
+	"discussions":     true,
+	"commit_ref":      true,
+	"max_window_days": true,
 }
 
 // warnUnknownKeysFromMap warns about any top-level keys in the parsed map
@@ -168,6 +177,24 @@ func validate(cfg *Config) error {
 	}
 	if cfg.Quality.HotfixWindowHours > MaxHotfixWindowHours {
 		return fmt.Errorf("config: quality.hotfix_window_hours must be at most %d, got %v", MaxHotfixWindowHours, cfg.Quality.HotfixWindowHours)
+	}
+
+	// max_window_days: must be within range when set.
+	if cfg.MaxWindowDays < 0 {
+		return fmt.Errorf("config: max_window_days must be non-negative, got %d", cfg.MaxWindowDays)
+	}
+	if cfg.MaxWindowDays > 90 {
+		return fmt.Errorf("config: max_window_days must be at most 90, got %d", cfg.MaxWindowDays)
+	}
+
+	// commit_ref.patterns: validate values.
+	for _, p := range cfg.CommitRef.Patterns {
+		switch p {
+		case "closes", "refs":
+			// valid
+		default:
+			return fmt.Errorf("config: commit_ref.patterns must contain \"closes\" or \"refs\", got %q", p)
+		}
 	}
 
 	// GraphQL node ID validation (only when set).
