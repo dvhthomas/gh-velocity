@@ -88,12 +88,17 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("config: read %s: %w", path, err)
 	}
 
+	// Parse into raw map first for unknown key detection.
+	var raw map[string]any
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("config: parse %s: %w", path, err)
+	}
+	warnUnknownKeysFromMap(raw)
+
+	// Parse into typed struct.
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("config: parse %s: %w", path, err)
 	}
-
-	// Warn on unknown top-level keys (forward-compatible: warn, don't fail).
-	warnUnknownKeys(data)
 
 	if err := validate(cfg); err != nil {
 		return nil, err
@@ -136,13 +141,9 @@ var knownTopLevelKeys = map[string]bool{
 	"discussions": true,
 }
 
-// warnUnknownKeys parses the raw YAML into a map and warns about any
-// top-level keys that don't correspond to known Config fields.
-func warnUnknownKeys(data []byte) {
-	var raw map[string]any
-	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return // parse errors are handled elsewhere
-	}
+// warnUnknownKeysFromMap warns about any top-level keys in the parsed map
+// that don't correspond to known Config fields.
+func warnUnknownKeysFromMap(raw map[string]any) {
 	for key := range raw {
 		if !knownTopLevelKeys[key] {
 			WarnFunc("config: warning: unknown key %q (ignored)\n", key)

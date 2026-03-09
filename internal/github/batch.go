@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -29,7 +29,6 @@ func (c *Client) FetchIssues(ctx context.Context, numbers []int) (map[int]*model
 	g.SetLimit(5)
 
 	for _, num := range numbers {
-		num := num // capture loop variable
 		g.Go(func() error {
 			issue, err := c.fetchIssueWithRetry(ctx, num)
 			mu.Lock()
@@ -67,7 +66,7 @@ func (c *Client) fetchIssueWithRetry(ctx context.Context, number int) (*model.Is
 			return nil, err
 		}
 
-		log.Printf("WARNING: rate limited fetching issue #%d (attempt %d/%d), waiting %s",
+		fmt.Fprintf(os.Stderr, "WARNING: rate limited fetching issue #%d (attempt %d/%d), waiting %s\n",
 			number, attempt+1, maxRetries+1, waitDur)
 
 		if attempt == maxRetries {

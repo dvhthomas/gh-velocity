@@ -9,16 +9,14 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
-var (
-	refPattern  = regexp.MustCompile(`^[a-zA-Z0-9._\-/]+$`)
-	repoPattern = regexp.MustCompile(`^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$`)
-)
+var refPattern = regexp.MustCompile(`^[a-zA-Z0-9._\-/]+$`)
 
 // ValidateRef validates a git ref (tag, branch, or commit reference) against
 // a strict allowlist pattern to prevent command injection. Refs starting with
@@ -32,18 +30,6 @@ func ValidateRef(ref string) error {
 	}
 	if !refPattern.MatchString(ref) {
 		return fmt.Errorf("invalid ref %q: must match %s", ref, refPattern.String())
-	}
-	return nil
-}
-
-// ValidateRepo validates an owner/repo string against a strict allowlist
-// pattern to prevent command injection.
-func ValidateRepo(ownerRepo string) error {
-	if ownerRepo == "" {
-		return fmt.Errorf("repo must not be empty")
-	}
-	if !repoPattern.MatchString(ownerRepo) {
-		return fmt.Errorf("invalid repo %q: must match %s", ownerRepo, repoPattern.String())
 	}
 	return nil
 }
@@ -88,6 +74,17 @@ func (r *Runner) AllCommits(ctx context.Context, upToRef string) ([]model.Commit
 		return nil, fmt.Errorf("git log: invalid ref: %w", err)
 	}
 	return r.streamCommits(ctx, "log", upToRef, "--format=%H\t%aI\t%s", "--")
+}
+
+// CommitsForIssue returns commits whose message references the given issue number
+// (e.g. "#123"). It uses git log --grep to let git do the filtering, avoiding a
+// full history scan.
+func (r *Runner) CommitsForIssue(ctx context.Context, issueNumber int, ref string) ([]model.Commit, error) {
+	if err := ValidateRef(ref); err != nil {
+		return nil, fmt.Errorf("git log: invalid ref: %w", err)
+	}
+	grepPattern := "#" + strconv.Itoa(issueNumber)
+	return r.streamCommits(ctx, "log", ref, "--grep", grepPattern, "--fixed-strings", "--format=%H\t%aI\t%s", "--")
 }
 
 func (r *Runner) run(ctx context.Context, args ...string) (string, error) {
@@ -148,32 +145,4 @@ func (r *Runner) streamCommits(ctx context.Context, args ...string) ([]model.Com
 		return nil, fmt.Errorf("git %v: %w: %s", args, err, stderrBuf.String())
 	}
 	return commits, nil
-}
-
-func parseCommitLog(out string) []model.Commit {
-	if strings.TrimSpace(out) == "" {
-		return nil
-	}
-
-	var commits []model.Commit
-	scanner := bufio.NewScanner(strings.NewReader(out))
-	for scanner.Scan() {
-		line := scanner.Text()
-		parts := strings.SplitN(line, "\t", 3)
-		if len(parts) < 3 {
-			continue
-		}
-
-		authored, err := time.Parse(time.RFC3339, parts[1])
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: skipping commit %s: malformed date %q\n", parts[0], parts[1])
-			continue
-		}
-		commits = append(commits, model.Commit{
-			SHA:        parts[0],
-			AuthoredAt: authored,
-			Message:    parts[2],
-		})
-	}
-	return commits
 }

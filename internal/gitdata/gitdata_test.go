@@ -1,6 +1,7 @@
 package gitdata
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -39,7 +40,7 @@ func TestIsLocalGitAvailable_WithGitFile(t *testing.T) {
 func TestAPISource_AllCommits_ReturnsError(t *testing.T) {
 	// APISource.AllCommits should return an error since it can't enumerate all commits
 	source := NewAPISource(nil)
-	_, err := source.AllCommits(nil, "HEAD")
+	_, err := source.AllCommits(context.Background(), "HEAD")
 	if err == nil {
 		t.Error("expected APISource.AllCommits to return an error")
 	}

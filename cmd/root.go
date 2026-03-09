@@ -3,12 +3,16 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/bitsbyme/gh-velocity/internal/config"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	"github.com/bitsbyme/gh-velocity/internal/gitdata"
+	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/cli/go-gh/v2/pkg/repository"
 	"github.com/spf13/cobra"
 )
@@ -40,9 +44,36 @@ func DepsFromContext(ctx context.Context) *Deps {
 func Execute(version, buildTime string) int {
 	root := NewRootCmd(version, buildTime)
 	if err := root.Execute(); err != nil {
-		return 1
+		return handleError(root, err)
 	}
 	return 0
+}
+
+// handleError processes the error from command execution, emitting JSON
+// error output to stderr when --format json is set, and returning the
+// appropriate exit code.
+func handleError(root *cobra.Command, err error) int {
+	var appErr *model.AppError
+	if !errors.As(err, &appErr) {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+
+	// Check if JSON format was requested
+	formatFlag, _ := root.PersistentFlags().GetString("format")
+	if formatFlag == "json" {
+		envelope := model.ErrorEnvelope{Error: appErr}
+		data, jsonErr := json.Marshal(envelope)
+		if jsonErr == nil {
+			fmt.Fprintln(os.Stderr, string(data))
+		} else {
+			fmt.Fprintln(os.Stderr, appErr.Error())
+		}
+	} else {
+		fmt.Fprintln(os.Stderr, appErr.Error())
+	}
+
+	return appErr.ExitCode()
 }
 
 // NewRootCmd creates and returns the root command with all subcommands wired.
@@ -67,7 +98,10 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 
 			// Reject --post until posting is implemented
 			if postFlag {
-				return fmt.Errorf("--post is not yet implemented; default output is read-only")
+				return &model.AppError{
+					Code:    model.ErrConfigInvalid,
+					Message: "--post is not yet implemented; default output is read-only",
+				}
 			}
 
 			// Validate format
@@ -86,20 +120,16 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 			wd, _ := os.Getwd()
 			hasLocal := gitdata.IsLocalGitAvailable(wd)
 
-			// Load config: skip file discovery when no local repo
+			// Load config: require file when local repo exists, fall back to defaults otherwise.
 			var cfg *config.Config
-			if hasLocal {
-				cfg, err = config.Load(config.DefaultConfigFile)
-				if err != nil {
+			cfg, err = config.Load(config.DefaultConfigFile)
+			if err != nil {
+				if hasLocal {
 					return err
 				}
-			} else {
-				cfg, err = config.Load(config.DefaultConfigFile)
-				if err != nil {
-					// Config file not found is fine when running without
-					// a local repo — use defaults.
-					cfg = config.Defaults()
-				}
+				// Config file not found is fine when running without
+				// a local repo — use defaults.
+				cfg = config.Defaults()
 			}
 
 			deps := &Deps{
@@ -129,6 +159,18 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 	return root
 }
 
+// parseIssueArg parses and validates an issue number from a command argument.
+func parseIssueArg(arg string) (int, error) {
+	n, err := strconv.Atoi(arg)
+	if err != nil {
+		return 0, &model.AppError{Code: model.ErrConfigInvalid, Message: fmt.Sprintf("invalid issue number %q: must be a positive integer", arg)}
+	}
+	if n <= 0 {
+		return 0, &model.AppError{Code: model.ErrConfigInvalid, Message: fmt.Sprintf("invalid issue number %d: must be a positive integer", n)}
+	}
+	return n, nil
+}
+
 // resolveRepo determines the target repository from --repo flag,
 // GH_REPO env, or git remote (via go-gh).
 func resolveRepo(flag string) (string, string, error) {
@@ -136,7 +178,7 @@ func resolveRepo(flag string) (string, string, error) {
 	if flag != "" {
 		r, err := repository.Parse(flag)
 		if err != nil {
-			return "", "", fmt.Errorf("invalid --repo %q: must be owner/name", flag)
+			return "", "", fmt.Errorf("invalid --repo %q: %w", flag, err)
 		}
 		return r.Owner, r.Name, nil
 	}
@@ -145,7 +187,7 @@ func resolveRepo(flag string) (string, string, error) {
 	if env := os.Getenv("GH_REPO"); env != "" {
 		r, err := repository.Parse(env)
 		if err != nil {
-			return "", "", fmt.Errorf("invalid GH_REPO %q: must be owner/name", env)
+			return "", "", fmt.Errorf("invalid GH_REPO %q: %w", env, err)
 		}
 		return r.Owner, r.Name, nil
 	}

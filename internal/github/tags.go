@@ -3,11 +3,15 @@ package github
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
+
+const maxPages = 50
 
 type tagResponse struct {
 	Name   string `json:"name"`
@@ -38,6 +42,10 @@ func (c *Client) ListTags(ctx context.Context) ([]string, error) {
 			break
 		}
 		page++
+		if page > maxPages {
+			log.Printf("warning: ListTags: reached max page limit (%d), returning partial results", maxPages)
+			break
+		}
 	}
 	return allTags, nil
 }
@@ -73,7 +81,7 @@ func (c *Client) CompareCommits(ctx context.Context, base, head string) ([]model
 		for _, c := range resp.Commits {
 			// Use first line of commit message to match local git --format=%s behavior.
 			msg := c.Commit.Message
-			if idx := indexOf(msg, '\n'); idx >= 0 {
+			if idx := strings.IndexByte(msg, '\n'); idx >= 0 {
 				msg = msg[:idx]
 			}
 			allCommits = append(allCommits, model.Commit{
@@ -87,15 +95,11 @@ func (c *Client) CompareCommits(ctx context.Context, base, head string) ([]model
 			break
 		}
 		page++
+		if page > maxPages {
+			log.Printf("warning: CompareCommits: reached max page limit (%d), returning partial results", maxPages)
+			break
+		}
 	}
 	return allCommits, nil
 }
 
-func indexOf(s string, c byte) int {
-	for i := range len(s) {
-		if s[i] == c {
-			return i
-		}
-	}
-	return -1
-}

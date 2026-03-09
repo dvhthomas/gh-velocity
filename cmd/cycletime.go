@@ -3,13 +3,11 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	"github.com/bitsbyme/gh-velocity/internal/gitdata"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/linking"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/spf13/cobra"
@@ -22,18 +20,18 @@ func NewCycleTimeCmd() *cobra.Command {
 		Short: "Cycle time for an issue (first commit → closed/merged)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			issueNumber, err := strconv.Atoi(args[0])
+			issueNumber, err := parseIssueArg(args[0])
 			if err != nil {
-				return fmt.Errorf("invalid issue number %q: must be a positive integer", args[0])
-			}
-			if issueNumber <= 0 {
-				return fmt.Errorf("invalid issue number %d: must be a positive integer", issueNumber)
+				return err
 			}
 
 			ctx := cmd.Context()
 			deps := DepsFromContext(ctx)
 			if deps == nil {
-				return fmt.Errorf("internal error: missing dependencies")
+				return &model.AppError{
+					Code:    model.ErrConfigInvalid,
+					Message: "internal error: missing dependencies",
+				}
 			}
 
 			client, err := gh.NewClient(deps.Owner, deps.Repo)
@@ -46,9 +44,9 @@ func NewCycleTimeCmd() *cobra.Command {
 				return err
 			}
 
-			// Find commits referencing this issue
+			// Find commits referencing this issue using targeted git log --grep
 			var warnings []string
-			var allCommits []model.Commit
+			var commits []model.Commit
 
 			if deps.HasLocalRepo {
 				wd, wdErr := os.Getwd()
@@ -56,19 +54,16 @@ func NewCycleTimeCmd() *cobra.Command {
 					return fmt.Errorf("get working directory: %w", wdErr)
 				}
 				source := gitdata.NewLocalSource(wd)
-				allCommits, err = source.AllCommits(ctx, "HEAD")
+				commits, err = source.CommitsForIssue(ctx, issueNumber, "HEAD")
 				if err != nil {
 					warnings = append(warnings, fmt.Sprintf("could not read git log: %v", err))
-					allCommits = nil
+					commits = nil
 				}
 			} else {
 				// Without a local checkout, we cannot enumerate all commits
 				// to find issue references. Warn the user.
 				warnings = append(warnings, "no local git checkout; commit linking unavailable via API for cycle-time (use from within a git repo for full results)")
 			}
-
-			issueCommitsMap := linking.LinkCommitsToIssues(allCommits)
-			commits := issueCommitsMap[issueNumber]
 
 			// Compute cycle time
 			var ctDuration *time.Duration

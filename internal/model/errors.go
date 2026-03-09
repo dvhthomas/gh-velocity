@@ -30,7 +30,7 @@ var exitCodes = map[string]int{
 type AppError struct {
 	Code    string                 `json:"code"`
 	Message string                 `json:"message"`
-	Details map[string]interface{} `json:"details,omitempty"`
+	Details map[string]any `json:"details,omitempty"`
 }
 
 // Error implements the error interface.

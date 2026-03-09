@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 // setupTestRepo creates a temp git repo with some commits and tags for testing.
@@ -104,59 +103,6 @@ func TestCommitsBetween(t *testing.T) {
 	}
 }
 
-func TestParseCommitLog_MalformedDate(t *testing.T) {
-	// One valid commit, one with a malformed date, one valid commit.
-	input := "abc123\t2026-03-01T12:00:00Z\tgood commit\n" +
-		"def456\tnot-a-date\tbad commit\n" +
-		"ghi789\t2026-03-02T12:00:00Z\tanother good commit\n"
-
-	commits := parseCommitLog(input)
-
-	if len(commits) != 2 {
-		t.Fatalf("expected 2 commits (malformed date skipped), got %d", len(commits))
-	}
-
-	// Verify the correct commits were kept.
-	if commits[0].SHA != "abc123" {
-		t.Errorf("expected first commit SHA abc123, got %s", commits[0].SHA)
-	}
-	if commits[1].SHA != "ghi789" {
-		t.Errorf("expected second commit SHA ghi789, got %s", commits[1].SHA)
-	}
-
-	// Verify no zero-time commits were produced.
-	for _, c := range commits {
-		if c.AuthoredAt.IsZero() {
-			t.Errorf("commit %s has zero-value AuthoredAt", c.SHA)
-		}
-	}
-}
-
-func TestParseCommitLog_AllMalformedDates(t *testing.T) {
-	input := "abc123\tbaddate1\tcommit one\n" +
-		"def456\tbaddate2\tcommit two\n"
-
-	commits := parseCommitLog(input)
-
-	if len(commits) != 0 {
-		t.Fatalf("expected 0 commits when all dates are malformed, got %d", len(commits))
-	}
-}
-
-func TestParseCommitLog_ValidDates(t *testing.T) {
-	input := "abc123\t2026-03-01T12:00:00Z\tcommit one\n"
-
-	commits := parseCommitLog(input)
-
-	if len(commits) != 1 {
-		t.Fatalf("expected 1 commit, got %d", len(commits))
-	}
-	expected := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
-	if !commits[0].AuthoredAt.Equal(expected) {
-		t.Errorf("expected AuthoredAt %v, got %v", expected, commits[0].AuthoredAt)
-	}
-}
-
 func TestTags_EmptyRepo(t *testing.T) {
 	dir := t.TempDir()
 	cmd := exec.Command("git", "init")
@@ -213,37 +159,6 @@ func TestValidateRef(t *testing.T) {
 	}
 }
 
-func TestValidateRepo(t *testing.T) {
-	tests := []struct {
-		name    string
-		repo    string
-		wantErr bool
-	}{
-		// Valid repos
-		{name: "simple", repo: "owner/repo", wantErr: false},
-		{name: "with dots", repo: "my.org/my.repo", wantErr: false},
-		{name: "with hyphens", repo: "my-org/my-repo", wantErr: false},
-		{name: "with underscores", repo: "my_org/my_repo", wantErr: false},
-
-		// Invalid repos
-		{name: "empty", repo: "", wantErr: true},
-		{name: "no slash", repo: "justrepo", wantErr: true},
-		{name: "too many slashes", repo: "a/b/c", wantErr: true},
-		{name: "semicolon injection", repo: "owner/repo;rm -rf /", wantErr: true},
-		{name: "space injection", repo: "owner/repo --evil", wantErr: true},
-		{name: "backtick injection", repo: "owner/`whoami`", wantErr: true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateRepo(tt.repo)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateRepo(%q) error = %v, wantErr %v", tt.repo, err, tt.wantErr)
-			}
-		})
-	}
-}
-
 func TestCommitsBetween_InjectionRejected(t *testing.T) {
 	dir := setupTestRepo(t)
 	r := NewRunner(dir)
@@ -267,6 +182,56 @@ func TestCommitsBetween_InjectionRejected(t *testing.T) {
 				t.Errorf("CommitsBetween(%q, %q) expected error for injection attempt", tt.base, tt.head)
 			}
 		})
+	}
+}
+
+func TestCommitsForIssue(t *testing.T) {
+	dir := setupTestRepo(t)
+	r := NewRunner(dir)
+
+	// Issue #1 is referenced in "add feature #1"
+	commits, err := r.CommitsForIssue(context.Background(), 1, "HEAD")
+	if err != nil {
+		t.Fatalf("CommitsForIssue(1): %v", err)
+	}
+	if len(commits) != 1 {
+		t.Fatalf("expected 1 commit for issue #1, got %d", len(commits))
+	}
+	if commits[0].Message != "add feature #1" {
+		t.Errorf("expected message %q, got %q", "add feature #1", commits[0].Message)
+	}
+
+	// Issue #3 is referenced in "post v1.0.0 work closes #3"
+	commits, err = r.CommitsForIssue(context.Background(), 3, "HEAD")
+	if err != nil {
+		t.Fatalf("CommitsForIssue(3): %v", err)
+	}
+	if len(commits) != 1 {
+		t.Fatalf("expected 1 commit for issue #3, got %d", len(commits))
+	}
+
+	// Issue #999 should have no commits
+	commits, err = r.CommitsForIssue(context.Background(), 999, "HEAD")
+	if err != nil {
+		t.Fatalf("CommitsForIssue(999): %v", err)
+	}
+	if len(commits) != 0 {
+		t.Fatalf("expected 0 commits for issue #999, got %d", len(commits))
+	}
+}
+
+func TestCommitsForIssue_InjectionRejected(t *testing.T) {
+	dir := setupTestRepo(t)
+	r := NewRunner(dir)
+
+	_, err := r.CommitsForIssue(context.Background(), 1, "`whoami`")
+	if err == nil {
+		t.Error("CommitsForIssue with injected ref should fail")
+	}
+
+	_, err = r.CommitsForIssue(context.Background(), 1, "--evil-flag")
+	if err == nil {
+		t.Error("CommitsForIssue with flag injection should fail")
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/bitsbyme/gh-velocity/internal/git"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
@@ -21,6 +22,8 @@ type Source interface {
 	CommitsBetween(ctx context.Context, base, head string) ([]model.Commit, error)
 	// AllCommits returns all commits reachable from ref.
 	AllCommits(ctx context.Context, ref string) ([]model.Commit, error)
+	// CommitsForIssue returns commits whose message references the given issue number.
+	CommitsForIssue(ctx context.Context, issueNumber int, ref string) ([]model.Commit, error)
 }
 
 // LocalSource wraps git.Runner to satisfy Source.
@@ -43,6 +46,10 @@ func (s *LocalSource) CommitsBetween(ctx context.Context, base, head string) ([]
 
 func (s *LocalSource) AllCommits(ctx context.Context, ref string) ([]model.Commit, error) {
 	return s.runner.AllCommits(ctx, ref)
+}
+
+func (s *LocalSource) CommitsForIssue(ctx context.Context, issueNumber int, ref string) ([]model.Commit, error) {
+	return s.runner.CommitsForIssue(ctx, issueNumber, ref)
 }
 
 // APISource wraps the GitHub REST client to satisfy Source.
@@ -71,16 +78,13 @@ func (s *APISource) AllCommits(ctx context.Context, ref string) ([]model.Commit,
 	return nil, fmt.Errorf("API fallback does not support listing all commits (use --since <tag> to specify a base tag)")
 }
 
+func (s *APISource) CommitsForIssue(ctx context.Context, issueNumber int, ref string) ([]model.Commit, error) {
+	fmt.Fprintf(os.Stderr, "warning: CommitsForIssue is not supported via the GitHub API; commit linking unavailable\n")
+	return nil, nil
+}
+
 // IsLocalGitAvailable returns true if the given directory is inside a git working tree.
 func IsLocalGitAvailable(dir string) bool {
-	// Walk up from dir looking for .git. This is a fast check that avoids shelling out.
-	info, err := os.Stat(dir + "/.git")
-	if err == nil && info.IsDir() {
-		return true
-	}
-	// Also check if it's a file (.git file for worktrees/submodules).
-	if err == nil {
-		return true
-	}
-	return false
+	_, err := os.Stat(filepath.Join(dir, ".git"))
+	return err == nil
 }

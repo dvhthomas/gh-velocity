@@ -29,7 +29,10 @@ func NewReleaseCmd() *cobra.Command {
 			ctx := cmd.Context()
 			deps := DepsFromContext(ctx)
 			if deps == nil {
-				return fmt.Errorf("internal error: missing dependencies")
+				return &model.AppError{
+					Code:    model.ErrConfigInvalid,
+					Message: "internal error: missing dependencies",
+				}
 			}
 
 			client, err := gh.NewClient(deps.Owner, deps.Repo)
