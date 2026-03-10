@@ -9,33 +9,6 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
-// StatsResult holds all dashboard sections for output.
-type StatsResult struct {
-	Repository        string
-	Since             time.Time
-	Until             time.Time
-	LeadTime          *model.Stats
-	CycleTime         *model.Stats
-	CycleTimeStrategy string // "issue", "pr", or "project-board"
-	Throughput        *StatsThroughput
-	WIPCount          *int
-	Quality           *StatsQuality
-	Warnings          []string
-}
-
-// StatsThroughput holds throughput counts.
-type StatsThroughput struct {
-	IssuesClosed int
-	PRsMerged    int
-}
-
-// StatsQuality holds defect rate metrics.
-type StatsQuality struct {
-	BugCount    int
-	TotalIssues int
-	DefectRate  float64
-}
-
 // --- JSON ---
 
 type jsonStatsOutput struct {
@@ -66,7 +39,7 @@ type jsonStatsQuality struct {
 }
 
 // WriteStatsJSON writes dashboard metrics as JSON.
-func WriteStatsJSON(w io.Writer, r StatsResult) error {
+func WriteStatsJSON(w io.Writer, r model.StatsResult) error {
 	out := jsonStatsOutput{
 		Repository: r.Repository,
 		Window: jsonWindow{
@@ -109,7 +82,7 @@ func WriteStatsJSON(w io.Writer, r StatsResult) error {
 // --- Markdown ---
 
 // WriteStatsMarkdown writes dashboard metrics as markdown.
-func WriteStatsMarkdown(w io.Writer, r StatsResult) error {
+func WriteStatsMarkdown(w io.Writer, r model.StatsResult) error {
 	fmt.Fprintf(w, "## Stats: %s (%s – %s UTC)\n\n",
 		r.Repository, r.Since.UTC().Format(time.DateOnly), r.Until.UTC().Format(time.DateOnly))
 
@@ -140,7 +113,7 @@ func WriteStatsMarkdown(w io.Writer, r StatsResult) error {
 // --- Pretty ---
 
 // WriteStatsPretty writes dashboard metrics as formatted text.
-func WriteStatsPretty(w io.Writer, isTTY bool, width int, r StatsResult) error {
+func WriteStatsPretty(w io.Writer, isTTY bool, width int, r model.StatsResult) error {
 	fmt.Fprintf(w, "Stats: %s (%s – %s UTC)\n\n",
 		r.Repository, r.Since.UTC().Format(time.DateOnly), r.Until.UTC().Format(time.DateOnly))
 

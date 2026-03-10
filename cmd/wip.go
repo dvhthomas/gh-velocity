@@ -40,7 +40,7 @@ Use -R owner/repo to filter board items to a specific repo.`,
 			cfg := deps.Config
 			repo := deps.Owner + "/" + deps.Repo
 
-			var items []format.WIPItem
+			var items []model.WIPItem
 
 			if cfg.Project.ID != "" {
 				// Primary: Projects v2 board
@@ -65,7 +65,7 @@ Use -R owner/repo to filter board items to a specific repo.`,
 						age = now.Sub(*pi.StatusAt)
 					}
 
-					items = append(items, format.WIPItem{
+					items = append(items, model.WIPItem{
 						Number: pi.Number,
 						Title:  pi.Title,
 						Status: pi.Status,
@@ -100,7 +100,7 @@ Use -R owner/repo to filter board items to a specific repo.`,
 					}
 
 					age := now.Sub(issue.CreatedAt)
-					items = append(items, format.WIPItem{
+					items = append(items, model.WIPItem{
 						Number: issue.Number,
 						Title:  issue.Title,
 						Status: "active",

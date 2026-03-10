@@ -4,19 +4,9 @@ import (
 	"context"
 	"fmt"
 	"time"
-)
 
-// ProjectItem represents an item on a Projects v2 board.
-type ProjectItem struct {
-	ContentType string // "Issue", "PullRequest", or "DraftIssue"
-	Number      int    // 0 for drafts
-	Title       string
-	Repo        string     // "owner/repo" from content.repository.nameWithOwner
-	Status      string     // current board status
-	StatusAt    *time.Time // when status was last set (updatedAt on field value)
-	CreatedAt   time.Time
-	Labels      []string
-}
+	"github.com/bitsbyme/gh-velocity/internal/model"
+)
 
 // projectItemsResponse is the GraphQL response for project items queries.
 type projectItemsResponse struct {
@@ -101,8 +91,8 @@ const projectItemsQuery = `query($projectId: ID!, $cursor: String) {
 
 // ListProjectItems returns all items on a Projects v2 board.
 // Uses cursor-based pagination with node(id:) query.
-func (c *Client) ListProjectItems(ctx context.Context, projectID, statusFieldID string) ([]ProjectItem, error) {
-	var allItems []ProjectItem
+func (c *Client) ListProjectItems(ctx context.Context, projectID, statusFieldID string) ([]model.ProjectItem, error) {
+	var allItems []model.ProjectItem
 	var cursor *string
 
 	for {
@@ -119,7 +109,7 @@ func (c *Client) ListProjectItems(ctx context.Context, projectID, statusFieldID 
 		}
 
 		for _, node := range resp.Node.Items.Nodes {
-			item := ProjectItem{
+			item := model.ProjectItem{
 				ContentType: node.Content.Typename,
 				Number:      node.Content.Number,
 				Title:       node.Content.Title,

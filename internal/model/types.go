@@ -153,3 +153,52 @@ type Stats struct {
 	OutlierCutoff *time.Duration // Q3 + 1.5*IQR; values above are outliers
 	OutlierCount  int            // number of values above the cutoff
 }
+
+// ProjectItem represents an item on a GitHub Projects v2 board.
+type ProjectItem struct {
+	ContentType string // "Issue", "PullRequest", or "DraftIssue"
+	Number      int    // 0 for drafts
+	Title       string
+	Repo        string     // "owner/repo" from content.repository.nameWithOwner
+	Status      string     // current board status
+	StatusAt    *time.Time // when status was last set (updatedAt on field value)
+	CreatedAt   time.Time
+	Labels      []string
+}
+
+// WIPItem represents an in-progress work item for display.
+type WIPItem struct {
+	Number int
+	Title  string
+	Status string
+	Age    time.Duration
+	Repo   string // populated for cross-repo board views
+	Kind   string // "Issue", "PullRequest", "DraftIssue"
+}
+
+// StatsResult holds all dashboard sections for output.
+type StatsResult struct {
+	Repository        string
+	Since             time.Time
+	Until             time.Time
+	LeadTime          *Stats
+	CycleTime         *Stats
+	CycleTimeStrategy string // "issue", "pr", or "project-board"
+	Throughput        *StatsThroughput
+	WIPCount          *int
+	Quality           *StatsQuality
+	Warnings          []string
+}
+
+// StatsThroughput holds throughput counts.
+type StatsThroughput struct {
+	IssuesClosed int
+	PRsMerged    int
+}
+
+// StatsQuality holds defect rate metrics.
+type StatsQuality struct {
+	BugCount    int
+	TotalIssues int
+	DefectRate  float64
+}

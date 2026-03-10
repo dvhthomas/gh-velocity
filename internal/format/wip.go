@@ -5,19 +5,9 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"time"
-)
 
-// WIPItem is the format-layer representation of an in-progress work item.
-// Imported by cmd/wip.go which populates these from API results.
-type WIPItem struct {
-	Number int
-	Title  string
-	Status string
-	Age    time.Duration
-	Repo   string // populated for cross-repo board views
-	Kind   string // "Issue", "PullRequest", "DraftIssue"
-}
+	"github.com/bitsbyme/gh-velocity/internal/model"
+)
 
 // --- JSON ---
 
@@ -38,7 +28,7 @@ type jsonWIPItem struct {
 }
 
 // WriteWIPJSON writes WIP items as JSON.
-func WriteWIPJSON(w io.Writer, repo string, items []WIPItem) error {
+func WriteWIPJSON(w io.Writer, repo string, items []model.WIPItem) error {
 	out := jsonWIPOutput{
 		Repository: repo,
 		Items:      make([]jsonWIPItem, 0, len(items)),
@@ -63,7 +53,7 @@ func WriteWIPJSON(w io.Writer, repo string, items []WIPItem) error {
 // --- Markdown ---
 
 // WriteWIPMarkdown writes WIP items as a markdown table.
-func WriteWIPMarkdown(w io.Writer, repo string, items []WIPItem) error {
+func WriteWIPMarkdown(w io.Writer, repo string, items []model.WIPItem) error {
 	sorted := sortWIPByAgeDesc(items)
 
 	fmt.Fprintf(w, "## Work in Progress: %s\n\n", repo)
@@ -89,7 +79,7 @@ func WriteWIPMarkdown(w io.Writer, repo string, items []WIPItem) error {
 // --- Pretty ---
 
 // WriteWIPPretty writes WIP items as a formatted table.
-func WriteWIPPretty(w io.Writer, isTTY bool, width int, repo string, items []WIPItem) error {
+func WriteWIPPretty(w io.Writer, isTTY bool, width int, repo string, items []model.WIPItem) error {
 	sorted := sortWIPByAgeDesc(items)
 
 	fmt.Fprintf(w, "Work in Progress: %s (%d items)\n\n", repo, len(items))
@@ -117,8 +107,8 @@ func WriteWIPPretty(w io.Writer, isTTY bool, width int, repo string, items []WIP
 }
 
 // sortWIPByAgeDesc sorts WIP items by age descending (oldest first).
-func sortWIPByAgeDesc(items []WIPItem) []WIPItem {
-	sorted := make([]WIPItem, len(items))
+func sortWIPByAgeDesc(items []model.WIPItem) []model.WIPItem {
+	sorted := make([]model.WIPItem, len(items))
 	copy(sorted, items)
 	sort.Slice(sorted, func(i, j int) bool {
 		return sorted[i].Age > sorted[j].Age

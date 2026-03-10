@@ -256,6 +256,10 @@ func outputCycleTime(cmd *cobra.Command, deps *Deps, ct model.Metric, warnings [
 	w := cmd.OutOrStdout()
 	repo := deps.Owner + "/" + deps.Repo
 
+	for _, warn := range warnings {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", warn)
+	}
+
 	switch deps.Format {
 	case format.JSON:
 		if kind == "PR" {
@@ -263,27 +267,8 @@ func outputCycleTime(cmd *cobra.Command, deps *Deps, ct model.Metric, warnings [
 		}
 		return format.WriteCycleTimeJSON(w, repo, number, title, state, ct, warnings)
 	case format.Markdown:
-		fmt.Fprintf(w, "| %s | Title | Started (UTC) | Cycle Time |\n", kind)
-		fmt.Fprintf(w, "| ---: | --- | --- | --- |\n")
-		startedStr := "N/A"
-		if ct.Start != nil {
-			startedStr = ct.Start.Time.UTC().Format(time.DateOnly)
-		}
-		fmt.Fprintf(w, "| #%d | %s | %s | %s |\n", number, title, startedStr, format.FormatMetric(ct))
-		for _, warn := range warnings {
-			fmt.Fprintf(os.Stderr, "warning: %s\n", warn)
-		}
+		return format.WriteCycleTimeMarkdown(w, kind, number, title, ct)
 	default:
-		fmt.Fprintf(w, "%s #%d  %s\n", kind, number, title)
-		fmt.Fprintf(w, "  Strategy:   %s\n", deps.Config.CycleTime.Strategy)
-		if ct.Start != nil {
-			fmt.Fprintf(w, "  Started:    %s UTC\n", ct.Start.Time.UTC().Format(time.RFC3339))
-		}
-		fmt.Fprintf(w, "  Cycle Time: %s\n", format.FormatMetric(ct))
-		for _, warn := range warnings {
-			fmt.Fprintf(os.Stderr, "warning: %s\n", warn)
-		}
+		return format.WriteCycleTimePretty(w, kind, number, title, deps.Config.CycleTime.Strategy, ct)
 	}
-
-	return nil
 }
