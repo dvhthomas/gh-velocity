@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
 // CycleStart represents the detected start of active work on an issue.
@@ -53,6 +55,7 @@ type closerRef struct {
 	Number    int        `json:"number,omitempty"`
 	Title     string     `json:"title,omitempty"`
 	CreatedAt *time.Time `json:"createdAt,omitempty"`
+	MergedAt  *time.Time `json:"mergedAt,omitempty"`
 }
 
 type crossRefSource struct {
@@ -236,6 +239,71 @@ func (c *Client) GetCycleStart(ctx context.Context, issueNumber int, activeLabel
 	}
 
 	return result, nil
+}
+
+// closingPRResponse is the GraphQL response for finding the PR that closed an issue.
+type closingPRResponse struct {
+	Repository struct {
+		Issue struct {
+			TimelineItems struct {
+				Nodes []timelineNode `json:"nodes"`
+			} `json:"timelineItems"`
+		} `json:"issue"`
+	} `json:"repository"`
+}
+
+// GetClosingPR finds the PR that closed an issue via timeline events.
+// Returns nil (not an error) if no closing PR was found.
+func (c *Client) GetClosingPR(ctx context.Context, issueNumber int) (*model.PR, error) {
+	query := `query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    issue(number: $number) {
+      timelineItems(first: 20, itemTypes: [CLOSED_EVENT]) {
+        nodes {
+          __typename
+          ... on ClosedEvent {
+            closer {
+              __typename
+              ... on PullRequest {
+                number
+                title
+                createdAt
+                mergedAt
+                url
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}`
+	variables := map[string]interface{}{
+		"owner":  c.owner,
+		"repo":   c.repo,
+		"number": issueNumber,
+	}
+
+	var resp closingPRResponse
+	if err := c.gql.DoWithContext(ctx, query, variables, &resp); err != nil {
+		return nil, fmt.Errorf("get closing PR for issue #%d: %w", issueNumber, err)
+	}
+
+	for _, node := range resp.Repository.Issue.TimelineItems.Nodes {
+		if node.Closer != nil && node.Closer.Typename == "PullRequest" && node.Closer.CreatedAt != nil {
+			pr := &model.PR{
+				Number:    node.Closer.Number,
+				Title:     node.Closer.Title,
+				CreatedAt: *node.Closer.CreatedAt,
+			}
+			if node.Closer.MergedAt != nil {
+				pr.MergedAt = node.Closer.MergedAt
+			}
+			return pr, nil
+		}
+	}
+
+	return nil, nil
 }
 
 // projectStatusResponse is the GraphQL response for project item queries.

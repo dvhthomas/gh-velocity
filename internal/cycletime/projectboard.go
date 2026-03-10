@@ -4,7 +4,6 @@ import (
 	"context"
 
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -39,5 +38,5 @@ func (s *ProjectBoardStrategy) Compute(ctx context.Context, input Input) model.M
 		return model.Metric{Start: start}
 	}
 	end := &model.Event{Time: *input.Issue.ClosedAt, Signal: model.SignalIssueClosed}
-	return metrics.NewMetric(start, end)
+	return model.NewMetric(start, end)
 }

@@ -8,13 +8,9 @@ import (
 
 // NewMetric creates a Metric from start and end events, computing Duration
 // when both are present.
+// Deprecated: Use model.NewMetric directly.
 func NewMetric(start, end *model.Event) model.Metric {
-	m := model.Metric{Start: start, End: end}
-	if start != nil && end != nil {
-		d := end.Time.Sub(start.Time)
-		m.Duration = &d
-	}
-	return m
+	return model.NewMetric(start, end)
 }
 
 // MetricDurations extracts non-nil durations from a slice of Metrics.

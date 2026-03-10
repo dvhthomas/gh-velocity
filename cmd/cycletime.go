@@ -1,14 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
 
+	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/format"
-	"github.com/bitsbyme/gh-velocity/internal/gitdata"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/spf13/cobra"
 )
@@ -19,26 +19,20 @@ func NewCycleTimeCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "cycle-time [<issue>]",
-		Short: "Cycle time for an issue or PR (work started → closed)",
+		Short: "Cycle time for an issue or PR",
 		Long: `Cycle time measures how long an issue or PR was actively worked on.
 
-For issues, the start signal is detected automatically, in priority order:
-  1. Status change — issue moved out of backlog in a Projects v2 board
-  2. Label — an "active" label was added (e.g., "in-progress")
-  3. PR created — any PR referencing the issue was opened (including drafts)
-  4. First assigned — when the issue was first assigned to someone
-  5. First commit — the earliest commit referencing the issue (requires local git)
+The measurement strategy is set in .gh-velocity.yml:
 
-For PRs (--pr flag), cycle time is PR created → PR merged.
+  cycle_time:
+    strategy: issue          # issue created → issue closed (default)
+    strategy: pr             # PR created → PR merged
+    strategy: project-board  # status change → issue closed
 
-The end signal is the issue's close date (or PR merge date with --pr).
+The --pr flag overrides the configured strategy for a single run,
+measuring PR created → PR merged for the given PR number.
 
-Signals #1-2 require configuration in .gh-velocity.yml. Signal #1 needs
-project.id/status_field_id. Signal #2 needs statuses.active_labels.
-Signals #3-4 work automatically. Signal #5 requires a local clone.
-
-If the issue is currently in backlog (Projects v2 status or backlog_labels),
-cycle time is suppressed even if other signals exist.`,
+When a signal is not available for an item, cycle time is N/A.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if prFlag > 0 {
@@ -71,7 +65,8 @@ cycle time is suppressed even if other signals exist.`,
 	return cmd
 }
 
-// runCycleTimePR computes cycle time for a PR: created → merged.
+// runCycleTimePR computes cycle time for a specific PR: created → merged.
+// This is used when --pr flag is given, bypassing the config strategy.
 func runCycleTimePR(cmd *cobra.Command, prNumber int) error {
 	ctx := cmd.Context()
 	deps := DepsFromContext(ctx)
@@ -92,52 +87,22 @@ func runCycleTimePR(cmd *cobra.Command, prNumber int) error {
 		return err
 	}
 
+	strat := &cycletime.PRStrategy{}
+	ct := strat.Compute(ctx, cycletime.Input{PR: pr})
+
 	var warnings []string
-	startEvent := &model.Event{
-		Time:   pr.CreatedAt,
-		Signal: model.SignalPRCreated,
-		Detail: fmt.Sprintf("PR #%d", prNumber),
-	}
-
-	var endEvent *model.Event
-	if pr.MergedAt != nil {
-		endEvent = &model.Event{
-			Time:   *pr.MergedAt,
-			Signal: model.SignalPRMerged,
-		}
-	} else if pr.State == "closed" {
-		warnings = append(warnings, "PR was closed without merging")
-	} else {
-		warnings = append(warnings, "PR is still open; cycle time is in progress")
-	}
-
-	ct := metrics.CycleTime(startEvent, endEvent)
-
-	w := cmd.OutOrStdout()
-	switch deps.Format {
-	case format.JSON:
-		return format.WriteCycleTimePRJSON(w, deps.Owner+"/"+deps.Repo, prNumber, pr.Title, pr.State, ct, warnings)
-	case format.Markdown:
-		fmt.Fprintf(w, "| PR | Title | Started | Cycle Time |\n")
-		fmt.Fprintf(w, "| ---: | --- | --- | --- |\n")
-		fmt.Fprintf(w, "| #%d | %s | %s | %s |\n",
-			prNumber, pr.Title, pr.CreatedAt.Format(time.DateOnly), format.FormatMetric(ct))
-		for _, warn := range warnings {
-			fmt.Fprintf(os.Stderr, "warning: %s\n", warn)
-		}
-	default:
-		fmt.Fprintf(w, "PR #%d  %s\n", prNumber, pr.Title)
-		fmt.Fprintf(w, "  Started:    %s\n", pr.CreatedAt.Format(time.RFC3339))
-		fmt.Fprintf(w, "  Cycle Time: %s\n", format.FormatMetric(ct))
-		for _, warn := range warnings {
-			fmt.Fprintf(os.Stderr, "warning: %s\n", warn)
+	if pr.MergedAt == nil {
+		if pr.State == "closed" {
+			warnings = append(warnings, "PR was closed without merging")
+		} else {
+			warnings = append(warnings, "PR is still open; cycle time is in progress")
 		}
 	}
 
-	return nil
+	return outputCycleTime(cmd, deps, ct, warnings, "PR", prNumber, pr.Title, pr.State, 0)
 }
 
-// runCycleTimeIssue computes cycle time for an issue using the signal hierarchy.
+// runCycleTimeIssue computes cycle time for an issue using the configured strategy.
 func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 	ctx := cmd.Context()
 	deps := DepsFromContext(ctx)
@@ -158,115 +123,89 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 		return err
 	}
 
-	var warnings []string
-	var startEvent *model.Event
-	var commitCount int
-	backlogOverride := false // true when issue is in backlog → cycle time is N/A
+	strat, warnings := buildStrategy(ctx, deps, client, issueNumber)
+	input := cycletime.Input{Issue: issue}
 
-	// Signal #1: Projects v2 status change (requires project config)
+	// For PR strategy, find the closing PR.
+	if deps.Config.CycleTime.Strategy == "pr" {
+		pr, prErr := client.GetClosingPR(ctx, issueNumber)
+		if prErr != nil {
+			warnings = append(warnings, fmt.Sprintf("could not find closing PR: %v", prErr))
+		} else if pr == nil {
+			warnings = append(warnings, "no closing PR found for this issue")
+		} else {
+			input.PR = pr
+		}
+	}
+
+	ct := strat.Compute(ctx, input)
+
+	return outputCycleTime(cmd, deps, ct, warnings, "Issue", issueNumber, issue.Title, issue.State, 0)
+}
+
+// buildStrategy creates the appropriate CycleTimeStrategy based on config.
+func buildStrategy(ctx context.Context, deps *Deps, client *gh.Client, issueNumber int) (cycletime.Strategy, []string) {
 	cfg := deps.Config
-	if cfg.Project.ID != "" || cfg.Project.StatusFieldID != "" {
+	var warnings []string
+
+	switch cfg.CycleTime.Strategy {
+	case "pr":
+		return &cycletime.PRStrategy{}, warnings
+	case "project-board":
 		backlog := cfg.Statuses.Backlog
 		if backlog == "" {
 			backlog = "Backlog"
 		}
-		ps, psErr := client.GetProjectStatus(ctx, issueNumber, cfg.Project.ID, cfg.Project.StatusFieldID, backlog)
-		if psErr != nil {
-			warnings = append(warnings, fmt.Sprintf("could not query project status: %v", psErr))
-		} else if ps.InBacklog {
-			backlogOverride = true
-			warnings = append(warnings, "issue is in backlog; cycle time not applicable until work starts")
-		} else if ps.CycleStart != nil {
-			startEvent = &model.Event{
-				Time:   ps.CycleStart.Time,
-				Signal: ps.CycleStart.Signal,
-				Detail: ps.CycleStart.Detail,
-			}
-		}
+		return &cycletime.ProjectBoardStrategy{
+			Client:        client,
+			ProjectID:     cfg.Project.ID,
+			StatusFieldID: cfg.Project.StatusFieldID,
+			BacklogStatus: backlog,
+		}, warnings
+	default: // "issue"
+		return &cycletime.IssueStrategy{}, warnings
 	}
+}
 
-	// Signals #2–#4: label, PR created, first assigned
-	// Skip if backlog override is active — issue was moved back to backlog.
-	if startEvent == nil && !backlogOverride {
-		csResult, csErr := client.GetCycleStart(ctx, issueNumber, cfg.Statuses.ActiveLabels, cfg.Statuses.BacklogLabels)
-		if csErr != nil {
-			warnings = append(warnings, fmt.Sprintf("could not query issue timeline: %v", csErr))
-		} else {
-			if csResult.InBacklog {
-				backlogOverride = true
-				warnings = append(warnings, "issue has a backlog label; cycle time not applicable until work starts")
-			} else if csResult.CycleStart != nil {
-				startEvent = &model.Event{
-					Time:   csResult.CycleStart.Time,
-					Signal: csResult.CycleStart.Signal,
-					Detail: csResult.CycleStart.Detail,
-				}
-			}
-		}
-	}
-
-	// Signal #5 + enrichment: commits (requires local clone)
-	if deps.HasLocalRepo {
-		wd, wdErr := os.Getwd()
-		if wdErr != nil {
-			return fmt.Errorf("get working directory: %w", wdErr)
-		}
-		if gitdata.IsShallowClone(wd) {
-			warnings = append(warnings, "shallow clone detected; commit history may be incomplete (use fetch-depth: 0)")
-		}
-		source := gitdata.NewLocalSource(wd)
-		commits, gitErr := source.CommitsForIssue(ctx, issueNumber, "HEAD")
-		if gitErr != nil {
-			warnings = append(warnings, fmt.Sprintf("could not read git log: %v", gitErr))
-		} else {
-			commitCount = len(commits)
-			// If no higher-priority signal found and not in backlog, fall back to first commit
-			if startEvent == nil && !backlogOverride && len(commits) > 0 {
-				firstCommit := commits[len(commits)-1]
-				startEvent = &model.Event{
-					Time:   firstCommit.AuthoredAt,
-					Signal: model.SignalCommit,
-					Detail: firstCommit.SHA[:7],
-				}
-			}
-		}
-	}
-
-	var endEvent *model.Event
-	if issue.ClosedAt != nil {
-		endEvent = &model.Event{
-			Time:   *issue.ClosedAt,
-			Signal: model.SignalIssueClosed,
-		}
-	}
-
-	ct := metrics.CycleTime(startEvent, endEvent)
-
+// outputCycleTime renders cycle-time results in the requested format.
+func outputCycleTime(cmd *cobra.Command, deps *Deps, ct model.Metric, warnings []string, kind string, number int, title, state string, commitCount int) error {
 	w := cmd.OutOrStdout()
+	repo := deps.Owner + "/" + deps.Repo
+
 	switch deps.Format {
 	case format.JSON:
-		return format.WriteCycleTimeJSON(w, deps.Owner+"/"+deps.Repo, issueNumber, issue.Title, issue.State, commitCount, ct, warnings)
-	case format.Markdown:
-		fmt.Fprintf(w, "| Issue | Title | Started | Cycle Time | Commits |\n")
-		fmt.Fprintf(w, "| ---: | --- | --- | --- | ---: |\n")
-		startedStr := "N/A"
-		if startEvent != nil {
-			startedStr = startEvent.Time.Format(time.DateOnly)
+		if kind == "PR" {
+			return format.WriteCycleTimePRJSON(w, repo, number, title, state, ct, warnings)
 		}
-		fmt.Fprintf(w, "| #%d | %s | %s | %s | %d |\n",
-			issueNumber, issue.Title, startedStr, format.FormatMetric(ct), commitCount)
+		return format.WriteCycleTimeJSON(w, repo, number, title, state, commitCount, ct, warnings)
+	case format.Markdown:
+		if kind == "PR" {
+			fmt.Fprintf(w, "| PR | Title | Started | Cycle Time |\n")
+			fmt.Fprintf(w, "| ---: | --- | --- | --- |\n")
+			startedStr := "N/A"
+			if ct.Start != nil {
+				startedStr = ct.Start.Time.Format(time.DateOnly)
+			}
+			fmt.Fprintf(w, "| #%d | %s | %s | %s |\n", number, title, startedStr, format.FormatMetric(ct))
+		} else {
+			fmt.Fprintf(w, "| Issue | Title | Started | Cycle Time |\n")
+			fmt.Fprintf(w, "| ---: | --- | --- | --- |\n")
+			startedStr := "N/A"
+			if ct.Start != nil {
+				startedStr = ct.Start.Time.Format(time.DateOnly)
+			}
+			fmt.Fprintf(w, "| #%d | %s | %s | %s |\n", number, title, startedStr, format.FormatMetric(ct))
+		}
 		for _, warn := range warnings {
 			fmt.Fprintf(os.Stderr, "warning: %s\n", warn)
 		}
 	default:
-		fmt.Fprintf(w, "Issue #%d  %s\n", issueNumber, issue.Title)
-		if startEvent != nil {
-			fmt.Fprintf(w, "  Started:    %s\n", startEvent.Time.Format(time.RFC3339))
+		fmt.Fprintf(w, "%s #%d  %s\n", kind, number, title)
+		fmt.Fprintf(w, "  Strategy:   %s\n", deps.Config.CycleTime.Strategy)
+		if ct.Start != nil {
+			fmt.Fprintf(w, "  Started:    %s\n", ct.Start.Time.Format(time.RFC3339))
 		}
 		fmt.Fprintf(w, "  Cycle Time: %s\n", format.FormatMetric(ct))
-		if commitCount > 0 {
-			fmt.Fprintf(w, "  Commits:    %d\n", commitCount)
-		}
 		for _, warn := range warnings {
 			fmt.Fprintf(os.Stderr, "warning: %s\n", warn)
 		}

@@ -1,9 +1,11 @@
 package metrics
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -15,15 +17,17 @@ type ReleaseInput struct {
 	PrevRelease       *model.Release // nil if no previous release
 	IssueCommits      map[int][]model.Commit
 	Issues            map[int]*model.Issue // successfully fetched issues
+	LinkedPRs         map[int]*model.PR    // issue number → linked PR (may be nil)
 	FetchErrors       map[int]error        // issues that failed to fetch
 	BugLabels         []string
 	FeatureLabels     []string
 	HotfixWindowHours float64
+	CycleTimeStrategy cycletime.Strategy // nil falls back to commit-based default
 }
 
 // BuildReleaseMetrics computes all release metrics from the provided input.
 // Returns the metrics, a list of warnings, and any error.
-func BuildReleaseMetrics(input ReleaseInput) (model.ReleaseMetrics, []string, error) {
+func BuildReleaseMetrics(ctx context.Context, input ReleaseInput) (model.ReleaseMetrics, []string, error) {
 	var warnings []string
 
 	// Collect fetch errors as warnings (skip-and-warn partial failure strategy)
@@ -61,24 +65,17 @@ func BuildReleaseMetrics(input ReleaseInput) (model.ReleaseMetrics, []string, er
 			leadTimes = append(leadTimes, *im.LeadTime.Duration)
 		}
 
-		// Cycle time: first commit -> closed (release path uses commit as start signal)
-		if len(issueCommitList) > 0 {
-			firstCommit := issueCommitList[len(issueCommitList)-1] // commits are newest-first
-			startEvent := &model.Event{
-				Time:   firstCommit.AuthoredAt,
-				Signal: model.SignalCommit,
-				Detail: firstCommit.SHA[:7],
+		// Cycle time: computed by the configured strategy.
+		// Commits enrich output but do not determine start/end signals.
+		if input.CycleTimeStrategy != nil {
+			ctInput := cycletime.Input{
+				Issue:   issue,
+				Commits: issueCommitList,
 			}
-
-			var endEvent *model.Event
-			if issue.ClosedAt != nil {
-				endEvent = &model.Event{
-					Time:   *issue.ClosedAt,
-					Signal: model.SignalIssueClosed,
-				}
+			if input.LinkedPRs != nil {
+				ctInput.PR = input.LinkedPRs[issueNum]
 			}
-
-			im.CycleTime = CycleTime(startEvent, endEvent)
+			im.CycleTime = input.CycleTimeStrategy.Compute(ctx, ctInput)
 			if im.CycleTime.Duration != nil {
 				cycleTimes = append(cycleTimes, *im.CycleTime.Duration)
 			}

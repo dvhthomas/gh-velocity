@@ -3,7 +3,6 @@ package cycletime
 import (
 	"context"
 
-	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -22,5 +21,5 @@ func (s *IssueStrategy) Compute(_ context.Context, input Input) model.Metric {
 		return model.Metric{Start: start}
 	}
 	end := &model.Event{Time: *input.Issue.ClosedAt, Signal: model.SignalIssueClosed}
-	return metrics.NewMetric(start, end)
+	return model.NewMetric(start, end)
 }

@@ -1,11 +1,13 @@
 package metrics
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -20,7 +22,7 @@ func TestBuildReleaseMetrics_Empty(t *testing.T) {
 		FeatureLabels: []string{"enhancement"},
 	}
 
-	rm, warnings, err := BuildReleaseMetrics(input)
+	rm, warnings, err := BuildReleaseMetrics(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -63,7 +65,7 @@ func TestBuildReleaseMetrics_SinglePassClassification(t *testing.T) {
 		FeatureLabels: []string{"enhancement"},
 	}
 
-	rm, _, err := BuildReleaseMetrics(input)
+	rm, _, err := BuildReleaseMetrics(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -105,16 +107,17 @@ func TestBuildReleaseMetrics_LeadTimeAndCycleTime(t *testing.T) {
 	}
 
 	input := ReleaseInput{
-		Tag:           "v1.0.0",
-		Release:       model.Release{TagName: "v1.0.0", CreatedAt: now},
-		IssueCommits:  issueCommits,
-		Issues:        issues,
-		FetchErrors:   map[int]error{},
-		BugLabels:     []string{"bug"},
-		FeatureLabels: []string{"enhancement"},
+		Tag:               "v1.0.0",
+		Release:           model.Release{TagName: "v1.0.0", CreatedAt: now},
+		IssueCommits:      issueCommits,
+		Issues:            issues,
+		FetchErrors:       map[int]error{},
+		BugLabels:         []string{"bug"},
+		FeatureLabels:     []string{"enhancement"},
+		CycleTimeStrategy: &cycletime.IssueStrategy{},
 	}
 
-	rm, _, err := BuildReleaseMetrics(input)
+	rm, _, err := BuildReleaseMetrics(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -137,13 +140,13 @@ func TestBuildReleaseMetrics_LeadTimeAndCycleTime(t *testing.T) {
 		t.Error("expected lead time end signal to be issue-closed")
 	}
 
-	// Cycle time: commit -> closed = 24h
-	expectedCT := 24 * time.Hour
+	// Cycle time with issue strategy: created -> closed = 48h (same as lead time)
+	expectedCT := 48 * time.Hour
 	if im.CycleTime.Duration == nil || *im.CycleTime.Duration != expectedCT {
 		t.Errorf("expected cycle time %v, got %v", expectedCT, im.CycleTime.Duration)
 	}
-	if im.CycleTime.Start == nil || im.CycleTime.Start.Signal != model.SignalCommit {
-		t.Error("expected cycle time start signal to be commit")
+	if im.CycleTime.Start == nil || im.CycleTime.Start.Signal != model.SignalIssueCreated {
+		t.Error("expected cycle time start signal to be issue-created")
 	}
 
 	// Release lag: closed -> release = 24h
@@ -178,7 +181,7 @@ func TestBuildReleaseMetrics_FetchErrorsAsWarnings(t *testing.T) {
 		FeatureLabels: []string{"enhancement"},
 	}
 
-	rm, warnings, err := BuildReleaseMetrics(input)
+	rm, warnings, err := BuildReleaseMetrics(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -233,7 +236,7 @@ func TestBuildReleaseMetrics_LowLabelCoverageWarning(t *testing.T) {
 		FeatureLabels: []string{"enhancement"},
 	}
 
-	_, warnings, err := BuildReleaseMetrics(input)
+	_, warnings, err := BuildReleaseMetrics(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -266,7 +269,7 @@ func TestBuildReleaseMetrics_HotfixDetection(t *testing.T) {
 		HotfixWindowHours: 72,
 	}
 
-	rm, _, err := BuildReleaseMetrics(input)
+	rm, _, err := BuildReleaseMetrics(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -298,7 +301,7 @@ func TestBuildReleaseMetrics_NotHotfix(t *testing.T) {
 		HotfixWindowHours: 72,
 	}
 
-	rm, _, err := BuildReleaseMetrics(input)
+	rm, _, err := BuildReleaseMetrics(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -327,7 +330,7 @@ func TestBuildReleaseMetrics_OpenIssueNoLeadTime(t *testing.T) {
 		FeatureLabels: []string{"enhancement"},
 	}
 
-	rm, _, err := BuildReleaseMetrics(input)
+	rm, _, err := BuildReleaseMetrics(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

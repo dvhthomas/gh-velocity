@@ -32,6 +32,17 @@ type Metric struct {
 	Duration *time.Duration
 }
 
+// NewMetric creates a Metric from start and end events, computing Duration
+// when both are present.
+func NewMetric(start, end *Event) Metric {
+	m := Metric{Start: start, End: end}
+	if start != nil && end != nil {
+		d := end.Time.Sub(start.Time)
+		m.Duration = &d
+	}
+	return m
+}
+
 // Issue represents a GitHub issue with the fields needed for metrics.
 type Issue struct {
 	Number    int

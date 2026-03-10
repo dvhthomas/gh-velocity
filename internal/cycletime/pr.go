@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -27,5 +26,5 @@ func (s *PRStrategy) Compute(_ context.Context, input Input) model.Metric {
 		return model.Metric{Start: start}
 	}
 	end := &model.Event{Time: *input.PR.MergedAt, Signal: model.SignalPRMerged}
-	return metrics.NewMetric(start, end)
+	return model.NewMetric(start, end)
 }

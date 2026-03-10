@@ -177,19 +177,19 @@ type CycleTimeConfig struct {
 
 ### Phase 3: Wire `cmd/cycletime.go` to Use Strategy
 
-- [ ] Replace the 50-line signal hierarchy in `runCycleTimeIssue()` with:
+- [x] Replace the 50-line signal hierarchy in `runCycleTimeIssue()` with:
 
 ```go
 strat := selectCycleTimeStrategy(deps)
 ct := strat.Compute(ctx, cycletime.Input{Issue: issue, PR: linkedPR, Commits: commits})
 ```
 
-- [ ] `selectCycleTimeStrategy()` reads config, respects `--pr` flag override
-- [ ] `--pr` flag behavior:
+- [x] `selectCycleTimeStrategy()` reads config, respects `--pr` flag override
+- [x] `--pr` flag behavior:
   - If `--pr N` is given (with a PR number), use PR strategy on that specific PR (existing behavior)
   - If issue number given and config says `pr`, need to find the linked PR for that issue. Add `Client.GetClosingPR(ctx, issueNumber) (*model.PR, error)` to `internal/github/` — extracts the ClosedEvent→PullRequest logic from the current `GetCycleStart` before removing it. This is a simple GraphQL query for `timelineItems(itemTypes: [CLOSED_EVENT])` filtering for PR closers.
-- [ ] Remove the signal hierarchy code entirely — each strategy is self-contained
-- [ ] Remove `GetCycleStart` calls from `cmd/cycletime.go` — only `ProjectBoardStrategy` uses `GetProjectStatus` internally
+- [x] Remove the signal hierarchy code entirely — each strategy is self-contained
+- [x] Remove `GetCycleStart` calls from `cmd/cycletime.go` — only `ProjectBoardStrategy` uses `GetProjectStatus` internally
 
 ### Phase 4: Wire Release Command to Use Strategy
 

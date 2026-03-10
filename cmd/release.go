@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	"github.com/bitsbyme/gh-velocity/internal/gitdata"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
@@ -64,9 +65,10 @@ func NewReleaseCmd() *cobra.Command {
 			input.BugLabels = deps.Config.Quality.BugLabels
 			input.FeatureLabels = deps.Config.Quality.FeatureLabels
 			input.HotfixWindowHours = deps.Config.Quality.HotfixWindowHours
+			input.CycleTimeStrategy = buildReleaseStrategy(deps, client)
 
 			// Compute metrics
-			rm, metricWarnings, err := metrics.BuildReleaseMetrics(input)
+			rm, metricWarnings, err := metrics.BuildReleaseMetrics(ctx, input)
 			if err != nil {
 				return err
 			}
@@ -169,6 +171,7 @@ func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Cl
 	// Collect issue numbers that need full data fetching.
 	issueCommits := make(map[int][]model.Commit)
 	knownIssues := make(map[int]*model.Issue)
+	linkedPRs := make(map[int]*model.PR)
 
 	for _, item := range scopeResult.Merged {
 		if item.Issue == nil {
@@ -180,6 +183,11 @@ func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Cl
 		// pr-link provides full issue data; commit-ref/changelog only have Number.
 		if item.Issue.Title != "" {
 			knownIssues[num] = item.Issue
+		}
+
+		// Track linked PRs for cycle-time PR strategy.
+		if item.PR != nil {
+			linkedPRs[num] = item.PR
 		}
 	}
 
@@ -217,9 +225,32 @@ func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Cl
 		PrevRelease:  prevRelease,
 		IssueCommits: issueCommits,
 		Issues:       issues,
+		LinkedPRs:    linkedPRs,
 		FetchErrors:  fetchErrors,
 	}
 	return input, warnings, nil
+}
+
+// buildReleaseStrategy creates the CycleTimeStrategy for release metrics.
+func buildReleaseStrategy(deps *Deps, client *gh.Client) cycletime.Strategy {
+	cfg := deps.Config
+	switch cfg.CycleTime.Strategy {
+	case "pr":
+		return &cycletime.PRStrategy{}
+	case "project-board":
+		backlog := cfg.Statuses.Backlog
+		if backlog == "" {
+			backlog = "Backlog"
+		}
+		return &cycletime.ProjectBoardStrategy{
+			Client:        client,
+			ProjectID:     cfg.Project.ID,
+			StatusFieldID: cfg.Project.StatusFieldID,
+			BacklogStatus: backlog,
+		}
+	default: // "issue"
+		return &cycletime.IssueStrategy{}
+	}
 }
 
 func findPreviousTag(tags []string, currentTag, sinceFlag string) string {
