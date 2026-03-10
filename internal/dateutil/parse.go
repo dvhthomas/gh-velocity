@@ -48,6 +48,16 @@ func Parse(s string, now time.Time) (time.Time, error) {
 	return t.UTC(), nil
 }
 
+// FormatContext produces a marker context string from since/until flag values.
+// For relative dates: "30d". For absolute: "2026-01-01..2026-02-01".
+// If until is empty, uses the since value alone.
+func FormatContext(since, until string) string {
+	if until == "" {
+		return since
+	}
+	return since + ".." + until
+}
+
 // MaxWindowDays is the maximum allowed date window to prevent expensive API queries.
 const MaxWindowDays = 90
 

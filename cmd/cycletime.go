@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/cycletime"
@@ -11,6 +12,7 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/spf13/cobra"
 )
 
@@ -134,7 +136,12 @@ func runCycleTimePR(cmd *cobra.Command, prNumber int) error {
 		}
 	}
 
-	return outputCycleTime(cmd, deps, ct, warnings, "PR", prNumber, pr.Title, pr.State)
+	return outputCycleTime(cmd, deps, client, posting.PostOptions{
+		Command: "cycle-time",
+		Context: "pr-" + strconv.Itoa(prNumber),
+		Target:  posting.PRComment,
+		Number:  prNumber,
+	}, ct, warnings, "PR", prNumber, pr.Title, pr.State)
 }
 
 // runCycleTimeIssue computes cycle time for an issue using the configured strategy.
@@ -176,7 +183,12 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 
 	ct := strat.Compute(ctx, input)
 
-	return outputCycleTime(cmd, deps, ct, warnings, "Issue", issueNumber, issue.Title, issue.State)
+	return outputCycleTime(cmd, deps, client, posting.PostOptions{
+		Command: "cycle-time",
+		Context: strconv.Itoa(issueNumber),
+		Target:  posting.IssueComment,
+		Number:  issueNumber,
+	}, ct, warnings, "Issue", issueNumber, issue.Title, issue.State)
 }
 
 // runCycleTimeBulk computes cycle time for all issues closed in a date window.
@@ -251,35 +263,51 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	stats := metrics.ComputeStats(durations)
 	repo := deps.Owner + "/" + deps.Repo
 
-	w := cmd.OutOrStdout()
+	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+		Command: "cycle-time",
+		Context: dateutil.FormatContext(sinceStr, untilStr),
+		Target:  posting.DiscussionTarget,
+	})
+
+	var fmtErr error
 	switch deps.Format {
 	case format.JSON:
-		return format.WriteCycleTimeBulkJSON(w, repo, since, until, deps.Config.CycleTime.Strategy, items, stats)
+		fmtErr = format.WriteCycleTimeBulkJSON(w, repo, since, until, deps.Config.CycleTime.Strategy, items, stats)
 	case format.Markdown:
-		return format.WriteCycleTimeBulkMarkdown(w, repo, since, until, deps.Config.CycleTime.Strategy, items, stats)
+		fmtErr = format.WriteCycleTimeBulkMarkdown(w, repo, since, until, deps.Config.CycleTime.Strategy, items, stats)
 	default:
-		return format.WriteCycleTimeBulkPretty(w, deps.IsTTY, deps.TermWidth, repo, since, until, deps.Config.CycleTime.Strategy, items, stats)
+		fmtErr = format.WriteCycleTimeBulkPretty(w, deps.IsTTY, deps.TermWidth, repo, since, until, deps.Config.CycleTime.Strategy, items, stats)
 	}
+	if fmtErr != nil {
+		return fmtErr
+	}
+	return postFn()
 }
 
-// outputCycleTime renders cycle-time results in the requested format.
-func outputCycleTime(cmd *cobra.Command, deps *Deps, ct model.Metric, warnings []string, kind string, number int, title, state string) error {
-	w := cmd.OutOrStdout()
+// outputCycleTime renders cycle-time results in the requested format and optionally posts.
+func outputCycleTime(cmd *cobra.Command, deps *Deps, client *gh.Client, postOpts posting.PostOptions, ct model.Metric, warnings []string, kind string, number int, title, state string) error {
+	w, postFn := postIfEnabled(cmd, deps, client, postOpts)
 	repo := deps.Owner + "/" + deps.Repo
 
 	for _, warn := range warnings {
 		log.Warn("%s", warn)
 	}
 
+	var fmtErr error
 	switch deps.Format {
 	case format.JSON:
 		if kind == "PR" {
-			return format.WriteCycleTimePRJSON(w, repo, number, title, state, ct, warnings)
+			fmtErr = format.WriteCycleTimePRJSON(w, repo, number, title, state, ct, warnings)
+		} else {
+			fmtErr = format.WriteCycleTimeJSON(w, repo, number, title, state, ct, warnings)
 		}
-		return format.WriteCycleTimeJSON(w, repo, number, title, state, ct, warnings)
 	case format.Markdown:
-		return format.WriteCycleTimeMarkdown(w, kind, number, title, ct)
+		fmtErr = format.WriteCycleTimeMarkdown(w, kind, number, title, ct)
 	default:
-		return format.WriteCycleTimePretty(w, kind, number, title, deps.Config.CycleTime.Strategy, ct)
+		fmtErr = format.WriteCycleTimePretty(w, kind, number, title, deps.Config.CycleTime.Strategy, ct)
 	}
+	if fmtErr != nil {
+		return fmtErr
+	}
+	return postFn()
 }

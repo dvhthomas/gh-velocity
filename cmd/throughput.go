@@ -7,6 +7,7 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/spf13/cobra"
 )
 
@@ -84,15 +85,25 @@ Default window is the last 30 days.`,
 				tp.PRsMerged = len(prs)
 			}
 
-			w := cmd.OutOrStdout()
+			w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+				Command: "throughput",
+				Context: dateutil.FormatContext(sinceFlag, untilFlag),
+				Target:  posting.DiscussionTarget,
+			})
+
+			var fmtErr error
 			switch deps.Format {
 			case format.JSON:
-				return format.WriteThroughputJSON(w, tp)
+				fmtErr = format.WriteThroughputJSON(w, tp)
 			case format.Markdown:
-				return format.WriteThroughputMarkdown(w, tp)
+				fmtErr = format.WriteThroughputMarkdown(w, tp)
 			default:
-				return format.WriteThroughputPretty(w, tp)
+				fmtErr = format.WriteThroughputPretty(w, tp)
 			}
+			if fmtErr != nil {
+				return fmtErr
+			}
+			return postFn()
 		},
 	}
 

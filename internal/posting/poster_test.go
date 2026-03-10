@@ -180,15 +180,15 @@ func TestCommentPoster_DifferentMarkerNotMatched(t *testing.T) {
 
 // mockDiscussionClient is a test double for DiscussionClient.
 type mockDiscussionClient struct {
-	discussions    []Discussion
-	searchErr      error
-	createErr      error
-	updateErr      error
-	createdTitles  []string
-	createdBodies  []string
-	updatedIDs     []string
-	updatedBodies  []string
-	createdURL     string
+	discussions   []Discussion
+	searchErr     error
+	createErr     error
+	updateErr     error
+	createdTitles []string
+	createdBodies []string
+	updatedIDs    []string
+	updatedBodies []string
+	createdURL    string
 }
 
 func (m *mockDiscussionClient) SearchDiscussions(_ context.Context, _ string, _ int) ([]Discussion, error) {

@@ -13,6 +13,7 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/bitsbyme/gh-velocity/internal/strategy"
 	"github.com/spf13/cobra"
 )
@@ -112,15 +113,25 @@ linking strategy discovered for the release.`,
 			warnings = append(warnings, metricWarnings...)
 
 			// Output
-			w := cmd.OutOrStdout()
+			w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+				Command: "release",
+				Context: tag,
+				Target:  posting.DiscussionTarget,
+			})
+
+			var fmtErr error
 			switch deps.Format {
 			case format.JSON:
-				return format.WriteReleaseJSON(w, deps.Owner+"/"+deps.Repo, rm, warnings)
+				fmtErr = format.WriteReleaseJSON(w, deps.Owner+"/"+deps.Repo, rm, warnings)
 			case format.Markdown:
-				return format.WriteReleaseMarkdown(w, rm, warnings)
+				fmtErr = format.WriteReleaseMarkdown(w, rm, warnings)
 			default:
-				return format.WriteReleasePretty(w, deps.IsTTY, deps.TermWidth, rm, warnings)
+				fmtErr = format.WriteReleasePretty(w, deps.IsTTY, deps.TermWidth, rm, warnings)
 			}
+			if fmtErr != nil {
+				return fmtErr
+			}
+			return postFn()
 		},
 	}
 

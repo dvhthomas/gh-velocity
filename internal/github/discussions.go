@@ -7,7 +7,7 @@ import (
 
 // Discussion represents a GitHub Discussion.
 type Discussion struct {
-	ID    string `json:"id"`    // GraphQL node ID
+	ID    string `json:"id"` // GraphQL node ID
 	Title string `json:"title"`
 	Body  string `json:"body"`
 	URL   string `json:"url"`

@@ -8,6 +8,7 @@ import (
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/spf13/cobra"
 )
 
@@ -94,15 +95,25 @@ unavailable.`,
 				BugLabels:         cfg.Quality.BugLabels,
 			})
 
-			w := cmd.OutOrStdout()
+			w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+				Command: "report",
+				Context: dateutil.FormatContext(sinceFlag, untilFlag),
+				Target:  posting.DiscussionTarget,
+			})
+
+			var fmtErr error
 			switch deps.Format {
 			case format.JSON:
-				return format.WriteReportJSON(w, result)
+				fmtErr = format.WriteReportJSON(w, result)
 			case format.Markdown:
-				return format.WriteReportMarkdown(w, result)
+				fmtErr = format.WriteReportMarkdown(w, result)
 			default:
-				return format.WriteReportPretty(w, deps.IsTTY, deps.TermWidth, result)
+				fmtErr = format.WriteReportPretty(w, deps.IsTTY, deps.TermWidth, result)
 			}
+			if fmtErr != nil {
+				return fmtErr
+			}
+			return postFn()
 		},
 	}
 
