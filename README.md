@@ -56,7 +56,8 @@ Not sure which project number to use? Run `gh velocity config discover -R owner/
 gh velocity
 ├── flow                              # How fast are we?
 │   ├── lead-time [<issue> | --since] # Created → closed
-│   └── cycle-time [<issue> | --pr N | --since]
+│   ├── cycle-time [<issue> | --pr N | --since]
+│   └── throughput [--since] [--until]
 │
 ├── quality                           # How good is our output?
 │   └── release <tag> [--since] [--scope]
@@ -94,6 +95,7 @@ gh velocity report -f markdown        # paste into an issue or PR
 | `--repo` | `-R` | Target repo as `owner/name` |
 | `--since` | | Start of date window or previous tag |
 | `--until` | | End of date window (default: now) |
+| `--debug` | | Print diagnostic info to stderr |
 
 ## What gets measured
 

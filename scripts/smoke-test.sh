@@ -194,10 +194,37 @@ out=$($BINARY flow --help 2>&1)
 show "$out"
 [[ "$out" == *"lead-time"* ]] && pass "flow help shows lead-time" || fail "flow help shows lead-time"
 [[ "$out" == *"cycle-time"* ]] && pass "flow help shows cycle-time" || fail "flow help shows cycle-time"
+[[ "$out" == *"throughput"* ]] && pass "flow help shows throughput" || fail "flow help shows throughput"
 
 out=$($BINARY status --help 2>&1)
 show "$out"
 [[ "$out" == *"wip"* ]] && pass "status help shows wip" || fail "status help shows wip"
+
+# ── flow throughput ───────────────────────────────────────────────
+echo ""
+echo "flow throughput (cli/cli --since 7d)"
+
+out=$($BINARY flow throughput --since 7d -R cli/cli 2>&1)
+show "$out"
+[[ "$out" == *"Throughput:"* ]] && pass "flow throughput pretty" || fail "flow throughput pretty"
+[[ "$out" == *"Issues closed:"* ]] && pass "flow throughput shows issues" || fail "flow throughput shows issues"
+
+out=$($BINARY flow throughput --since 7d -R cli/cli -f json 2>/dev/null)
+echo "$out" | jq '.total' 2>/dev/null | sed 's/^/    total: /'
+echo "$out" | jq -e '.issues_closed' >/dev/null 2>&1 && pass "flow throughput json" || fail "flow throughput json"
+
+out=$($BINARY flow throughput --since 7d -R cli/cli -f markdown 2>/dev/null)
+show "$out"
+[[ "$out" == *"## Throughput:"* ]] && pass "flow throughput markdown" || fail "flow throughput markdown"
+
+# ── debug flag ────────────────────────────────────────────────────
+echo ""
+echo "debug flag"
+
+out=$($BINARY flow lead-time 2 -R cli/cli --debug 2>&1)
+show "$out"
+[[ "$out" == *"[debug] repo:"* ]] && pass "debug shows repo" || fail "debug shows repo"
+[[ "$out" == *"[debug] config:"* ]] && pass "debug shows config" || fail "debug shows config"
 
 # ── config preflight ──────────────────────────────────────────────
 echo ""
@@ -228,6 +255,9 @@ out=$($BINARY report --help 2>&1)
 
 out=$($BINARY config preflight --help 2>&1)
 [[ "$out" == *"Examples:"* ]] && pass "preflight has examples" || fail "preflight has examples"
+
+out=$($BINARY flow throughput --help 2>&1)
+[[ "$out" == *"Examples:"* ]] && pass "throughput has examples" || fail "throughput has examples"
 
 # ── error cases ────────────────────────────────────────────────────
 echo ""
