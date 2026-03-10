@@ -495,14 +495,14 @@ At 5,000 REST calls/hour: supports ~225 runs/hour.
 
 **Goal:** User-defined classification categories replace fixed bug/feature/other.
 
-- [ ] Create `internal/classify/classify.go` — `Classifier`, `ParseMatcher()`, matcher types
-- [ ] Write `internal/classify/classify_test.go` — table-driven tests for each matcher type
-- [ ] Add `Categories` field to `QualityConfig` in config
-- [ ] Implement backward compatibility: auto-generate categories from `bug_labels`/`feature_labels`
-- [ ] Add `--bug-match`, `--feature-match`, `--category` inline flags to root command
-- [ ] Update `metrics.BuildReleaseMetrics()` to use `Classifier` instead of label arrays
-- [ ] Update release and scope output to show user-defined categories (not just bug/feature/other)
-- [ ] Run `task test` and `task quality`
+- [x] Create `internal/classify/classify.go` — `Classifier`, `ParseMatcher()`, matcher types
+- [x] Write `internal/classify/classify_test.go` — table-driven tests for each matcher type
+- [x] Add `Categories` field to `QualityConfig` in config
+- [x] Implement backward compatibility: auto-generate categories from `bug_labels`/`feature_labels`
+- [x] ~~Add `--bug-match`, `--feature-match`, `--category` inline flags to root command~~ (skipped — config-only)
+- [x] Update `metrics.BuildReleaseMetrics()` to use `Classifier` instead of label arrays
+- [x] Update release and scope output to show user-defined categories (not just bug/feature/other)
+- [x] Run `task test` and `task quality`
 
 **Success criteria:**
 - Custom categories in config are evaluated correctly

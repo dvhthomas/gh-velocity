@@ -82,9 +82,14 @@ type JSONReleaseOutput struct {
 }
 
 type JSONComposition struct {
-	TotalIssues    int                `json:"total_issues"`
-	CategoryCounts map[string]int     `json:"category_counts"`
-	CategoryRatios map[string]float64 `json:"category_ratios"`
+	TotalIssues int                       `json:"total_issues"`
+	Categories  []JSONCategoryComposition `json:"categories"`
+}
+
+type JSONCategoryComposition struct {
+	Name  string  `json:"name"`
+	Count int     `json:"count"`
+	Ratio float64 `json:"ratio"`
 }
 
 type JSONIssueMetrics struct {
@@ -164,10 +169,13 @@ func WriteCycleTimePRJSON(w io.Writer, repo string, prNumber int, title, state s
 
 // WriteReleaseJSON writes release metrics as JSON to the writer.
 func WriteReleaseJSON(w io.Writer, repo string, rm model.ReleaseMetrics, warnings []string) error {
-	comp := JSONComposition{
-		TotalIssues:    rm.TotalIssues,
-		CategoryCounts: rm.CategoryCounts,
-		CategoryRatios: rm.CategoryRatios,
+	comp := JSONComposition{TotalIssues: rm.TotalIssues}
+	for _, name := range rm.CategoryNames {
+		comp.Categories = append(comp.Categories, JSONCategoryComposition{
+			Name:  name,
+			Count: rm.CategoryCounts[name],
+			Ratio: rm.CategoryRatios[name],
+		})
 	}
 
 	out := JSONReleaseOutput{

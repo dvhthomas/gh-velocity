@@ -73,11 +73,12 @@ func TestWriteReleaseJSON(t *testing.T) {
 	rm := model.ReleaseMetrics{
 		Tag:            "v1.0.0",
 		PreviousTag:    "v0.9.0",
-		Date:           now,
+		Date:           time.Date(2026, 3, 9, 0, 0, 0, 0, time.UTC),
 		Cadence:        &cadence,
 		TotalIssues:    1,
-		CategoryCounts: map[string]int{"feature": 1},
-		CategoryRatios: map[string]float64{"feature": 1.0},
+		CategoryNames:  []string{"bug", "feature", "other"},
+		CategoryCounts: map[string]int{"bug": 0, "feature": 1, "other": 0},
+		CategoryRatios: map[string]float64{"bug": 0, "feature": 1.0, "other": 0},
 		Issues: []model.IssueMetrics{
 			{
 				Issue:       model.Issue{Number: 1, Title: "Add feature"},

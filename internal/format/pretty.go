@@ -3,7 +3,6 @@ package format
 import (
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 
 	"github.com/bitsbyme/gh-velocity/internal/model"
@@ -27,10 +26,9 @@ func WriteReleasePretty(w io.Writer, isTTY bool, width int, rm model.ReleaseMetr
 
 	// Composition
 	fmt.Fprintln(w, "Composition")
-	cats := sortedCategories(rm.CategoryCounts)
-	for _, cat := range cats {
-		ratio := rm.CategoryRatios[cat]
-		fmt.Fprintf(w, "  %-10s %d (%.0f%%)\n", cat+":", rm.CategoryCounts[cat], ratio*100)
+	for _, name := range rm.CategoryNames {
+		label := strings.ToUpper(name[:1]) + name[1:] + ":"
+		fmt.Fprintf(w, "  %-10s %d (%.0f%%)\n", label, rm.CategoryCounts[name], rm.CategoryRatios[name]*100)
 	}
 	fmt.Fprintf(w, "  Total:     %d\n\n", rm.TotalIssues)
 
@@ -79,25 +77,6 @@ func WriteReleasePretty(w io.Writer, isTTY bool, width int, rm model.ReleaseMetr
 	}
 
 	return nil
-}
-
-// sortedCategories returns category names in a stable order: "other" last,
-// rest alphabetical.
-func sortedCategories(counts map[string]int) []string {
-	cats := make([]string, 0, len(counts))
-	for cat := range counts {
-		cats = append(cats, cat)
-	}
-	sort.Slice(cats, func(i, j int) bool {
-		if cats[i] == "other" {
-			return false
-		}
-		if cats[j] == "other" {
-			return true
-		}
-		return cats[i] < cats[j]
-	})
-	return cats
 }
 
 func writePrettyStatsRow(tp tableprinter.TablePrinter, name string, s model.Stats) {

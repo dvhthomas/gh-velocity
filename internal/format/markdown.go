@@ -28,8 +28,9 @@ func WriteReleaseMarkdown(w io.Writer, rm model.ReleaseMetrics, warnings []strin
 	b.WriteString("### Composition\n\n")
 	b.WriteString("| Category | Count | Ratio |\n")
 	b.WriteString("| --- | ---: | ---: |\n")
-	for _, cat := range sortedCategories(rm.CategoryCounts) {
-		b.WriteString(fmt.Sprintf("| %s | %d | %.0f%% |\n", cat, rm.CategoryCounts[cat], rm.CategoryRatios[cat]*100))
+	for _, name := range rm.CategoryNames {
+		label := strings.ToUpper(name[:1]) + name[1:]
+		b.WriteString(fmt.Sprintf("| %s | %d | %.0f%% |\n", label, rm.CategoryCounts[name], rm.CategoryRatios[name]*100))
 	}
 	b.WriteString(fmt.Sprintf("| **Total** | **%d** | |\n\n", rm.TotalIssues))
 

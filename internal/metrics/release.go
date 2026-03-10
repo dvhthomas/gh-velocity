@@ -20,7 +20,7 @@ type ReleaseInput struct {
 	Issues            map[int]*model.Issue // successfully fetched issues
 	LinkedPRs         map[int]*model.PR    // issue number → linked PR (may be nil)
 	FetchErrors       map[int]error        // issues that failed to fetch
-	Classifier        *classify.Classifier // nil = no classification
+	Classifier        *classify.Classifier
 	HotfixWindowHours float64
 	CycleTimeStrategy cycletime.Strategy // nil falls back to commit-based default
 }
@@ -96,29 +96,38 @@ func BuildReleaseMetrics(ctx context.Context, input ReleaseInput) (model.Release
 		issueMetrics = append(issueMetrics, im)
 	}
 
-	// Classification: assign categories and compute counts/ratios.
-	categoryCounts := make(map[string]int)
-	for i := range issueMetrics {
-		if input.Classifier != nil {
-			issueMetrics[i].Category = input.Classifier.Classify(issueMetrics[i].Issue)
-		} else {
-			issueMetrics[i].Category = "other"
-		}
-		categoryCounts[issueMetrics[i].Category]++
+	// Classify each issue using the flexible classifier
+	catNames := append(input.Classifier.CategoryNames(), "other")
+	categoryCounts := make(map[string]int, len(catNames))
+	for _, name := range catNames {
+		categoryCounts[name] = 0
 	}
 
 	total := len(issueMetrics)
-	categoryRatios := make(map[string]float64)
+	for i, im := range issueMetrics {
+		ci := classify.Input{
+			Labels:    im.Issue.Labels,
+			IssueType: "", // TODO: populate when Issue model gains IssueType
+			Title:     im.Issue.Title,
+		}
+		result := input.Classifier.Classify(ci)
+		issueMetrics[i].Category = result.Category
+		categoryCounts[result.Category]++
+		for _, w := range result.Warnings {
+			warnings = append(warnings, fmt.Sprintf("issue #%d: %s", im.Issue.Number, w))
+		}
+	}
+
+	categoryRatios := make(map[string]float64, len(catNames))
 	if total > 0 {
 		ft := float64(total)
-		for cat, count := range categoryCounts {
-			categoryRatios[cat] = float64(count) / ft
+		for _, name := range catNames {
+			categoryRatios[name] = float64(categoryCounts[name]) / ft
 		}
 
-		// Low classification coverage warning
-		otherCount := categoryCounts["other"]
-		if float64(otherCount)/ft > 0.5 {
-			warnings = append(warnings, fmt.Sprintf("Low label coverage: %d/%d issues classified as \"other\"", otherCount, total))
+		// Low label coverage warning: "other" means unclassified
+		if float64(categoryCounts["other"])/ft > 0.5 {
+			warnings = append(warnings, fmt.Sprintf("Low classification coverage: %d/%d issues are unclassified", categoryCounts["other"], total))
 		}
 	}
 
@@ -150,6 +159,7 @@ func BuildReleaseMetrics(ctx context.Context, input ReleaseInput) (model.Release
 		IsHotfix:        isHotfix,
 		Issues:          issueMetrics,
 		TotalIssues:     total,
+		CategoryNames:   catNames,
 		CategoryCounts:  categoryCounts,
 		CategoryRatios:  categoryRatios,
 		LeadTimeStats:   ltStats,

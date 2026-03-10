@@ -62,6 +62,12 @@ func newConfigShowCmd() *cobra.Command {
 			fmt.Fprintf(w, "quality.bug_labels:          %v\n", cfg.Quality.BugLabels)
 			fmt.Fprintf(w, "quality.feature_labels:      %v\n", cfg.Quality.FeatureLabels)
 			fmt.Fprintf(w, "quality.hotfix_window_hours:  %g\n", cfg.Quality.HotfixWindowHours)
+			if len(cfg.Quality.Categories) > 0 {
+				fmt.Fprintf(w, "quality.categories:\n")
+				for _, cat := range cfg.Quality.Categories {
+					fmt.Fprintf(w, "  - %s: %v\n", cat.Name, cat.Matchers)
+				}
+			}
 			fmt.Fprintf(w, "discussions.category_id:     %s\n", cfg.Discussions.CategoryID)
 			fmt.Fprintf(w, "cycle_time.strategy:         %s\n", cfg.CycleTime.Strategy)
 			return nil

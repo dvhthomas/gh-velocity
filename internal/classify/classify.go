@@ -1,6 +1,5 @@
-// Package classify provides flexible issue classification using user-defined
-// categories and matchers. Each category has one or more matchers; the first
-// matching category wins.
+// Package classify provides flexible issue/PR classification with user-defined
+// categories and multiple matcher types (label, type, title regex).
 package classify
 
 import (
@@ -11,18 +10,116 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
-// Matcher tests whether an issue belongs to a category.
-type Matcher interface {
-	Matches(issue model.Issue) bool
+// Input holds the fields available for classification matching.
+type Input struct {
+	Labels    []string // issue or PR labels
+	IssueType string   // GitHub Issue Type (from GraphQL)
+	Title     string   // issue or PR title
 }
 
-// LabelMatcher matches issues that have a specific label (case-insensitive).
+// Matcher tests whether an input matches a classification rule.
+type Matcher interface {
+	Matches(input Input) bool
+}
+
+// Classifier evaluates items against ordered category rules.
+// Categories are evaluated in order; first match wins. Unmatched items
+// are classified as "other".
+type Classifier struct {
+	categories []model.CategoryConfig
+	matchers   [][]Matcher // parsed matchers per category, same index as categories
+}
+
+// NewClassifier creates a Classifier from category configs. Returns an error
+// if any matcher string is malformed.
+func NewClassifier(categories []model.CategoryConfig) (*Classifier, error) {
+	c := &Classifier{
+		categories: categories,
+		matchers:   make([][]Matcher, len(categories)),
+	}
+	for i, cat := range categories {
+		for _, s := range cat.Matchers {
+			m, err := ParseMatcher(s)
+			if err != nil {
+				return nil, fmt.Errorf("category %q: %w", cat.Name, err)
+			}
+			c.matchers[i] = append(c.matchers[i], m)
+		}
+	}
+	return c, nil
+}
+
+// ClassifyResult holds a classification outcome and any warnings.
+type ClassifyResult struct {
+	Category string
+	Warnings []string
+}
+
+// Classify returns the category name for the given input.
+// Returns "other" if no category matches. If the input matches multiple
+// categories, the first match wins and a warning is included.
+func (c *Classifier) Classify(input Input) ClassifyResult {
+	var matched []string
+	for i, ms := range c.matchers {
+		for _, m := range ms {
+			if m.Matches(input) {
+				matched = append(matched, c.categories[i].Name)
+				break // one match per category is enough
+			}
+		}
+	}
+
+	if len(matched) == 0 {
+		return ClassifyResult{Category: "other"}
+	}
+
+	result := ClassifyResult{Category: matched[0]}
+	if len(matched) > 1 {
+		result.Warnings = append(result.Warnings,
+			fmt.Sprintf("matches multiple categories %v — classified as %q (first match)", matched, matched[0]))
+	}
+	return result
+}
+
+// CategoryNames returns the ordered list of category names (excluding "other").
+func (c *Classifier) CategoryNames() []string {
+	names := make([]string, len(c.categories))
+	for i, cat := range c.categories {
+		names[i] = cat.Name
+	}
+	return names
+}
+
+// ParseMatcher parses a matcher string into a Matcher implementation.
+// Supported formats:
+//   - "label:<name>"   — case-insensitive label match
+//   - "type:<name>"    — exact match on GitHub Issue Type
+//   - "title:/<regex>/<flags>" — regex match on title (flag: i = case-insensitive)
+func ParseMatcher(s string) (Matcher, error) {
+	prefix, value, ok := strings.Cut(s, ":")
+	if !ok || value == "" {
+		return nil, fmt.Errorf("invalid matcher %q: expected format \"label:<name>\", \"type:<name>\", or \"title:/<regex>/\"", s)
+	}
+
+	switch prefix {
+	case "label":
+		return LabelMatcher{Label: value}, nil
+	case "type":
+		return TypeMatcher{Type: value}, nil
+	case "title":
+		return parseTitleMatcher(value)
+	default:
+		return nil, fmt.Errorf("unknown matcher type %q in %q: expected \"label\", \"type\", or \"title\"", prefix, s)
+	}
+}
+
+// LabelMatcher matches issues/PRs that have a specific label (case-insensitive).
 type LabelMatcher struct {
 	Label string
 }
 
-func (m LabelMatcher) Matches(issue model.Issue) bool {
-	for _, l := range issue.Labels {
+func (m LabelMatcher) Matches(input Input) bool {
+	for _, l := range input.Labels {
 		if strings.EqualFold(l, m.Label) {
 			return true
 		}
@@ -30,91 +127,72 @@ func (m LabelMatcher) Matches(issue model.Issue) bool {
 	return false
 }
 
-// TitleMatcher matches issues whose title matches a compiled regex.
+// TypeMatcher matches issues with a specific GitHub Issue Type (exact match).
+type TypeMatcher struct {
+	Type string
+}
+
+func (m TypeMatcher) Matches(input Input) bool {
+	return input.IssueType == m.Type
+}
+
+// TitleMatcher matches issues/PRs whose title matches a regex.
 type TitleMatcher struct {
 	Pattern *regexp.Regexp
 }
 
-func (m TitleMatcher) Matches(issue model.Issue) bool {
-	return m.Pattern.MatchString(issue.Title)
+func (m TitleMatcher) Matches(input Input) bool {
+	return m.Pattern.MatchString(input.Title)
 }
 
-// ParseMatcher parses a matcher string like "label:bug" or "title:/regex/i".
-func ParseMatcher(s string) (Matcher, error) {
-	prefix, value, ok := strings.Cut(s, ":")
-	if !ok || value == "" {
-		return nil, fmt.Errorf("invalid matcher %q: expected \"type:value\"", s)
+// parseTitleMatcher parses a regex pattern like "/regex/" or "/regex/i".
+func parseTitleMatcher(value string) (Matcher, error) {
+	if !strings.HasPrefix(value, "/") {
+		return nil, fmt.Errorf("title matcher must be a regex like \"/pattern/\" or \"/pattern/i\", got %q", value)
 	}
 
-	switch prefix {
-	case "label":
-		return LabelMatcher{Label: value}, nil
-	case "title":
-		re, err := parseRegex(value)
-		if err != nil {
-			return nil, fmt.Errorf("invalid title matcher %q: %w", s, err)
-		}
-		return TitleMatcher{Pattern: re}, nil
-	default:
-		return nil, fmt.Errorf("unknown matcher type %q in %q", prefix, s)
+	// Find the closing slash
+	lastSlash := strings.LastIndex(value[1:], "/")
+	if lastSlash < 0 {
+		return nil, fmt.Errorf("title matcher missing closing /: %q", value)
 	}
-}
+	lastSlash++ // adjust for the offset from value[1:]
 
-// parseRegex parses a regex string, supporting /pattern/flags syntax.
-func parseRegex(s string) (*regexp.Regexp, error) {
-	if strings.HasPrefix(s, "/") {
-		// Find the last "/" for flags.
-		lastSlash := strings.LastIndex(s[1:], "/")
-		if lastSlash == -1 {
-			return nil, fmt.Errorf("unterminated regex: missing closing /")
-		}
-		pattern := s[1 : lastSlash+1]
-		flags := s[lastSlash+2:]
-		if strings.Contains(flags, "i") {
-			pattern = "(?i)" + pattern
-		}
-		return regexp.Compile(pattern)
+	pattern := value[1:lastSlash]
+	flags := value[lastSlash+1:]
+
+	if strings.Contains(flags, "i") {
+		pattern = "(?i)" + pattern
 	}
-	return regexp.Compile(s)
-}
 
-// Classifier assigns categories to issues based on configured matchers.
-type Classifier struct {
-	// Categories in order of evaluation. First match wins.
-	categories []category
-}
-
-type category struct {
-	Name     string
-	Matchers []Matcher
-}
-
-// New creates a Classifier from a categories map (category name → matcher strings).
-// Returns an error if any matcher string is invalid.
-func New(cats map[string][]string) (*Classifier, error) {
-	c := &Classifier{}
-	for name, matcherStrs := range cats {
-		var matchers []Matcher
-		for _, s := range matcherStrs {
-			m, err := ParseMatcher(s)
-			if err != nil {
-				return nil, fmt.Errorf("category %q: %w", name, err)
-			}
-			matchers = append(matchers, m)
-		}
-		c.categories = append(c.categories, category{Name: name, Matchers: matchers})
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, fmt.Errorf("invalid title regex %q: %w", value, err)
 	}
-	return c, nil
+
+	return TitleMatcher{Pattern: re}, nil
 }
 
-// Classify returns the first matching category name, or "other" if none match.
-func (c *Classifier) Classify(issue model.Issue) string {
-	for _, cat := range c.categories {
-		for _, m := range cat.Matchers {
-			if m.Matches(issue) {
-				return cat.Name
-			}
+// FromLegacyLabels creates category configs from the legacy bug_labels/feature_labels
+// config format. This provides backward compatibility.
+func FromLegacyLabels(bugLabels, featureLabels []string) []model.CategoryConfig {
+	var categories []model.CategoryConfig
+
+	if len(bugLabels) > 0 {
+		matchers := make([]string, len(bugLabels))
+		for i, l := range bugLabels {
+			matchers[i] = "label:" + l
 		}
+		categories = append(categories, model.CategoryConfig{Name: "bug", Matchers: matchers})
 	}
-	return "other"
+
+	if len(featureLabels) > 0 {
+		matchers := make([]string, len(featureLabels))
+		for i, l := range featureLabels {
+			matchers[i] = "label:" + l
+		}
+		categories = append(categories, model.CategoryConfig{Name: "feature", Matchers: matchers})
+	}
+
+	return categories
 }

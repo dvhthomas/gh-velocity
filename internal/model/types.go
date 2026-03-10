@@ -104,8 +104,9 @@ type ReleaseMetrics struct {
 	Date            time.Time
 	Issues          []IssueMetrics
 	TotalIssues     int
-	CategoryCounts  map[string]int     // dynamic category counts
-	CategoryRatios  map[string]float64 // dynamic category ratios
+	CategoryNames   []string           // ordered category names (e.g., ["bug", "feature", "other"])
+	CategoryCounts  map[string]int     // category name -> count
+	CategoryRatios  map[string]float64 // category name -> ratio
 	Cadence         *time.Duration     // time since previous release
 	IsHotfix        bool
 	LeadTimeStats   Stats
@@ -137,8 +138,8 @@ type ScopeResult struct {
 
 // CategoryConfig defines a user-defined classification category.
 type CategoryConfig struct {
-	Name     string   // e.g., "bug", "feature", "regression"
-	Matchers []string // e.g., ["label:bug", "type:Bug", "title:/fix/i"]
+	Name     string   `yaml:"name" json:"name"`   // e.g., "bug", "feature", "regression"
+	Matchers []string `yaml:"match" json:"match"` // e.g., ["label:bug", "type:Bug", "title:/fix/i"]
 }
 
 // Stats holds aggregate statistics for a set of durations.
