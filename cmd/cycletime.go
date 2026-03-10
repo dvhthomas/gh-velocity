@@ -209,20 +209,42 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 
 	strat, _ := buildStrategy(ctx, deps, client, 0)
 
+	// For PR strategy, bulk-fetch closing PRs to avoid N+1 API calls.
+	// Uses SearchMergedPRs + FetchPRLinkedIssues (batched) instead of per-issue GetClosingPR.
+	closingPRs := make(map[int]*model.PR) // issue number → closing PR
+	if deps.Config.CycleTime.Strategy == "pr" {
+		mergedPRs, prErr := client.SearchMergedPRs(ctx, since, until)
+		if prErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not search merged PRs: %v\n", prErr)
+		} else if len(mergedPRs) > 0 {
+			prNumbers := make([]int, len(mergedPRs))
+			prMap := make(map[int]*model.PR)
+			for i, pr := range mergedPRs {
+				prNumbers[i] = pr.Number
+				prCopy := pr
+				prMap[pr.Number] = &prCopy
+			}
+			linkedIssues, linkErr := client.FetchPRLinkedIssues(ctx, prNumbers)
+			if linkErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: could not fetch PR linked issues: %v\n", linkErr)
+			} else {
+				for prNum, issues := range linkedIssues {
+					for _, issue := range issues {
+						closingPRs[issue.Number] = prMap[prNum]
+					}
+				}
+			}
+		}
+	}
+
 	var items []format.BulkCycleTimeItem
 	var durations []time.Duration
 
 	for _, issue := range issues {
 		input := cycletime.Input{Issue: &issue}
 
-		// For PR strategy, find the closing PR per issue.
-		if deps.Config.CycleTime.Strategy == "pr" {
-			pr, prErr := client.GetClosingPR(ctx, issue.Number)
-			if prErr != nil {
-				fmt.Fprintf(os.Stderr, "warning: issue #%d: could not find closing PR: %v\n", issue.Number, prErr)
-			} else if pr != nil {
-				input.PR = pr
-			}
+		if pr, ok := closingPRs[issue.Number]; ok {
+			input.PR = pr
 		}
 
 		ct := strat.Compute(ctx, input)
