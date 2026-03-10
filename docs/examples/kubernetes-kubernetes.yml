@@ -1,0 +1,18 @@
+# gh-velocity config for kubernetes/kubernetes
+#
+# Massive monorepo with SIG-based labels and kind/* classification.
+# Good example of: granular bug/feature labels using Kubernetes conventions.
+#
+# Usage:
+#   gh velocity release v1.32.0 --since v1.31.0 -R kubernetes/kubernetes --config docs/examples/kubernetes-kubernetes.yml
+
+workflow: pr
+
+statuses:
+  backlog_labels: ["priority/backlog", "lifecycle/frozen"]
+  active_labels: ["priority/critical-urgent", "priority/important-soon"]
+
+quality:
+  bug_labels: ["kind/bug"]
+  feature_labels: ["kind/feature", "kind/api-change"]
+  hotfix_window_hours: 24

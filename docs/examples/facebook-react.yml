@@ -1,0 +1,18 @@
+# gh-velocity config for facebook/react
+#
+# Uses "Type:" prefixed labels for classification.
+# Good example of: non-standard label naming conventions.
+#
+# Usage:
+#   gh velocity release v19.1.0 --since v19.0.0 -R facebook/react --config docs/examples/facebook-react.yml
+
+workflow: pr
+
+statuses:
+  backlog_labels: ["Status: Unconfirmed"]
+  active_labels: ["Status: New"]
+
+quality:
+  bug_labels: ["Type: Bug", "Type: Regression"]
+  feature_labels: ["Type: Enhancement", "Type: Feature Request"]
+  hotfix_window_hours: 24

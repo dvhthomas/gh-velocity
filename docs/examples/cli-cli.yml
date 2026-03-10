@@ -1,0 +1,21 @@
+# gh-velocity config for cli/cli (GitHub CLI)
+#
+# Label-based workflow — no Projects v2, uses labels for status tracking.
+# Good example of: active_labels, backlog_labels, commit_ref patterns.
+#
+# Usage:
+#   gh velocity release v2.65.0 --since v2.64.0 -R cli/cli --config docs/examples/cli-cli.yml
+
+workflow: pr
+
+statuses:
+  backlog_labels: ["needs-design", "needs-investigation"]
+  active_labels: ["core"]
+
+quality:
+  bug_labels: ["bug"]
+  feature_labels: ["enhancement"]
+  hotfix_window_hours: 48
+
+commit_ref:
+  patterns: ["closes"]

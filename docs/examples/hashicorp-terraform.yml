@@ -1,0 +1,17 @@
+# gh-velocity config for hashicorp/terraform
+#
+# Infrastructure tool with standard label conventions.
+# Good example of: simple label-only classification, no active_labels.
+#
+# Usage:
+#   gh velocity release v1.11.0 --since v1.10.0 -R hashicorp/terraform --config docs/examples/hashicorp-terraform.yml
+
+workflow: pr
+
+statuses:
+  backlog_labels: ["pending-decision"]
+
+quality:
+  bug_labels: ["bug", "crash"]
+  feature_labels: ["enhancement"]
+  hotfix_window_hours: 48

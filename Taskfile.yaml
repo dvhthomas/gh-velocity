@@ -77,6 +77,12 @@ tasks:
     cmds:
       - bash scripts/smoke-test.sh
 
+  e2e:configs:
+    desc: Run E2E tests with example configs against real OSS repos
+    deps: [build]
+    cmds:
+      - bash scripts/e2e-configs.sh
+
   test:integration:
     desc: Run integration tests using the installed gh velocity extension
     deps: [install]
