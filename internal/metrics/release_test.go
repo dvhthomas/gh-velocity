@@ -14,11 +14,11 @@ import (
 
 func TestBuildReleaseMetrics_Empty(t *testing.T) {
 	input := ReleaseInput{
-		Tag:           "v1.0.0",
-		Release:       model.Release{TagName: "v1.0.0", CreatedAt: time.Now()},
-		IssueCommits:  map[int][]model.Commit{},
-		Issues:        map[int]*model.Issue{},
-		FetchErrors:   map[int]error{},
+		Tag:          "v1.0.0",
+		Release:      model.Release{TagName: "v1.0.0", CreatedAt: time.Now()},
+		IssueCommits: map[int][]model.Commit{},
+		Issues:       map[int]*model.Issue{},
+		FetchErrors:  map[int]error{},
 	}
 
 	rm, warnings, err := BuildReleaseMetrics(context.Background(), input)
@@ -228,11 +228,11 @@ func TestBuildReleaseMetrics_LowLabelCoverageWarning(t *testing.T) {
 	}
 
 	input := ReleaseInput{
-		Tag:           "v1.0.0",
-		Release:       model.Release{TagName: "v1.0.0", CreatedAt: now},
-		IssueCommits:  issueCommits,
-		Issues:        issues,
-		FetchErrors:   map[int]error{},
+		Tag:          "v1.0.0",
+		Release:      model.Release{TagName: "v1.0.0", CreatedAt: now},
+		IssueCommits: issueCommits,
+		Issues:       issues,
+		FetchErrors:  map[int]error{},
 	}
 
 	_, warnings, err := BuildReleaseMetrics(context.Background(), input)
@@ -316,11 +316,11 @@ func TestBuildReleaseMetrics_OpenIssueNoLeadTime(t *testing.T) {
 	}
 
 	input := ReleaseInput{
-		Tag:           "v1.0.0",
-		Release:       model.Release{TagName: "v1.0.0", CreatedAt: now},
-		IssueCommits:  issueCommits,
-		Issues:        issues,
-		FetchErrors:   map[int]error{},
+		Tag:          "v1.0.0",
+		Release:      model.Release{TagName: "v1.0.0", CreatedAt: now},
+		IssueCommits: issueCommits,
+		Issues:       issues,
+		FetchErrors:  map[int]error{},
 	}
 
 	rm, _, err := BuildReleaseMetrics(context.Background(), input)

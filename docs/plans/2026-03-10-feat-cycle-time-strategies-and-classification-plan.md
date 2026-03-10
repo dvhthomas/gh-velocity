@@ -1,7 +1,7 @@
 ---
 title: "feat: Cycle-Time Strategies & Flexible Classification"
 type: feat
-status: active
+status: completed
 date: 2026-03-10
 brainstorm: docs/brainstorms/2026-03-10-cycle-time-strategies-and-classification-brainstorm.md
 related_issue: https://github.com/dvhthomas/gh-velocity/issues/2
@@ -194,7 +194,7 @@ ct := strat.Compute(ctx, cycletime.Input{Issue: issue, PR: linkedPR, Commits: co
 ### Phase 4: Wire Release Command to Use Strategy
 
 - [x] `BuildReleaseMetrics()` receives the strategy name (or the Strategy itself) as part of `ReleaseInput`
-- [ ] For each issue in the release, compute cycle time using the uniform strategy:
+- [x] For each issue in the release, compute cycle time using the uniform strategy:
 
 ```go
 for _, item := range input.Items {
@@ -221,9 +221,9 @@ The spec-flow analysis identified that `strategy.Merge()` discards commits from 
 
 ### Phase 6: Flexible Classification — `internal/classify/`
 
-- [ ] Create `internal/classify/` package
-- [ ] `Classifier` struct holds parsed matchers per category
-- [ ] `ParseMatcher(s string) (Matcher, error)` — parses `label:bug`, `type:Bug`, `title:/regex/i`
+- [x] Create `internal/classify/` package
+- [x] `Classifier` struct holds parsed matchers per category
+- [x] `ParseMatcher(s string) (Matcher, error)` — parses `label:bug`, `type:Bug`, `title:/regex/i`
 - [ ] Matcher interface:
 
 ```go
@@ -232,18 +232,18 @@ type Matcher interface {
 }
 ```
 
-- [ ] `LabelMatcher` — case-insensitive label check
-- [ ] `TypeMatcher` — matches GitHub Issue Type (requires Issue.Type field — see Phase 7). Note: Issue Types are a newer GitHub feature. REST API support may be limited; may need GraphQL `issueType { name }` field. If REST doesn't expose it, defer `type:` matcher to a follow-up and document the limitation.
-- [ ] `TitleMatcher` — compiled regex on issue title
-- [ ] `Classifier.Classify(issue model.Issue) string` — returns first matching category name, or "other"
-- [ ] Validate matchers at config load time (invalid regex → exit code 2)
-- [ ] Table-driven tests for each matcher type
+- [x] `LabelMatcher` — case-insensitive label check
+- [ ] `TypeMatcher` — matches GitHub Issue Type (deferred: REST API doesn't expose Issue Types; needs GraphQL `issueType { name }`)
+- [x] `TitleMatcher` — compiled regex on issue title
+- [x] `Classifier.Classify(issue model.Issue) string` — returns first matching category name, or "other"
+- [x] Validate matchers at config load time (invalid regex → exit code 2)
+- [x] Table-driven tests for each matcher type
 
 **Similar patterns:** `internal/strategy/commitref.go` (regex-based matching on commit messages)
 
 ### Phase 7: Config — Categories
 
-- [ ] Add `Categories` field to `QualityConfig`:
+- [x] Add `Categories` field to `QualityConfig`:
 
 ```go
 type QualityConfig struct {
@@ -254,7 +254,7 @@ type QualityConfig struct {
 }
 ```
 
-- [ ] Backward compatibility: when `categories` is absent, auto-generate from `bug_labels`/`feature_labels`:
+- [x] Backward compatibility: when `categories` is absent, auto-generate from `bug_labels`/`feature_labels`:
 
 ```go
 if len(cfg.Quality.Categories) == 0 {
@@ -265,11 +265,11 @@ if len(cfg.Quality.Categories) == 0 {
 }
 ```
 
-- [ ] Add `Type` field to `model.Issue` for `type:` matcher. GitHub Issue Types may require GraphQL (`issueType { name }`). Check REST API first — if `type` field is not available, either add a GraphQL call to `GetIssue` or defer the `type:` matcher. `label:` and `title:` matchers work without this.
+- [ ] Add `Type` field to `model.Issue` for `type:` matcher. (Deferred: GitHub Issue Types need GraphQL. `label:` and `title:` matchers work without this.)
 
 ### Phase 8: Wire Classification into Release Metrics
 
-- [ ] Replace `BugCount`/`FeatureCount`/`OtherCount`/`BugRatio`/`FeatureRatio`/`OtherRatio` in `ReleaseMetrics` with dynamic categories:
+- [x] Replace `BugCount`/`FeatureCount`/`OtherCount`/`BugRatio`/`FeatureRatio`/`OtherRatio` in `ReleaseMetrics` with dynamic categories:
 
 ```go
 type ReleaseMetrics struct {
@@ -280,35 +280,33 @@ type ReleaseMetrics struct {
 }
 ```
 
-- [ ] `BuildReleaseMetrics()` takes a `*classify.Classifier` instead of `BugLabels`/`FeatureLabels`
-- [ ] For each issue: `category := classifier.Classify(issue)` then increment `CategoryCounts[category]`
-- [ ] **Breaking JSON change**: `bug_count` → `category_counts.bug`, etc.
+- [x] `BuildReleaseMetrics()` takes a `*classify.Classifier` instead of `BugLabels`/`FeatureLabels`
+- [x] For each issue: `category := classifier.Classify(issue)` then increment `CategoryCounts[category]`
+- [x] **Breaking JSON change**: `bug_count` → `category_counts.bug`, etc.
 
 ### Phase 9: Update Formatters
 
-- [ ] **JSON**: Use `CategoryCounts`/`CategoryRatios` maps instead of fixed fields
-- [ ] **Pretty**: Show all categories in release summary (not just bug/feature/other)
-- [ ] **Markdown**: Dynamic category columns in release table
+- [x] **JSON**: Use `CategoryCounts`/`CategoryRatios` maps instead of fixed fields
+- [x] **Pretty**: Show all categories in release summary (not just bug/feature/other)
+- [x] **Markdown**: Dynamic category rows in composition table
 
 ### Phase 10: Cleanup
 
-- [ ] Remove `github.GetCycleStart` function (replaced by strategies)
-- [ ] Remove `github.CycleStart` struct (replaced by `model.Event`)
-- [ ] Remove signal hierarchy from `cmd/cycletime.go`
-- [ ] Remove `BugLabels`/`FeatureLabels` from `ReleaseInput` (replaced by Classifier)
-- [ ] Keep `BugLabels`/`FeatureLabels` in config for backward compat (they feed into auto-generated categories)
+- [x] Remove `github.GetCycleStart` function (replaced by strategies)
+- [x] Remove `CycleStartResult` struct and unused timeline types
+- [x] Remove signal hierarchy from `cmd/cycletime.go`
+- [x] Remove `BugLabels`/`FeatureLabels` from `ReleaseInput` (replaced by Classifier)
+- [x] Keep `BugLabels`/`FeatureLabels` in config for backward compat (they feed into auto-generated categories)
+- [x] Remove unused `hasAnyLabel` from metrics/quality.go
 
 ### Phase 11: Update Tests & Smoke Tests
 
-- [ ] Unit tests for each `CycleTimeStrategy` implementation
-- [ ] Unit tests for `classify.Classifier` and each matcher type
-- [ ] Update `release_test.go` for dynamic categories
-- [ ] Update smoke tests:
-  - cycle-time with default (issue) strategy
-  - cycle-time with `--pr` override
-  - release JSON: `category_counts` instead of `bug_count`
-- [ ] `task test` passes
-- [ ] `task quality` passes
+- [x] Unit tests for each `CycleTimeStrategy` implementation
+- [x] Unit tests for `classify.Classifier` and each matcher type
+- [x] Update `release_test.go` for dynamic categories
+- [ ] Update smoke tests for `category_counts` JSON field
+- [x] `task test` passes
+- [x] `task quality` passes
 
 ## Acceptance Criteria
 
