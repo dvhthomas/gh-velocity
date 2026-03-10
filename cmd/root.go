@@ -96,8 +96,14 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// Skip config loading for version and config subcommands
-			if cmd.Name() == "version" || cmd.Parent().Name() == "config" {
+			// Skip Deps setup for commands that don't need it.
+			// Group parents (flow, status) print help only — no RunE.
+			switch {
+			case cmd.Name() == "version":
+				return nil
+			case cmd.Parent() != nil && cmd.Parent().Name() == "config":
+				return nil
+			case cmd.RunE == nil && cmd.Run == nil:
 				return nil
 			}
 
@@ -178,12 +184,10 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 
 	root.AddCommand(NewVersionCmd(version, buildTime))
 	root.AddCommand(NewConfigCmd())
+	root.AddCommand(NewFlowCmd())
 	root.AddCommand(NewQualityCmd())
-	root.AddCommand(NewLeadTimeCmd())
-	root.AddCommand(NewCycleTimeCmd())
-	root.AddCommand(NewScopeCmd())
-	root.AddCommand(NewWIPCmd())
-	root.AddCommand(NewStatsCmd())
+	root.AddCommand(NewStatusCmd())
+	root.AddCommand(NewReportCmd())
 
 	// Deprecated: keep `release` as a hidden alias for backwards compatibility.
 	deprecatedRelease := NewReleaseCmd()

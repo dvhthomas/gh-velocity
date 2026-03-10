@@ -67,62 +67,62 @@ out=$($BINARY config discover -R cli/cli 2>&1)
 show "$out"
 [[ "$out" == *"No Projects"* ]] && pass "config discover no projects" || fail "config discover no projects"
 
-# ── lead-time ──────────────────────────────────────────────────────
+# ── flow lead-time ────────────────────────────────────────────────
 echo ""
-echo "lead-time (cli/cli#2)"
+echo "flow lead-time (cli/cli#2)"
 
-out=$($BINARY lead-time 2 -R cli/cli 2>&1)
+out=$($BINARY flow lead-time 2 -R cli/cli 2>&1)
 show "$out"
-[[ "$out" == *"Lead Time"* ]] && pass "lead-time pretty" || fail "lead-time pretty"
-[[ "$out" == *"Created:"* ]] && pass "lead-time shows created" || fail "lead-time shows created"
+[[ "$out" == *"Lead Time"* ]] && pass "flow lead-time pretty" || fail "flow lead-time pretty"
+[[ "$out" == *"Created:"* ]] && pass "flow lead-time shows created" || fail "flow lead-time shows created"
 
-out=$($BINARY lead-time 2 -R cli/cli -f json 2>&1)
+out=$($BINARY flow lead-time 2 -R cli/cli -f json 2>&1)
 show "$out"
-echo "$out" | jq -e '.lead_time.duration_seconds' >/dev/null 2>&1 && pass "lead-time json" || fail "lead-time json"
-echo "$out" | jq -e '.lead_time.start.signal' >/dev/null 2>&1 && pass "lead-time json start signal" || fail "lead-time json start signal"
+echo "$out" | jq -e '.lead_time.duration_seconds' >/dev/null 2>&1 && pass "flow lead-time json" || fail "flow lead-time json"
+echo "$out" | jq -e '.lead_time.start.signal' >/dev/null 2>&1 && pass "flow lead-time json start signal" || fail "flow lead-time json start signal"
 
-out=$($BINARY lead-time 2 -R cli/cli -f markdown 2>&1)
+out=$($BINARY flow lead-time 2 -R cli/cli -f markdown 2>&1)
 show "$out"
-[[ "$out" == *"|"* ]] && pass "lead-time markdown" || fail "lead-time markdown"
+[[ "$out" == *"|"* ]] && pass "flow lead-time markdown" || fail "flow lead-time markdown"
 
-# ── lead-time bulk ────────────────────────────────────────────────
+# ── flow lead-time bulk ──────────────────────────────────────────
 echo ""
-echo "lead-time bulk (cli/cli --since 7d)"
+echo "flow lead-time bulk (cli/cli --since 7d)"
 
-out=$($BINARY lead-time --since 7d -R cli/cli -f json 2>/dev/null)
+out=$($BINARY flow lead-time --since 7d -R cli/cli -f json 2>/dev/null)
 echo "$out" | jq '.stats.count' 2>/dev/null | sed 's/^/    count: /'
-echo "$out" | jq -e '.stats' >/dev/null 2>&1 && pass "lead-time bulk json" || fail "lead-time bulk json"
-echo "$out" | jq -e '.window.since' >/dev/null 2>&1 && pass "lead-time bulk has window" || fail "lead-time bulk has window"
+echo "$out" | jq -e '.stats' >/dev/null 2>&1 && pass "flow lead-time bulk json" || fail "flow lead-time bulk json"
+echo "$out" | jq -e '.window.since' >/dev/null 2>&1 && pass "flow lead-time bulk has window" || fail "flow lead-time bulk has window"
 
-out=$($BINARY lead-time --since 7d -R cli/cli 2>&1)
+out=$($BINARY flow lead-time --since 7d -R cli/cli 2>&1)
 show "$out"
-[[ "$out" == *"Lead Time:"* ]] && pass "lead-time bulk pretty" || fail "lead-time bulk pretty"
+[[ "$out" == *"Lead Time:"* ]] && pass "flow lead-time bulk pretty" || fail "flow lead-time bulk pretty"
 
-# ── cycle-time ─────────────────────────────────────────────────────
+# ── flow cycle-time ───────────────────────────────────────────────
 echo ""
-echo "cycle-time (cli/cli#2)"
+echo "flow cycle-time (cli/cli#2)"
 
-out=$($BINARY cycle-time 2 -R cli/cli 2>&1)
+out=$($BINARY flow cycle-time 2 -R cli/cli 2>&1)
 show "$out"
-[[ "$out" == *"Cycle Time"* ]] && pass "cycle-time pretty" || fail "cycle-time pretty"
+[[ "$out" == *"Cycle Time"* ]] && pass "flow cycle-time pretty" || fail "flow cycle-time pretty"
 
-out=$($BINARY cycle-time 2 -R cli/cli -f json 2>&1)
+out=$($BINARY flow cycle-time 2 -R cli/cli -f json 2>&1)
 show "$out"
-echo "$out" | jq -e '.issue' >/dev/null 2>&1 && pass "cycle-time json" || fail "cycle-time json"
+echo "$out" | jq -e '.issue' >/dev/null 2>&1 && pass "flow cycle-time json" || fail "flow cycle-time json"
 
-# ── cycle-time --pr ───────────────────────────────────────────────
+# ── flow cycle-time --pr ─────────────────────────────────────────
 echo ""
-echo "cycle-time --pr (cli/cli PR#1)"
+echo "flow cycle-time --pr (cli/cli PR#1)"
 
-out=$($BINARY cycle-time --pr 1 -R cli/cli 2>&1)
+out=$($BINARY flow cycle-time --pr 1 -R cli/cli 2>&1)
 show "$out"
-[[ "$out" == *"Cycle Time"* ]] && pass "cycle-time --pr pretty" || fail "cycle-time --pr pretty"
-[[ "$out" == *"Started"* ]] && pass "cycle-time --pr shows started" || fail "cycle-time --pr shows started"
+[[ "$out" == *"Cycle Time"* ]] && pass "flow cycle-time --pr pretty" || fail "flow cycle-time --pr pretty"
+[[ "$out" == *"Started"* ]] && pass "flow cycle-time --pr shows started" || fail "flow cycle-time --pr shows started"
 
-out=$($BINARY cycle-time --pr 1 -R cli/cli -f json 2>&1)
+out=$($BINARY flow cycle-time --pr 1 -R cli/cli -f json 2>&1)
 show "$out"
-echo "$out" | jq -e '.pr' >/dev/null 2>&1 && pass "cycle-time --pr json" || fail "cycle-time --pr json"
-echo "$out" | jq -e '.cycle_time.start.signal' >/dev/null 2>&1 && pass "cycle-time --pr json start signal" || fail "cycle-time --pr json start signal"
+echo "$out" | jq -e '.pr' >/dev/null 2>&1 && pass "flow cycle-time --pr json" || fail "flow cycle-time --pr json"
+echo "$out" | jq -e '.cycle_time.start.signal' >/dev/null 2>&1 && pass "flow cycle-time --pr json start signal" || fail "flow cycle-time --pr json start signal"
 
 # ── quality release ────────────────────────────────────────────────
 echo ""
@@ -149,69 +149,92 @@ show "$out"
 [[ "$out" == *"Release v2.65.0"* ]] && pass "release alias works" || fail "release alias works"
 [[ "$out" == *"quality release"* ]] && pass "release alias shows deprecation" || fail "release alias shows deprecation"
 
-# ── scope ──────────────────────────────────────────────────────────
+# ── quality release --scope ───────────────────────────────────────
 echo ""
-echo "scope (cli/cli v2.65.0)"
+echo "quality release --scope (cli/cli v2.65.0)"
 
-out=$($BINARY scope v2.65.0 -R cli/cli --since v2.64.0 2>&1)
+out=$($BINARY quality release v2.65.0 -R cli/cli --since v2.64.0 --scope 2>&1)
 show "$out"
-[[ "$out" == *"Scope: v2.65.0"* ]] && pass "scope pretty" || fail "scope pretty"
-[[ "$out" == *"Strategy:"* ]] && pass "scope shows strategies" || fail "scope shows strategies"
+[[ "$out" == *"Scope: v2.65.0"* ]] && pass "quality release --scope pretty" || fail "quality release --scope pretty"
+[[ "$out" == *"Strategy:"* ]] && pass "quality release --scope shows strategies" || fail "quality release --scope shows strategies"
 
-out=$($BINARY scope v2.65.0 -R cli/cli --since v2.64.0 -f json 2>/dev/null)
+out=$($BINARY quality release v2.65.0 -R cli/cli --since v2.64.0 --scope -f json 2>/dev/null)
 echo "$out" | jq . 2>/dev/null | sed 's/^/    /'
-echo "$out" | jq -e '.strategies' >/dev/null 2>&1 && pass "scope json" || fail "scope json"
+echo "$out" | jq -e '.strategies' >/dev/null 2>&1 && pass "quality release --scope json" || fail "quality release --scope json"
 
-out=$($BINARY scope v2.65.0 -R cli/cli --since v2.64.0 -f markdown 2>/dev/null)
+out=$($BINARY quality release v2.65.0 -R cli/cli --since v2.64.0 --scope -f markdown 2>/dev/null)
 show "$out"
-[[ "$out" == *"## Scope:"* ]] && pass "scope markdown" || fail "scope markdown"
+[[ "$out" == *"## Scope:"* ]] && pass "quality release --scope markdown" || fail "quality release --scope markdown"
 
-# ── stats ─────────────────────────────────────────────────────────
+# ── report ────────────────────────────────────────────────────────
 echo ""
-echo "stats (cli/cli --since 7d)"
+echo "report (cli/cli --since 7d)"
 
-out=$($BINARY stats --since 7d -R cli/cli 2>&1)
+out=$($BINARY report --since 7d -R cli/cli 2>&1)
 show "$out"
-[[ "$out" == *"Stats:"* ]] && pass "stats pretty" || fail "stats pretty"
-[[ "$out" == *"Lead Time:"* ]] && pass "stats shows lead time" || fail "stats shows lead time"
-[[ "$out" == *"Throughput:"* ]] && pass "stats shows throughput" || fail "stats shows throughput"
+[[ "$out" == *"Report:"* ]] && pass "report pretty" || fail "report pretty"
+[[ "$out" == *"Lead Time:"* ]] && pass "report shows lead time" || fail "report shows lead time"
+[[ "$out" == *"Throughput:"* ]] && pass "report shows throughput" || fail "report shows throughput"
 
-out=$($BINARY stats --since 7d -R cli/cli -f json 2>/dev/null)
+out=$($BINARY report --since 7d -R cli/cli -f json 2>/dev/null)
 echo "$out" | jq '.lead_time.count' 2>/dev/null | sed 's/^/    lead_time count: /'
-echo "$out" | jq -e '.lead_time' >/dev/null 2>&1 && pass "stats json has lead_time" || fail "stats json has lead_time"
-echo "$out" | jq -e '.throughput' >/dev/null 2>&1 && pass "stats json has throughput" || fail "stats json has throughput"
-echo "$out" | jq -e '.window.since' >/dev/null 2>&1 && pass "stats json has window" || fail "stats json has window"
+echo "$out" | jq -e '.lead_time' >/dev/null 2>&1 && pass "report json has lead_time" || fail "report json has lead_time"
+echo "$out" | jq -e '.throughput' >/dev/null 2>&1 && pass "report json has throughput" || fail "report json has throughput"
+echo "$out" | jq -e '.window.since' >/dev/null 2>&1 && pass "report json has window" || fail "report json has window"
 
-out=$($BINARY stats --since 7d -R cli/cli -f markdown 2>/dev/null)
+out=$($BINARY report --since 7d -R cli/cli -f markdown 2>/dev/null)
 show "$out"
-[[ "$out" == *"## Stats:"* ]] && pass "stats markdown" || fail "stats markdown"
+[[ "$out" == *"## Report:"* ]] && pass "report markdown" || fail "report markdown"
+
+# ── group parent help ─────────────────────────────────────────────
+echo ""
+echo "group parent help"
+
+out=$($BINARY flow --help 2>&1)
+show "$out"
+[[ "$out" == *"lead-time"* ]] && pass "flow help shows lead-time" || fail "flow help shows lead-time"
+[[ "$out" == *"cycle-time"* ]] && pass "flow help shows cycle-time" || fail "flow help shows cycle-time"
+
+out=$($BINARY status --help 2>&1)
+show "$out"
+[[ "$out" == *"wip"* ]] && pass "status help shows wip" || fail "status help shows wip"
 
 # ── error cases ────────────────────────────────────────────────────
 echo ""
 echo "error handling"
 
-out=$($BINARY lead-time abc -R cli/cli 2>&1) && fail "bad issue should fail" || pass "bad issue number rejected"
+out=$($BINARY flow lead-time abc -R cli/cli 2>&1) && fail "bad issue should fail" || pass "bad issue number rejected"
 show "$out"
 
-out=$($BINARY lead-time 1 -R cli/cli 2>&1) && fail "PR-as-issue should fail" || pass "PR-as-issue rejected"
+out=$($BINARY flow lead-time 1 -R cli/cli 2>&1) && fail "PR-as-issue should fail" || pass "PR-as-issue rejected"
 show "$out"
 [[ "$out" == *"pull request"* ]] && pass "PR-as-issue mentions --pr" || fail "PR-as-issue mentions --pr"
 
-out=$($BINARY cycle-time 2 --pr 2 -R cli/cli 2>&1) && fail "issue+pr should fail" || pass "issue+pr conflict rejected"
+out=$($BINARY flow cycle-time 2 --pr 2 -R cli/cli 2>&1) && fail "issue+pr should fail" || pass "issue+pr conflict rejected"
 show "$out"
 
-out=$($BINARY lead-time 2 --since 30d -R cli/cli 2>&1) && fail "issue+since should fail" || pass "lead-time issue+since conflict rejected"
+out=$($BINARY flow lead-time 2 --since 30d -R cli/cli 2>&1) && fail "issue+since should fail" || pass "flow lead-time issue+since conflict rejected"
 show "$out"
 
-out=$($BINARY cycle-time --pr 1 --since 30d -R cli/cli 2>&1) && fail "pr+since should fail" || pass "cycle-time pr+since conflict rejected"
+out=$($BINARY flow cycle-time --pr 1 --since 30d -R cli/cli 2>&1) && fail "pr+since should fail" || pass "flow cycle-time pr+since conflict rejected"
 show "$out"
 
-out=$($BINARY --post lead-time 2 -R cli/cli 2>&1) && fail "--post should fail" || pass "--post rejected"
+out=$($BINARY --post flow lead-time 2 -R cli/cli 2>&1) && fail "--post should fail" || pass "--post rejected"
 show "$out"
 
-out=$($BINARY lead-time 2 -R cli/cli -f json --post 2>&1 || true)
+out=$($BINARY flow lead-time 2 -R cli/cli -f json --post 2>&1 || true)
 show "$out"
 echo "$out" | jq -e '.error.code' >/dev/null 2>&1 && pass "json error envelope" || fail "json error envelope"
+
+# ── old commands removed ──────────────────────────────────────────
+echo ""
+echo "old commands removed (clean break)"
+
+out=$($BINARY lead-time 2 -R cli/cli 2>&1) && fail "old lead-time should fail" || pass "old lead-time rejected"
+out=$($BINARY cycle-time 2 -R cli/cli 2>&1) && fail "old cycle-time should fail" || pass "old cycle-time rejected"
+out=$($BINARY scope v2.65.0 -R cli/cli 2>&1) && fail "old scope should fail" || pass "old scope rejected"
+out=$($BINARY stats --since 7d -R cli/cli 2>&1) && fail "old stats should fail" || pass "old stats rejected"
+out=$($BINARY wip -R dvhthomas/gh-velocity 2>&1) && fail "old wip should fail" || pass "old wip rejected"
 
 # ── summary ────────────────────────────────────────────────────────
 echo ""
