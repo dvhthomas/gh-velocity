@@ -18,7 +18,7 @@ import (
 // NewCycleTimeCmd returns the cycle-time command.
 func NewCycleTimeCmd() *cobra.Command {
 	var (
-		prFlag             int
+		prFlag               int
 		sinceFlag, untilFlag string
 	)
 

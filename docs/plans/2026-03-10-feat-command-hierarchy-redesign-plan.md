@@ -1,7 +1,7 @@
 ---
 title: "feat: Command Hierarchy Redesign — Bulk, Stats, WIP, Quality"
 type: feat
-status: active
+status: completed
 date: 2026-03-10
 ---
 
@@ -126,10 +126,10 @@ Add `--since`/`--until` flags to existing commands with auto-switch.
 
 #### 3a. lead-time bulk
 
-- [ ] Modify `cmd/leadtime.go` — add `--since`/`--until` flags, change `Args` to `MaximumNArgs(1)`
-- [ ] Add conflict detection: error if both positional arg AND `--since` are given
-- [ ] Bulk path: `SearchClosedIssues` → per-issue `metrics.LeadTime` → `metrics.ComputeStats`
-- [ ] Add bulk formatters in `internal/format/` for all three output modes
+- [x] Modify `cmd/leadtime.go` — add `--since`/`--until` flags, change `Args` to `MaximumNArgs(1)`
+- [x] Add conflict detection: error if both positional arg AND `--since` are given
+- [x] Bulk path: `SearchClosedIssues` → per-issue `metrics.LeadTime` → `metrics.ComputeStats`
+- [x] Add bulk formatters in `internal/format/` for all three output modes
 
 ```go
 // cmd/leadtime.go — RunE logic
@@ -166,24 +166,24 @@ Aggregate display rules (existing `Stats` behavior):
 
 #### 3b. cycle-time bulk
 
-- [ ] Modify `cmd/cycletime.go` — same pattern as lead-time
-- [ ] Conflict detection: error if positional arg + `--since`, or `--pr` + `--since`
-- [ ] Bulk path: `SearchClosedIssues` → per-issue `cycletime.Strategy.Compute` → `metrics.ComputeStats`
-- [ ] Per-strategy bulk behavior (all three are peer strategies with the same pattern):
+- [x] Modify `cmd/cycletime.go` — same pattern as lead-time
+- [x] Conflict detection: error if positional arg + `--since`, or `--pr` + `--since`
+- [x] Bulk path: `SearchClosedIssues` → per-issue `cycletime.Strategy.Compute` → `metrics.ComputeStats`
+- [x] Per-strategy bulk behavior (all three are peer strategies with the same pattern):
   - `issue`: start = `createdAt` (already on issue), end = `closedAt` — no extra API calls
   - `pr`: start = closing PR `createdAt`, end = PR `mergedAt` — 1 REST call per issue (`GetClosingPR`)
   - `project-board`: start = status departure from backlog, end = `closedAt` — 1 GraphQL call per issue (board status history)
-- [ ] Items where the start signal is unavailable (no closing PR, not on board) → cycle time is N/A, included in output with `null` duration, excluded from stats
+- [x] Items where the start signal is unavailable (no closing PR, not on board) → cycle time is N/A, included in output with `null` duration, excluded from stats
 
 ---
 
 ### Phase 4: quality release (Rename)
 
-- [ ] Create `cmd/quality.go` — parent command with `release` as subcommand
-- [ ] Move release logic: `NewReleaseCmd()` stays in `cmd/release.go`, wired as child of `quality`
-- [ ] Update `cmd/root.go` — replace `root.AddCommand(NewReleaseCmd())` with `root.AddCommand(NewQualityCmd())`
-- [ ] Keep `release` as hidden deprecated alias on root: prints warning, delegates to `quality release`
-- [ ] Update smoke tests and E2E tests
+- [x] Create `cmd/quality.go` — parent command with `release` as subcommand
+- [x] Move release logic: `NewReleaseCmd()` stays in `cmd/release.go`, wired as child of `quality`
+- [x] Update `cmd/root.go` — replace `root.AddCommand(NewReleaseCmd())` with `root.AddCommand(NewQualityCmd())`
+- [x] Keep `release` as hidden deprecated alias on root: prints warning, delegates to `quality release`
+- [x] Update smoke tests and E2E tests
 
 ```go
 // cmd/quality.go
@@ -275,8 +275,8 @@ query($projectId: ID!, $cursor: String) {
 
 #### 5b. WIP command
 
-- [ ] Create `cmd/wip.go`
-- [ ] Wire in `cmd/root.go`
+- [x] Create `cmd/wip.go`
+- [x] Wire in `cmd/root.go`
 
 Logic:
 1. If `config.Project.ID` is set → `ListProjectItems`, filter where status is NOT `config.Statuses.Backlog` and NOT `config.Statuses.Done`
@@ -297,9 +297,9 @@ Note: `statusAt` reflects the LAST status change (not first departure from backl
 
 Dashboard composing all metrics.
 
-- [ ] Create `cmd/stats.go`
-- [ ] Wire in `cmd/root.go`
-- [ ] Create formatters in `internal/format/` for stats output
+- [x] Create `cmd/stats.go`
+- [x] Wire in `cmd/root.go`
+- [x] Create formatters in `internal/format/` for stats output
 
 Logic:
 1. Parse `--since` (default: `30d`) and `--until` (default: now) via `dateutil.Parse`
@@ -373,39 +373,39 @@ Pretty/markdown: close date descending (most recent first). JSON: unsorted (API 
 ## Acceptance Criteria
 
 ### Phase 1
-- [ ] `dateutil.Parse` handles YYYY-MM-DD, RFC3339, relative (Nd), rejects future/inverted
-- [ ] All timestamps in JSON output end with `Z`
-- [ ] All pretty/markdown timestamps show `UTC`
-- [ ] Table-driven tests cover all date parsing edge cases
+- [x] `dateutil.Parse` handles YYYY-MM-DD, RFC3339, relative (Nd), rejects future/inverted
+- [x] All timestamps in JSON output end with `Z`
+- [x] All pretty/markdown timestamps show `UTC`
+- [x] Table-driven tests cover all date parsing edge cases
 
 ### Phase 2
-- [ ] `SearchClosedIssues` returns correct issues for date range
-- [ ] Pagination works up to 1000 results
-- [ ] Warns when results are capped
+- [x] `SearchClosedIssues` returns correct issues for date range
+- [x] Pagination works up to 1000 results
+- [x] Warns when results are capped
 
 ### Phase 3
-- [ ] `lead-time --since 30d` returns per-item table + aggregate stats
-- [ ] `cycle-time --since 30d` returns per-item table + aggregate stats
-- [ ] Error when both positional arg and `--since` given
-- [ ] All three output formats (json, pretty, markdown) work for bulk mode
-- [ ] E2E test: `lead-time --since 30d -R cli/cli --config docs/examples/cli-cli.yml -f json` returns data
+- [x] `lead-time --since 30d` returns per-item table + aggregate stats
+- [x] `cycle-time --since 30d` returns per-item table + aggregate stats
+- [x] Error when both positional arg and `--since` given
+- [x] All three output formats (json, pretty, markdown) work for bulk mode
+- [x] E2E test: `lead-time --since 30d -R cli/cli --config docs/examples/cli-cli.yml -f json` returns data
 
 ### Phase 4
-- [ ] `quality release v1.0 --since v0.9` works
-- [ ] `release v1.0 --since v0.9` works (deprecated alias, warns)
-- [ ] Smoke tests updated
+- [x] `quality release v1.0 --since v0.9` works
+- [x] `release v1.0 --since v0.9` works (deprecated alias, warns)
+- [x] Smoke tests updated
 
 ### Phase 5
-- [ ] `wip` shows board items with status, age
-- [ ] `wip` falls back to label-based when no project board
-- [ ] `wip` errors clearly when neither source available
-- [ ] `wip -R owner/repo` filters cross-repo board to one repo
+- [x] `wip` shows board items with status, age
+- [x] `wip` falls back to label-based when no project board
+- [x] `wip` errors clearly when neither source available
+- [x] `wip -R owner/repo` filters cross-repo board to one repo
 
 ### Phase 6
-- [ ] `stats` shows 30-day dashboard with all sections
-- [ ] `stats --since 2026-01-01` respects custom window
-- [ ] Graceful degradation: missing WIP config or no releases handled
-- [ ] All three output formats work
+- [x] `stats` shows 30-day dashboard with all sections
+- [x] `stats --since 2026-01-01` respects custom window
+- [x] Graceful degradation: missing WIP config or no releases handled
+- [x] All three output formats work
 
 ## Future Considerations (Not in Scope)
 

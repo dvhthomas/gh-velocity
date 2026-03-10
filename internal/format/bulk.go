@@ -19,11 +19,11 @@ type BulkLeadTimeItem struct {
 // --- JSON ---
 
 type jsonBulkLeadTimeOutput struct {
-	Repository string              `json:"repository"`
-	Window     jsonWindow          `json:"window"`
-	Items      []jsonBulkLeadItem  `json:"items"`
-	Stats      JSONStats           `json:"stats"`
-	Capped     bool                `json:"capped,omitempty"`
+	Repository string             `json:"repository"`
+	Window     jsonWindow         `json:"window"`
+	Items      []jsonBulkLeadItem `json:"items"`
+	Stats      JSONStats          `json:"stats"`
+	Capped     bool               `json:"capped,omitempty"`
 }
 
 type jsonWindow struct {
@@ -32,9 +32,9 @@ type jsonWindow struct {
 }
 
 type jsonBulkLeadItem struct {
-	Number          int        `json:"number"`
-	Title           string     `json:"title"`
-	LeadTime        JSONMetric `json:"lead_time"`
+	Number   int        `json:"number"`
+	Title    string     `json:"title"`
+	LeadTime JSONMetric `json:"lead_time"`
 }
 
 // WriteLeadTimeBulkJSON writes bulk lead-time results as JSON.
@@ -135,12 +135,12 @@ type BulkCycleTimeItem struct {
 // --- Cycle Time JSON ---
 
 type jsonBulkCycleTimeOutput struct {
-	Repository string               `json:"repository"`
-	Window     jsonWindow           `json:"window"`
-	Strategy   string               `json:"strategy"`
-	Items      []jsonBulkCycleItem  `json:"items"`
-	Stats      JSONStats            `json:"stats"`
-	Capped     bool                 `json:"capped,omitempty"`
+	Repository string              `json:"repository"`
+	Window     jsonWindow          `json:"window"`
+	Strategy   string              `json:"strategy"`
+	Items      []jsonBulkCycleItem `json:"items"`
+	Stats      JSONStats           `json:"stats"`
+	Capped     bool                `json:"capped,omitempty"`
 }
 
 type jsonBulkCycleItem struct {
