@@ -122,3 +122,79 @@ func (c *Client) DiscoverProjects(ctx context.Context) ([]DiscoveredProject, err
 
 	return projects, nil
 }
+
+// DiscoverProjectByNumber fetches a single Projects v2 board by its number,
+// including its fields and single-select options.
+func (c *Client) DiscoverProjectByNumber(ctx context.Context, number int) (*DiscoveredProject, error) {
+	query := `query($owner: String!, $repo: String!, $number: Int!) {
+		repository(owner: $owner, name: $repo) {
+			projectV2(number: $number) {
+				id
+				title
+				number
+				fields(first: 30) {
+					nodes {
+						... on ProjectV2SingleSelectField {
+							__typename
+							id
+							name
+							options {
+								id
+								name
+							}
+						}
+						... on ProjectV2Field {
+							__typename
+							id
+							name
+						}
+						... on ProjectV2IterationField {
+							__typename
+							id
+							name
+						}
+					}
+				}
+			}
+		}
+	}`
+
+	variables := map[string]interface{}{
+		"owner":  c.owner,
+		"repo":   c.repo,
+		"number": number,
+	}
+
+	var resp struct {
+		Repository struct {
+			ProjectV2 *discoverProjectNode `json:"projectV2"`
+		} `json:"repository"`
+	}
+	if err := c.gql.DoWithContext(ctx, query, variables, &resp); err != nil {
+		return nil, fmt.Errorf("discover project #%d for %s/%s: %w", number, c.owner, c.repo, err)
+	}
+
+	p := resp.Repository.ProjectV2
+	if p == nil {
+		return nil, fmt.Errorf("project #%d not found on %s/%s", number, c.owner, c.repo)
+	}
+
+	proj := &DiscoveredProject{
+		ID:     p.ID,
+		Title:  p.Title,
+		Number: p.Number,
+	}
+	for _, f := range p.Fields.Nodes {
+		field := DiscoveredField{
+			ID:   f.ID,
+			Name: f.Name,
+			Type: f.Typename,
+		}
+		if len(f.Options) > 0 {
+			field.Options = f.Options
+		}
+		proj.Fields = append(proj.Fields, field)
+	}
+
+	return proj, nil
+}

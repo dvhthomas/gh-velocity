@@ -108,6 +108,15 @@ func FormatSignalSummary(m model.Metric) string {
 	return "(" + startLabel + " -> " + endLabel + ")"
 }
 
+// FormatStringSlice formats a string slice as a YAML-style inline array.
+func FormatStringSlice(ss []string) string {
+	quoted := make([]string, len(ss))
+	for i, s := range ss {
+		quoted[i] = fmt.Sprintf("%q", s)
+	}
+	return "[" + strings.Join(quoted, ", ") + "]"
+}
+
 // shortSignal returns a short display name for a signal constant.
 func shortSignal(signal string) string {
 	// Strip the common prefixes for brevity

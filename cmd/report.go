@@ -29,6 +29,14 @@ Each section computes independently; a failure in one section does not
 block others. Sections that require specific config (WIP needs project.id
 or active_labels; quality needs releases) are gracefully omitted when
 unavailable.`,
+		Example: `  # Default: last 30 days
+  gh velocity report
+
+  # Custom window
+  gh velocity report --since 14d --until 2026-03-01
+
+  # Remote repo, JSON for CI dashboards
+  gh velocity report --since 30d -R cli/cli -f json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

@@ -39,6 +39,17 @@ Bulk mode:    gh velocity cycle-time --since 30d [--until 2026-03-01]
 
 The --pr flag overrides the configured strategy for a single run.
 When a signal is not available for an item, cycle time is N/A.`,
+		Example: `  # Single issue (uses configured strategy)
+  gh velocity flow cycle-time 42
+
+  # Single PR (always uses PR created → merged)
+  gh velocity flow cycle-time --pr 99
+
+  # All issues closed in the last 30 days
+  gh velocity flow cycle-time --since 30d
+
+  # Remote repo, markdown output
+  gh velocity flow cycle-time --since 14d -R cli/cli -f markdown`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Conflict: --since with positional or --pr

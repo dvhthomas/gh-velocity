@@ -199,6 +199,36 @@ out=$($BINARY status --help 2>&1)
 show "$out"
 [[ "$out" == *"wip"* ]] && pass "status help shows wip" || fail "status help shows wip"
 
+# ── config preflight ──────────────────────────────────────────────
+echo ""
+echo "config preflight (cli/cli, no project board)"
+
+out=$($BINARY config preflight -R cli/cli 2>&1)
+show "$out"
+[[ "$out" == *"quality:"* ]] && pass "preflight generates quality config" || fail "preflight generates quality config"
+[[ "$out" == *"cycle_time:"* ]] && pass "preflight generates cycle_time config" || fail "preflight generates cycle_time config"
+[[ "$out" == *"bug_labels:"* ]] && pass "preflight detects bug labels" || fail "preflight detects bug labels"
+
+out=$($BINARY config preflight -R cli/cli -f json 2>/dev/null)
+echo "$out" | jq '.strategy' 2>/dev/null | sed 's/^/    strategy: /'
+echo "$out" | jq -e '.repo' >/dev/null 2>&1 && pass "preflight json" || fail "preflight json"
+
+# ── help examples ─────────────────────────────────────────────────
+echo ""
+echo "help examples"
+
+out=$($BINARY flow lead-time --help 2>&1)
+[[ "$out" == *"Examples:"* ]] && pass "lead-time has examples" || fail "lead-time has examples"
+
+out=$($BINARY flow cycle-time --help 2>&1)
+[[ "$out" == *"Examples:"* ]] && pass "cycle-time has examples" || fail "cycle-time has examples"
+
+out=$($BINARY report --help 2>&1)
+[[ "$out" == *"Examples:"* ]] && pass "report has examples" || fail "report has examples"
+
+out=$($BINARY config preflight --help 2>&1)
+[[ "$out" == *"Examples:"* ]] && pass "preflight has examples" || fail "preflight has examples"
+
 # ── error cases ────────────────────────────────────────────────────
 echo ""
 echo "error handling"
@@ -219,10 +249,7 @@ show "$out"
 out=$($BINARY flow cycle-time --pr 1 --since 30d -R cli/cli 2>&1) && fail "pr+since should fail" || pass "flow cycle-time pr+since conflict rejected"
 show "$out"
 
-out=$($BINARY --post flow lead-time 2 -R cli/cli 2>&1) && fail "--post should fail" || pass "--post rejected"
-show "$out"
-
-out=$($BINARY flow lead-time 2 -R cli/cli -f json --post 2>&1 || true)
+out=$($BINARY flow lead-time abc -R cli/cli -f json 2>&1 || true)
 show "$out"
 echo "$out" | jq -e '.error.code' >/dev/null 2>&1 && pass "json error envelope" || fail "json error envelope"
 

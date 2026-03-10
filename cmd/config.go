@@ -16,13 +16,20 @@ import (
 func NewConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
-		Short: "Inspect and validate configuration",
+		Short: "Inspect, validate, and generate configuration",
+		Long: `Configuration commands for .gh-velocity.yml.
+
+Getting started:
+  1. gh velocity config preflight -R owner/repo  # analyze repo, suggest config
+  2. gh velocity config create                    # generate starter config
+  3. gh velocity config validate                  # check for errors`,
 	}
 
 	cmd.AddCommand(newConfigShowCmd())
 	cmd.AddCommand(newConfigValidateCmd())
 	cmd.AddCommand(newConfigCreateCmd())
 	cmd.AddCommand(newConfigDiscoverCmd())
+	cmd.AddCommand(newConfigPreflightCmd())
 
 	return cmd
 }
@@ -31,6 +38,8 @@ func newConfigShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show",
 		Short: "Display resolved configuration with defaults applied",
+		Example: `  gh velocity config show
+  gh velocity config show -f json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load(config.DefaultConfigFile)
 			if err != nil {
@@ -77,8 +86,9 @@ func newConfigShowCmd() *cobra.Command {
 
 func newConfigValidateCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "validate",
-		Short: "Validate configuration and report errors",
+		Use:     "validate",
+		Short:   "Validate configuration and report errors",
+		Example: `  gh velocity config validate`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, err := config.Load(config.DefaultConfigFile)
 			if err != nil {
@@ -134,7 +144,12 @@ func newConfigCreateCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a default .gh-velocity.yml in the current directory",
-		Args:  cobra.NoArgs,
+		Long: `Generate a starter .gh-velocity.yml with sensible defaults.
+
+For a smarter config tailored to your repo, use 'config preflight' first:
+  gh velocity config preflight -R owner/repo`,
+		Example: `  gh velocity config create`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := config.DefaultConfigFile
 			if _, err := os.Stat(path); err == nil {
@@ -161,6 +176,11 @@ repository, then lists their fields and status options.
 
 Use this to find the project.id and project.status_field_id values
 needed for .gh-velocity.yml configuration.`,
+		Example: `  # Discover projects for a remote repo
+  gh velocity config discover -R cli/cli
+
+  # JSON output for scripting
+  gh velocity config discover -R owner/repo -f json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Config subcommands skip PersistentPreRunE, so resolve repo here.

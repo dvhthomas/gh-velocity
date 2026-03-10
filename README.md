@@ -2,7 +2,7 @@
 
 A GitHub CLI extension that measures how fast your team ships.
 
-`gh velocity` computes lead time, cycle time, release lag, and quality metrics from your existing GitHub data — issues, pull requests, releases, and commits. No external services, no tracking pixels, no configuration databases. Just your repo.
+`gh velocity` computes lead time, cycle time, release quality, and work-in-progress metrics from your existing GitHub data — issues, pull requests, releases, and commits. No external services, no tracking pixels, no configuration databases. Just your repo.
 
 ## Install
 
@@ -14,53 +14,77 @@ Requires [GitHub CLI](https://cli.github.com/) 2.0+.
 
 ## Quick start
 
-Most commands work against any repo via `-R`:
+Try it now against any public repo — no config needed:
 
 ```bash
+# How long do issues take to close? (last 30 days)
+gh velocity flow lead-time --since 30d -R cli/cli
+
 # How did the last release go?
-gh velocity release v2.67.0 -R cli/cli
+gh velocity quality release v2.67.0 -R cli/cli --since v2.66.0
 
-# What's in a release? Which strategy found each issue?
-gh velocity scope v2.67.0 -R cli/cli
-
-# How long did a specific issue take?
-gh velocity lead-time 42 -R cli/cli
+# Everything at a glance (composite dashboard)
+gh velocity report --since 30d -R cli/cli
 ```
 
-Cycle time works remotely too — it uses PR creation dates and assignment events from the API:
-
-```bash
-gh velocity cycle-time 42 -R cli/cli
-```
-
-From inside any local repo, you can omit `-R`:
+From inside your own repo, omit `-R`:
 
 ```bash
 cd your-repo
-gh velocity release v1.2.0
+gh velocity flow lead-time 42
+gh velocity report
 ```
 
-## Output formats
+### Set up your repo (optional but recommended)
+
+```bash
+# 1. Analyze your repo and generate a tailored config
+gh velocity config preflight -R owner/repo --project 3
+
+# 2. Save it
+gh velocity config preflight --write --project 3
+
+# 3. Validate
+gh velocity config validate
+```
+
+Not sure which project number to use? Run `gh velocity config discover -R owner/repo` to list them.
+
+## Commands
+
+```
+gh velocity
+├── flow                              # How fast are we?
+│   ├── lead-time [<issue> | --since] # Created → closed
+│   └── cycle-time [<issue> | --pr N | --since]
+│
+├── quality                           # How good is our output?
+│   └── release <tag> [--since] [--scope]
+│
+├── status                            # What's happening now?
+│   └── wip                           # Work in progress
+│
+├── report [--since] [--until]        # Composite dashboard
+│
+├── config
+│   ├── preflight [-R repo] [--project N]  # Analyze repo, suggest config
+│   ├── create                             # Generate starter config
+│   ├── discover [-R repo]                 # Find project board IDs
+│   ├── show                               # Display resolved config
+│   └── validate                           # Check for errors
+│
+└── version
+```
+
+### Output formats
 
 Every command supports three formats:
 
 ```bash
-gh velocity release v1.2.0                    # human-readable table
-gh velocity release v1.2.0 -f json            # structured JSON
-gh velocity release v1.2.0 -f markdown        # paste into an issue or PR
+gh velocity report                    # human-readable (default)
+gh velocity report -f json            # structured JSON (for CI/scripts)
+gh velocity report -f markdown        # paste into an issue or PR
 ```
-
-## Commands
-
-| Command | What it measures | Needs local clone? |
-| --- | --- | --- |
-| `release <tag>` | Full release report: per-issue metrics, composition, aggregates, outliers | No (but improves accuracy) |
-| `scope <tag>` | What a release contains, broken down by discovery strategy | No |
-| `lead-time <issue>` | Time from issue creation to close | No |
-| `cycle-time <issue>` | Time from work started to close | No (local clone adds commit data) |
-| `config show` | Display resolved configuration | No |
-| `config create` | Generate a default `.gh-velocity.yml` | No |
-| `config validate` | Check your `.gh-velocity.yml` for errors | No |
 
 ### Common flags
 
@@ -68,46 +92,108 @@ gh velocity release v1.2.0 -f markdown        # paste into an issue or PR
 | --- | --- | --- |
 | `--format` | `-f` | Output: `pretty` (default), `json`, `markdown` |
 | `--repo` | `-R` | Target repo as `owner/name` |
-| `--since` | | Previous tag override (on `release` and `scope`) |
+| `--since` | | Start of date window or previous tag |
+| `--until` | | End of date window (default: now) |
 
 ## What gets measured
 
-The `release` command computes these metrics for every issue in a release:
+### Flow metrics
 
 - **Lead time** — issue created to issue closed
-- **Cycle time** — work started (board status change, label, PR created, assigned, or first commit) to issue closed
-- **Release lag** — issue closed to release published
+- **Cycle time** — work started to issue closed (configurable strategy: issue, PR, or project board)
 
-Aggregates include mean, median, standard deviation, P90, P95, and IQR-based outlier detection. Individual issues are flagged when they exceed the outlier threshold.
+### Quality metrics (per release)
+
+- **Per-issue lead time, cycle time, and release lag** (closed → released)
+- **Composition** — categorize issues by label (bug, feature, or custom categories)
+- **Hotfix detection** — flag issues closed very close to release
+- **Aggregates** — mean, median, P90, P95, IQR-based outlier detection
+
+### Status
+
+- **WIP** — items currently in progress (from Projects v2 board or labels)
+
+### Report (composite dashboard)
+
+- Lead time, cycle time, throughput, WIP, and quality in a single view
+- Each section computes independently — a failure in one doesn't block others
 
 ## How issues are discovered
 
 Three strategies run in parallel to find which issues belong to a release:
 
-1. **pr-link** — finds merged PRs in the release window, then follows GitHub's "closing references" to linked issues
-2. **commit-ref** — scans commit messages for closing keywords (`fixes #N`, `closes #N`, `resolves #N`)
-3. **changelog** — parses the release body for `#N` references
+1. **pr-link** — merged PRs in the release window → GitHub closing references → linked issues
+2. **commit-ref** — commit messages scanned for `fixes #N`, `closes #N`, `resolves #N`
+3. **changelog** — release body parsed for `#N` references
 
-Results are merged with priority (pr-link > commit-ref > changelog). Use `scope` to see what each strategy finds.
+Results merge with priority (pr-link > commit-ref > changelog). Use `--scope` to see what each strategy finds.
 
 ## Configuration
 
-Create `.gh-velocity.yml` in your repo root. All fields are optional:
+All fields are optional. `gh velocity` works without a config file using sensible defaults.
+
+### Generate a tailored config
+
+```bash
+# Preflight analyzes your repo's labels, project boards, and recent activity
+gh velocity config preflight -R owner/repo --project 3
+
+# Save directly
+gh velocity config preflight --write --project 3
+```
+
+### Manual config
+
+Create `.gh-velocity.yml` in your repo root:
 
 ```yaml
 # Issue classification
 quality:
   bug_labels: ["bug", "defect"]
-  feature_labels: ["enhancement", "feature"]
-  hotfix_window_hours: 48
+  feature_labels: ["enhancement"]
+  hotfix_window_hours: 72
 
 # Commit message patterns
 commit_ref:
-  patterns: ["closes"]          # default: closing keywords only
-  # patterns: ["closes", "refs"]  # also match bare #N references
+  patterns: ["closes"]    # "refs" also matches bare #N references
+
+# Cycle time strategy: "issue" (default), "pr", or "project-board"
+cycle_time:
+  strategy: issue
+
+# Projects v2 board (enables WIP and project-board cycle time)
+# Find these IDs with: gh velocity config discover
+# project:
+#   id: "PVT_kwDOAbc123"
+#   status_field_id: "PVTSSF_kwDOAbc123"
+
+# Label-based status (alternative to project board)
+# statuses:
+#   active_labels: ["in-progress", "wip"]
+#   backlog_labels: ["backlog", "icebox"]
 ```
 
-See [docs/guide.md](docs/guide.md) for the full configuration reference and detailed examples.
+See [docs/guide.md](docs/guide.md) for the full configuration reference, metric definitions, and examples for popular OSS repos.
+
+## Example output
+
+```
+$ gh velocity report --since 30d -R cli/cli
+
+Report: cli/cli (2026-02-08 – 2026-03-10 UTC)
+
+  Lead Time:   median 4.2d, mean 12.1d, P90 30.5d (n=47, 3 outliers)
+  Cycle Time:  median 1.1d, mean 3.8d, P90 9.2d (n=47)
+  Throughput:  47 issues closed, 52 PRs merged
+```
+
+```
+$ gh velocity flow lead-time 9876 -R cli/cli
+
+Issue #9876  Fix table alignment in `gh pr list`
+  Created:   2026-02-15T14:30:00Z UTC
+  Lead Time: 3d 4h 12m
+```
 
 ## License
 
