@@ -11,43 +11,14 @@ import (
 // CycleStart represents the detected start of active work on an issue.
 type CycleStart struct {
 	Time   time.Time
-	Signal string // "status-change", "label", "pr-created", "assigned", "commit"
-	Detail string // e.g., "Backlog → In progress" or "PR #42: title"
+	Signal string // "status-change"
+	Detail string // e.g., "Backlog → In progress"
 }
 
-// cycleStartWithLabelsResponse is the GraphQL response for issue timeline + labels queries.
-type cycleStartWithLabelsResponse struct {
-	Repository struct {
-		Issue struct {
-			Labels struct {
-				Nodes []labelRef `json:"nodes"`
-			} `json:"labels"`
-			TimelineItems struct {
-				Nodes []timelineNode `json:"nodes"`
-			} `json:"timelineItems"`
-		} `json:"issue"`
-	} `json:"repository"`
-}
-
-type timelineNode struct {
-	Typename string `json:"__typename"`
-
-	// ClosedEvent fields
-	Closer *closerRef `json:"closer,omitempty"`
-
-	// AssignedEvent / LabeledEvent fields
-	CreatedAt *time.Time `json:"createdAt,omitempty"`
-	Assignee  *actor     `json:"assignee,omitempty"`
-
-	// LabeledEvent fields
-	Label *labelRef `json:"label,omitempty"`
-
-	// CrossReferencedEvent fields
-	Source *crossRefSource `json:"source,omitempty"`
-}
-
-type labelRef struct {
-	Name string `json:"name"`
+// closingPRNode is a timeline node for ClosedEvent queries.
+type closingPRNode struct {
+	Typename string     `json:"__typename"`
+	Closer   *closerRef `json:"closer,omitempty"`
 }
 
 type closerRef struct {
@@ -58,195 +29,12 @@ type closerRef struct {
 	MergedAt  *time.Time `json:"mergedAt,omitempty"`
 }
 
-type crossRefSource struct {
-	Typename  string     `json:"__typename"`
-	Number    int        `json:"number,omitempty"`
-	Title     string     `json:"title,omitempty"`
-	CreatedAt *time.Time `json:"createdAt,omitempty"`
-}
-
-type actor struct {
-	Login string `json:"login"`
-}
-
-// CycleStartResult holds the cycle start signal and backlog status from timeline analysis.
-type CycleStartResult struct {
-	// CycleStart is set when a start signal was found.
-	CycleStart *CycleStart
-	// InBacklog is true when the issue currently has a backlog label,
-	// which suppresses cycle time even if other signals exist.
-	InBacklog bool
-}
-
-// GetCycleStart determines when active work started on an issue.
-// It checks, in priority order:
-//  1. Label signal — the first time an activeLabels label was added
-//  2. PR created — any PR referencing the issue (including drafts)
-//  3. First assigned — earliest assignment event
-//
-// If the issue currently has any backlogLabels, InBacklog is set to true
-// and cycle time should be suppressed by the caller.
-//
-// The caller may also query GetProjectStatus for a higher-priority
-// status-change signal when Projects v2 is configured.
-func (c *Client) GetCycleStart(ctx context.Context, issueNumber int, activeLabels, backlogLabels []string) (*CycleStartResult, error) {
-	// Single GraphQL query fetching ClosedEvent (for PR closer),
-	// CrossReferencedEvent (for any PR referencing the issue, including drafts),
-	// LabeledEvent (for label-based status), and AssignedEvent (for assignment).
-	query := `query($owner: String!, $repo: String!, $number: Int!) {
-  repository(owner: $owner, name: $repo) {
-    issue(number: $number) {
-      labels(first: 100) {
-        nodes { name }
-      }
-      timelineItems(first: 100, itemTypes: [CLOSED_EVENT, ASSIGNED_EVENT, CROSS_REFERENCED_EVENT, LABELED_EVENT]) {
-        nodes {
-          __typename
-          ... on ClosedEvent {
-            closer {
-              __typename
-              ... on PullRequest {
-                number
-                title
-                createdAt
-              }
-            }
-          }
-          ... on AssignedEvent {
-            createdAt
-            assignee {
-              ... on User { login }
-              ... on Bot { login }
-            }
-          }
-          ... on CrossReferencedEvent {
-            source {
-              __typename
-              ... on PullRequest {
-                number
-                title
-                createdAt
-              }
-            }
-          }
-          ... on LabeledEvent {
-            createdAt
-            label { name }
-          }
-        }
-      }
-    }
-  }
-}`
-
-	variables := map[string]interface{}{
-		"owner":  c.owner,
-		"repo":   c.repo,
-		"number": issueNumber,
-	}
-
-	var resp cycleStartWithLabelsResponse
-	if err := c.gql.DoWithContext(ctx, query, variables, &resp); err != nil {
-		return nil, fmt.Errorf("get cycle start for issue #%d: %w", issueNumber, err)
-	}
-
-	result := &CycleStartResult{}
-
-	// Check if the issue currently has a backlog label.
-	if len(backlogLabels) > 0 {
-		blSet := make(map[string]bool, len(backlogLabels))
-		for _, bl := range backlogLabels {
-			blSet[bl] = true
-		}
-		for _, l := range resp.Repository.Issue.Labels.Nodes {
-			if blSet[l.Name] {
-				result.InBacklog = true
-				break
-			}
-		}
-	}
-
-	// Build active label set for matching.
-	activeSet := make(map[string]bool, len(activeLabels))
-	for _, al := range activeLabels {
-		activeSet[al] = true
-	}
-
-	var labelStart *CycleStart
-	var prStart *CycleStart
-	var assignedStart *CycleStart
-
-	for _, node := range resp.Repository.Issue.TimelineItems.Nodes {
-		switch node.Typename {
-		case "LabeledEvent":
-			// Label matching active_labels was added.
-			if node.Label != nil && activeSet[node.Label.Name] && node.CreatedAt != nil {
-				if labelStart == nil || node.CreatedAt.Before(labelStart.Time) {
-					labelStart = &CycleStart{
-						Time:   *node.CreatedAt,
-						Signal: "label",
-						Detail: fmt.Sprintf("labeled %q", node.Label.Name),
-					}
-				}
-			}
-		case "ClosedEvent":
-			// PR that closed the issue — use its creation date.
-			if node.Closer != nil && node.Closer.Typename == "PullRequest" && node.Closer.CreatedAt != nil {
-				if prStart == nil || node.Closer.CreatedAt.Before(prStart.Time) {
-					prStart = &CycleStart{
-						Time:   *node.Closer.CreatedAt,
-						Signal: "pr-created",
-						Detail: fmt.Sprintf("PR #%d: %s", node.Closer.Number, node.Closer.Title),
-					}
-				}
-			}
-		case "CrossReferencedEvent":
-			// Any PR referencing the issue (including open/draft PRs).
-			if node.Source != nil && node.Source.Typename == "PullRequest" && node.Source.CreatedAt != nil {
-				if prStart == nil || node.Source.CreatedAt.Before(prStart.Time) {
-					prStart = &CycleStart{
-						Time:   *node.Source.CreatedAt,
-						Signal: "pr-created",
-						Detail: fmt.Sprintf("PR #%d: %s", node.Source.Number, node.Source.Title),
-					}
-				}
-			}
-		case "AssignedEvent":
-			if node.CreatedAt != nil {
-				if assignedStart == nil || node.CreatedAt.Before(assignedStart.Time) {
-					login := ""
-					if node.Assignee != nil {
-						login = node.Assignee.Login
-					}
-					assignedStart = &CycleStart{
-						Time:   *node.CreatedAt,
-						Signal: "assigned",
-						Detail: fmt.Sprintf("assigned to %s", login),
-					}
-				}
-			}
-		}
-	}
-
-	// Priority: label > PR created > first assigned
-	switch {
-	case labelStart != nil:
-		result.CycleStart = labelStart
-	case prStart != nil:
-		result.CycleStart = prStart
-	case assignedStart != nil:
-		result.CycleStart = assignedStart
-	}
-
-	return result, nil
-}
-
 // closingPRResponse is the GraphQL response for finding the PR that closed an issue.
 type closingPRResponse struct {
 	Repository struct {
 		Issue struct {
 			TimelineItems struct {
-				Nodes []timelineNode `json:"nodes"`
+				Nodes []closingPRNode `json:"nodes"`
 			} `json:"timelineItems"`
 		} `json:"issue"`
 	} `json:"repository"`
