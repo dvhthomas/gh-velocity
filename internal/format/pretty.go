@@ -6,81 +6,79 @@ import (
 	"strings"
 
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/cli/go-gh/v2/pkg/tableprinter"
 )
 
 // WriteReleasePretty writes release metrics as a formatted table to the writer.
-func WriteReleasePretty(w io.Writer, rm model.ReleaseMetrics, warnings []string) error {
-	var b strings.Builder
-
-	b.WriteString(fmt.Sprintf("Release %s\n", rm.Tag))
-	b.WriteString(strings.Repeat("=", 60) + "\n\n")
+func WriteReleasePretty(w io.Writer, isTTY bool, width int, rm model.ReleaseMetrics, warnings []string) error {
+	fmt.Fprintf(w, "Release %s\n", rm.Tag)
+	fmt.Fprintln(w, strings.Repeat("=", 60))
+	fmt.Fprintln(w)
 
 	if rm.PreviousTag != "" {
-		b.WriteString(fmt.Sprintf("  Previous:  %s\n", rm.PreviousTag))
-		b.WriteString(fmt.Sprintf("  Cadence:   %s\n", FormatDurationPtr(rm.Cadence)))
+		fmt.Fprintf(w, "  Previous:  %s\n", rm.PreviousTag)
+		fmt.Fprintf(w, "  Cadence:   %s\n", FormatDurationPtr(rm.Cadence))
 		if rm.IsHotfix {
-			b.WriteString("  ** HOTFIX RELEASE **\n")
+			fmt.Fprintln(w, "  ** HOTFIX RELEASE **")
 		}
-		b.WriteString("\n")
+		fmt.Fprintln(w)
 	}
 
 	// Composition
-	b.WriteString("Composition\n")
-	b.WriteString(fmt.Sprintf("  Bug:       %d (%.0f%%)\n", rm.BugCount, rm.BugRatio*100))
-	b.WriteString(fmt.Sprintf("  Feature:   %d (%.0f%%)\n", rm.FeatureCount, rm.FeatureRatio*100))
-	b.WriteString(fmt.Sprintf("  Other:     %d (%.0f%%)\n", rm.OtherCount, rm.OtherRatio*100))
-	b.WriteString(fmt.Sprintf("  Total:     %d\n\n", rm.TotalIssues))
+	fmt.Fprintln(w, "Composition")
+	fmt.Fprintf(w, "  Bug:       %d (%.0f%%)\n", rm.BugCount, rm.BugRatio*100)
+	fmt.Fprintf(w, "  Feature:   %d (%.0f%%)\n", rm.FeatureCount, rm.FeatureRatio*100)
+	fmt.Fprintf(w, "  Other:     %d (%.0f%%)\n", rm.OtherCount, rm.OtherRatio*100)
+	fmt.Fprintf(w, "  Total:     %d\n\n", rm.TotalIssues)
 
 	// Per-issue table
 	if len(rm.Issues) > 0 {
-		b.WriteString("Issues\n")
-		b.WriteString(fmt.Sprintf("  %-6s %-30s %-12s %-12s %-12s %-8s %s\n",
-			"#", "Title", "Lead Time", "Cycle Time", "Rel. Lag", "Commits", ""))
-		b.WriteString("  " + strings.Repeat("-", 96) + "\n")
+		fmt.Fprintln(w, "Issues")
+		tp := NewTable(w, isTTY, width)
+		tp.AddHeader([]string{"#", "Title", "Lead Time", "Cycle Time", "Rel. Lag", "Commits", ""})
 		for _, im := range rm.Issues {
-			title := im.Issue.Title
-			if len(title) > 28 {
-				title = title[:28] + ".."
-			}
 			flag := ""
 			if im.LeadTimeOutlier || im.CycleTimeOutlier {
 				flag = "OUTLIER"
 			}
-			b.WriteString(fmt.Sprintf("  %-6d %-30s %-12s %-12s %-12s %-8d %s\n",
-				im.Issue.Number,
-				title,
-				FormatDurationPtr(im.LeadTime),
-				FormatDurationPtr(im.CycleTime),
-				FormatDurationPtr(im.ReleaseLag),
-				im.CommitCount,
-				flag,
-			))
+			tp.AddField(fmt.Sprintf("%d", im.Issue.Number))
+			tp.AddField(im.Issue.Title)
+			tp.AddField(FormatDurationPtr(im.LeadTime))
+			tp.AddField(FormatDurationPtr(im.CycleTime))
+			tp.AddField(FormatDurationPtr(im.ReleaseLag))
+			tp.AddField(fmt.Sprintf("%d", im.CommitCount))
+			tp.AddField(flag)
+			tp.EndRow()
 		}
-		b.WriteString("\n")
+		if err := tp.Render(); err != nil {
+			return err
+		}
+		fmt.Fprintln(w)
 	}
 
 	// Aggregates
-	b.WriteString("Aggregates\n")
-	b.WriteString(fmt.Sprintf("  %-14s %-12s %-12s %-12s %-12s %-12s %s\n",
-		"Metric", "Mean", "Median", "Std Dev", "P90", "P95", "Outliers"))
-	b.WriteString("  " + strings.Repeat("-", 88) + "\n")
-	writePrettyStatsRow(&b, "Lead Time", rm.LeadTimeStats)
-	writePrettyStatsRow(&b, "Cycle Time", rm.CycleTimeStats)
-	writePrettyStatsRow(&b, "Release Lag", rm.ReleaseLagStats)
+	fmt.Fprintln(w, "Aggregates")
+	tp := NewTable(w, isTTY, width)
+	tp.AddHeader([]string{"Metric", "Mean", "Median", "Std Dev", "P90", "P95", "Outliers"})
+	writePrettyStatsRow(tp, "Lead Time", rm.LeadTimeStats)
+	writePrettyStatsRow(tp, "Cycle Time", rm.CycleTimeStats)
+	writePrettyStatsRow(tp, "Release Lag", rm.ReleaseLagStats)
+	if err := tp.Render(); err != nil {
+		return err
+	}
 
 	// Warnings
 	if len(warnings) > 0 {
-		b.WriteString("\nWarnings:\n")
-		for _, w := range warnings {
-			b.WriteString(fmt.Sprintf("  ! %s\n", w))
+		fmt.Fprintln(w, "\nWarnings:")
+		for _, warn := range warnings {
+			fmt.Fprintf(w, "  ! %s\n", warn)
 		}
 	}
 
-	_, err := io.WriteString(w, b.String())
-	return err
+	return nil
 }
 
-func writePrettyStatsRow(b *strings.Builder, name string, s model.Stats) {
+func writePrettyStatsRow(tp tableprinter.TablePrinter, name string, s model.Stats) {
 	sd := "--"
 	if s.StdDev != nil {
 		sd = FormatDuration(*s.StdDev)
@@ -97,13 +95,12 @@ func writePrettyStatsRow(b *strings.Builder, name string, s model.Stats) {
 	if s.OutlierCutoff != nil {
 		outliers = fmt.Sprintf("%d", s.OutlierCount)
 	}
-	b.WriteString(fmt.Sprintf("  %-14s %-12s %-12s %-12s %-12s %-12s %s\n",
-		name,
-		FormatDurationPtr(s.Mean),
-		FormatDurationPtr(s.Median),
-		sd,
-		p90,
-		p95,
-		outliers,
-	))
+	tp.AddField(name)
+	tp.AddField(FormatDurationPtr(s.Mean))
+	tp.AddField(FormatDurationPtr(s.Median))
+	tp.AddField(sd)
+	tp.AddField(p90)
+	tp.AddField(p95)
+	tp.AddField(outliers)
+	tp.EndRow()
 }

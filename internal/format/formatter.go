@@ -57,3 +57,15 @@ func FormatDurationPtr(d *time.Duration) string {
 	}
 	return FormatDuration(*d)
 }
+
+// FormatCycleStatus formats a cycle time duration. Returns "in progress"
+// when started is true but duration is nil, "N/A" when not started.
+func FormatCycleStatus(d *time.Duration, started bool) string {
+	if d != nil {
+		return FormatDuration(*d)
+	}
+	if started {
+		return "in progress"
+	}
+	return "N/A"
+}

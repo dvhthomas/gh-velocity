@@ -84,11 +84,6 @@ func (c *Client) SearchMergedPRs(ctx context.Context, start, end time.Time) ([]m
 	return allPRs, nil
 }
 
-// prLinkedIssuesResponse holds the GraphQL response for batched PR linked issues.
-type prLinkedIssuesResponse struct {
-	Repository map[string]prNode // keyed by alias like "pr101"
-}
-
 type prNode struct {
 	Number                  int        `json:"number"`
 	Title                   string     `json:"title"`

@@ -10,26 +10,29 @@ import (
 
 // JSONLeadTimeOutput is the JSON representation of lead-time metrics.
 type JSONLeadTimeOutput struct {
-	Repository      string   `json:"repository"`
-	Issue           int      `json:"issue"`
-	Title           string   `json:"title"`
-	State           string   `json:"state"`
-	LeadTimeSeconds *int64   `json:"lead_time_seconds"`
-	LeadTime        string   `json:"lead_time"`
-	Warnings        []string `json:"warnings,omitempty"`
+	Repository      string     `json:"repository"`
+	Issue           int        `json:"issue"`
+	Title           string     `json:"title"`
+	State           string     `json:"state"`
+	StartedAt       *time.Time `json:"started_at"`
+	LeadTimeSeconds *int64     `json:"lead_time_seconds"`
+	LeadTime        string     `json:"lead_time"`
+	Warnings        []string   `json:"warnings,omitempty"`
 }
 
 // JSONCycleTimeOutput is the JSON representation of cycle-time metrics.
 type JSONCycleTimeOutput struct {
-	Repository       string   `json:"repository"`
-	Issue            int      `json:"issue"`
-	Title            string   `json:"title"`
-	State            string   `json:"state"`
-	Commits          int      `json:"commits"`
-	CycleTimeSeconds *int64   `json:"cycle_time_seconds"`
-	CycleTime        string   `json:"cycle_time"`
-	Signal           string   `json:"signal,omitempty"`
-	Warnings         []string `json:"warnings,omitempty"`
+	Repository       string     `json:"repository"`
+	Issue            int        `json:"issue,omitempty"`
+	PR               int        `json:"pr,omitempty"`
+	Title            string     `json:"title"`
+	State            string     `json:"state"`
+	Commits          int        `json:"commits"`
+	StartedAt        *time.Time `json:"started_at"`
+	CycleTimeSeconds *int64     `json:"cycle_time_seconds"`
+	CycleTime        string     `json:"cycle_time"`
+	Signal           string     `json:"signal,omitempty"`
+	Warnings         []string   `json:"warnings,omitempty"`
 }
 
 // JSONReleaseOutput is the JSON representation of release metrics.
@@ -85,12 +88,13 @@ type JSONStats struct {
 }
 
 // WriteLeadTimeJSON writes lead-time metrics as JSON to the writer.
-func WriteLeadTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, lt *time.Duration, warnings []string) error {
+func WriteLeadTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, startedAt time.Time, lt *time.Duration, warnings []string) error {
 	out := JSONLeadTimeOutput{
 		Repository: repo,
 		Issue:      issueNumber,
 		Title:      title,
 		State:      state,
+		StartedAt:  &startedAt,
 		Warnings:   warnings,
 	}
 	if lt != nil {
@@ -98,7 +102,7 @@ func WriteLeadTimeJSON(w io.Writer, repo string, issueNumber int, title, state s
 		out.LeadTimeSeconds = &s
 		out.LeadTime = FormatDuration(*lt)
 	} else {
-		out.LeadTime = "N/A"
+		out.LeadTime = "in progress"
 	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
@@ -106,13 +110,14 @@ func WriteLeadTimeJSON(w io.Writer, repo string, issueNumber int, title, state s
 }
 
 // WriteCycleTimeJSON writes cycle-time metrics as JSON to the writer.
-func WriteCycleTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, commits int, ct *time.Duration, signal string, warnings []string) error {
+func WriteCycleTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, commits int, startedAt *time.Time, ct *time.Duration, signal string, warnings []string) error {
 	out := JSONCycleTimeOutput{
 		Repository: repo,
 		Issue:      issueNumber,
 		Title:      title,
 		State:      state,
 		Commits:    commits,
+		StartedAt:  startedAt,
 		Signal:     signal,
 		Warnings:   warnings,
 	}
@@ -120,6 +125,33 @@ func WriteCycleTimeJSON(w io.Writer, repo string, issueNumber int, title, state 
 		s := int64(ct.Seconds())
 		out.CycleTimeSeconds = &s
 		out.CycleTime = FormatDuration(*ct)
+	} else if startedAt != nil {
+		out.CycleTime = "in progress"
+	} else {
+		out.CycleTime = "N/A"
+	}
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(out)
+}
+
+// WriteCycleTimePRJSON writes cycle-time metrics for a PR as JSON.
+func WriteCycleTimePRJSON(w io.Writer, repo string, prNumber int, title, state string, startedAt *time.Time, ct *time.Duration, signal string, warnings []string) error {
+	out := JSONCycleTimeOutput{
+		Repository: repo,
+		PR:         prNumber,
+		Title:      title,
+		State:      state,
+		StartedAt:  startedAt,
+		Signal:     signal,
+		Warnings:   warnings,
+	}
+	if ct != nil {
+		s := int64(ct.Seconds())
+		out.CycleTimeSeconds = &s
+		out.CycleTime = FormatDuration(*ct)
+	} else if startedAt != nil {
+		out.CycleTime = "in progress"
 	} else {
 		out.CycleTime = "N/A"
 	}

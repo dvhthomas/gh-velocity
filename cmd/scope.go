@@ -124,7 +124,7 @@ func NewScopeCmd() *cobra.Command {
 			case format.Markdown:
 				return format.WriteScopeMarkdown(w, scopeResult)
 			default:
-				return format.WriteScopePretty(w, scopeResult)
+				return format.WriteScopePretty(w, deps.IsTTY, deps.TermWidth, scopeResult)
 			}
 		},
 	}

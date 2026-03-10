@@ -15,6 +15,7 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/gitdata"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/cli/go-gh/v2/pkg/repository"
+	"github.com/cli/go-gh/v2/pkg/term"
 	"github.com/spf13/cobra"
 )
 
@@ -31,6 +32,8 @@ type Deps struct {
 	Owner        string
 	Repo         string
 	HasLocalRepo bool // true when a local git checkout is available
+	IsTTY        bool // true when stdout is a terminal
+	TermWidth    int  // terminal width in columns (0 = unknown)
 }
 
 // DepsFromContext extracts Deps from the command context.
@@ -135,6 +138,14 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				cfg = config.Defaults()
 			}
 
+			// Detect terminal capabilities for pretty output.
+			t := term.FromEnv()
+			isTTY := t.IsTerminalOutput()
+			termWidth := 80
+			if w, _, err := t.Size(); err == nil && w > 0 {
+				termWidth = w
+			}
+
 			deps := &Deps{
 				Config:       cfg,
 				Format:       f,
@@ -142,6 +153,8 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				Owner:        owner,
 				Repo:         repo,
 				HasLocalRepo: hasLocal,
+				IsTTY:        isTTY,
+				TermWidth:    termWidth,
 			}
 
 			cmd.SetContext(context.WithValue(cmd.Context(), configKey, deps))

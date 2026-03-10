@@ -80,7 +80,7 @@ func NewReleaseCmd() *cobra.Command {
 			case format.Markdown:
 				return format.WriteReleaseMarkdown(w, rm, warnings)
 			default:
-				return format.WriteReleasePretty(w, rm, warnings)
+				return format.WriteReleasePretty(w, deps.IsTTY, deps.TermWidth, rm, warnings)
 			}
 		},
 	}

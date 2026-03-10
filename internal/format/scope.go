@@ -7,44 +7,48 @@ import (
 	"strings"
 
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/cli/go-gh/v2/pkg/tableprinter"
 )
 
 // WriteScopePretty writes scope results as a formatted table to the writer.
-func WriteScopePretty(w io.Writer, result *model.ScopeResult) error {
-	var b strings.Builder
-
-	b.WriteString(fmt.Sprintf("Scope: %s", result.Tag))
+func WriteScopePretty(w io.Writer, isTTY bool, width int, result *model.ScopeResult) error {
+	fmt.Fprintf(w, "Scope: %s", result.Tag)
 	if result.PreviousTag != "" {
-		b.WriteString(fmt.Sprintf(" (since %s)", result.PreviousTag))
+		fmt.Fprintf(w, " (since %s)", result.PreviousTag)
 	}
-	b.WriteString("\n")
-	b.WriteString(strings.Repeat("=", 60) + "\n\n")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, strings.Repeat("=", 60))
+	fmt.Fprintln(w)
 
 	// Per-strategy breakdown
 	for _, sr := range result.Strategies {
-		b.WriteString(fmt.Sprintf("Strategy: %s (%d items)\n", sr.Name, len(sr.Items)))
+		fmt.Fprintf(w, "Strategy: %s (%d items)\n", sr.Name, len(sr.Items))
 		if len(sr.Items) == 0 {
-			b.WriteString("  (none)\n\n")
+			fmt.Fprintln(w, "  (none)")
+			fmt.Fprintln(w)
 			continue
 		}
+		tp := NewTable(w, isTTY, width)
 		for _, item := range sr.Items {
-			writeScopeItem(&b, item, result)
+			addScopeItemRow(tp, item, result)
 		}
-		b.WriteString("\n")
+		if err := tp.Render(); err != nil {
+			return err
+		}
+		fmt.Fprintln(w)
 	}
 
 	// Merged summary
 	issueCount, prCount := countMergedTypes(result.Merged)
-	b.WriteString(fmt.Sprintf("Merged: %d unique items (%d issues, %d PRs)\n", len(result.Merged), issueCount, prCount))
+	fmt.Fprintf(w, "Merged: %d unique items (%d issues, %d PRs)\n", len(result.Merged), issueCount, prCount)
 
-	_, err := io.WriteString(w, b.String())
-	return err
+	return nil
 }
 
-func writeScopeItem(b *strings.Builder, item model.DiscoveredItem, result *model.ScopeResult) {
+func addScopeItemRow(tp tableprinter.TablePrinter, item model.DiscoveredItem, result *model.ScopeResult) {
 	num := 0
 	title := ""
-	prefix := "  "
+	prefix := ""
 
 	if item.Issue != nil {
 		num = item.Issue.Number
@@ -52,26 +56,30 @@ func writeScopeItem(b *strings.Builder, item model.DiscoveredItem, result *model
 	} else if item.PR != nil {
 		num = item.PR.Number
 		title = item.PR.Title
-		prefix = "  PR "
+		prefix = "PR "
 	}
 
-	if len(title) > 40 {
-		title = title[:38] + ".."
-	}
+	ref := fmt.Sprintf("%s#%d", prefix, num)
 
-	line := fmt.Sprintf("%s#%-5d %s", prefix, num, title)
+	// Show linked PR if this is an issue
+	extra := ""
+	if item.PR != nil && item.Issue != nil {
+		extra = fmt.Sprintf("PR #%d", item.PR.Number)
+	}
 
 	// Show if also found by other strategies
 	otherStrategies := findOtherStrategies(num, item.Strategy, result)
 	if len(otherStrategies) > 0 {
-		line += fmt.Sprintf("  (also: %s)", strings.Join(otherStrategies, ", "))
+		if extra != "" {
+			extra += "  "
+		}
+		extra += fmt.Sprintf("(also: %s)", strings.Join(otherStrategies, ", "))
 	}
 
-	if item.PR != nil && item.Issue != nil {
-		line += fmt.Sprintf("  (PR #%d)", item.PR.Number)
-	}
-
-	b.WriteString(line + "\n")
+	tp.AddField(ref)
+	tp.AddField(title)
+	tp.AddField(extra)
+	tp.EndRow()
 }
 
 func findOtherStrategies(num int, currentStrategy string, result *model.ScopeResult) []string {

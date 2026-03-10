@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/bitsbyme/gh-velocity/internal/config"
+	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/spf13/cobra"
 )
@@ -20,6 +22,7 @@ func NewConfigCmd() *cobra.Command {
 	cmd.AddCommand(newConfigShowCmd())
 	cmd.AddCommand(newConfigValidateCmd())
 	cmd.AddCommand(newConfigCreateCmd())
+	cmd.AddCommand(newConfigDiscoverCmd())
 
 	return cmd
 }
@@ -133,6 +136,91 @@ func newConfigCreateCmd() *cobra.Command {
 				return fmt.Errorf("write %s: %w", path, err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Created %s\n", path)
+			return nil
+		},
+	}
+}
+
+func newConfigDiscoverCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "discover",
+		Short: "Discover Projects v2 boards and fields linked to a repo",
+		Long: `Queries the GitHub API to find Projects v2 boards linked to the target
+repository, then lists their fields and status options.
+
+Use this to find the project.id and project.status_field_id values
+needed for .gh-velocity.yml configuration.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Config subcommands skip PersistentPreRunE, so resolve repo here.
+			repoFlag, _ := cmd.Root().PersistentFlags().GetString("repo")
+			owner, repo, err := resolveRepo(repoFlag)
+			if err != nil {
+				return err
+			}
+
+			client, err := gh.NewClient(owner, repo)
+			if err != nil {
+				return err
+			}
+
+			projects, err := client.DiscoverProjects(cmd.Context())
+			if err != nil {
+				return err
+			}
+
+			if len(projects) == 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "No Projects v2 boards linked to %s/%s.\n", owner, repo)
+				return nil
+			}
+
+			formatFlag, _ := cmd.Root().PersistentFlags().GetString("format")
+			if formatFlag == "json" {
+				out, err := json.MarshalIndent(projects, "", "  ")
+				if err != nil {
+					return err
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
+				return nil
+			}
+
+			w := cmd.OutOrStdout()
+			fmt.Fprintf(w, "Projects linked to %s/%s\n", owner, repo)
+			fmt.Fprintln(w, strings.Repeat("=", 60))
+
+			for _, p := range projects {
+				fmt.Fprintf(w, "\nProject: %s (#%d)\n", p.Title, p.Number)
+				fmt.Fprintf(w, "  id: %s\n", p.ID)
+
+				// Find and highlight the Status field.
+				for _, f := range p.Fields {
+					if len(f.Options) == 0 {
+						continue
+					}
+					marker := " "
+					if strings.EqualFold(f.Name, "Status") {
+						marker = "*"
+					}
+					fmt.Fprintf(w, "\n %s Field: %s\n", marker, f.Name)
+					fmt.Fprintf(w, "   id: %s\n", f.ID)
+					fmt.Fprintf(w, "   Options:\n")
+					for _, o := range f.Options {
+						fmt.Fprintf(w, "     - %s\n", o.Name)
+					}
+				}
+
+				// Print config snippet for Status field.
+				for _, f := range p.Fields {
+					if strings.EqualFold(f.Name, "Status") && len(f.Options) > 0 {
+						fmt.Fprintf(w, "\n  Config snippet for .gh-velocity.yml:\n")
+						fmt.Fprintf(w, "    project:\n")
+						fmt.Fprintf(w, "      id: %q\n", p.ID)
+						fmt.Fprintf(w, "      status_field_id: %q\n", f.ID)
+						break
+					}
+				}
+			}
+
 			return nil
 		},
 	}
