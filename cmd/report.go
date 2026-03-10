@@ -11,16 +11,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewStatsCmd returns the stats command.
-func NewStatsCmd() *cobra.Command {
+// NewReportCmd returns the report command (composite dashboard).
+func NewReportCmd() *cobra.Command {
 	var (
 		sinceFlag, untilFlag string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "stats",
-		Short: "Dashboard of velocity and quality metrics",
-		Long: `Show a trailing-window dashboard composing lead time, cycle time,
+		Use:   "report",
+		Short: "Composite dashboard of velocity and quality metrics",
+		Long: `Show a trailing-window report composing lead time, cycle time,
 throughput, work in progress, and quality metrics.
 
 Default window is the last 30 days. Use --since and --until to customize.
@@ -89,11 +89,11 @@ unavailable.`,
 			w := cmd.OutOrStdout()
 			switch deps.Format {
 			case format.JSON:
-				return format.WriteStatsJSON(w, result)
+				return format.WriteReportJSON(w, result)
 			case format.Markdown:
-				return format.WriteStatsMarkdown(w, result)
+				return format.WriteReportMarkdown(w, result)
 			default:
-				return format.WriteStatsPretty(w, deps.IsTTY, deps.TermWidth, result)
+				return format.WriteReportPretty(w, deps.IsTTY, deps.TermWidth, result)
 			}
 		},
 	}

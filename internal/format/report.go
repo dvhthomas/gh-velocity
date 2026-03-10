@@ -38,8 +38,8 @@ type jsonStatsQuality struct {
 	DefectRate  float64 `json:"defect_rate"`
 }
 
-// WriteStatsJSON writes dashboard metrics as JSON.
-func WriteStatsJSON(w io.Writer, r model.StatsResult) error {
+// WriteReportJSON writes dashboard metrics as JSON.
+func WriteReportJSON(w io.Writer, r model.StatsResult) error {
 	out := jsonStatsOutput{
 		Repository: r.Repository,
 		Window: jsonWindow{
@@ -81,9 +81,9 @@ func WriteStatsJSON(w io.Writer, r model.StatsResult) error {
 
 // --- Markdown ---
 
-// WriteStatsMarkdown writes dashboard metrics as markdown.
-func WriteStatsMarkdown(w io.Writer, r model.StatsResult) error {
-	fmt.Fprintf(w, "## Stats: %s (%s – %s UTC)\n\n",
+// WriteReportMarkdown writes dashboard metrics as markdown.
+func WriteReportMarkdown(w io.Writer, r model.StatsResult) error {
+	fmt.Fprintf(w, "## Report: %s (%s – %s UTC)\n\n",
 		r.Repository, r.Since.UTC().Format(time.DateOnly), r.Until.UTC().Format(time.DateOnly))
 
 	fmt.Fprintf(w, "| Metric | Value |\n")
@@ -112,9 +112,9 @@ func WriteStatsMarkdown(w io.Writer, r model.StatsResult) error {
 
 // --- Pretty ---
 
-// WriteStatsPretty writes dashboard metrics as formatted text.
-func WriteStatsPretty(w io.Writer, isTTY bool, width int, r model.StatsResult) error {
-	fmt.Fprintf(w, "Stats: %s (%s – %s UTC)\n\n",
+// WriteReportPretty writes dashboard metrics as formatted text.
+func WriteReportPretty(w io.Writer, isTTY bool, width int, r model.StatsResult) error {
+	fmt.Fprintf(w, "Report: %s (%s – %s UTC)\n\n",
 		r.Repository, r.Since.UTC().Format(time.DateOnly), r.Until.UTC().Format(time.DateOnly))
 
 	if r.LeadTime != nil {

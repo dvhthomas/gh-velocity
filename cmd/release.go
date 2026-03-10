@@ -19,12 +19,16 @@ import (
 // NewReleaseCmd returns the release command.
 func NewReleaseCmd() *cobra.Command {
 	var sinceFlag string
+	var scopeFlag bool
 
 	cmd := &cobra.Command{
 		Use:   "release <tag>",
 		Short: "Release velocity and quality metrics",
-		Long:  "Compute per-issue lead time, cycle time, release lag, and quality metrics for a release.",
-		Args:  cobra.ExactArgs(1),
+		Long: `Compute per-issue lead time, cycle time, release lag, and quality metrics for a release.
+
+Use --scope to show the scope diagnostic view: which issues and PRs each
+linking strategy discovered for the release.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tag := args[0]
 			ctx := cmd.Context()
@@ -58,9 +62,25 @@ func NewReleaseCmd() *cobra.Command {
 			}
 
 			// Gather data: tags, commits, release info, issues
-			input, warnings, err := gatherReleaseData(ctx, source, client, deps, tag, sinceFlag)
+			input, scopeResult, warnings, err := gatherReleaseData(ctx, source, client, deps, tag, sinceFlag)
 			if err != nil {
 				return err
+			}
+
+			// --scope: output scope diagnostic view and return
+			if scopeFlag {
+				for _, warning := range warnings {
+					fmt.Fprintf(os.Stderr, "warning: %s\n", warning)
+				}
+				w := cmd.OutOrStdout()
+				switch deps.Format {
+				case format.JSON:
+					return format.WriteScopeJSON(w, deps.Owner+"/"+deps.Repo, scopeResult)
+				case format.Markdown:
+					return format.WriteScopeMarkdown(w, scopeResult)
+				default:
+					return format.WriteScopePretty(w, deps.IsTTY, deps.TermWidth, scopeResult)
+				}
 			}
 
 			// Build classifier from config categories.
@@ -93,16 +113,17 @@ func NewReleaseCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&sinceFlag, "since", "", "Override previous tag for commit range (tag name)")
+	cmd.Flags().BoolVar(&scopeFlag, "scope", false, "Show scope diagnostic: what issues/PRs each strategy discovered")
 	return cmd
 }
 
 // gatherReleaseData fetches all data needed for release metrics computation.
-func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Client, deps *Deps, tag, sinceFlag string) (metrics.ReleaseInput, []string, error) {
+func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Client, deps *Deps, tag, sinceFlag string) (metrics.ReleaseInput, *model.ScopeResult, []string, error) {
 	var warnings []string
 
 	tags, err := source.Tags(ctx)
 	if err != nil {
-		return metrics.ReleaseInput{}, nil, fmt.Errorf("list tags: %w", err)
+		return metrics.ReleaseInput{}, nil, nil, fmt.Errorf("list tags: %w", err)
 	}
 	previousTag := findPreviousTag(tags, tag, sinceFlag)
 
@@ -117,7 +138,7 @@ func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Cl
 		}
 	}
 	if err != nil {
-		return metrics.ReleaseInput{}, nil, fmt.Errorf("get commits: %w", err)
+		return metrics.ReleaseInput{}, nil, nil, fmt.Errorf("get commits: %w", err)
 	}
 
 	// Get release
@@ -169,7 +190,7 @@ func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Cl
 	})
 	warnings = append(warnings, stratWarnings...)
 	if err != nil {
-		return metrics.ReleaseInput{}, warnings, err
+		return metrics.ReleaseInput{}, nil, warnings, err
 	}
 
 	// Convert strategy results to metrics input format.
@@ -233,7 +254,7 @@ func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Cl
 		LinkedPRs:    linkedPRs,
 		FetchErrors:  fetchErrors,
 	}
-	return input, warnings, nil
+	return input, scopeResult, warnings, nil
 }
 
 func findPreviousTag(tags []string, currentTag, sinceFlag string) string {

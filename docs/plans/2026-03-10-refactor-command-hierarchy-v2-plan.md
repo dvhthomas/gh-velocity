@@ -1,7 +1,7 @@
 ---
 title: "refactor: Reorganize commands into flow/quality/status groups"
 type: refactor
-status: active
+status: completed
 date: 2026-03-10
 issue: https://github.com/dvhthomas/gh-velocity/issues/11
 ---
@@ -134,65 +134,65 @@ The last case catches any command with no `RunE`/`Run` (group parents). This is 
 
 ### Phase 2: Rename stats → report
 
-- [ ] Rename `cmd/stats.go` → `cmd/report.go`
-- [ ] Change `NewStatsCmd()` → `NewReportCmd()`
-- [ ] Change `Use: "stats"` → `Use: "report"`
-- [ ] Change `Short` and `Long` descriptions
-- [ ] Update `root.go` wiring (Phase 1 handles this)
-- [ ] Rename format functions: `WriteStatsJSON` → `WriteReportJSON`, etc. in `internal/format/stats.go` → `report.go`
+- [x] Rename `cmd/stats.go` → `cmd/report.go`
+- [x] Change `NewStatsCmd()` → `NewReportCmd()`
+- [x] Change `Use: "stats"` → `Use: "report"`
+- [x] Change `Short` and `Long` descriptions
+- [x] Update `root.go` wiring (Phase 1 handles this)
+- [x] Rename format functions: `WriteStatsJSON` → `WriteReportJSON`, etc. in `internal/format/stats.go` → `report.go`
 - [ ] Update `model.StatsResult` → `model.ReportResult` (optional — internal only, can defer)
 
 ### Phase 3: Absorb scope into quality release --scope
 
-- [ ] Add `--scope` bool flag to `NewReleaseCmd()` in `cmd/release.go`
-- [ ] When `--scope` is set, run the existing scope data-gathering logic (strategy runner) and output using `WriteScope*` formatters instead of the release metrics formatters
-- [ ] The scope and release commands already share identical data-gathering code (tag resolution, commit fetching, strategy running). Extract shared logic into a helper if not already shared
-- [ ] Delete `cmd/scope.go`
-- [ ] Remove `NewScopeCmd()` from root wiring
+- [x] Add `--scope` bool flag to `NewReleaseCmd()` in `cmd/release.go`
+- [x] When `--scope` is set, run the existing scope data-gathering logic (strategy runner) and output using `WriteScope*` formatters instead of the release metrics formatters
+- [x] The scope and release commands already share identical data-gathering code (tag resolution, commit fetching, strategy running). Extract shared logic into a helper if not already shared
+- [x] Delete `cmd/scope.go`
+- [x] Remove `NewScopeCmd()` from root wiring
 
 ### Phase 4: Update Tests and Smoke Tests
 
-- [ ] Update `scripts/smoke-test.sh`: all `$BINARY lead-time` → `$BINARY flow lead-time`, etc.
-- [ ] Update `$BINARY scope` tests → `$BINARY quality release <tag> --scope`
-- [ ] Update `$BINARY stats` tests → `$BINARY report`
-- [ ] Update output string assertions (`"Stats:"` → `"Report:"`, etc.)
-- [ ] Update `cmd/root_test.go` if any tests reference moved commands
-- [ ] Add new tests: bare `flow`, `status` show help text
-- [ ] Verify `--help` on each group parent shows leaf commands
+- [x] Update `scripts/smoke-test.sh`: all `$BINARY lead-time` → `$BINARY flow lead-time`, etc.
+- [x] Update `$BINARY scope` tests → `$BINARY quality release <tag> --scope`
+- [x] Update `$BINARY stats` tests → `$BINARY report`
+- [x] Update output string assertions (`"Stats:"` → `"Report:"`, etc.)
+- [x] Update `cmd/root_test.go` if any tests reference moved commands
+- [x] Add new tests: bare `flow`, `status` show help text
+- [x] Verify `--help` on each group parent shows leaf commands
 
 ### Phase 5: Clean Up
 
-- [ ] Delete `cmd/scope.go`
-- [ ] Rename `internal/format/stats.go` → `internal/format/report.go`
-- [ ] Rename format functions (`WriteStats*` → `WriteReport*`)
-- [ ] Update any references in `internal/metrics/dashboard.go`
-- [ ] `go build ./...` and `task quality` pass
+- [x] Delete `cmd/scope.go`
+- [x] Rename `internal/format/stats.go` → `internal/format/report.go`
+- [x] Rename format functions (`WriteStats*` → `WriteReport*`)
+- [x] Update any references in `internal/metrics/dashboard.go`
+- [x] `go build ./...` and `task quality` pass
 
 ## Acceptance Criteria
 
 ### Functional
 
-- [ ] `gh velocity flow lead-time 42` works (single issue)
-- [ ] `gh velocity flow lead-time --since 30d` works (bulk)
-- [ ] `gh velocity flow cycle-time 42` works (single issue)
-- [ ] `gh velocity flow cycle-time --pr 99` works (single PR)
-- [ ] `gh velocity flow cycle-time --since 30d` works (bulk)
-- [ ] `gh velocity quality release v1.0` works (unchanged path)
-- [ ] `gh velocity quality release v1.0 --scope` outputs scope diagnostic view
-- [ ] `gh velocity status wip` works
-- [ ] `gh velocity report --since 30d` works (composite dashboard)
-- [ ] `gh velocity report` defaults to 30-day window (same as old stats)
-- [ ] `gh velocity flow` prints help listing lead-time and cycle-time
-- [ ] `gh velocity status` prints help listing wip
-- [ ] `gh velocity --help` shows flow, quality, status, report with descriptive hints
-- [ ] Old commands (`lead-time`, `cycle-time`, `wip`, `stats`, `scope` at root) return "unknown command" error
+- [x] `gh velocity flow lead-time 42` works (single issue)
+- [x] `gh velocity flow lead-time --since 30d` works (bulk)
+- [x] `gh velocity flow cycle-time 42` works (single issue)
+- [x] `gh velocity flow cycle-time --pr 99` works (single PR)
+- [x] `gh velocity flow cycle-time --since 30d` works (bulk)
+- [x] `gh velocity quality release v1.0` works (unchanged path)
+- [x] `gh velocity quality release v1.0 --scope` outputs scope diagnostic view
+- [x] `gh velocity status wip` works
+- [x] `gh velocity report --since 30d` works (composite dashboard)
+- [x] `gh velocity report` defaults to 30-day window (same as old stats)
+- [x] `gh velocity flow` prints help listing lead-time and cycle-time
+- [x] `gh velocity status` prints help listing wip
+- [x] `gh velocity --help` shows flow, quality, status, report with descriptive hints
+- [x] Old commands (`lead-time`, `cycle-time`, `wip`, `stats`, `scope` at root) return "unknown command" error
 
 ### Non-Functional
 
-- [ ] All smoke tests pass (47+)
-- [ ] `task quality` passes (lint + staticcheck)
-- [ ] No new dependencies added
-- [ ] JSON output schemas unchanged for moved commands (only command path changes)
+- [x] All smoke tests pass (55 pass)
+- [x] `task quality` passes (lint + staticcheck)
+- [x] No new dependencies added
+- [x] JSON output schemas unchanged for moved commands (only command path changes)
 
 ## Dependencies & Risks
 
