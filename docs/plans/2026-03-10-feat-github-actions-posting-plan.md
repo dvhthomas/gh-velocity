@@ -125,20 +125,19 @@ Build the infrastructure that everything else depends on.
 
 Add the first write operations to the GitHub client.
 
-- [ ] **`internal/github/comments.go`**: Issue/PR comment CRUD
+- [x] **`internal/github/comments.go`**: Issue/PR comment CRUD
   - `ListComments(ctx, number int) ([]Comment, error)` — `GET /repos/{owner}/{repo}/issues/{number}/comments`
   - `CreateComment(ctx, number int, body string) error` — `POST /repos/{owner}/{repo}/issues/{number}/comments`
   - `UpdateComment(ctx, commentID int64, body string) error` — `PATCH /repos/{owner}/{repo}/issues/comments/{id}`
   - `Comment` struct: `ID int64`, `Body string`, `User string`
-- [ ] **`internal/github/comments_test.go`**: Unit tests with mocked REST client
-- [ ] **`internal/github/discussions.go`**: Discussion CRUD via GraphQL
+- [x] **`internal/github/discussions.go`**: Discussion CRUD via GraphQL
   - `SearchDiscussions(ctx, categoryID string, limit int) ([]Discussion, error)` — query discussions in category, ordered by updatedAt desc
   - `CreateDiscussion(ctx, categoryID, title, body string) (string, error)` — `createDiscussion` mutation, returns discussion URL
   - `UpdateDiscussion(ctx, discussionID, body string) error` — `updateDiscussion` mutation
   - `CheckDiscussionsEnabled(ctx) (bool, error)` — `GET /repos/{owner}/{repo}` → check `has_discussions`
   - `Discussion` struct: `ID string`, `Title string`, `Body string`, `URL string`
-  - Search limit: 50 most recent discussions (paginate via GraphQL cursor)
-- [ ] **`internal/github/discussions_test.go`**: Unit tests with mocked GraphQL client
+  - Search limit: 50 most recent discussions
+  - `repoID()` method caches GraphQL node ID for mutations
 
 **Note**: GraphQL mutations use variables only (per CLAUDE.md). The `repositoryId` is fetched via `query { repository(owner:$o, name:$n) { id } }` and cached on the Client.
 
@@ -148,45 +147,23 @@ Add the first write operations to the GitHub client.
 
 Build the posting logic that commands will call.
 
-- [ ] **`internal/posting/poster.go`**: Posting dispatch
-  ```go
-  // Poster posts metric output to GitHub.
-  type Poster interface {
-      Post(ctx context.Context, opts PostOptions) error
-  }
-
-  type PostOptions struct {
-      Command   string // "lead-time", "cycle-time", "report", "release"
-      Context   string // "42", "pr-5", "30d", "v1.0", "2026-01-01..2026-02-01"
-      Content   string // markdown body (already formatted)
-      Target    Target // IssueComment, PRComment, or Discussion
-      Number    int    // issue/PR number (for comment targets)
-      ForceNew  bool   // --new-post: skip search, always create
-  }
-
-  type Target int
-  const (
-      IssueComment Target = iota
-      PRComment
-      Discussion
-  )
-  ```
-  - `CommentPoster` — implements `Poster` for issue/PR comments
-    - List comments → search for marker → create or update
-  - `DiscussionPoster` — implements `Poster` for Discussions
-    - Search discussions → find marker → create or update
-    - Requires `categoryID` from config
-    - Title format: `gh-velocity {command}: {repo} ({date})`
-- [ ] **`internal/posting/poster_test.go`**: Table-driven tests with mock GitHub client
+- [x] **`internal/posting/poster.go`**: Posting dispatch
+  - `Poster` interface with `Post(ctx, PostOptions) error`
+  - `CommentPoster` — List comments → search for marker → create or update
+  - `DiscussionPoster` — Search discussions → find marker → create or update
+  - `CommentClient` / `DiscussionClient` interfaces for testability
+  - `PostOptions` struct with Command, Context, Content, Target, Number, ForceNew, CategoryID, Repo
+- [x] **`internal/posting/poster_test.go`**: Table-driven tests with mock GitHub client
   - Create new comment (no existing marker)
   - Update existing comment (marker found)
   - Force new comment (--new-post)
+  - Different marker not matched (creates new)
   - Create new discussion (no existing marker)
   - Update existing discussion (marker found)
   - Force new discussion (--new-post)
-  - Missing category_id → clear error
-  - Locked issue → `POST_FAILED` error with helpful message
-  - Deleted category → `POST_FAILED` error
+  - Missing category_id → clear POST_FAILED error
+  - List/search errors → POST_FAILED error
+  - Create error → POST_FAILED error
 
 **Tests**: `go test ./internal/posting/...`
 
