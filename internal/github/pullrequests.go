@@ -99,6 +99,7 @@ type gqlIssueNode struct {
 	State     string     `json:"state"`
 	CreatedAt time.Time  `json:"createdAt"`
 	ClosedAt  *time.Time `json:"closedAt"`
+	URL       string     `json:"url"`
 	Labels    struct {
 		Nodes []struct {
 			Name string `json:"name"`
@@ -148,7 +149,8 @@ func (c *Client) fetchPRLinkedIssuesBatch(ctx context.Context, prNumbers []int) 
           state
           createdAt
           closedAt
-          labels(first: 10) {
+          url
+          labels(first: 20) {
             nodes { name }
           }
         }
@@ -200,6 +202,7 @@ func (c *Client) fetchPRLinkedIssuesBatch(ctx context.Context, prNumbers []int) 
 				Labels:    labels,
 				CreatedAt: issueNode.CreatedAt,
 				ClosedAt:  issueNode.ClosedAt,
+				URL:       issueNode.URL,
 			})
 		}
 		result[num] = issues
