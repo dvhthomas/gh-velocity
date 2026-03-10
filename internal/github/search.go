@@ -67,3 +67,53 @@ func (c *Client) SearchClosedIssues(ctx context.Context, since, until time.Time)
 
 	return allIssues, nil
 }
+
+// SearchOpenIssuesWithLabels finds open issues that have at least one of the given labels.
+// Uses: GET /search/issues?q=repo:{owner}/{repo}+is:issue+is:open+label:{label1},label:{label2},...
+// Returns at most 1000 results (GitHub search API limit).
+func (c *Client) SearchOpenIssuesWithLabels(ctx context.Context, labels []string) ([]model.Issue, error) {
+	parts := fmt.Sprintf("repo:%s/%s is:issue is:open", c.owner, c.repo)
+	for _, l := range labels {
+		parts += fmt.Sprintf(" label:%q", l)
+	}
+
+	var allIssues []model.Issue
+	page := 1
+
+	for {
+		var resp searchResponse
+		path := fmt.Sprintf("search/issues?q=%s&per_page=100&page=%d",
+			url.QueryEscape(parts), page)
+		if err := c.rest.DoWithContext(ctx, "GET", path, nil, &resp); err != nil {
+			return nil, fmt.Errorf("search open issues with labels: %w", err)
+		}
+
+		for _, item := range resp.Items {
+			labels := make([]string, len(item.Labels))
+			for i, l := range item.Labels {
+				labels[i] = l.Name
+			}
+			issue := model.Issue{
+				Number:    item.Number,
+				Title:     item.Title,
+				State:     item.State,
+				Labels:    labels,
+				CreatedAt: item.CreatedAt.UTC(),
+				ClosedAt:  item.ClosedAt,
+				URL:       item.HTMLURL,
+			}
+			allIssues = append(allIssues, issue)
+		}
+
+		if len(resp.Items) < 100 {
+			break
+		}
+		page++
+		if page > 10 {
+			fmt.Fprintf(os.Stderr, "warning: results capped at 1000; consider narrowing your label filters\n")
+			break
+		}
+	}
+
+	return allIssues, nil
+}
