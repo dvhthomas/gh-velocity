@@ -39,6 +39,14 @@ type Config struct {
 	Quality     QualityConfig     `yaml:"quality" json:"quality"`
 	Discussions DiscussionsConfig `yaml:"discussions" json:"discussions"`
 	CommitRef   CommitRefConfig   `yaml:"commit_ref" json:"commit_ref"`
+	CycleTime   CycleTimeConfig   `yaml:"cycle_time" json:"cycle_time"`
+}
+
+// CycleTimeConfig controls how cycle time is measured.
+type CycleTimeConfig struct {
+	// Strategy selects the cycle-time measurement approach.
+	// Values: "issue" (default), "pr", "project-board".
+	Strategy string `yaml:"strategy" json:"strategy"`
 }
 
 // CommitRefConfig controls the commit-ref strategy behavior.
@@ -134,6 +142,9 @@ func Defaults() *Config {
 func defaults() *Config {
 	return &Config{
 		Workflow: DefaultWorkflow,
+		CycleTime: CycleTimeConfig{
+			Strategy: "issue",
+		},
 		Quality: QualityConfig{
 			BugLabels:         []string{"bug"},
 			FeatureLabels:     []string{"enhancement"},
@@ -158,6 +169,7 @@ var knownTopLevelKeys = map[string]bool{
 	"quality":     true,
 	"discussions": true,
 	"commit_ref":  true,
+	"cycle_time":  true,
 }
 
 // warnUnknownKeysFromMap warns about any top-level keys in the parsed map
@@ -187,6 +199,17 @@ func validate(cfg *Config) error {
 	}
 	if cfg.Quality.HotfixWindowHours > MaxHotfixWindowHours {
 		return fmt.Errorf("config: quality.hotfix_window_hours must be at most %d, got %v", MaxHotfixWindowHours, cfg.Quality.HotfixWindowHours)
+	}
+
+	// cycle_time.strategy: must be a known value.
+	switch cfg.CycleTime.Strategy {
+	case "issue", "pr", "project-board":
+		// valid
+	default:
+		return fmt.Errorf("config: cycle_time.strategy must be \"issue\", \"pr\", or \"project-board\", got %q", cfg.CycleTime.Strategy)
+	}
+	if cfg.CycleTime.Strategy == "project-board" && cfg.Project.ID == "" {
+		return fmt.Errorf("config: cycle_time.strategy \"project-board\" requires project.id to be set")
 	}
 
 	// commit_ref.patterns: validate values.

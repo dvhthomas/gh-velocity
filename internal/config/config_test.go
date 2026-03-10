@@ -19,6 +19,9 @@ func TestLoad_MissingFile(t *testing.T) {
 	if cfg.Quality.HotfixWindowHours != DefaultHotfixWindowHours {
 		t.Errorf("expected default hotfix window %v, got %v", DefaultHotfixWindowHours, cfg.Quality.HotfixWindowHours)
 	}
+	if cfg.CycleTime.Strategy != "issue" {
+		t.Errorf("expected default cycle_time.strategy %q, got %q", "issue", cfg.CycleTime.Strategy)
+	}
 }
 
 func TestLoad_ValidConfig(t *testing.T) {
@@ -296,6 +299,31 @@ func TestLoad_Validation(t *testing.T) {
 			name:    "category_id empty is OK",
 			yaml:    "discussions:\n  category_id: \"\"",
 			wantErr: "",
+		},
+		{
+			name:    "cycle_time.strategy issue",
+			yaml:    "cycle_time:\n  strategy: issue",
+			wantErr: "",
+		},
+		{
+			name:    "cycle_time.strategy pr",
+			yaml:    "cycle_time:\n  strategy: pr",
+			wantErr: "",
+		},
+		{
+			name:    "cycle_time.strategy project-board with project",
+			yaml:    "cycle_time:\n  strategy: project-board\nproject:\n  id: PVT_abc123\n  status_field_id: PVTSSF_def456",
+			wantErr: "",
+		},
+		{
+			name:    "cycle_time.strategy project-board without project",
+			yaml:    "cycle_time:\n  strategy: project-board",
+			wantErr: "requires project.id",
+		},
+		{
+			name:    "cycle_time.strategy invalid",
+			yaml:    "cycle_time:\n  strategy: blended",
+			wantErr: "cycle_time.strategy must be",
 		},
 		{
 			name:    "workflow invalid",

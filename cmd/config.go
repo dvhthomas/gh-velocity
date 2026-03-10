@@ -63,6 +63,7 @@ func newConfigShowCmd() *cobra.Command {
 			fmt.Fprintf(w, "quality.feature_labels:      %v\n", cfg.Quality.FeatureLabels)
 			fmt.Fprintf(w, "quality.hotfix_window_hours:  %g\n", cfg.Quality.HotfixWindowHours)
 			fmt.Fprintf(w, "discussions.category_id:     %s\n", cfg.Discussions.CategoryID)
+			fmt.Fprintf(w, "cycle_time.strategy:         %s\n", cfg.CycleTime.Strategy)
 			return nil
 		},
 	}
@@ -106,6 +107,10 @@ quality:
 # "refs" also matches bare #N references (more aggressive)
 commit_ref:
   patterns: ["closes"]
+
+# Cycle time strategy: "issue" (default), "pr", or "project-board"
+# cycle_time:
+#   strategy: issue
 
 # Cycle time status signals (uncomment to enable)
 # Option A: GitHub Projects v2 board
