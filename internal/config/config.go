@@ -8,6 +8,7 @@ import (
 	"regexp"
 
 	"github.com/bitsbyme/gh-velocity/internal/classify"
+	"github.com/bitsbyme/gh-velocity/internal/model"
 	"gopkg.in/yaml.v3"
 )
 
@@ -86,10 +87,10 @@ type FieldsConfig struct {
 }
 
 type QualityConfig struct {
-	BugLabels         []string            `yaml:"bug_labels" json:"bug_labels"`
-	FeatureLabels     []string            `yaml:"feature_labels" json:"feature_labels"`
-	Categories        map[string][]string `yaml:"categories" json:"categories,omitempty"`
-	HotfixWindowHours float64             `yaml:"hotfix_window_hours" json:"hotfix_window_hours"`
+	BugLabels         []string               `yaml:"bug_labels" json:"bug_labels"`
+	FeatureLabels     []string               `yaml:"feature_labels" json:"feature_labels"`
+	Categories        []model.CategoryConfig `yaml:"categories" json:"categories"`
+	HotfixWindowHours float64                `yaml:"hotfix_window_hours" json:"hotfix_window_hours"`
 }
 
 type DiscussionsConfig struct {
@@ -102,7 +103,7 @@ func Load(path string) (*Config, error) {
 
 	info, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		cfg.Quality.Categories = defaultCategories(cfg.Quality.BugLabels, cfg.Quality.FeatureLabels)
+		resolveCategories(cfg)
 		return cfg, nil
 	}
 	if err != nil {
@@ -133,11 +134,7 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
-	// Backward compat: auto-generate categories from bug_labels/feature_labels
-	// when categories is not explicitly set.
-	if len(cfg.Quality.Categories) == 0 {
-		cfg.Quality.Categories = defaultCategories(cfg.Quality.BugLabels, cfg.Quality.FeatureLabels)
-	}
+	resolveCategories(cfg)
 
 	return cfg, nil
 }
@@ -145,7 +142,9 @@ func Load(path string) (*Config, error) {
 // Defaults returns a Config with default values. Exported for use when
 // no config file is available (e.g., running with --repo outside a git checkout).
 func Defaults() *Config {
-	return defaults()
+	cfg := defaults()
+	resolveCategories(cfg)
+	return cfg
 }
 
 func defaults() *Config {
@@ -249,10 +248,10 @@ func validate(cfg *Config) error {
 	}
 
 	// Validate category matchers if present.
-	for catName, matchers := range cfg.Quality.Categories {
-		for _, m := range matchers {
+	for _, cat := range cfg.Quality.Categories {
+		for _, m := range cat.Matchers {
 			if _, err := classify.ParseMatcher(m); err != nil {
-				return fmt.Errorf("config: quality.categories.%s: %w", catName, err)
+				return fmt.Errorf("config: quality.categories.%s: %w", cat.Name, err)
 			}
 		}
 	}
@@ -260,14 +259,20 @@ func validate(cfg *Config) error {
 	return nil
 }
 
-// defaultCategories generates categories from legacy bug_labels/feature_labels.
-func defaultCategories(bugLabels, featureLabels []string) map[string][]string {
-	cats := make(map[string][]string)
-	for _, l := range bugLabels {
-		cats["bug"] = append(cats["bug"], "label:"+l)
+// resolveCategories ensures cfg.Quality.Categories is populated.
+// If the user specified explicit categories, those are used (and a warning
+// is emitted if legacy labels are also present). Otherwise, categories are
+// auto-generated from bug_labels/feature_labels for backward compatibility.
+func resolveCategories(cfg *Config) {
+	hasLegacy := len(cfg.Quality.BugLabels) > 0 || len(cfg.Quality.FeatureLabels) > 0
+
+	if len(cfg.Quality.Categories) > 0 {
+		if hasLegacy {
+			WarnFunc("config: warning: both 'categories' and 'bug_labels'/'feature_labels' are set; 'categories' takes precedence\n")
+		}
+		return
 	}
-	for _, l := range featureLabels {
-		cats["feature"] = append(cats["feature"], "label:"+l)
-	}
-	return cats
+
+	// Auto-generate from legacy labels (including defaults).
+	cfg.Quality.Categories = classify.FromLegacyLabels(cfg.Quality.BugLabels, cfg.Quality.FeatureLabels)
 }

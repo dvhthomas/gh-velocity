@@ -175,11 +175,16 @@ func TestLoad_DefaultCategoriesFromLabels(t *testing.T) {
 	if len(cfg.Quality.Categories) == 0 {
 		t.Fatal("expected auto-generated categories")
 	}
-	if bugs := cfg.Quality.Categories["bug"]; len(bugs) != 1 || bugs[0] != "label:bug" {
-		t.Errorf("expected bug category [label:bug], got %v", bugs)
+	if len(cfg.Quality.Categories) != 2 {
+		t.Fatalf("expected 2 categories, got %d", len(cfg.Quality.Categories))
 	}
-	if feats := cfg.Quality.Categories["feature"]; len(feats) != 1 || feats[0] != "label:enhancement" {
-		t.Errorf("expected feature category [label:enhancement], got %v", feats)
+	bug := cfg.Quality.Categories[0]
+	if bug.Name != "bug" || len(bug.Matchers) != 1 || bug.Matchers[0] != "label:bug" {
+		t.Errorf("expected bug category with [label:bug], got %+v", bug)
+	}
+	feat := cfg.Quality.Categories[1]
+	if feat.Name != "feature" || len(feat.Matchers) != 1 || feat.Matchers[0] != "label:enhancement" {
+		t.Errorf("expected feature category with [label:enhancement], got %+v", feat)
 	}
 }
 
@@ -188,8 +193,9 @@ func TestLoad_ExplicitCategoriesPreserved(t *testing.T) {
 	path := filepath.Join(dir, ".gh-velocity.yml")
 	content := `quality:
   categories:
-    regression:
-      - label:regression
+    - name: regression
+      match:
+        - label:regression
 `
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -199,11 +205,12 @@ func TestLoad_ExplicitCategoriesPreserved(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	// Explicit categories should NOT be overwritten by auto-generation.
-	if _, ok := cfg.Quality.Categories["bug"]; ok {
-		t.Error("expected no auto-generated bug category when categories is explicit")
+	if len(cfg.Quality.Categories) != 1 {
+		t.Fatalf("expected 1 explicit category, got %d", len(cfg.Quality.Categories))
 	}
-	if reg := cfg.Quality.Categories["regression"]; len(reg) != 1 || reg[0] != "label:regression" {
-		t.Errorf("expected regression category preserved, got %v", reg)
+	reg := cfg.Quality.Categories[0]
+	if reg.Name != "regression" || len(reg.Matchers) != 1 || reg.Matchers[0] != "label:regression" {
+		t.Errorf("expected regression category preserved, got %+v", reg)
 	}
 }
 
@@ -369,17 +376,17 @@ func TestLoad_Validation(t *testing.T) {
 		},
 		{
 			name:    "categories valid",
-			yaml:    "quality:\n  categories:\n    bug:\n      - label:bug\n      - label:defect\n    feature:\n      - label:enhancement\n    regression:\n      - \"title:/^regression:/i\"",
+			yaml:    "quality:\n  categories:\n    - name: bug\n      match:\n        - label:bug\n        - label:defect\n    - name: feature\n      match:\n        - label:enhancement\n    - name: regression\n      match:\n        - \"title:/^regression:/i\"",
 			wantErr: "",
 		},
 		{
 			name:    "categories invalid matcher",
-			yaml:    "quality:\n  categories:\n    bad:\n      - \"title:/[invalid\"",
+			yaml:    "quality:\n  categories:\n    - name: bad\n      match:\n        - \"title:/[invalid\"",
 			wantErr: "quality.categories.bad",
 		},
 		{
 			name:    "categories invalid prefix",
-			yaml:    "quality:\n  categories:\n    x:\n      - unknown:foo",
+			yaml:    "quality:\n  categories:\n    - name: x\n      match:\n        - unknown:foo",
 			wantErr: "quality.categories.x",
 		},
 		{

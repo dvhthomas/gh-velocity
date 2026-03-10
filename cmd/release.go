@@ -63,15 +63,15 @@ func NewReleaseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			input.HotfixWindowHours = deps.Config.Quality.HotfixWindowHours
-			input.CycleTimeStrategy = buildReleaseStrategy(deps, client)
 
 			// Build classifier from config categories.
-			classifier, classErr := classify.New(deps.Config.Quality.Categories)
+			classifier, classErr := classify.NewClassifier(deps.Config.Quality.Categories)
 			if classErr != nil {
-				return classErr
+				return fmt.Errorf("invalid classification config: %w", classErr)
 			}
 			input.Classifier = classifier
+			input.HotfixWindowHours = deps.Config.Quality.HotfixWindowHours
+			input.CycleTimeStrategy = buildReleaseStrategy(deps, client)
 
 			// Compute metrics
 			rm, metricWarnings, err := metrics.BuildReleaseMetrics(ctx, input)
