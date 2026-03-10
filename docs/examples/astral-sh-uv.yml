@@ -1,0 +1,14 @@
+# gh-velocity config for astral-sh/uv
+#
+# Fast Python package manager with rich label taxonomy.
+# Good example of: multiple bug/feature signals, performance as feature.
+#
+# Usage:
+#   gh velocity release 0.6.0 --since 0.5.0 -R astral-sh/uv --config docs/examples/astral-sh-uv.yml
+
+workflow: pr
+
+quality:
+  bug_labels: ["bug"]
+  feature_labels: ["enhancement", "performance"]
+  hotfix_window_hours: 24

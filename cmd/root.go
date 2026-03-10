@@ -85,6 +85,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 	var (
 		formatFlag string
 		repoFlag   string
+		configFlag string
 		postFlag   bool
 	)
 
@@ -126,10 +127,18 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 			wd, _ := os.Getwd()
 			hasLocal := gitdata.IsLocalGitAvailable(wd) && localRepoMatches(wd, owner, repo)
 
-			// Load config: require file when local repo exists, fall back to defaults otherwise.
+			// Load config: use --config flag if set, otherwise default file.
+			configPath := config.DefaultConfigFile
+			if configFlag != "" {
+				configPath = configFlag
+			}
 			var cfg *config.Config
-			cfg, err = config.Load(config.DefaultConfigFile)
+			cfg, err = config.Load(configPath)
 			if err != nil {
+				if configFlag != "" {
+					// Explicit --config must exist and be valid.
+					return err
+				}
 				if hasLocal {
 					return err
 				}
@@ -164,6 +173,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 
 	root.PersistentFlags().StringVarP(&formatFlag, "format", "f", "pretty", "Output format: json, pretty, markdown")
 	root.PersistentFlags().StringVarP(&repoFlag, "repo", "R", "", "Repository in owner/name format")
+	root.PersistentFlags().StringVar(&configFlag, "config", "", "Path to config file (default: .gh-velocity.yml)")
 	root.PersistentFlags().BoolVar(&postFlag, "post", false, "Post output to GitHub")
 
 	root.AddCommand(NewVersionCmd(version, buildTime))
