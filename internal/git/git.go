@@ -136,7 +136,7 @@ func (r *Runner) streamCommits(ctx context.Context, args ...string) ([]model.Com
 		}
 		commits = append(commits, model.Commit{
 			SHA:        parts[0],
-			AuthoredAt: authored,
+			AuthoredAt: authored.UTC(),
 			Message:    parts[2],
 		})
 	}

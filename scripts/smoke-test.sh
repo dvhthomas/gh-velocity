@@ -85,6 +85,19 @@ out=$($BINARY lead-time 2 -R cli/cli -f markdown 2>&1)
 show "$out"
 [[ "$out" == *"|"* ]] && pass "lead-time markdown" || fail "lead-time markdown"
 
+# ── lead-time bulk ────────────────────────────────────────────────
+echo ""
+echo "lead-time bulk (cli/cli --since 7d)"
+
+out=$($BINARY lead-time --since 7d -R cli/cli -f json 2>/dev/null)
+echo "$out" | jq '.stats.count' 2>/dev/null | sed 's/^/    count: /'
+echo "$out" | jq -e '.stats' >/dev/null 2>&1 && pass "lead-time bulk json" || fail "lead-time bulk json"
+echo "$out" | jq -e '.window.since' >/dev/null 2>&1 && pass "lead-time bulk has window" || fail "lead-time bulk has window"
+
+out=$($BINARY lead-time --since 7d -R cli/cli 2>&1)
+show "$out"
+[[ "$out" == *"Lead Time:"* ]] && pass "lead-time bulk pretty" || fail "lead-time bulk pretty"
+
 # ── cycle-time ─────────────────────────────────────────────────────
 echo ""
 echo "cycle-time (cli/cli#2)"
@@ -111,21 +124,30 @@ show "$out"
 echo "$out" | jq -e '.pr' >/dev/null 2>&1 && pass "cycle-time --pr json" || fail "cycle-time --pr json"
 echo "$out" | jq -e '.cycle_time.start.signal' >/dev/null 2>&1 && pass "cycle-time --pr json start signal" || fail "cycle-time --pr json start signal"
 
-# ── release ────────────────────────────────────────────────────────
+# ── quality release ────────────────────────────────────────────────
 echo ""
-echo "release (cli/cli v2.65.0)"
+echo "quality release (cli/cli v2.65.0)"
+
+out=$($BINARY quality release v2.65.0 -R cli/cli --since v2.64.0 2>&1)
+show "$out"
+[[ "$out" == *"Release v2.65.0"* ]] && pass "quality release pretty" || fail "quality release pretty"
+
+out=$($BINARY quality release v2.65.0 -R cli/cli --since v2.64.0 -f json 2>/dev/null)
+echo "$out" | jq . 2>/dev/null | sed 's/^/    /'
+echo "$out" | jq -e '.tag' >/dev/null 2>&1 && pass "quality release json" || fail "quality release json"
+
+out=$($BINARY quality release v2.65.0 -R cli/cli --since v2.64.0 -f markdown 2>/dev/null)
+show "$out"
+[[ "$out" == *"## Release v2.65.0"* ]] && pass "quality release markdown" || fail "quality release markdown"
+
+# ── deprecated release alias ──────────────────────────────────────
+echo ""
+echo "deprecated release alias"
 
 out=$($BINARY release v2.65.0 -R cli/cli --since v2.64.0 2>&1)
 show "$out"
-[[ "$out" == *"Release v2.65.0"* ]] && pass "release pretty" || fail "release pretty"
-
-out=$($BINARY release v2.65.0 -R cli/cli --since v2.64.0 -f json 2>/dev/null)
-echo "$out" | jq . 2>/dev/null | sed 's/^/    /'
-echo "$out" | jq -e '.tag' >/dev/null 2>&1 && pass "release json" || fail "release json"
-
-out=$($BINARY release v2.65.0 -R cli/cli --since v2.64.0 -f markdown 2>/dev/null)
-show "$out"
-[[ "$out" == *"## Release v2.65.0"* ]] && pass "release markdown" || fail "release markdown"
+[[ "$out" == *"Release v2.65.0"* ]] && pass "release alias works" || fail "release alias works"
+[[ "$out" == *"quality release"* ]] && pass "release alias shows deprecation" || fail "release alias shows deprecation"
 
 # ── scope ──────────────────────────────────────────────────────────
 echo ""
@@ -144,6 +166,26 @@ out=$($BINARY scope v2.65.0 -R cli/cli --since v2.64.0 -f markdown 2>/dev/null)
 show "$out"
 [[ "$out" == *"## Scope:"* ]] && pass "scope markdown" || fail "scope markdown"
 
+# ── stats ─────────────────────────────────────────────────────────
+echo ""
+echo "stats (cli/cli --since 7d)"
+
+out=$($BINARY stats --since 7d -R cli/cli 2>&1)
+show "$out"
+[[ "$out" == *"Stats:"* ]] && pass "stats pretty" || fail "stats pretty"
+[[ "$out" == *"Lead Time:"* ]] && pass "stats shows lead time" || fail "stats shows lead time"
+[[ "$out" == *"Throughput:"* ]] && pass "stats shows throughput" || fail "stats shows throughput"
+
+out=$($BINARY stats --since 7d -R cli/cli -f json 2>/dev/null)
+echo "$out" | jq '.lead_time.count' 2>/dev/null | sed 's/^/    lead_time count: /'
+echo "$out" | jq -e '.lead_time' >/dev/null 2>&1 && pass "stats json has lead_time" || fail "stats json has lead_time"
+echo "$out" | jq -e '.throughput' >/dev/null 2>&1 && pass "stats json has throughput" || fail "stats json has throughput"
+echo "$out" | jq -e '.window.since' >/dev/null 2>&1 && pass "stats json has window" || fail "stats json has window"
+
+out=$($BINARY stats --since 7d -R cli/cli -f markdown 2>/dev/null)
+show "$out"
+[[ "$out" == *"## Stats:"* ]] && pass "stats markdown" || fail "stats markdown"
+
 # ── error cases ────────────────────────────────────────────────────
 echo ""
 echo "error handling"
@@ -156,6 +198,12 @@ show "$out"
 [[ "$out" == *"pull request"* ]] && pass "PR-as-issue mentions --pr" || fail "PR-as-issue mentions --pr"
 
 out=$($BINARY cycle-time 2 --pr 2 -R cli/cli 2>&1) && fail "issue+pr should fail" || pass "issue+pr conflict rejected"
+show "$out"
+
+out=$($BINARY lead-time 2 --since 30d -R cli/cli 2>&1) && fail "issue+since should fail" || pass "lead-time issue+since conflict rejected"
+show "$out"
+
+out=$($BINARY cycle-time --pr 1 --since 30d -R cli/cli 2>&1) && fail "pr+since should fail" || pass "cycle-time pr+since conflict rejected"
 show "$out"
 
 out=$($BINARY --post lead-time 2 -R cli/cli 2>&1) && fail "--post should fail" || pass "--post rejected"

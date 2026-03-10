@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/classify"
-	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	"github.com/bitsbyme/gh-velocity/internal/gitdata"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
@@ -71,7 +70,7 @@ func NewReleaseCmd() *cobra.Command {
 			}
 			input.Classifier = classifier
 			input.HotfixWindowHours = deps.Config.Quality.HotfixWindowHours
-			input.CycleTimeStrategy = buildReleaseStrategy(deps, client)
+			input.CycleTimeStrategy = buildCycleTimeStrategy(deps, client)
 
 			// Compute metrics
 			rm, metricWarnings, err := metrics.BuildReleaseMetrics(ctx, input)
@@ -235,28 +234,6 @@ func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Cl
 		FetchErrors:  fetchErrors,
 	}
 	return input, warnings, nil
-}
-
-// buildReleaseStrategy creates the CycleTimeStrategy for release metrics.
-func buildReleaseStrategy(deps *Deps, client *gh.Client) cycletime.Strategy {
-	cfg := deps.Config
-	switch cfg.CycleTime.Strategy {
-	case "pr":
-		return &cycletime.PRStrategy{}
-	case "project-board":
-		backlog := cfg.Statuses.Backlog
-		if backlog == "" {
-			backlog = "Backlog"
-		}
-		return &cycletime.ProjectBoardStrategy{
-			Client:        client,
-			ProjectID:     cfg.Project.ID,
-			StatusFieldID: cfg.Project.StatusFieldID,
-			BacklogStatus: backlog,
-		}
-	default: // "issue"
-		return &cycletime.IssueStrategy{}
-	}
 }
 
 func findPreviousTag(tags []string, currentTag, sinceFlag string) string {

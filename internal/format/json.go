@@ -30,14 +30,14 @@ func metricToJSON(m model.Metric) JSONMetric {
 	}
 	if m.Start != nil {
 		jm.Start = &JSONEvent{
-			Time:   m.Start.Time,
+			Time:   m.Start.Time.UTC(),
 			Signal: m.Start.Signal,
 			Detail: m.Start.Detail,
 		}
 	}
 	if m.End != nil {
 		jm.End = &JSONEvent{
-			Time:   m.End.Time,
+			Time:   m.End.Time.UTC(),
 			Signal: m.End.Signal,
 			Detail: m.End.Detail,
 		}
@@ -62,7 +62,6 @@ type JSONCycleTimeOutput struct {
 	PR         int        `json:"pr,omitempty"`
 	Title      string     `json:"title"`
 	State      string     `json:"state"`
-	Commits    int        `json:"commits"`
 	CycleTime  JSONMetric `json:"cycle_time"`
 	Warnings   []string   `json:"warnings,omitempty"`
 }
@@ -137,13 +136,12 @@ func WriteLeadTimeJSON(w io.Writer, repo string, issueNumber int, title, state s
 }
 
 // WriteCycleTimeJSON writes cycle-time metrics for an issue as JSON to the writer.
-func WriteCycleTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, commits int, m model.Metric, warnings []string) error {
+func WriteCycleTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, m model.Metric, warnings []string) error {
 	out := JSONCycleTimeOutput{
 		Repository: repo,
 		Issue:      issueNumber,
 		Title:      title,
 		State:      state,
-		Commits:    commits,
 		CycleTime:  metricToJSON(m),
 		Warnings:   warnings,
 	}
@@ -182,9 +180,10 @@ func WriteReleaseJSON(w io.Writer, repo string, rm model.ReleaseMetrics, warning
 		Repository:  repo,
 		Tag:         rm.Tag,
 		PreviousTag: rm.PreviousTag,
-		Date:        rm.Date,
+		Date:        rm.Date.UTC(),
 		IsHotfix:    rm.IsHotfix,
 		Composition: comp,
+		Issues:      make([]JSONIssueMetrics, 0, len(rm.Issues)),
 		Aggregates: JSONAggregates{
 			LeadTime:   statsToJSON(rm.LeadTimeStats),
 			CycleTime:  statsToJSON(rm.CycleTimeStats),

@@ -36,8 +36,8 @@ for entry in "${configs[@]}"; do
   echo ""
   echo "$name ($repo $tag)"
 
-  # Run release command with the example config
-  out=$($BINARY release "$tag" --since "$since" -R "$repo" --config "$config" -f json 2>/dev/null) || {
+  # Run quality release command with the example config
+  out=$($BINARY quality release "$tag" --since "$since" -R "$repo" --config "$config" -f json 2>/dev/null) || {
     fail "$name: command failed"
     continue
   }
@@ -67,7 +67,7 @@ for entry in "${configs[@]}"; do
   fi
 
   # Validate composition metrics exist
-  if echo "$out" | jq -e '.composition.bug_count >= 0' >/dev/null 2>&1; then
+  if echo "$out" | jq -e '.composition.total_issues >= 0' >/dev/null 2>&1; then
     pass "$name: has composition metrics"
   else
     fail "$name: missing composition metrics"
