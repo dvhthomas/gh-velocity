@@ -47,9 +47,9 @@ func WriteReleaseMarkdown(w io.Writer, rm model.ReleaseMetrics, warnings []strin
 			b.WriteString(fmt.Sprintf("| %d | %s | %s | %s | %s | %d | %s |\n",
 				im.Issue.Number,
 				title,
-				FormatDurationPtr(im.LeadTime),
-				FormatDurationPtr(im.CycleTime),
-				FormatDurationPtr(im.ReleaseLag),
+				FormatDurationPtr(im.LeadTime.Duration),
+				FormatDurationPtr(im.CycleTime.Duration),
+				FormatDurationPtr(im.ReleaseLag.Duration),
 				im.CommitCount,
 				flag,
 			))

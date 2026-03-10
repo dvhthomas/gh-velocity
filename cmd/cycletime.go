@@ -93,52 +93,42 @@ func runCycleTimePR(cmd *cobra.Command, prNumber int) error {
 	}
 
 	var warnings []string
-	var ctDuration *time.Duration
-	var signal string
-	startedAt := &pr.CreatedAt // always known for a PR
+	startEvent := &model.Event{
+		Time:   pr.CreatedAt,
+		Signal: model.SignalPRCreated,
+		Detail: fmt.Sprintf("PR #%d", prNumber),
+	}
 
+	var endEvent *model.Event
 	if pr.MergedAt != nil {
-		ctDuration = metrics.CycleTime(pr.CreatedAt, *pr.MergedAt)
-		signal = "pr-lifecycle (created → merged)"
+		endEvent = &model.Event{
+			Time:   *pr.MergedAt,
+			Signal: model.SignalPRMerged,
+		}
 	} else if pr.State == "closed" {
-		signal = "pr-lifecycle (closed without merge)"
 		warnings = append(warnings, "PR was closed without merging")
 	} else {
-		signal = "pr-lifecycle (in progress)"
 		warnings = append(warnings, "PR is still open; cycle time is in progress")
 	}
+
+	ct := metrics.CycleTime(startEvent, endEvent)
 
 	w := cmd.OutOrStdout()
 	switch deps.Format {
 	case format.JSON:
-		return format.WriteCycleTimePRJSON(w, deps.Owner+"/"+deps.Repo, prNumber, pr.Title, pr.State, startedAt, ctDuration, signal, warnings)
+		return format.WriteCycleTimePRJSON(w, deps.Owner+"/"+deps.Repo, prNumber, pr.Title, pr.State, ct, warnings)
 	case format.Markdown:
-		fmt.Fprintf(w, "| PR | Title | Started | Cycle Time | Signal |\n")
-		fmt.Fprintf(w, "| ---: | --- | --- | --- | --- |\n")
-		fmt.Fprintf(w, "| #%d | %s | %s | %s | %s |\n",
-			prNumber, pr.Title, startedAt.Format(time.DateOnly), format.FormatCycleStatus(ctDuration, true), signal)
+		fmt.Fprintf(w, "| PR | Title | Started | Cycle Time |\n")
+		fmt.Fprintf(w, "| ---: | --- | --- | --- |\n")
+		fmt.Fprintf(w, "| #%d | %s | %s | %s |\n",
+			prNumber, pr.Title, pr.CreatedAt.Format(time.DateOnly), format.FormatMetric(ct))
 		for _, warn := range warnings {
 			fmt.Fprintf(os.Stderr, "warning: %s\n", warn)
 		}
 	default:
-		tp := format.NewTable(w, deps.IsTTY, deps.TermWidth)
-		tp.AddField(fmt.Sprintf("PR #%d", prNumber))
-		tp.AddField(pr.Title)
-		tp.EndRow()
-		tp.AddField("Started")
-		tp.AddField(startedAt.Format(time.RFC3339))
-		tp.EndRow()
-		tp.AddField("Cycle Time")
-		tp.AddField(format.FormatCycleStatus(ctDuration, true))
-		tp.EndRow()
-		if signal != "" {
-			tp.AddField("Signal")
-			tp.AddField(signal)
-			tp.EndRow()
-		}
-		if err := tp.Render(); err != nil {
-			return err
-		}
+		fmt.Fprintf(w, "PR #%d  %s\n", prNumber, pr.Title)
+		fmt.Fprintf(w, "  Started:    %s\n", pr.CreatedAt.Format(time.RFC3339))
+		fmt.Fprintf(w, "  Cycle Time: %s\n", format.FormatMetric(ct))
 		for _, warn := range warnings {
 			fmt.Fprintf(os.Stderr, "warning: %s\n", warn)
 		}
@@ -169,9 +159,7 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 	}
 
 	var warnings []string
-	var ctDuration *time.Duration
-	var startedAt *time.Time
-	var signal string
+	var startEvent *model.Event
 	var commitCount int
 	backlogOverride := false // true when issue is in backlog → cycle time is N/A
 
@@ -189,17 +177,17 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 			backlogOverride = true
 			warnings = append(warnings, "issue is in backlog; cycle time not applicable until work starts")
 		} else if ps.CycleStart != nil {
-			startedAt = &ps.CycleStart.Time
-			signal = fmt.Sprintf("%s (%s)", ps.CycleStart.Signal, ps.CycleStart.Detail)
-			if issue.ClosedAt != nil {
-				ctDuration = metrics.CycleTime(ps.CycleStart.Time, *issue.ClosedAt)
+			startEvent = &model.Event{
+				Time:   ps.CycleStart.Time,
+				Signal: ps.CycleStart.Signal,
+				Detail: ps.CycleStart.Detail,
 			}
 		}
 	}
 
 	// Signals #2–#4: label, PR created, first assigned
 	// Skip if backlog override is active — issue was moved back to backlog.
-	if startedAt == nil && !backlogOverride {
+	if startEvent == nil && !backlogOverride {
 		csResult, csErr := client.GetCycleStart(ctx, issueNumber, cfg.Statuses.ActiveLabels, cfg.Statuses.BacklogLabels)
 		if csErr != nil {
 			warnings = append(warnings, fmt.Sprintf("could not query issue timeline: %v", csErr))
@@ -208,10 +196,10 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 				backlogOverride = true
 				warnings = append(warnings, "issue has a backlog label; cycle time not applicable until work starts")
 			} else if csResult.CycleStart != nil {
-				startedAt = &csResult.CycleStart.Time
-				signal = fmt.Sprintf("%s (%s)", csResult.CycleStart.Signal, csResult.CycleStart.Detail)
-				if issue.ClosedAt != nil {
-					ctDuration = metrics.CycleTime(csResult.CycleStart.Time, *issue.ClosedAt)
+				startEvent = &model.Event{
+					Time:   csResult.CycleStart.Time,
+					Signal: csResult.CycleStart.Signal,
+					Detail: csResult.CycleStart.Detail,
 				}
 			}
 		}
@@ -233,59 +221,51 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 		} else {
 			commitCount = len(commits)
 			// If no higher-priority signal found and not in backlog, fall back to first commit
-			if startedAt == nil && !backlogOverride && len(commits) > 0 {
-				firstCommit := commits[len(commits)-1].AuthoredAt
-				startedAt = &firstCommit
-				signal = fmt.Sprintf("commit (%s)", commits[len(commits)-1].SHA[:7])
-				if issue.ClosedAt != nil {
-					ctDuration = metrics.CycleTime(firstCommit, *issue.ClosedAt)
+			if startEvent == nil && !backlogOverride && len(commits) > 0 {
+				firstCommit := commits[len(commits)-1]
+				startEvent = &model.Event{
+					Time:   firstCommit.AuthoredAt,
+					Signal: model.SignalCommit,
+					Detail: firstCommit.SHA[:7],
 				}
 			}
 		}
 	}
 
-	started := startedAt != nil
+	var endEvent *model.Event
+	if issue.ClosedAt != nil {
+		endEvent = &model.Event{
+			Time:   *issue.ClosedAt,
+			Signal: model.SignalIssueClosed,
+		}
+	}
+
+	ct := metrics.CycleTime(startEvent, endEvent)
+
 	w := cmd.OutOrStdout()
 	switch deps.Format {
 	case format.JSON:
-		return format.WriteCycleTimeJSON(w, deps.Owner+"/"+deps.Repo, issueNumber, issue.Title, issue.State, commitCount, startedAt, ctDuration, signal, warnings)
+		return format.WriteCycleTimeJSON(w, deps.Owner+"/"+deps.Repo, issueNumber, issue.Title, issue.State, commitCount, ct, warnings)
 	case format.Markdown:
-		fmt.Fprintf(w, "| Issue | Title | Started | Cycle Time | Signal | Commits |\n")
-		fmt.Fprintf(w, "| ---: | --- | --- | --- | --- | ---: |\n")
+		fmt.Fprintf(w, "| Issue | Title | Started | Cycle Time | Commits |\n")
+		fmt.Fprintf(w, "| ---: | --- | --- | --- | ---: |\n")
 		startedStr := "N/A"
-		if startedAt != nil {
-			startedStr = startedAt.Format(time.DateOnly)
+		if startEvent != nil {
+			startedStr = startEvent.Time.Format(time.DateOnly)
 		}
-		fmt.Fprintf(w, "| #%d | %s | %s | %s | %s | %d |\n",
-			issueNumber, issue.Title, startedStr, format.FormatCycleStatus(ctDuration, started), signal, commitCount)
+		fmt.Fprintf(w, "| #%d | %s | %s | %s | %d |\n",
+			issueNumber, issue.Title, startedStr, format.FormatMetric(ct), commitCount)
 		for _, warn := range warnings {
 			fmt.Fprintf(os.Stderr, "warning: %s\n", warn)
 		}
 	default:
-		tp := format.NewTable(w, deps.IsTTY, deps.TermWidth)
-		tp.AddField(fmt.Sprintf("Issue #%d", issueNumber))
-		tp.AddField(issue.Title)
-		tp.EndRow()
-		if startedAt != nil {
-			tp.AddField("Started")
-			tp.AddField(startedAt.Format(time.RFC3339))
-			tp.EndRow()
+		fmt.Fprintf(w, "Issue #%d  %s\n", issueNumber, issue.Title)
+		if startEvent != nil {
+			fmt.Fprintf(w, "  Started:    %s\n", startEvent.Time.Format(time.RFC3339))
 		}
-		tp.AddField("Cycle Time")
-		tp.AddField(format.FormatCycleStatus(ctDuration, started))
-		tp.EndRow()
-		if signal != "" {
-			tp.AddField("Signal")
-			tp.AddField(signal)
-			tp.EndRow()
-		}
+		fmt.Fprintf(w, "  Cycle Time: %s\n", format.FormatMetric(ct))
 		if commitCount > 0 {
-			tp.AddField("Commits")
-			tp.AddField(fmt.Sprintf("%d", commitCount))
-			tp.EndRow()
-		}
-		if err := tp.Render(); err != nil {
-			return err
+			fmt.Fprintf(w, "  Commits:    %d\n", commitCount)
 		}
 		for _, warn := range warnings {
 			fmt.Fprintf(os.Stderr, "warning: %s\n", warn)
