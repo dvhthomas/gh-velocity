@@ -165,6 +165,48 @@ func TestLoad_PartialConfig(t *testing.T) {
 	}
 }
 
+func TestLoad_DefaultCategoriesFromLabels(t *testing.T) {
+	cfg, err := Load("/nonexistent/.gh-velocity.yml")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Default config has bug_labels: ["bug"], feature_labels: ["enhancement"]
+	// These should be auto-generated as categories.
+	if len(cfg.Quality.Categories) == 0 {
+		t.Fatal("expected auto-generated categories")
+	}
+	if bugs := cfg.Quality.Categories["bug"]; len(bugs) != 1 || bugs[0] != "label:bug" {
+		t.Errorf("expected bug category [label:bug], got %v", bugs)
+	}
+	if feats := cfg.Quality.Categories["feature"]; len(feats) != 1 || feats[0] != "label:enhancement" {
+		t.Errorf("expected feature category [label:enhancement], got %v", feats)
+	}
+}
+
+func TestLoad_ExplicitCategoriesPreserved(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".gh-velocity.yml")
+	content := `quality:
+  categories:
+    regression:
+      - label:regression
+`
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Explicit categories should NOT be overwritten by auto-generation.
+	if _, ok := cfg.Quality.Categories["bug"]; ok {
+		t.Error("expected no auto-generated bug category when categories is explicit")
+	}
+	if reg := cfg.Quality.Categories["regression"]; len(reg) != 1 || reg[0] != "label:regression" {
+		t.Errorf("expected regression category preserved, got %v", reg)
+	}
+}
+
 func TestLoad_UnknownKeys(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".gh-velocity.yml")
@@ -324,6 +366,21 @@ func TestLoad_Validation(t *testing.T) {
 			name:    "cycle_time.strategy invalid",
 			yaml:    "cycle_time:\n  strategy: blended",
 			wantErr: "cycle_time.strategy must be",
+		},
+		{
+			name:    "categories valid",
+			yaml:    "quality:\n  categories:\n    bug:\n      - label:bug\n      - label:defect\n    feature:\n      - label:enhancement\n    regression:\n      - \"title:/^regression:/i\"",
+			wantErr: "",
+		},
+		{
+			name:    "categories invalid matcher",
+			yaml:    "quality:\n  categories:\n    bad:\n      - \"title:/[invalid\"",
+			wantErr: "quality.categories.bad",
+		},
+		{
+			name:    "categories invalid prefix",
+			yaml:    "quality:\n  categories:\n    x:\n      - unknown:foo",
+			wantErr: "quality.categories.x",
 		},
 		{
 			name:    "workflow invalid",

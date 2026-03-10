@@ -193,7 +193,7 @@ ct := strat.Compute(ctx, cycletime.Input{Issue: issue, PR: linkedPR, Commits: co
 
 ### Phase 4: Wire Release Command to Use Strategy
 
-- [ ] `BuildReleaseMetrics()` receives the strategy name (or the Strategy itself) as part of `ReleaseInput`
+- [x] `BuildReleaseMetrics()` receives the strategy name (or the Strategy itself) as part of `ReleaseInput`
 - [ ] For each issue in the release, compute cycle time using the uniform strategy:
 
 ```go
@@ -207,7 +207,7 @@ for _, item := range input.Items {
 }
 ```
 
-- [ ] All items use the same strategy — N/A when signal isn't available
+- [x] All items use the same strategy — N/A when signal isn't available
 
 ### Phase 5: Fix Merge Commit-Loss Bug
 

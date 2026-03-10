@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 
+	"github.com/bitsbyme/gh-velocity/internal/classify"
 	"gopkg.in/yaml.v3"
 )
 
@@ -85,9 +86,10 @@ type FieldsConfig struct {
 }
 
 type QualityConfig struct {
-	BugLabels         []string `yaml:"bug_labels" json:"bug_labels"`
-	FeatureLabels     []string `yaml:"feature_labels" json:"feature_labels"`
-	HotfixWindowHours float64  `yaml:"hotfix_window_hours" json:"hotfix_window_hours"`
+	BugLabels         []string            `yaml:"bug_labels" json:"bug_labels"`
+	FeatureLabels     []string            `yaml:"feature_labels" json:"feature_labels"`
+	Categories        map[string][]string `yaml:"categories" json:"categories,omitempty"`
+	HotfixWindowHours float64             `yaml:"hotfix_window_hours" json:"hotfix_window_hours"`
 }
 
 type DiscussionsConfig struct {
@@ -100,6 +102,7 @@ func Load(path string) (*Config, error) {
 
 	info, err := os.Stat(path)
 	if os.IsNotExist(err) {
+		cfg.Quality.Categories = defaultCategories(cfg.Quality.BugLabels, cfg.Quality.FeatureLabels)
 		return cfg, nil
 	}
 	if err != nil {
@@ -128,6 +131,12 @@ func Load(path string) (*Config, error) {
 
 	if err := validate(cfg); err != nil {
 		return nil, err
+	}
+
+	// Backward compat: auto-generate categories from bug_labels/feature_labels
+	// when categories is not explicitly set.
+	if len(cfg.Quality.Categories) == 0 {
+		cfg.Quality.Categories = defaultCategories(cfg.Quality.BugLabels, cfg.Quality.FeatureLabels)
 	}
 
 	return cfg, nil
@@ -239,5 +248,26 @@ func validate(cfg *Config) error {
 		}
 	}
 
+	// Validate category matchers if present.
+	for catName, matchers := range cfg.Quality.Categories {
+		for _, m := range matchers {
+			if _, err := classify.ParseMatcher(m); err != nil {
+				return fmt.Errorf("config: quality.categories.%s: %w", catName, err)
+			}
+		}
+	}
+
 	return nil
+}
+
+// defaultCategories generates categories from legacy bug_labels/feature_labels.
+func defaultCategories(bugLabels, featureLabels []string) map[string][]string {
+	cats := make(map[string][]string)
+	for _, l := range bugLabels {
+		cats["bug"] = append(cats["bug"], "label:"+l)
+	}
+	for _, l := range featureLabels {
+		cats["feature"] = append(cats["feature"], "label:"+l)
+	}
+	return cats
 }
