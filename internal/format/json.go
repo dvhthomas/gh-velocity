@@ -82,18 +82,15 @@ type JSONReleaseOutput struct {
 }
 
 type JSONComposition struct {
-	TotalIssues  int     `json:"total_issues"`
-	BugCount     int     `json:"bug_count"`
-	FeatureCount int     `json:"feature_count"`
-	OtherCount   int     `json:"other_count"`
-	BugRatio     float64 `json:"bug_ratio"`
-	FeatureRatio float64 `json:"feature_ratio"`
-	OtherRatio   float64 `json:"other_ratio"`
+	TotalIssues    int                `json:"total_issues"`
+	CategoryCounts map[string]int     `json:"category_counts"`
+	CategoryRatios map[string]float64 `json:"category_ratios"`
 }
 
 type JSONIssueMetrics struct {
 	Number           int        `json:"number"`
 	Title            string     `json:"title"`
+	Category         string     `json:"category"`
 	LeadTime         JSONMetric `json:"lead_time"`
 	CycleTime        JSONMetric `json:"cycle_time"`
 	ReleaseLag       JSONMetric `json:"release_lag"`
@@ -168,13 +165,9 @@ func WriteCycleTimePRJSON(w io.Writer, repo string, prNumber int, title, state s
 // WriteReleaseJSON writes release metrics as JSON to the writer.
 func WriteReleaseJSON(w io.Writer, repo string, rm model.ReleaseMetrics, warnings []string) error {
 	comp := JSONComposition{
-		TotalIssues:  rm.TotalIssues,
-		BugCount:     rm.BugCount,
-		FeatureCount: rm.FeatureCount,
-		OtherCount:   rm.OtherCount,
-		BugRatio:     rm.BugRatio,
-		FeatureRatio: rm.FeatureRatio,
-		OtherRatio:   rm.OtherRatio,
+		TotalIssues:    rm.TotalIssues,
+		CategoryCounts: rm.CategoryCounts,
+		CategoryRatios: rm.CategoryRatios,
 	}
 
 	out := JSONReleaseOutput{
@@ -201,6 +194,7 @@ func WriteReleaseJSON(w io.Writer, repo string, rm model.ReleaseMetrics, warning
 		out.Issues = append(out.Issues, JSONIssueMetrics{
 			Number:           im.Issue.Number,
 			Title:            im.Issue.Title,
+			Category:         im.Category,
 			LeadTime:         metricToJSON(im.LeadTime),
 			CycleTime:        metricToJSON(im.CycleTime),
 			ReleaseLag:       metricToJSON(im.ReleaseLag),

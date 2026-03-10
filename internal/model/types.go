@@ -88,6 +88,7 @@ type Release struct {
 // IssueMetrics holds computed metrics for a single issue within a release.
 type IssueMetrics struct {
 	Issue            Issue
+	Category         string // assigned category from classifier
 	LeadTime         Metric
 	CycleTime        Metric
 	ReleaseLag       Metric
@@ -103,13 +104,9 @@ type ReleaseMetrics struct {
 	Date            time.Time
 	Issues          []IssueMetrics
 	TotalIssues     int
-	BugCount        int
-	FeatureCount    int
-	OtherCount      int
-	BugRatio        float64
-	FeatureRatio    float64
-	OtherRatio      float64
-	Cadence         *time.Duration // time since previous release
+	CategoryCounts  map[string]int     // dynamic category counts
+	CategoryRatios  map[string]float64 // dynamic category ratios
+	Cadence         *time.Duration     // time since previous release
 	IsHotfix        bool
 	LeadTimeStats   Stats
 	CycleTimeStats  Stats

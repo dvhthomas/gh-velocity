@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bitsbyme/gh-velocity/internal/classify"
 	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
@@ -19,8 +20,7 @@ type ReleaseInput struct {
 	Issues            map[int]*model.Issue // successfully fetched issues
 	LinkedPRs         map[int]*model.PR    // issue number → linked PR (may be nil)
 	FetchErrors       map[int]error        // issues that failed to fetch
-	BugLabels         []string
-	FeatureLabels     []string
+	Classifier        *classify.Classifier // nil = no classification
 	HotfixWindowHours float64
 	CycleTimeStrategy cycletime.Strategy // nil falls back to commit-based default
 }
@@ -96,29 +96,29 @@ func BuildReleaseMetrics(ctx context.Context, input ReleaseInput) (model.Release
 		issueMetrics = append(issueMetrics, im)
 	}
 
-	// Single-pass label classification: counts + ratios + low-label-coverage warning
-	var bugCount, featureCount, otherCount int
-	for _, im := range issueMetrics {
-		if hasAnyLabel(im.Issue.Labels, input.BugLabels) {
-			bugCount++
-		} else if hasAnyLabel(im.Issue.Labels, input.FeatureLabels) {
-			featureCount++
+	// Classification: assign categories and compute counts/ratios.
+	categoryCounts := make(map[string]int)
+	for i := range issueMetrics {
+		if input.Classifier != nil {
+			issueMetrics[i].Category = input.Classifier.Classify(issueMetrics[i].Issue)
 		} else {
-			otherCount++
+			issueMetrics[i].Category = "other"
 		}
+		categoryCounts[issueMetrics[i].Category]++
 	}
 
 	total := len(issueMetrics)
-	var bugRatio, featureRatio, otherRatio float64
+	categoryRatios := make(map[string]float64)
 	if total > 0 {
 		ft := float64(total)
-		bugRatio = float64(bugCount) / ft
-		featureRatio = float64(featureCount) / ft
-		otherRatio = float64(otherCount) / ft
+		for cat, count := range categoryCounts {
+			categoryRatios[cat] = float64(count) / ft
+		}
 
-		// Low label coverage warning: "other" means unlabeled (no bug/feature label)
+		// Low classification coverage warning
+		otherCount := categoryCounts["other"]
 		if float64(otherCount)/ft > 0.5 {
-			warnings = append(warnings, fmt.Sprintf("Low label coverage: %d/%d issues have no bug/feature labels", otherCount, total))
+			warnings = append(warnings, fmt.Sprintf("Low label coverage: %d/%d issues classified as \"other\"", otherCount, total))
 		}
 	}
 
@@ -150,12 +150,8 @@ func BuildReleaseMetrics(ctx context.Context, input ReleaseInput) (model.Release
 		IsHotfix:        isHotfix,
 		Issues:          issueMetrics,
 		TotalIssues:     total,
-		BugCount:        bugCount,
-		FeatureCount:    featureCount,
-		OtherCount:      otherCount,
-		BugRatio:        bugRatio,
-		FeatureRatio:    featureRatio,
-		OtherRatio:      otherRatio,
+		CategoryCounts:  categoryCounts,
+		CategoryRatios:  categoryRatios,
 		LeadTimeStats:   ltStats,
 		CycleTimeStats:  ctStats,
 		ReleaseLagStats: rlStats,

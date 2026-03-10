@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bitsbyme/gh-velocity/internal/classify"
 	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
@@ -18,8 +19,6 @@ func TestBuildReleaseMetrics_Empty(t *testing.T) {
 		IssueCommits:  map[int][]model.Commit{},
 		Issues:        map[int]*model.Issue{},
 		FetchErrors:   map[int]error{},
-		BugLabels:     []string{"bug"},
-		FeatureLabels: []string{"enhancement"},
 	}
 
 	rm, warnings, err := BuildReleaseMetrics(context.Background(), input)
@@ -55,14 +54,21 @@ func TestBuildReleaseMetrics_SinglePassClassification(t *testing.T) {
 		4: {{SHA: "ddddddd", AuthoredAt: now.Add(-80 * time.Hour)}},
 	}
 
+	classifier, err := classify.New(map[string][]string{
+		"bug":     {"label:bug"},
+		"feature": {"label:enhancement"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	input := ReleaseInput{
-		Tag:           "v1.0.0",
-		Release:       model.Release{TagName: "v1.0.0", CreatedAt: now},
-		IssueCommits:  issueCommits,
-		Issues:        issues,
-		FetchErrors:   map[int]error{},
-		BugLabels:     []string{"bug"},
-		FeatureLabels: []string{"enhancement"},
+		Tag:          "v1.0.0",
+		Release:      model.Release{TagName: "v1.0.0", CreatedAt: now},
+		IssueCommits: issueCommits,
+		Issues:       issues,
+		FetchErrors:  map[int]error{},
+		Classifier:   classifier,
 	}
 
 	rm, _, err := BuildReleaseMetrics(context.Background(), input)
@@ -73,23 +79,20 @@ func TestBuildReleaseMetrics_SinglePassClassification(t *testing.T) {
 	if rm.TotalIssues != 4 {
 		t.Errorf("expected 4 issues, got %d", rm.TotalIssues)
 	}
-	if rm.BugCount != 2 {
-		t.Errorf("expected 2 bugs, got %d", rm.BugCount)
+	if rm.CategoryCounts["bug"] != 2 {
+		t.Errorf("expected 2 bugs, got %d", rm.CategoryCounts["bug"])
 	}
-	if rm.FeatureCount != 1 {
-		t.Errorf("expected 1 feature, got %d", rm.FeatureCount)
+	if rm.CategoryCounts["feature"] != 1 {
+		t.Errorf("expected 1 feature, got %d", rm.CategoryCounts["feature"])
 	}
-	if rm.OtherCount != 1 {
-		t.Errorf("expected 1 other, got %d", rm.OtherCount)
+	if rm.CategoryCounts["other"] != 1 {
+		t.Errorf("expected 1 other, got %d", rm.CategoryCounts["other"])
 	}
-	if rm.BugRatio != 0.5 {
-		t.Errorf("expected bug ratio 0.5, got %f", rm.BugRatio)
+	if rm.CategoryRatios["bug"] != 0.5 {
+		t.Errorf("expected bug ratio 0.5, got %f", rm.CategoryRatios["bug"])
 	}
-	if rm.FeatureRatio != 0.25 {
-		t.Errorf("expected feature ratio 0.25, got %f", rm.FeatureRatio)
-	}
-	if rm.OtherRatio != 0.25 {
-		t.Errorf("expected other ratio 0.25, got %f", rm.OtherRatio)
+	if rm.CategoryRatios["feature"] != 0.25 {
+		t.Errorf("expected feature ratio 0.25, got %f", rm.CategoryRatios["feature"])
 	}
 }
 
@@ -112,8 +115,6 @@ func TestBuildReleaseMetrics_LeadTimeAndCycleTime(t *testing.T) {
 		IssueCommits:      issueCommits,
 		Issues:            issues,
 		FetchErrors:       map[int]error{},
-		BugLabels:         []string{"bug"},
-		FeatureLabels:     []string{"enhancement"},
 		CycleTimeStrategy: &cycletime.IssueStrategy{},
 	}
 
@@ -166,6 +167,7 @@ func TestBuildReleaseMetrics_LeadTimeAndCycleTime(t *testing.T) {
 
 func TestBuildReleaseMetrics_FetchErrorsAsWarnings(t *testing.T) {
 	now := time.Now()
+	bugClassifier, _ := classify.New(map[string][]string{"bug": {"label:bug"}})
 	input := ReleaseInput{
 		Tag:     "v1.0.0",
 		Release: model.Release{TagName: "v1.0.0", CreatedAt: now},
@@ -176,9 +178,8 @@ func TestBuildReleaseMetrics_FetchErrorsAsWarnings(t *testing.T) {
 		Issues: map[int]*model.Issue{
 			1: {Number: 1, Labels: []string{"bug"}, CreatedAt: now},
 		},
-		FetchErrors:   map[int]error{2: fmt.Errorf("not found")},
-		BugLabels:     []string{"bug"},
-		FeatureLabels: []string{"enhancement"},
+		FetchErrors: map[int]error{2: fmt.Errorf("not found")},
+		Classifier:  bugClassifier,
 	}
 
 	rm, warnings, err := BuildReleaseMetrics(context.Background(), input)
@@ -232,8 +233,6 @@ func TestBuildReleaseMetrics_LowLabelCoverageWarning(t *testing.T) {
 		IssueCommits:  issueCommits,
 		Issues:        issues,
 		FetchErrors:   map[int]error{},
-		BugLabels:     []string{"bug"},
-		FeatureLabels: []string{"enhancement"},
 	}
 
 	_, warnings, err := BuildReleaseMetrics(context.Background(), input)
@@ -264,8 +263,6 @@ func TestBuildReleaseMetrics_HotfixDetection(t *testing.T) {
 		IssueCommits:      map[int][]model.Commit{},
 		Issues:            map[int]*model.Issue{},
 		FetchErrors:       map[int]error{},
-		BugLabels:         []string{"bug"},
-		FeatureLabels:     []string{"enhancement"},
 		HotfixWindowHours: 72,
 	}
 
@@ -296,8 +293,6 @@ func TestBuildReleaseMetrics_NotHotfix(t *testing.T) {
 		IssueCommits:      map[int][]model.Commit{},
 		Issues:            map[int]*model.Issue{},
 		FetchErrors:       map[int]error{},
-		BugLabels:         []string{"bug"},
-		FeatureLabels:     []string{"enhancement"},
 		HotfixWindowHours: 72,
 	}
 
@@ -326,8 +321,6 @@ func TestBuildReleaseMetrics_OpenIssueNoLeadTime(t *testing.T) {
 		IssueCommits:  issueCommits,
 		Issues:        issues,
 		FetchErrors:   map[int]error{},
-		BugLabels:     []string{"bug"},
-		FeatureLabels: []string{"enhancement"},
 	}
 
 	rm, _, err := BuildReleaseMetrics(context.Background(), input)

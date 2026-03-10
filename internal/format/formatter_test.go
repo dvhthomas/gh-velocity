@@ -76,10 +76,8 @@ func TestWriteReleaseJSON(t *testing.T) {
 		Date:         now,
 		Cadence:      &cadence,
 		TotalIssues:  1,
-		BugCount:     0,
-		FeatureCount: 1,
-		OtherCount:   0,
-		FeatureRatio: 1.0,
+		CategoryCounts: map[string]int{"feature": 1},
+		CategoryRatios: map[string]float64{"feature": 1.0},
 		Issues: []model.IssueMetrics{
 			{
 				Issue:       model.Issue{Number: 1, Title: "Add feature"},

@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/bitsbyme/gh-velocity/internal/classify"
 	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	"github.com/bitsbyme/gh-velocity/internal/gitdata"
@@ -62,10 +63,15 @@ func NewReleaseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			input.BugLabels = deps.Config.Quality.BugLabels
-			input.FeatureLabels = deps.Config.Quality.FeatureLabels
 			input.HotfixWindowHours = deps.Config.Quality.HotfixWindowHours
 			input.CycleTimeStrategy = buildReleaseStrategy(deps, client)
+
+			// Build classifier from config categories.
+			classifier, classErr := classify.New(deps.Config.Quality.Categories)
+			if classErr != nil {
+				return classErr
+			}
+			input.Classifier = classifier
 
 			// Compute metrics
 			rm, metricWarnings, err := metrics.BuildReleaseMetrics(ctx, input)
