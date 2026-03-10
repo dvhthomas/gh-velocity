@@ -38,6 +38,12 @@ type Config struct {
 	Fields      FieldsConfig      `yaml:"fields" json:"fields"`
 	Quality     QualityConfig     `yaml:"quality" json:"quality"`
 	Discussions DiscussionsConfig `yaml:"discussions" json:"discussions"`
+	CommitRef   CommitRefConfig   `yaml:"commit_ref" json:"commit_ref"`
+}
+
+// CommitRefConfig controls the commit-ref strategy behavior.
+type CommitRefConfig struct {
+	Patterns []string `yaml:"patterns" json:"patterns"` // ["closes"] or ["closes", "refs"]
 }
 
 type ProjectConfig struct {
@@ -51,6 +57,18 @@ type StatusConfig struct {
 	InProgress string `yaml:"in_progress" json:"in_progress"`
 	InReview   string `yaml:"in_review" json:"in_review"`
 	Done       string `yaml:"done" json:"done"`
+
+	// BacklogLabels are issue labels that indicate work has NOT started.
+	// When an issue has any of these labels, cycle time is suppressed.
+	// Example: ["backlog", "icebox", "deferred"]
+	BacklogLabels []string `yaml:"backlog_labels" json:"backlog_labels"`
+
+	// ActiveLabels are issue labels that indicate work HAS started.
+	// When one of these labels is added to an issue, that becomes a
+	// cycle time signal. Example: ["in-progress", "in progress", "wip"]
+	// This is an alternative to Projects v2 for repos that use labels
+	// to track status (common in OSS).
+	ActiveLabels []string `yaml:"active_labels" json:"active_labels"`
 }
 
 type FieldsConfig struct {
@@ -139,6 +157,7 @@ var knownTopLevelKeys = map[string]bool{
 	"fields":      true,
 	"quality":     true,
 	"discussions": true,
+	"commit_ref":  true,
 }
 
 // warnUnknownKeysFromMap warns about any top-level keys in the parsed map
@@ -168,6 +187,16 @@ func validate(cfg *Config) error {
 	}
 	if cfg.Quality.HotfixWindowHours > MaxHotfixWindowHours {
 		return fmt.Errorf("config: quality.hotfix_window_hours must be at most %d, got %v", MaxHotfixWindowHours, cfg.Quality.HotfixWindowHours)
+	}
+
+	// commit_ref.patterns: validate values.
+	for _, p := range cfg.CommitRef.Patterns {
+		switch p {
+		case "closes", "refs":
+			// valid
+		default:
+			return fmt.Errorf("config: commit_ref.patterns must contain \"closes\" or \"refs\", got %q", p)
+		}
 	}
 
 	// GraphQL node ID validation (only when set).

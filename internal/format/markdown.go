@@ -26,7 +26,7 @@ func WriteReleaseMarkdown(w io.Writer, rm model.ReleaseMetrics, warnings []strin
 
 	// Composition
 	b.WriteString("### Composition\n\n")
-	b.WriteString(fmt.Sprintf("| Type | Count | Ratio |\n"))
+	b.WriteString("| Type | Count | Ratio |\n")
 	b.WriteString("| --- | ---: | ---: |\n")
 	b.WriteString(fmt.Sprintf("| Bug | %d | %.0f%% |\n", rm.BugCount, rm.BugRatio*100))
 	b.WriteString(fmt.Sprintf("| Feature | %d | %.0f%% |\n", rm.FeatureCount, rm.FeatureRatio*100))
@@ -36,17 +36,22 @@ func WriteReleaseMarkdown(w io.Writer, rm model.ReleaseMetrics, warnings []strin
 	// Per-issue table
 	if len(rm.Issues) > 0 {
 		b.WriteString("### Issues\n\n")
-		b.WriteString("| # | Title | Lead Time | Cycle Time | Release Lag | Commits |\n")
-		b.WriteString("| ---: | --- | --- | --- | --- | ---: |\n")
+		b.WriteString("| # | Title | Lead Time | Cycle Time | Release Lag | Commits | |\n")
+		b.WriteString("| ---: | --- | --- | --- | --- | ---: | --- |\n")
 		for _, im := range rm.Issues {
 			title := sanitizeMarkdown(im.Issue.Title)
-			b.WriteString(fmt.Sprintf("| %d | %s | %s | %s | %s | %d |\n",
+			flag := ""
+			if im.LeadTimeOutlier || im.CycleTimeOutlier {
+				flag = "OUTLIER"
+			}
+			b.WriteString(fmt.Sprintf("| %d | %s | %s | %s | %s | %d | %s |\n",
 				im.Issue.Number,
 				title,
 				FormatDurationPtr(im.LeadTime),
 				FormatDurationPtr(im.CycleTime),
 				FormatDurationPtr(im.ReleaseLag),
 				im.CommitCount,
+				flag,
 			))
 		}
 		b.WriteString("\n")
@@ -54,8 +59,8 @@ func WriteReleaseMarkdown(w io.Writer, rm model.ReleaseMetrics, warnings []strin
 
 	// Aggregates
 	b.WriteString("### Aggregates\n\n")
-	b.WriteString("| Metric | Mean | Median | Std Dev |\n")
-	b.WriteString("| --- | --- | --- | --- |\n")
+	b.WriteString("| Metric | Mean | Median | Std Dev | P90 | P95 | Outliers |\n")
+	b.WriteString("| --- | --- | --- | --- | --- | --- | ---: |\n")
 	writeStatsRow(&b, "Lead Time", rm.LeadTimeStats)
 	writeStatsRow(&b, "Cycle Time", rm.CycleTimeStats)
 	writeStatsRow(&b, "Release Lag", rm.ReleaseLagStats)
@@ -77,11 +82,26 @@ func writeStatsRow(b *strings.Builder, name string, s model.Stats) {
 	if s.StdDev != nil {
 		sd = FormatDuration(*s.StdDev)
 	}
-	b.WriteString(fmt.Sprintf("| %s | %s | %s | %s |\n",
+	p90 := "--"
+	if s.P90 != nil {
+		p90 = FormatDuration(*s.P90)
+	}
+	p95 := "--"
+	if s.P95 != nil {
+		p95 = FormatDuration(*s.P95)
+	}
+	outliers := "--"
+	if s.OutlierCutoff != nil {
+		outliers = fmt.Sprintf("%d", s.OutlierCount)
+	}
+	b.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %s | %s |\n",
 		name,
 		FormatDurationPtr(s.Mean),
 		FormatDurationPtr(s.Median),
 		sd,
+		p90,
+		p95,
+		outliers,
 	))
 }
 

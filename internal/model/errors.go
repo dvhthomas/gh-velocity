@@ -7,29 +7,29 @@ import (
 
 // Error code constants for machine-parseable error classification.
 const (
-	ErrNotFound        = "NOT_FOUND"
+	ErrNotFound         = "NOT_FOUND"
 	ErrAuthMissingScope = "AUTH_MISSING_SCOPE"
-	ErrConfigInvalid   = "CONFIG_INVALID"
-	ErrRateLimited     = "RATE_LIMITED"
-	ErrNoTags          = "NO_TAGS"
-	ErrNotGitRepo      = "NOT_GIT_REPO"
+	ErrConfigInvalid    = "CONFIG_INVALID"
+	ErrRateLimited      = "RATE_LIMITED"
+	ErrNoTags           = "NO_TAGS"
+	ErrNotGitRepo       = "NOT_GIT_REPO"
 )
 
 // exitCodes maps error codes to process exit codes.
 var exitCodes = map[string]int{
-	ErrNotFound:        4,
+	ErrNotFound:         4,
 	ErrAuthMissingScope: 3,
-	ErrConfigInvalid:   2,
-	ErrRateLimited:     1,
-	ErrNoTags:          1,
-	ErrNotGitRepo:      1,
+	ErrConfigInvalid:    2,
+	ErrRateLimited:      1,
+	ErrNoTags:           1,
+	ErrNotGitRepo:       1,
 }
 
 // AppError is a structured error that carries a machine-readable code,
 // a human-readable message, and optional details for agent consumption.
 type AppError struct {
-	Code    string                 `json:"code"`
-	Message string                 `json:"message"`
+	Code    string         `json:"code"`
+	Message string         `json:"message"`
 	Details map[string]any `json:"details,omitempty"`
 }
 

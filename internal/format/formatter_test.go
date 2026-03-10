@@ -70,14 +70,14 @@ func TestWriteReleaseJSON(t *testing.T) {
 	medLT := 48 * time.Hour
 
 	rm := model.ReleaseMetrics{
-		Tag:         "v1.0.0",
-		PreviousTag: "v0.9.0",
-		Date:        time.Date(2026, 3, 9, 0, 0, 0, 0, time.UTC),
-		Cadence:     &cadence,
-		TotalIssues: 1,
-		BugCount:    0,
+		Tag:          "v1.0.0",
+		PreviousTag:  "v0.9.0",
+		Date:         time.Date(2026, 3, 9, 0, 0, 0, 0, time.UTC),
+		Cadence:      &cadence,
+		TotalIssues:  1,
+		BugCount:     0,
 		FeatureCount: 1,
-		OtherCount:  0,
+		OtherCount:   0,
 		FeatureRatio: 1.0,
 		Issues: []model.IssueMetrics{
 			{

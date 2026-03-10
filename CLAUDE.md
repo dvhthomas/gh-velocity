@@ -20,7 +20,8 @@ task test:coverage  # Tests with coverage report
 - `internal/github/` — GitHub API client (go-gh REST + GraphQL)
 - `internal/git/` — local git operations via `exec.CommandContext`
 - `internal/metrics/` — pure metric calculations (no API calls)
-- `internal/linking/` — commit-to-issue linking heuristics
+- `internal/strategy/` — linking strategy pattern (pr-link, commit-ref, changelog) with priority merge
+- `internal/linking/` — legacy commit-to-issue linking (being superseded by strategy/)
 - `internal/format/` — output formatters (JSON, pretty, markdown)
 - `internal/posting/` — GitHub posting (comments, discussions, releases)
 

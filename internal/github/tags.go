@@ -20,6 +20,81 @@ type tagResponse struct {
 	} `json:"commit"`
 }
 
+// gitRefResponse matches the GitHub git/ref API response shape.
+type gitRefResponse struct {
+	Object struct {
+		SHA  string `json:"sha"`
+		Type string `json:"type"`
+	} `json:"object"`
+}
+
+// gitTagObject matches the GitHub git/tags/{sha} API for annotated tags.
+type gitTagObject struct {
+	Object struct {
+		SHA  string `json:"sha"`
+		Type string `json:"type"`
+	} `json:"object"`
+}
+
+type commitDetailResponse struct {
+	Commit struct {
+		Author struct {
+			Date time.Time `json:"date"`
+		} `json:"author"`
+	} `json:"commit"`
+}
+
+// GetTagDate returns the commit date for a tag by resolving the tag ref.
+// This works for both annotated and lightweight tags.
+func (c *Client) GetTagDate(ctx context.Context, tag string) (time.Time, error) {
+	var ref gitRefResponse
+	path := fmt.Sprintf("repos/%s/%s/git/ref/tags/%s",
+		url.PathEscape(c.owner), url.PathEscape(c.repo), url.PathEscape(tag))
+	if err := c.rest.DoWithContext(ctx, "GET", path, nil, &ref); err != nil {
+		// Fall back to listing tags and finding the SHA
+		return c.getTagDateViaList(ctx, tag)
+	}
+
+	sha := ref.Object.SHA
+
+	// Annotated tags point to a tag object; dereference to get the commit SHA.
+	if ref.Object.Type == "tag" {
+		var tagObj gitTagObject
+		tagPath := fmt.Sprintf("repos/%s/%s/git/tags/%s",
+			url.PathEscape(c.owner), url.PathEscape(c.repo), url.PathEscape(sha))
+		if err := c.rest.DoWithContext(ctx, "GET", tagPath, nil, &tagObj); err == nil {
+			sha = tagObj.Object.SHA
+		}
+	}
+
+	return c.getCommitDate(ctx, sha)
+}
+
+func (c *Client) getTagDateViaList(ctx context.Context, tag string) (time.Time, error) {
+	var resp []tagResponse
+	path := fmt.Sprintf("repos/%s/%s/tags?per_page=100",
+		url.PathEscape(c.owner), url.PathEscape(c.repo))
+	if err := c.rest.DoWithContext(ctx, "GET", path, nil, &resp); err != nil {
+		return time.Time{}, fmt.Errorf("list tags for date: %w", err)
+	}
+	for _, t := range resp {
+		if t.Name == tag {
+			return c.getCommitDate(ctx, t.Commit.SHA)
+		}
+	}
+	return time.Time{}, fmt.Errorf("tag %q not found", tag)
+}
+
+func (c *Client) getCommitDate(ctx context.Context, sha string) (time.Time, error) {
+	var resp commitDetailResponse
+	path := fmt.Sprintf("repos/%s/%s/commits/%s",
+		url.PathEscape(c.owner), url.PathEscape(c.repo), url.PathEscape(sha))
+	if err := c.rest.DoWithContext(ctx, "GET", path, nil, &resp); err != nil {
+		return time.Time{}, fmt.Errorf("get commit %s: %w", sha, err)
+	}
+	return resp.Commit.Author.Date, nil
+}
+
 // ListTags fetches repository tags via the GitHub API.
 // Returns tag names sorted by the API default (most recent first).
 func (c *Client) ListTags(ctx context.Context) ([]string, error) {
@@ -102,4 +177,3 @@ func (c *Client) CompareCommits(ctx context.Context, base, head string) ([]model
 	}
 	return allCommits, nil
 }
-

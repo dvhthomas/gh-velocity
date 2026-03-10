@@ -12,10 +12,10 @@ func TestLeadTime(t *testing.T) {
 	closed := now.Add(48 * time.Hour)
 
 	tests := []struct {
-		name     string
-		issue    model.Issue
-		wantNil  bool
-		wantDur  time.Duration
+		name    string
+		issue   model.Issue
+		wantNil bool
+		wantDur time.Duration
 	}{
 		{
 			name: "closed issue",

@@ -452,21 +452,21 @@ At 5,000 REST calls/hour: supports ~225 runs/hour.
 
 **Goal:** Working strategy pattern with pr-link as the first strategy. The release command uses the new system.
 
-- [ ] Add `PR` type to `internal/model/types.go`
-- [ ] Add `DiscoveredItem`, `ScopeResult`, `StrategyResult` to `internal/model/types.go`
-- [ ] Add `CategoryConfig` and `CategoryEntry` types to `internal/model/types.go`
-- [ ] Add GraphQL client to `internal/github/client.go` (`api.DefaultGraphQLClient()`)
-- [ ] Create `internal/github/pullrequests.go` — `SearchMergedPRs()`, `FetchPRLinkedIssues()`
+- [x] Add `PR` type to `internal/model/types.go`
+- [x] Add `DiscoveredItem`, `ScopeResult`, `StrategyResult` to `internal/model/types.go`
+- [x] Add `CategoryConfig` and `CategoryEntry` types to `internal/model/types.go`
+- [x] Add GraphQL client to `internal/github/client.go` (`api.DefaultGraphQLClient()`)
+- [x] Create `internal/github/pullrequests.go` — `SearchMergedPRs()`, `FetchPRLinkedIssues()`
 - [ ] Write `internal/github/pullrequests_test.go` — table-driven tests with httptest mocks
-- [ ] Create `internal/strategy/strategy.go` — `Strategy` interface, `Runner`, `DiscoverInput`
-- [ ] Create `internal/strategy/prlink.go` — pr-link strategy using search API + GraphQL batch
+- [x] Create `internal/strategy/strategy.go` — `Strategy` interface, `Runner`, `DiscoverInput`
+- [x] Create `internal/strategy/prlink.go` — pr-link strategy using search API + GraphQL batch
 - [ ] Write `internal/strategy/prlink_test.go`
-- [ ] Create `internal/strategy/merge.go` — priority merge logic
-- [ ] Write `internal/strategy/merge_test.go` — test dedup, priority ordering, edge cases
-- [ ] Add time window constants and enforcement to strategy Runner
-- [ ] Add `max_window_days` to config
-- [ ] Update `cmd/release.go` to use strategy Runner instead of `linking.LinkCommitsToIssues()`
-- [ ] Run `task test` and `task quality`
+- [x] Create `internal/strategy/merge.go` — priority merge logic
+- [x] Write `internal/strategy/merge_test.go` — test dedup, priority ordering, edge cases
+- [x] Add time window constants and enforcement to strategy Runner
+- [x] Add `max_window_days` to config
+- [x] Update `cmd/release.go` to use strategy Runner instead of `linking.LinkCommitsToIssues()`
+- [x] Run `task test` and `task quality`
 
 **Success criteria:**
 - `gh-velocity release v2.65.0 --repo cli/cli --since v2.64.0` uses pr-link strategy and discovers issues via PR links
@@ -477,14 +477,14 @@ At 5,000 REST calls/hour: supports ~225 runs/hour.
 
 **Goal:** All three strategies implemented and running as union.
 
-- [ ] Create `internal/strategy/commitref.go` — wraps existing `linking.ExtractIssueNumbers()`, adds closing-keyword-only default
-- [ ] Write `internal/strategy/commitref_test.go`
-- [ ] Add `commit_ref.patterns` to config (`CommitRefConfig` struct)
-- [ ] Create `internal/strategy/changelog.go` — parse release body for `#N` references
-- [ ] Write `internal/strategy/changelog_test.go`
-- [ ] Update Runner to instantiate all three strategies
-- [ ] Verify union merge with all three contributing
-- [ ] Run `task test` and `task quality`
+- [x] Create `internal/strategy/commitref.go` — wraps existing `linking.ExtractIssueNumbers()`, adds closing-keyword-only default
+- [x] Write `internal/strategy/commitref_test.go`
+- [x] Add `commit_ref.patterns` to config (`CommitRefConfig` struct)
+- [x] Create `internal/strategy/changelog.go` — parse release body for `#N` references
+- [x] Write `internal/strategy/changelog_test.go`
+- [x] Update Runner to instantiate all three strategies
+- [x] Verify union merge with all three contributing
+- [x] Run `task test` and `task quality`
 
 **Success criteria:**
 - All three strategies contribute to the merged result
@@ -514,13 +514,13 @@ At 5,000 REST calls/hour: supports ~225 runs/hour.
 
 **Goal:** Working `scope` command for validating release contents.
 
-- [ ] Create `cmd/scope.go` — `scope <tag>` with `--since` flag
-- [ ] Implement pretty output grouped by strategy
-- [ ] Implement JSON output (`ScopeResult` struct)
-- [ ] Implement markdown output
-- [ ] Register in `cmd/root.go`
-- [ ] Add scope smoke tests to `scripts/smoke-test.sh`
-- [ ] Run `task test` and `task quality`
+- [x] Create `cmd/scope.go` — `scope <tag>` with `--since` flag
+- [x] Implement pretty output grouped by strategy
+- [x] Implement JSON output (`ScopeResult` struct)
+- [x] Implement markdown output
+- [x] Register in `cmd/root.go`
+- [x] Add scope smoke tests to `scripts/smoke-test.sh`
+- [x] Run `task test` and `task quality`
 
 **Success criteria:**
 - `gh-velocity scope v2.65.0 --since v2.64.0 --repo cli/cli` shows what each strategy found
@@ -529,9 +529,9 @@ At 5,000 REST calls/hour: supports ~225 runs/hour.
 
 ### Phase 5: Polish & Documentation
 
-- [ ] Update smoke tests for new strategy behavior
+- [x] Update smoke tests for new strategy behavior
 - [ ] Add config documentation for new fields (`categories`, `commit_ref`, `max_window_days`)
-- [ ] Update CLAUDE.md with new package descriptions
+- [x] Update CLAUDE.md with new package descriptions
 - [ ] Deprecation warning for `bug_labels`/`feature_labels` when `categories` is also set
 - [ ] Run full `task quality`
 
@@ -539,14 +539,14 @@ At 5,000 REST calls/hour: supports ~225 runs/hour.
 
 ### Functional Requirements
 
-- [ ] Three linking strategies (pr-link, commit-ref, changelog) run by default
-- [ ] Union merge produces deduplicated results with priority ordering
-- [ ] PR is a first-class metric target (lead time = PR opened → merged when no issue)
+- [x] Three linking strategies (pr-link, commit-ref, changelog) run by default
+- [x] Union merge produces deduplicated results with priority ordering
+- [x] PR is a first-class metric target (lead time = PR opened → merged when no issue)
 - [ ] User-defined classification categories work via config and inline flags
-- [ ] `scope` command shows per-strategy discovery results in all formats
-- [ ] Time window guardrails prevent excessive API usage (default 31 days, max 90)
-- [ ] Backward compatible: existing `bug_labels`/`feature_labels` config still works
-- [ ] Commit-ref defaults to closing keywords only; bare `#N` is opt-in
+- [x] `scope` command shows per-strategy discovery results in all formats
+- [x] Time window guardrails prevent excessive API usage (default 31 days, max 90)
+- [x] Backward compatible: existing `bug_labels`/`feature_labels` config still works
+- [x] Commit-ref defaults to closing keywords only; bare `#N` is opt-in
 
 ### Non-Functional Requirements
 

@@ -1,0 +1,36 @@
+version: 2
+
+project_name: gh-velocity
+
+builds:
+  - binary: gh-velocity
+    main: .
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+      - -X main.BuildTime={{.Date}}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - formats: [binary]
+    # gh extension install expects: gh-{name}_{os}_{arch}{ext}
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^chore:"
+      - "^test:"

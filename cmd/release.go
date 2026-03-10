@@ -9,9 +9,9 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	"github.com/bitsbyme/gh-velocity/internal/gitdata"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/linking"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/strategy"
 	"github.com/spf13/cobra"
 )
 
@@ -47,6 +47,9 @@ func NewReleaseCmd() *cobra.Command {
 				if wdErr != nil {
 					return fmt.Errorf("get working directory: %w", wdErr)
 				}
+				if gitdata.IsShallowClone(wd) {
+					fmt.Fprintf(os.Stderr, "warning: shallow clone detected; commit history is incomplete. Use 'actions/checkout' with fetch-depth: 0 for accurate metrics.\n")
+				}
 				source = gitdata.NewLocalSource(wd)
 			} else {
 				fmt.Fprintf(os.Stderr, "warning: Using API for git operations (no local checkout)\n")
@@ -54,7 +57,7 @@ func NewReleaseCmd() *cobra.Command {
 			}
 
 			// Gather data: tags, commits, release info, issues
-			input, warnings, err := gatherReleaseData(ctx, source, client, tag, sinceFlag)
+			input, warnings, err := gatherReleaseData(ctx, source, client, deps, tag, sinceFlag)
 			if err != nil {
 				return err
 			}
@@ -77,7 +80,7 @@ func NewReleaseCmd() *cobra.Command {
 			case format.Markdown:
 				return format.WriteReleaseMarkdown(w, rm, warnings)
 			default:
-				return format.WriteReleasePretty(w, rm, warnings)
+				return format.WriteReleasePretty(w, deps.IsTTY, deps.TermWidth, rm, warnings)
 			}
 		},
 	}
@@ -87,7 +90,7 @@ func NewReleaseCmd() *cobra.Command {
 }
 
 // gatherReleaseData fetches all data needed for release metrics computation.
-func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Client, tag, sinceFlag string) (metrics.ReleaseInput, []string, error) {
+func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Client, deps *Deps, tag, sinceFlag string) (metrics.ReleaseInput, []string, error) {
 	var warnings []string
 
 	tags, err := source.Tags(ctx)
@@ -118,19 +121,92 @@ func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Cl
 		release = &model.Release{TagName: tag, CreatedAt: now}
 	}
 
-	// Link commits to issues and fetch issue data concurrently
-	issueCommits := linking.LinkCommitsToIssues(commits)
-	issueNumbers := make([]int, 0, len(issueCommits))
-	for num := range issueCommits {
-		issueNumbers = append(issueNumbers, num)
-	}
-	issues, fetchErrors := client.FetchIssues(ctx, issueNumbers)
-
 	// Fetch previous release for hotfix/cadence detection
 	var prevRelease *model.Release
 	if previousTag != "" {
 		if pr, err := client.GetRelease(ctx, previousTag); err == nil {
 			prevRelease = pr
+		}
+	}
+
+	// Determine tag dates for strategies.
+	// Use release dates when available, fall back to git tag commit dates.
+	tagDate := release.CreatedAt
+	var prevTagDate time.Time
+	if prevRelease != nil {
+		prevTagDate = prevRelease.CreatedAt
+	} else if previousTag != "" {
+		if d, err := client.GetTagDate(ctx, previousTag); err == nil {
+			prevTagDate = d
+		}
+	}
+
+	// Run linking strategies to discover issues and PRs
+	runner := strategy.NewRunner(
+		strategy.NewPRLink(),
+		strategy.NewCommitRef(deps.Config.CommitRef.Patterns),
+		strategy.NewChangelog(),
+	)
+
+	scopeResult, stratWarnings, err := runner.Run(ctx, strategy.DiscoverInput{
+		Owner:             deps.Owner,
+		Repo:              deps.Repo,
+		Tag:               tag,
+		PreviousTag:       previousTag,
+		TagDate:           tagDate,
+		PrevTagDate:       prevTagDate,
+		Commits:           commits,
+		Release:           release,
+		Client:            client,
+		CommitRefPatterns: deps.Config.CommitRef.Patterns,
+	})
+	warnings = append(warnings, stratWarnings...)
+	if err != nil {
+		return metrics.ReleaseInput{}, warnings, err
+	}
+
+	// Convert strategy results to metrics input format.
+	// Collect issue numbers that need full data fetching.
+	issueCommits := make(map[int][]model.Commit)
+	knownIssues := make(map[int]*model.Issue)
+
+	for _, item := range scopeResult.Merged {
+		if item.Issue == nil {
+			continue
+		}
+		num := item.Issue.Number
+		issueCommits[num] = append(issueCommits[num], item.Commits...)
+
+		// pr-link provides full issue data; commit-ref/changelog only have Number.
+		if item.Issue.Title != "" {
+			knownIssues[num] = item.Issue
+		}
+	}
+
+	// Fetch full issue data for issues not already populated by pr-link.
+	var toFetch []int
+	for num := range issueCommits {
+		if _, ok := knownIssues[num]; !ok {
+			toFetch = append(toFetch, num)
+		}
+	}
+
+	issues := make(map[int]*model.Issue)
+	fetchErrors := make(map[int]error)
+
+	// Copy known issues
+	for num, issue := range knownIssues {
+		issues[num] = issue
+	}
+
+	// Fetch remaining issues
+	if len(toFetch) > 0 {
+		fetched, errs := client.FetchIssues(ctx, toFetch)
+		for num, issue := range fetched {
+			issues[num] = issue
+		}
+		for num, fetchErr := range errs {
+			fetchErrors[num] = fetchErr
 		}
 	}
 

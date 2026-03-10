@@ -10,39 +10,43 @@ import (
 
 // JSONLeadTimeOutput is the JSON representation of lead-time metrics.
 type JSONLeadTimeOutput struct {
-	Repository       string   `json:"repository"`
-	Issue            int      `json:"issue"`
-	Title            string   `json:"title"`
-	State            string   `json:"state"`
-	LeadTimeSeconds  *int64   `json:"lead_time_seconds"`
-	LeadTime         string   `json:"lead_time"`
-	Warnings         []string `json:"warnings,omitempty"`
+	Repository      string     `json:"repository"`
+	Issue           int        `json:"issue"`
+	Title           string     `json:"title"`
+	State           string     `json:"state"`
+	StartedAt       *time.Time `json:"started_at"`
+	LeadTimeSeconds *int64     `json:"lead_time_seconds"`
+	LeadTime        string     `json:"lead_time"`
+	Warnings        []string   `json:"warnings,omitempty"`
 }
 
 // JSONCycleTimeOutput is the JSON representation of cycle-time metrics.
 type JSONCycleTimeOutput struct {
-	Repository       string   `json:"repository"`
-	Issue            int      `json:"issue"`
-	Title            string   `json:"title"`
-	State            string   `json:"state"`
-	Commits          int      `json:"commits"`
-	CycleTimeSeconds *int64   `json:"cycle_time_seconds"`
-	CycleTime        string   `json:"cycle_time"`
-	Warnings         []string `json:"warnings,omitempty"`
+	Repository       string     `json:"repository"`
+	Issue            int        `json:"issue,omitempty"`
+	PR               int        `json:"pr,omitempty"`
+	Title            string     `json:"title"`
+	State            string     `json:"state"`
+	Commits          int        `json:"commits"`
+	StartedAt        *time.Time `json:"started_at"`
+	CycleTimeSeconds *int64     `json:"cycle_time_seconds"`
+	CycleTime        string     `json:"cycle_time"`
+	Signal           string     `json:"signal,omitempty"`
+	Warnings         []string   `json:"warnings,omitempty"`
 }
 
 // JSONReleaseOutput is the JSON representation of release metrics.
 type JSONReleaseOutput struct {
-	Repository   string              `json:"repository"`
-	Tag          string              `json:"tag"`
-	PreviousTag  string              `json:"previous_tag,omitempty"`
-	Date         time.Time           `json:"date"`
-	CadenceHours *float64            `json:"cadence_hours,omitempty"`
-	IsHotfix     bool                `json:"is_hotfix"`
-	Composition  JSONComposition     `json:"composition"`
-	Issues       []JSONIssueMetrics  `json:"issues"`
-	Aggregates   JSONAggregates      `json:"aggregates"`
-	Warnings     []string            `json:"warnings,omitempty"`
+	Repository   string             `json:"repository"`
+	Tag          string             `json:"tag"`
+	PreviousTag  string             `json:"previous_tag,omitempty"`
+	Date         time.Time          `json:"date"`
+	CadenceHours *float64           `json:"cadence_hours,omitempty"`
+	IsHotfix     bool               `json:"is_hotfix"`
+	Composition  JSONComposition    `json:"composition"`
+	Issues       []JSONIssueMetrics `json:"issues"`
+	Aggregates   JSONAggregates     `json:"aggregates"`
+	Warnings     []string           `json:"warnings,omitempty"`
 }
 
 type JSONComposition struct {
@@ -56,34 +60,41 @@ type JSONComposition struct {
 }
 
 type JSONIssueMetrics struct {
-	Number           int    `json:"number"`
-	Title            string `json:"title"`
-	LeadTimeSeconds  *int64 `json:"lead_time_seconds"`
-	CycleTimeSeconds *int64 `json:"cycle_time_seconds"`
+	Number            int    `json:"number"`
+	Title             string `json:"title"`
+	LeadTimeSeconds   *int64 `json:"lead_time_seconds"`
+	CycleTimeSeconds  *int64 `json:"cycle_time_seconds"`
 	ReleaseLagSeconds *int64 `json:"release_lag_seconds"`
-	CommitCount      int    `json:"commit_count"`
+	CommitCount       int    `json:"commit_count"`
+	LeadTimeOutlier   bool   `json:"lead_time_outlier,omitempty"`
+	CycleTimeOutlier  bool   `json:"cycle_time_outlier,omitempty"`
 }
 
 type JSONAggregates struct {
-	LeadTime  JSONStats `json:"lead_time"`
-	CycleTime JSONStats `json:"cycle_time"`
+	LeadTime   JSONStats `json:"lead_time"`
+	CycleTime  JSONStats `json:"cycle_time"`
 	ReleaseLag JSONStats `json:"release_lag"`
 }
 
 type JSONStats struct {
-	Count        int    `json:"count"`
-	MeanSeconds  *int64 `json:"mean_seconds"`
-	MedianSeconds *int64 `json:"median_seconds"`
-	StdDevSeconds *int64 `json:"stddev_seconds,omitempty"`
+	Count                int    `json:"count"`
+	MeanSeconds          *int64 `json:"mean_seconds"`
+	MedianSeconds        *int64 `json:"median_seconds"`
+	StdDevSeconds        *int64 `json:"stddev_seconds,omitempty"`
+	P90Seconds           *int64 `json:"p90_seconds,omitempty"`
+	P95Seconds           *int64 `json:"p95_seconds,omitempty"`
+	OutlierCutoffSeconds *int64 `json:"outlier_cutoff_seconds,omitempty"`
+	OutlierCount         int    `json:"outlier_count,omitempty"`
 }
 
 // WriteLeadTimeJSON writes lead-time metrics as JSON to the writer.
-func WriteLeadTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, lt *time.Duration, warnings []string) error {
+func WriteLeadTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, startedAt time.Time, lt *time.Duration, warnings []string) error {
 	out := JSONLeadTimeOutput{
 		Repository: repo,
 		Issue:      issueNumber,
 		Title:      title,
 		State:      state,
+		StartedAt:  &startedAt,
 		Warnings:   warnings,
 	}
 	if lt != nil {
@@ -91,7 +102,7 @@ func WriteLeadTimeJSON(w io.Writer, repo string, issueNumber int, title, state s
 		out.LeadTimeSeconds = &s
 		out.LeadTime = FormatDuration(*lt)
 	} else {
-		out.LeadTime = "N/A"
+		out.LeadTime = "in progress"
 	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
@@ -99,19 +110,48 @@ func WriteLeadTimeJSON(w io.Writer, repo string, issueNumber int, title, state s
 }
 
 // WriteCycleTimeJSON writes cycle-time metrics as JSON to the writer.
-func WriteCycleTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, commits int, ct *time.Duration, warnings []string) error {
+func WriteCycleTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, commits int, startedAt *time.Time, ct *time.Duration, signal string, warnings []string) error {
 	out := JSONCycleTimeOutput{
 		Repository: repo,
 		Issue:      issueNumber,
 		Title:      title,
 		State:      state,
 		Commits:    commits,
+		StartedAt:  startedAt,
+		Signal:     signal,
 		Warnings:   warnings,
 	}
 	if ct != nil {
 		s := int64(ct.Seconds())
 		out.CycleTimeSeconds = &s
 		out.CycleTime = FormatDuration(*ct)
+	} else if startedAt != nil {
+		out.CycleTime = "in progress"
+	} else {
+		out.CycleTime = "N/A"
+	}
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(out)
+}
+
+// WriteCycleTimePRJSON writes cycle-time metrics for a PR as JSON.
+func WriteCycleTimePRJSON(w io.Writer, repo string, prNumber int, title, state string, startedAt *time.Time, ct *time.Duration, signal string, warnings []string) error {
+	out := JSONCycleTimeOutput{
+		Repository: repo,
+		PR:         prNumber,
+		Title:      title,
+		State:      state,
+		StartedAt:  startedAt,
+		Signal:     signal,
+		Warnings:   warnings,
+	}
+	if ct != nil {
+		s := int64(ct.Seconds())
+		out.CycleTimeSeconds = &s
+		out.CycleTime = FormatDuration(*ct)
+	} else if startedAt != nil {
+		out.CycleTime = "in progress"
 	} else {
 		out.CycleTime = "N/A"
 	}
@@ -158,6 +198,8 @@ func WriteReleaseJSON(w io.Writer, repo string, rm model.ReleaseMetrics, warning
 			CycleTimeSeconds:  durationToSeconds(im.CycleTime),
 			ReleaseLagSeconds: durationToSeconds(im.ReleaseLag),
 			CommitCount:       im.CommitCount,
+			LeadTimeOutlier:   im.LeadTimeOutlier,
+			CycleTimeOutlier:  im.CycleTimeOutlier,
 		})
 	}
 
@@ -176,9 +218,13 @@ func durationToSeconds(d *time.Duration) *int64 {
 
 func statsToJSON(s model.Stats) JSONStats {
 	return JSONStats{
-		Count:         s.Count,
-		MeanSeconds:   durationToSeconds(s.Mean),
-		MedianSeconds: durationToSeconds(s.Median),
-		StdDevSeconds: durationToSeconds(s.StdDev),
+		Count:                s.Count,
+		MeanSeconds:          durationToSeconds(s.Mean),
+		MedianSeconds:        durationToSeconds(s.Median),
+		StdDevSeconds:        durationToSeconds(s.StdDev),
+		P90Seconds:           durationToSeconds(s.P90),
+		P95Seconds:           durationToSeconds(s.P95),
+		OutlierCutoffSeconds: durationToSeconds(s.OutlierCutoff),
+		OutlierCount:         s.OutlierCount,
 	}
 }

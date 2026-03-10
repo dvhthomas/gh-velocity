@@ -88,3 +88,11 @@ func IsLocalGitAvailable(dir string) bool {
 	_, err := os.Stat(filepath.Join(dir, ".git"))
 	return err == nil
 }
+
+// IsShallowClone returns true if the git repo in dir is a shallow clone.
+// Shallow clones (e.g., GitHub Actions default) have incomplete history
+// which produces inaccurate commit-based metrics.
+func IsShallowClone(dir string) bool {
+	_, err := os.Stat(filepath.Join(dir, ".git", "shallow"))
+	return err == nil
+}

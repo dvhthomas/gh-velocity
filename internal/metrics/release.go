@@ -9,15 +9,15 @@ import (
 
 // ReleaseInput holds the data needed to compute release metrics.
 type ReleaseInput struct {
-	Tag          string
-	PreviousTag  string
-	Release      model.Release
-	PrevRelease  *model.Release // nil if no previous release
-	IssueCommits map[int][]model.Commit
-	Issues       map[int]*model.Issue // successfully fetched issues
-	FetchErrors  map[int]error        // issues that failed to fetch
-	BugLabels    []string
-	FeatureLabels []string
+	Tag               string
+	PreviousTag       string
+	Release           model.Release
+	PrevRelease       *model.Release // nil if no previous release
+	IssueCommits      map[int][]model.Commit
+	Issues            map[int]*model.Issue // successfully fetched issues
+	FetchErrors       map[int]error        // issues that failed to fetch
+	BugLabels         []string
+	FeatureLabels     []string
 	HotfixWindowHours float64
 }
 
@@ -115,6 +115,17 @@ func BuildReleaseMetrics(input ReleaseInput) (model.ReleaseMetrics, []string, er
 		isHotfix = IsHotfix(input.Release, *input.PrevRelease, input.HotfixWindowHours)
 	}
 
+	// Compute stats first so we can flag outliers on individual issues
+	ltStats := ComputeStats(leadTimes)
+	ctStats := ComputeStats(cycleTimes)
+	rlStats := ComputeStats(releaseLags)
+
+	// Flag outlier issues using IQR method
+	for i := range issueMetrics {
+		issueMetrics[i].LeadTimeOutlier = IsOutlier(issueMetrics[i].LeadTime, ltStats)
+		issueMetrics[i].CycleTimeOutlier = IsOutlier(issueMetrics[i].CycleTime, ctStats)
+	}
+
 	rm := model.ReleaseMetrics{
 		Tag:             input.Tag,
 		PreviousTag:     input.PreviousTag,
@@ -129,9 +140,9 @@ func BuildReleaseMetrics(input ReleaseInput) (model.ReleaseMetrics, []string, er
 		BugRatio:        bugRatio,
 		FeatureRatio:    featureRatio,
 		OtherRatio:      otherRatio,
-		LeadTimeStats:   ComputeStats(leadTimes),
-		CycleTimeStats:  ComputeStats(cycleTimes),
-		ReleaseLagStats: ComputeStats(releaseLags),
+		LeadTimeStats:   ltStats,
+		CycleTimeStats:  ctStats,
+		ReleaseLagStats: rlStats,
 	}
 
 	return rm, warnings, nil
