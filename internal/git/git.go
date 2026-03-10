@@ -6,12 +6,13 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/bitsbyme/gh-velocity/internal/log"
 
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
@@ -131,7 +132,7 @@ func (r *Runner) streamCommits(ctx context.Context, args ...string) ([]model.Com
 
 		authored, err := time.Parse(time.RFC3339, parts[1])
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: skipping commit %s: malformed date %q\n", parts[0], parts[1])
+			log.Warn("skipping commit %s: malformed date %q", parts[0], parts[1])
 			continue
 		}
 		commits = append(commits, model.Commit{

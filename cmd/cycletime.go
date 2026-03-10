@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/spf13/cobra"
@@ -225,7 +225,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	if deps.Config.CycleTime.Strategy == "pr" {
 		mergedPRs, prErr := client.SearchMergedPRs(ctx, since, until)
 		if prErr != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not search merged PRs: %v\n", prErr)
+			log.Warn("could not search merged PRs: %v", prErr)
 		} else {
 			closingPRs = buildClosingPRMap(ctx, client, mergedPRs)
 		}
@@ -268,7 +268,7 @@ func outputCycleTime(cmd *cobra.Command, deps *Deps, ct model.Metric, warnings [
 	repo := deps.Owner + "/" + deps.Repo
 
 	for _, warn := range warnings {
-		fmt.Fprintf(os.Stderr, "warning: %s\n", warn)
+		log.Warn("%s", warn)
 	}
 
 	switch deps.Format {

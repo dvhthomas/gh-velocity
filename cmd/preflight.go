@@ -11,6 +11,7 @@ import (
 
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/spf13/cobra"
 )
@@ -66,7 +67,7 @@ each choice. Use --write to save it directly.`,
 			w := cmd.OutOrStdout()
 			formatFlag, _ := cmd.Root().PersistentFlags().GetString("format")
 
-			fmt.Fprintf(os.Stderr, "Analyzing %s/%s...\n", owner, repo)
+			log.Notice("Analyzing %s/%s...", owner, repo)
 
 			result, err := runPreflight(ctx, client, owner, repo, projectFlag)
 			if err != nil {
@@ -92,13 +93,13 @@ each choice. Use --write to save it directly.`,
 				if writeErr := os.WriteFile(path, []byte(configYAML), 0644); writeErr != nil {
 					return fmt.Errorf("write %s: %w", path, writeErr)
 				}
-				fmt.Fprintf(os.Stderr, "Wrote %s\n", path)
+				log.Notice("Wrote %s", path)
 				return nil
 			}
 
 			fmt.Fprint(w, configYAML)
-			fmt.Fprintln(os.Stderr)
-			fmt.Fprintln(os.Stderr, "To save this config:  gh velocity config preflight --write")
+			log.Notice("")
+			log.Notice("To save this config:  gh velocity config preflight --write")
 			return nil
 		},
 	}

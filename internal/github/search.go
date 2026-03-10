@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
-
-	"github.com/bitsbyme/gh-velocity/internal/model"
-
 	"time"
+
+	"github.com/bitsbyme/gh-velocity/internal/log"
+	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
 // searchItemToIssue converts a search API item to a model.Issue.
@@ -67,7 +66,7 @@ func (c *Client) SearchClosedIssues(ctx context.Context, since, until time.Time)
 		}
 		page++
 		if page > 10 { // search API returns max 1000 results (10 pages of 100)
-			fmt.Fprintf(os.Stderr, "warning: results capped at 1000; narrow the date range for complete data\n")
+			log.Warn("results capped at 1000; narrow the date range for complete data")
 			break
 		}
 	}
@@ -104,7 +103,7 @@ func (c *Client) SearchOpenIssuesWithLabels(ctx context.Context, labels []string
 		}
 		page++
 		if page > 10 {
-			fmt.Fprintf(os.Stderr, "warning: results capped at 1000; consider narrowing your label filters\n")
+			log.Warn("results capped at 1000; consider narrowing your label filters")
 			break
 		}
 	}

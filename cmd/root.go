@@ -13,6 +13,7 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/config"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	"github.com/bitsbyme/gh-velocity/internal/gitdata"
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/cli/go-gh/v2/pkg/repository"
 	"github.com/cli/go-gh/v2/pkg/term"
@@ -170,13 +171,13 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 			}
 
 			if debugFlag {
-				fmt.Fprintf(os.Stderr, "[debug] repo:         %s/%s\n", owner, repo)
-				fmt.Fprintf(os.Stderr, "[debug] local repo:   %v\n", hasLocal)
-				fmt.Fprintf(os.Stderr, "[debug] config:       %s\n", configPath)
-				fmt.Fprintf(os.Stderr, "[debug] format:       %s\n", formatFlag)
-				fmt.Fprintf(os.Stderr, "[debug] strategy:     %s\n", cfg.CycleTime.Strategy)
+				log.Debug("repo:         %s/%s", owner, repo)
+				log.Debug("local repo:   %v", hasLocal)
+				log.Debug("config:       %s", configPath)
+				log.Debug("format:       %s", formatFlag)
+				log.Debug("strategy:     %s", cfg.CycleTime.Strategy)
 				if cfg.Project.ID != "" {
-					fmt.Fprintf(os.Stderr, "[debug] project.id:   %s\n", cfg.Project.ID)
+					log.Debug("project.id:   %s", cfg.Project.ID)
 				}
 			}
 

@@ -8,6 +8,7 @@ import (
 	"regexp"
 
 	"github.com/bitsbyme/gh-velocity/internal/classify"
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"gopkg.in/yaml.v3"
 )
@@ -27,9 +28,9 @@ var (
 )
 
 // WarnFunc is called for non-fatal warnings (e.g., unknown config keys).
-// Defaults to fmt.Fprintf(os.Stderr, ...).
+// Defaults to log.Warn.
 var WarnFunc = func(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, format, args...)
+	log.Warn(format, args...)
 }
 
 // Config represents the .gh-velocity.yml configuration.
@@ -185,7 +186,7 @@ var knownTopLevelKeys = map[string]bool{
 func warnUnknownKeysFromMap(raw map[string]any) {
 	for key := range raw {
 		if !knownTopLevelKeys[key] {
-			WarnFunc("config: warning: unknown key %q (ignored)\n", key)
+			WarnFunc("config: unknown key %q (ignored)", key)
 		}
 	}
 }
@@ -268,7 +269,7 @@ func resolveCategories(cfg *Config) {
 
 	if len(cfg.Quality.Categories) > 0 {
 		if hasLegacy {
-			WarnFunc("config: warning: both 'categories' and 'bug_labels'/'feature_labels' are set; 'categories' takes precedence\n")
+			WarnFunc("config: both 'categories' and 'bug_labels'/'feature_labels' are set; 'categories' takes precedence")
 		}
 		return
 	}
