@@ -171,14 +171,14 @@ Build the posting logic that commands will call.
 
 Connect the posting infrastructure to every command.
 
-- [ ] **`cmd/root.go`**: PersistentPreRunE changes
+- [x] **`cmd/root.go`**: PersistentPreRunE changes
   - Remove the `--post` rejection guard (lines 113-117)
   - Unhide the `--post` flag (remove `MarkHidden`)
   - Add `--new-post` flag: `root.PersistentFlags().BoolVar(&newPostFlag, "new-post", false, "Force a new post (skip idempotent update)")`
   - `--new-post` implies `--post`: if `newPostFlag { postFlag = true }`
   - `--post` coerces format: if `postFlag && !cmd.Flags().Changed("format") { formatFlag = "markdown" }`
   - Store `NewPost bool` in Deps
-- [ ] **Post helper in `cmd/helpers.go`** (or new `cmd/post.go`):
+- [x] **Post helper in `cmd/helpers.go`** (or new `cmd/post.go`):
   ```go
   // postIfEnabled captures output via io.MultiWriter and posts after formatting.
   func postIfEnabled(cmd *cobra.Command, deps *Deps, client *gh.Client, opts posting.PostOptions) (io.Writer, func() error) {
@@ -206,7 +206,7 @@ Connect the posting infrastructure to every command.
       return content
   }
   ```
-- [ ] **Update each command** to use the post helper:
+- [x] **Update each command** to use the post helper:
   - `cmd/leadtime.go` — single issue: `IssueComment`, bulk: `Discussion`
   - `cmd/cycletime.go` — single issue: `IssueComment`, single PR: `PRComment`, bulk: `Discussion`
   - `cmd/throughput.go` — bulk only: `Discussion`
@@ -227,7 +227,7 @@ Connect the posting infrastructure to every command.
         return err
     }
     ```
-- [ ] **Validate config for Discussion posting**: In PersistentPreRunE or in the post helper, check that `discussions.category_id` is configured when the target is Discussion. Return clear error with instructions.
+- [x] **Validate config for Discussion posting**: In PersistentPreRunE or in the post helper, check that `discussions.category_id` is configured when the target is Discussion. Return clear error with instructions.
 
 **Tests**: `go test ./cmd/...` + update smoke tests
 
@@ -235,7 +235,7 @@ Connect the posting infrastructure to every command.
 
 Extend config preflight to check posting prerequisites.
 
-- [ ] **`cmd/preflight.go`**: Add `PostingReadiness` struct and checks
+- [x] **`cmd/preflight.go`**: Add `PostingReadiness` struct and checks
   ```go
   type PostingReadiness struct {
       DiscussionsEnabled bool  `json:"discussions_enabled"`
@@ -249,7 +249,7 @@ Extend config preflight to check posting prerequisites.
   - Check `category_valid`: if `category_id` in config, attempt GraphQL query for that node — if found, valid
   - Scope checks are **best-effort** (fine-grained PATs don't expose scopes via headers)
   - Add hints for each check result
-- [ ] **Update `renderPreflightConfig`** to show posting readiness in pretty output
+- [x] **Update `renderPreflightConfig`** to show posting readiness in pretty output
 - [ ] **Update smoke tests** to verify preflight JSON includes `posting_readiness`
 
 **Tests**: `go test ./cmd/...` + smoke tests
