@@ -13,5 +13,6 @@ func NewFlowCmd() *cobra.Command {
 	}
 	cmd.AddCommand(NewLeadTimeCmd())
 	cmd.AddCommand(NewCycleTimeCmd())
+	cmd.AddCommand(NewThroughputCmd())
 	return cmd
 }

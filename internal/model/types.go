@@ -196,6 +196,15 @@ type StatsThroughput struct {
 	PRsMerged    int
 }
 
+// ThroughputResult holds standalone throughput output for the flow throughput command.
+type ThroughputResult struct {
+	Repository   string
+	Since        time.Time
+	Until        time.Time
+	IssuesClosed int
+	PRsMerged    int
+}
+
 // StatsQuality holds defect rate metrics.
 type StatsQuality struct {
 	BugCount    int

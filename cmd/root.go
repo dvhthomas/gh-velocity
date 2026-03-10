@@ -34,6 +34,7 @@ type Deps struct {
 	HasLocalRepo bool // true when a local git checkout is available
 	IsTTY        bool // true when stdout is a terminal
 	TermWidth    int  // terminal width in columns (0 = unknown)
+	Debug        bool // true when --debug is set
 }
 
 // DepsFromContext extracts Deps from the command context.
@@ -87,6 +88,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 		repoFlag   string
 		configFlag string
 		postFlag   bool
+		debugFlag  bool
 	)
 
 	root := &cobra.Command{
@@ -167,6 +169,17 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				termWidth = w
 			}
 
+			if debugFlag {
+				fmt.Fprintf(os.Stderr, "[debug] repo:         %s/%s\n", owner, repo)
+				fmt.Fprintf(os.Stderr, "[debug] local repo:   %v\n", hasLocal)
+				fmt.Fprintf(os.Stderr, "[debug] config:       %s\n", configPath)
+				fmt.Fprintf(os.Stderr, "[debug] format:       %s\n", formatFlag)
+				fmt.Fprintf(os.Stderr, "[debug] strategy:     %s\n", cfg.CycleTime.Strategy)
+				if cfg.Project.ID != "" {
+					fmt.Fprintf(os.Stderr, "[debug] project.id:   %s\n", cfg.Project.ID)
+				}
+			}
+
 			deps := &Deps{
 				Config:       cfg,
 				Format:       f,
@@ -176,6 +189,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				HasLocalRepo: hasLocal,
 				IsTTY:        isTTY,
 				TermWidth:    termWidth,
+				Debug:        debugFlag,
 			}
 
 			cmd.SetContext(context.WithValue(cmd.Context(), configKey, deps))
@@ -188,6 +202,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 	root.PersistentFlags().StringVar(&configFlag, "config", "", "Path to config file (default: .gh-velocity.yml)")
 	root.PersistentFlags().BoolVar(&postFlag, "post", false, "Post output to GitHub (coming soon)")
 	root.PersistentFlags().MarkHidden("post")
+	root.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Print diagnostic info to stderr")
 
 	root.AddCommand(NewVersionCmd(version, buildTime))
 	root.AddCommand(NewConfigCmd())
