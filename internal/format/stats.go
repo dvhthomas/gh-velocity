@@ -11,14 +11,15 @@ import (
 
 // StatsResult holds all dashboard sections for output.
 type StatsResult struct {
-	Repository string
-	Since      time.Time
-	Until      time.Time
-	LeadTime   *model.Stats
-	CycleTime  *model.Stats
-	Throughput *StatsThroughput
-	WIPCount   *int
-	Quality    *StatsQuality
+	Repository        string
+	Since             time.Time
+	Until             time.Time
+	LeadTime          *model.Stats
+	CycleTime         *model.Stats
+	CycleTimeStrategy string // "issue", "pr", or "project-board"
+	Throughput        *StatsThroughput
+	WIPCount          *int
+	Quality           *StatsQuality
 }
 
 // StatsThroughput holds throughput counts.
@@ -37,13 +38,14 @@ type StatsQuality struct {
 // --- JSON ---
 
 type jsonStatsOutput struct {
-	Repository string              `json:"repository"`
-	Window     jsonWindow          `json:"window"`
-	LeadTime   *JSONStats          `json:"lead_time,omitempty"`
-	CycleTime  *JSONStats          `json:"cycle_time,omitempty"`
-	Throughput *jsonThroughput     `json:"throughput,omitempty"`
-	WIP        *jsonWIP            `json:"wip,omitempty"`
-	Quality    *jsonStatsQuality   `json:"quality,omitempty"`
+	Repository        string              `json:"repository"`
+	Window            jsonWindow          `json:"window"`
+	LeadTime          *JSONStats          `json:"lead_time,omitempty"`
+	CycleTime         *JSONStats          `json:"cycle_time,omitempty"`
+	CycleTimeStrategy string              `json:"cycle_time_strategy,omitempty"`
+	Throughput        *jsonThroughput     `json:"throughput,omitempty"`
+	WIP               *jsonWIP            `json:"wip,omitempty"`
+	Quality           *jsonStatsQuality   `json:"quality,omitempty"`
 }
 
 type jsonThroughput struct {
@@ -77,6 +79,7 @@ func WriteStatsJSON(w io.Writer, r StatsResult) error {
 	if r.CycleTime != nil {
 		s := statsToJSON(*r.CycleTime)
 		out.CycleTime = &s
+		out.CycleTimeStrategy = r.CycleTimeStrategy
 	}
 	if r.Throughput != nil {
 		out.Throughput = &jsonThroughput{
@@ -159,7 +162,7 @@ func WriteStatsPretty(w io.Writer, isTTY bool, width int, r StatsResult) error {
 	return nil
 }
 
-// statsSummaryShort returns a compact stats summary like "median 3.2d, P90 8.1d (n=14)".
+// statsSummaryShort returns a compact stats summary like "median 3.2d, mean 5.1d, P90 8.1d (n=14, 2 outliers)".
 func statsSummaryShort(s model.Stats) string {
 	if s.Count == 0 {
 		return "no data"
@@ -168,12 +171,22 @@ func statsSummaryShort(s model.Stats) string {
 	if s.Median != nil {
 		result += fmt.Sprintf("median %s", FormatDuration(*s.Median))
 	}
+	if s.Mean != nil {
+		if result != "" {
+			result += ", "
+		}
+		result += fmt.Sprintf("mean %s", FormatDuration(*s.Mean))
+	}
 	if s.P90 != nil {
 		if result != "" {
 			result += ", "
 		}
 		result += fmt.Sprintf("P90 %s", FormatDuration(*s.P90))
 	}
-	result += fmt.Sprintf(" (n=%d)", s.Count)
+	suffix := fmt.Sprintf("n=%d", s.Count)
+	if s.OutlierCount > 0 {
+		suffix += fmt.Sprintf(", %d outliers", s.OutlierCount)
+	}
+	result += fmt.Sprintf(" (%s)", suffix)
 	return result
 }

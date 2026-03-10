@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/cycletime"
@@ -13,6 +14,7 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 )
 
 // NewStatsCmd returns the stats command.
@@ -93,7 +95,8 @@ unavailable.`,
 	return cmd
 }
 
-// computeStats gathers all dashboard sections with graceful degradation.
+// computeStats gathers all dashboard sections concurrently with graceful degradation.
+// Independent API calls run in parallel; compute phases share fetched data.
 func computeStats(ctx context.Context, deps *Deps, client *gh.Client, repo string, since, until, now time.Time) format.StatsResult {
 	result := format.StatsResult{
 		Repository: repo,
@@ -101,14 +104,120 @@ func computeStats(ctx context.Context, deps *Deps, client *gh.Client, repo strin
 		Until:      until,
 	}
 
-	// 1. Closed issues (shared by lead time, cycle time, throughput, quality)
-	closedIssues, err := client.SearchClosedIssues(ctx, since, until)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not fetch closed issues: %v\n", err)
+	cfg := deps.Config
+
+	// --- Phase 1: Parallel API fetches ---
+	// Three independent data sources fetched concurrently:
+	// 1. Closed issues (used by lead time, cycle time, throughput, quality)
+	// 2. Merged PRs (used by throughput, and cycle time PR strategy)
+	// 3. WIP items (optional, from project board or labels)
+
+	var (
+		closedIssues []model.Issue
+		mergedPRs    []model.PR
+		wipCount     *int
+		mu           sync.Mutex // guards result writes from goroutines
+	)
+
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(5) // rate limit protection
+
+	// Fetch closed issues
+	g.Go(func() error {
+		issues, err := client.SearchClosedIssues(gctx, since, until)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not fetch closed issues: %v\n", err)
+			return nil // graceful: don't fail the group
+		}
+		mu.Lock()
+		closedIssues = issues
+		mu.Unlock()
+		return nil
+	})
+
+	// Fetch merged PRs (for throughput, and PR strategy cycle time)
+	g.Go(func() error {
+		prs, err := client.SearchMergedPRs(gctx, since, until)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not fetch merged PRs: %v\n", err)
+			return nil
+		}
+		mu.Lock()
+		mergedPRs = prs
+		mu.Unlock()
+		return nil
+	})
+
+	// Fetch WIP (optional — project board or labels)
+	if cfg.Project.ID != "" {
+		g.Go(func() error {
+			projectItems, err := client.ListProjectItems(gctx, cfg.Project.ID, cfg.Project.StatusFieldID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: could not fetch WIP from project board: %v\n", err)
+				return nil
+			}
+			backlog := cfg.Statuses.Backlog
+			if backlog == "" {
+				backlog = "Backlog"
+			}
+			done := cfg.Statuses.Done
+			if done == "" {
+				done = "Done"
+			}
+			count := 0
+			for _, pi := range projectItems {
+				if pi.Status != backlog && pi.Status != done {
+					count++
+				}
+			}
+			mu.Lock()
+			wipCount = &count
+			mu.Unlock()
+			return nil
+		})
+	} else if len(cfg.Statuses.ActiveLabels) > 0 {
+		g.Go(func() error {
+			activeIssues, err := client.SearchOpenIssuesWithLabels(gctx, cfg.Statuses.ActiveLabels)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: could not fetch WIP from labels: %v\n", err)
+				return nil
+			}
+			backlogSet := make(map[string]bool)
+			for _, l := range cfg.Statuses.BacklogLabels {
+				backlogSet[l] = true
+			}
+			count := 0
+			for _, issue := range activeIssues {
+				hasBacklog := false
+				for _, l := range issue.Labels {
+					if backlogSet[l] {
+						hasBacklog = true
+						break
+					}
+				}
+				if !hasBacklog {
+					count++
+				}
+			}
+			mu.Lock()
+			wipCount = &count
+			mu.Unlock()
+			return nil
+		})
+	}
+
+	// Wait for all fetches to complete.
+	_ = g.Wait()
+
+	// --- Phase 2: Compute metrics from fetched data ---
+	// All computation is CPU-bound; no further API calls needed
+	// (except PR strategy which may need FetchPRLinkedIssues).
+
+	if closedIssues == nil {
 		return result
 	}
 
-	// 2. Lead Time
+	// Lead Time
 	var leadDurations []time.Duration
 	for _, issue := range closedIssues {
 		m := metrics.LeadTime(issue)
@@ -119,31 +228,26 @@ func computeStats(ctx context.Context, deps *Deps, client *gh.Client, repo strin
 	leadStats := metrics.ComputeStats(leadDurations)
 	result.LeadTime = &leadStats
 
-	// 3. Cycle Time
+	// Cycle Time
 	strat, _ := buildStrategy(ctx, deps, client, 0)
 
-	// For PR strategy, bulk-fetch closing PRs.
+	// For PR strategy, build issue→PR map from already-fetched merged PRs.
 	closingPRs := make(map[int]*model.PR)
-	if deps.Config.CycleTime.Strategy == "pr" {
-		mergedPRs, prErr := client.SearchMergedPRs(ctx, since, until)
-		if prErr != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not search merged PRs for cycle time: %v\n", prErr)
-		} else if len(mergedPRs) > 0 {
-			prNumbers := make([]int, len(mergedPRs))
-			prMap := make(map[int]*model.PR)
-			for i, pr := range mergedPRs {
-				prNumbers[i] = pr.Number
-				prCopy := pr
-				prMap[pr.Number] = &prCopy
-			}
-			linkedIssues, linkErr := client.FetchPRLinkedIssues(ctx, prNumbers)
-			if linkErr != nil {
-				fmt.Fprintf(os.Stderr, "warning: could not fetch PR linked issues: %v\n", linkErr)
-			} else {
-				for prNum, issues := range linkedIssues {
-					for _, issue := range issues {
-						closingPRs[issue.Number] = prMap[prNum]
-					}
+	if cfg.CycleTime.Strategy == "pr" && len(mergedPRs) > 0 {
+		prNumbers := make([]int, len(mergedPRs))
+		prMap := make(map[int]*model.PR)
+		for i, pr := range mergedPRs {
+			prNumbers[i] = pr.Number
+			prCopy := pr
+			prMap[pr.Number] = &prCopy
+		}
+		linkedIssues, linkErr := client.FetchPRLinkedIssues(ctx, prNumbers)
+		if linkErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not fetch PR linked issues: %v\n", linkErr)
+		} else {
+			for prNum, issues := range linkedIssues {
+				for _, issue := range issues {
+					closingPRs[issue.Number] = prMap[prNum]
 				}
 			}
 		}
@@ -162,76 +266,18 @@ func computeStats(ctx context.Context, deps *Deps, client *gh.Client, repo strin
 	}
 	cycleStats := metrics.ComputeStats(cycleDurations)
 	result.CycleTime = &cycleStats
+	result.CycleTimeStrategy = cfg.CycleTime.Strategy
 
-	// 4. Throughput
-	throughput := format.StatsThroughput{
+	// Throughput
+	result.Throughput = &format.StatsThroughput{
 		IssuesClosed: len(closedIssues),
-	}
-	// Count merged PRs (reuse if already fetched for PR strategy, otherwise fetch)
-	if deps.Config.CycleTime.Strategy == "pr" {
-		// Already counted from the bulk fetch above
-		mergedPRs, _ := client.SearchMergedPRs(ctx, since, until)
-		throughput.PRsMerged = len(mergedPRs)
-	} else {
-		mergedPRs, prErr := client.SearchMergedPRs(ctx, since, until)
-		if prErr != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not count merged PRs: %v\n", prErr)
-		} else {
-			throughput.PRsMerged = len(mergedPRs)
-		}
-	}
-	result.Throughput = &throughput
-
-	// 5. WIP (optional)
-	cfg := deps.Config
-	if cfg.Project.ID != "" {
-		projectItems, listErr := client.ListProjectItems(ctx, cfg.Project.ID, cfg.Project.StatusFieldID)
-		if listErr != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not fetch WIP from project board: %v\n", listErr)
-		} else {
-			backlog := cfg.Statuses.Backlog
-			if backlog == "" {
-				backlog = "Backlog"
-			}
-			done := cfg.Statuses.Done
-			if done == "" {
-				done = "Done"
-			}
-			count := 0
-			for _, pi := range projectItems {
-				if pi.Status != backlog && pi.Status != done {
-					count++
-				}
-			}
-			result.WIPCount = &count
-		}
-	} else if len(cfg.Statuses.ActiveLabels) > 0 {
-		activeIssues, searchErr := client.SearchOpenIssuesWithLabels(ctx, cfg.Statuses.ActiveLabels)
-		if searchErr != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not fetch WIP from labels: %v\n", searchErr)
-		} else {
-			backlogSet := make(map[string]bool)
-			for _, l := range cfg.Statuses.BacklogLabels {
-				backlogSet[l] = true
-			}
-			count := 0
-			for _, issue := range activeIssues {
-				hasBacklog := false
-				for _, l := range issue.Labels {
-					if backlogSet[l] {
-						hasBacklog = true
-						break
-					}
-				}
-				if !hasBacklog {
-					count++
-				}
-			}
-			result.WIPCount = &count
-		}
+		PRsMerged:    len(mergedPRs),
 	}
 
-	// 6. Quality: defect rate from bug labels in closed issues
+	// WIP
+	result.WIPCount = wipCount
+
+	// Quality: defect rate from bug labels in closed issues
 	bugLabels := make(map[string]bool)
 	for _, l := range cfg.Quality.BugLabels {
 		bugLabels[l] = true
