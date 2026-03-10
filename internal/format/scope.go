@@ -29,6 +29,7 @@ func WriteScopePretty(w io.Writer, isTTY bool, width int, result *model.ScopeRes
 			continue
 		}
 		tp := NewTable(w, isTTY, width)
+		tp.AddHeader([]string{"#", "Title", "Linked"})
 		for _, item := range sr.Items {
 			addScopeItemRow(tp, item, result)
 		}
