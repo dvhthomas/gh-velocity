@@ -30,14 +30,14 @@ func metricToJSON(m model.Metric) JSONMetric {
 	}
 	if m.Start != nil {
 		jm.Start = &JSONEvent{
-			Time:   m.Start.Time,
+			Time:   m.Start.Time.UTC(),
 			Signal: m.Start.Signal,
 			Detail: m.Start.Detail,
 		}
 	}
 	if m.End != nil {
 		jm.End = &JSONEvent{
-			Time:   m.End.Time,
+			Time:   m.End.Time.UTC(),
 			Signal: m.End.Signal,
 			Detail: m.End.Detail,
 		}
@@ -182,7 +182,7 @@ func WriteReleaseJSON(w io.Writer, repo string, rm model.ReleaseMetrics, warning
 		Repository:  repo,
 		Tag:         rm.Tag,
 		PreviousTag: rm.PreviousTag,
-		Date:        rm.Date,
+		Date:        rm.Date.UTC(),
 		IsHotfix:    rm.IsHotfix,
 		Composition: comp,
 		Aggregates: JSONAggregates{

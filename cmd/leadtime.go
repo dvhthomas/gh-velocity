@@ -49,12 +49,12 @@ func NewLeadTimeCmd() *cobra.Command {
 			case format.JSON:
 				return format.WriteLeadTimeJSON(w, deps.Owner+"/"+deps.Repo, issueNumber, issue.Title, issue.State, lt, nil)
 			case format.Markdown:
-				fmt.Fprintf(w, "| Issue | Title | Created | Lead Time |\n")
+				fmt.Fprintf(w, "| Issue | Title | Created (UTC) | Lead Time |\n")
 				fmt.Fprintf(w, "| ---: | --- | --- | --- |\n")
-				fmt.Fprintf(w, "| #%d | %s | %s | %s |\n", issueNumber, issue.Title, issue.CreatedAt.Format(time.DateOnly), format.FormatMetric(lt))
+				fmt.Fprintf(w, "| #%d | %s | %s | %s |\n", issueNumber, issue.Title, issue.CreatedAt.UTC().Format(time.DateOnly), format.FormatMetric(lt))
 			default:
 				fmt.Fprintf(w, "Issue #%d  %s\n", issueNumber, issue.Title)
-				fmt.Fprintf(w, "  Created:   %s\n", issue.CreatedAt.Format(time.RFC3339))
+				fmt.Fprintf(w, "  Created:   %s UTC\n", issue.CreatedAt.UTC().Format(time.RFC3339))
 				fmt.Fprintf(w, "  Lead Time: %s\n", format.FormatMetric(lt))
 			}
 

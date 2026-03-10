@@ -36,8 +36,8 @@ type searchResponse struct {
 // Uses: GET /search/issues?q=repo:{owner}/{repo}+is:pr+is:merged+merged:{start}..{end}
 // Returns at most 1000 results (GitHub search API limit).
 func (c *Client) SearchMergedPRs(ctx context.Context, start, end time.Time) ([]model.PR, error) {
-	startStr := start.Format("2006-01-02T15:04:05Z")
-	endStr := end.Format("2006-01-02T15:04:05Z")
+	startStr := start.UTC().Format("2006-01-02T15:04:05Z")
+	endStr := end.UTC().Format("2006-01-02T15:04:05Z")
 
 	query := fmt.Sprintf("repo:%s/%s is:pr is:merged merged:%s..%s",
 		c.owner, c.repo, startStr, endStr)
