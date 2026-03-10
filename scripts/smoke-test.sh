@@ -166,6 +166,26 @@ out=$($BINARY scope v2.65.0 -R cli/cli --since v2.64.0 -f markdown 2>/dev/null)
 show "$out"
 [[ "$out" == *"## Scope:"* ]] && pass "scope markdown" || fail "scope markdown"
 
+# ── stats ─────────────────────────────────────────────────────────
+echo ""
+echo "stats (cli/cli --since 7d)"
+
+out=$($BINARY stats --since 7d -R cli/cli 2>&1)
+show "$out"
+[[ "$out" == *"Stats:"* ]] && pass "stats pretty" || fail "stats pretty"
+[[ "$out" == *"Lead Time:"* ]] && pass "stats shows lead time" || fail "stats shows lead time"
+[[ "$out" == *"Throughput:"* ]] && pass "stats shows throughput" || fail "stats shows throughput"
+
+out=$($BINARY stats --since 7d -R cli/cli -f json 2>/dev/null)
+echo "$out" | jq '.lead_time.count' 2>/dev/null | sed 's/^/    lead_time count: /'
+echo "$out" | jq -e '.lead_time' >/dev/null 2>&1 && pass "stats json has lead_time" || fail "stats json has lead_time"
+echo "$out" | jq -e '.throughput' >/dev/null 2>&1 && pass "stats json has throughput" || fail "stats json has throughput"
+echo "$out" | jq -e '.window.since' >/dev/null 2>&1 && pass "stats json has window" || fail "stats json has window"
+
+out=$($BINARY stats --since 7d -R cli/cli -f markdown 2>/dev/null)
+show "$out"
+[[ "$out" == *"## Stats:"* ]] && pass "stats markdown" || fail "stats markdown"
+
 # ── error cases ────────────────────────────────────────────────────
 echo ""
 echo "error handling"
