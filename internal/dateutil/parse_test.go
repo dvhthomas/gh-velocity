@@ -161,6 +161,12 @@ func TestValidateWindow(t *testing.T) {
 			since: testNow,
 			until: testNow.Add(time.Hour),
 		},
+		{
+			name:    "window exceeds max days",
+			since:   time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC),
+			until:   time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC),
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

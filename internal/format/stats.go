@@ -20,6 +20,7 @@ type StatsResult struct {
 	Throughput        *StatsThroughput
 	WIPCount          *int
 	Quality           *StatsQuality
+	Warnings          []string
 }
 
 // StatsThroughput holds throughput counts.
@@ -38,14 +39,15 @@ type StatsQuality struct {
 // --- JSON ---
 
 type jsonStatsOutput struct {
-	Repository        string              `json:"repository"`
-	Window            jsonWindow          `json:"window"`
-	LeadTime          *JSONStats          `json:"lead_time,omitempty"`
-	CycleTime         *JSONStats          `json:"cycle_time,omitempty"`
-	CycleTimeStrategy string              `json:"cycle_time_strategy,omitempty"`
-	Throughput        *jsonThroughput     `json:"throughput,omitempty"`
-	WIP               *jsonWIP            `json:"wip,omitempty"`
-	Quality           *jsonStatsQuality   `json:"quality,omitempty"`
+	Repository        string            `json:"repository"`
+	Window            jsonWindow        `json:"window"`
+	LeadTime          *JSONStats        `json:"lead_time,omitempty"`
+	CycleTime         *JSONStats        `json:"cycle_time,omitempty"`
+	CycleTimeStrategy string            `json:"cycle_time_strategy,omitempty"`
+	Throughput        *jsonThroughput   `json:"throughput,omitempty"`
+	WIP               *jsonWIP          `json:"wip,omitempty"`
+	Quality           *jsonStatsQuality `json:"quality,omitempty"`
+	Warnings          []string          `json:"warnings,omitempty"`
 }
 
 type jsonThroughput struct {
@@ -97,6 +99,7 @@ func WriteStatsJSON(w io.Writer, r StatsResult) error {
 			DefectRate:  r.Quality.DefectRate,
 		}
 	}
+	out.Warnings = r.Warnings
 
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
@@ -114,10 +117,10 @@ func WriteStatsMarkdown(w io.Writer, r StatsResult) error {
 	fmt.Fprintf(w, "| --- | --- |\n")
 
 	if r.LeadTime != nil {
-		fmt.Fprintf(w, "| Lead Time | %s |\n", statsSummaryShort(*r.LeadTime))
+		fmt.Fprintf(w, "| Lead Time | %s |\n", formatStatsSummary(*r.LeadTime))
 	}
 	if r.CycleTime != nil {
-		fmt.Fprintf(w, "| Cycle Time | %s |\n", statsSummaryShort(*r.CycleTime))
+		fmt.Fprintf(w, "| Cycle Time | %s |\n", formatStatsSummary(*r.CycleTime))
 	}
 	if r.Throughput != nil {
 		fmt.Fprintf(w, "| Throughput | %d issues closed, %d PRs merged |\n",
@@ -142,10 +145,10 @@ func WriteStatsPretty(w io.Writer, isTTY bool, width int, r StatsResult) error {
 		r.Repository, r.Since.UTC().Format(time.DateOnly), r.Until.UTC().Format(time.DateOnly))
 
 	if r.LeadTime != nil {
-		fmt.Fprintf(w, "  Lead Time:   %s\n", statsSummaryShort(*r.LeadTime))
+		fmt.Fprintf(w, "  Lead Time:   %s\n", formatStatsSummary(*r.LeadTime))
 	}
 	if r.CycleTime != nil {
-		fmt.Fprintf(w, "  Cycle Time:  %s\n", statsSummaryShort(*r.CycleTime))
+		fmt.Fprintf(w, "  Cycle Time:  %s\n", formatStatsSummary(*r.CycleTime))
 	}
 	if r.Throughput != nil {
 		fmt.Fprintf(w, "  Throughput:  %d issues closed, %d PRs merged\n",
@@ -162,8 +165,8 @@ func WriteStatsPretty(w io.Writer, isTTY bool, width int, r StatsResult) error {
 	return nil
 }
 
-// statsSummaryShort returns a compact stats summary like "median 3.2d, mean 5.1d, P90 8.1d (n=14, 2 outliers)".
-func statsSummaryShort(s model.Stats) string {
+// formatStatsSummary returns a compact stats summary like "median 3.2d, mean 5.1d, P90 8.1d (n=14, 2 outliers)".
+func formatStatsSummary(s model.Stats) string {
 	if s.Count == 0 {
 		return "no data"
 	}

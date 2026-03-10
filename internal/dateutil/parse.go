@@ -48,7 +48,11 @@ func Parse(s string, now time.Time) (time.Time, error) {
 	return t.UTC(), nil
 }
 
-// ValidateWindow checks that since < until and since is not in the future.
+// MaxWindowDays is the maximum allowed date window to prevent expensive API queries.
+const MaxWindowDays = 90
+
+// ValidateWindow checks that since < until, since is not in the future,
+// and the window does not exceed MaxWindowDays.
 func ValidateWindow(since, until, now time.Time) error {
 	now = now.UTC()
 	if since.After(now) {
@@ -56,6 +60,9 @@ func ValidateWindow(since, until, now time.Time) error {
 	}
 	if !since.Before(until) {
 		return fmt.Errorf("--since %s must be before --until %s", since.Format(time.RFC3339), until.Format(time.RFC3339))
+	}
+	if until.Sub(since) > time.Duration(MaxWindowDays)*24*time.Hour {
+		return fmt.Errorf("date window exceeds maximum of %d days; narrow with --since/--until", MaxWindowDays)
 	}
 	return nil
 }

@@ -45,6 +45,7 @@ func WriteLeadTimeBulkJSON(w io.Writer, repo string, since, until time.Time, ite
 			Since: since.UTC().Format(time.RFC3339),
 			Until: until.UTC().Format(time.RFC3339),
 		},
+		Items:  make([]jsonBulkLeadItem, 0, len(items)),
 		Stats:  statsToJSON(stats),
 		Capped: len(items) >= 1000,
 	}
@@ -158,6 +159,7 @@ func WriteCycleTimeBulkJSON(w io.Writer, repo string, since, until time.Time, st
 			Until: until.UTC().Format(time.RFC3339),
 		},
 		Strategy: strategy,
+		Items:    make([]jsonBulkCycleItem, 0, len(items)),
 		Stats:    statsToJSON(stats),
 		Capped:   len(items) >= 1000,
 	}
@@ -283,22 +285,4 @@ func sortByCloseDateDesc(items []BulkLeadTimeItem) []BulkLeadTimeItem {
 		return ci.After(*cj)
 	})
 	return sorted
-}
-
-// formatStatsSummary returns a one-line stats summary.
-func formatStatsSummary(stats model.Stats) string {
-	if stats.Count == 0 {
-		return "No items"
-	}
-	s := fmt.Sprintf("n=%d", stats.Count)
-	if stats.Median != nil {
-		s += fmt.Sprintf(", median %s", FormatDuration(*stats.Median))
-	}
-	if stats.Mean != nil {
-		s += fmt.Sprintf(", mean %s", FormatDuration(*stats.Mean))
-	}
-	if stats.P90 != nil {
-		s += fmt.Sprintf(", P90 %s", FormatDuration(*stats.P90))
-	}
-	return s
 }

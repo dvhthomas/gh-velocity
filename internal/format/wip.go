@@ -41,6 +41,7 @@ type jsonWIPItem struct {
 func WriteWIPJSON(w io.Writer, repo string, items []WIPItem) error {
 	out := jsonWIPOutput{
 		Repository: repo,
+		Items:      make([]jsonWIPItem, 0, len(items)),
 		Count:      len(items),
 	}
 	for _, item := range items {

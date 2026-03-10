@@ -44,15 +44,6 @@ Use -R owner/repo to filter board items to a specific repo.`,
 
 			if cfg.Project.ID != "" {
 				// Primary: Projects v2 board
-				backlog := cfg.Statuses.Backlog
-				if backlog == "" {
-					backlog = "Backlog"
-				}
-				done := cfg.Statuses.Done
-				if done == "" {
-					done = "Done"
-				}
-
 				projectItems, listErr := client.ListProjectItems(ctx, cfg.Project.ID, cfg.Project.StatusFieldID)
 				if listErr != nil {
 					return listErr
@@ -60,7 +51,7 @@ Use -R owner/repo to filter board items to a specific repo.`,
 
 				for _, pi := range projectItems {
 					// Filter out backlog and done items.
-					if pi.Status == backlog || pi.Status == done {
+					if pi.Status == cfg.Statuses.Backlog || pi.Status == cfg.Statuses.Done {
 						continue
 					}
 

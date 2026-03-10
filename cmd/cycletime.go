@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"time"
@@ -124,7 +123,7 @@ func runCycleTimePR(cmd *cobra.Command, prNumber int) error {
 		}
 	}
 
-	return outputCycleTime(cmd, deps, ct, warnings, "PR", prNumber, pr.Title, pr.State, 0)
+	return outputCycleTime(cmd, deps, ct, warnings, "PR", prNumber, pr.Title, pr.State)
 }
 
 // runCycleTimeIssue computes cycle time for an issue using the configured strategy.
@@ -148,7 +147,8 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 		return err
 	}
 
-	strat, warnings := buildStrategy(ctx, deps, client, issueNumber)
+	strat := buildCycleTimeStrategy(deps, client)
+	var warnings []string
 	input := cycletime.Input{Issue: issue}
 
 	// For PR strategy, find the closing PR.
@@ -165,7 +165,7 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 
 	ct := strat.Compute(ctx, input)
 
-	return outputCycleTime(cmd, deps, ct, warnings, "Issue", issueNumber, issue.Title, issue.State, 0)
+	return outputCycleTime(cmd, deps, ct, warnings, "Issue", issueNumber, issue.Title, issue.State)
 }
 
 // runCycleTimeBulk computes cycle time for all issues closed in a date window.
@@ -207,33 +207,16 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		return err
 	}
 
-	strat, _ := buildStrategy(ctx, deps, client, 0)
+	strat := buildCycleTimeStrategy(deps, client)
 
 	// For PR strategy, bulk-fetch closing PRs to avoid N+1 API calls.
-	// Uses SearchMergedPRs + FetchPRLinkedIssues (batched) instead of per-issue GetClosingPR.
-	closingPRs := make(map[int]*model.PR) // issue number → closing PR
+	closingPRs := make(map[int]*model.PR)
 	if deps.Config.CycleTime.Strategy == "pr" {
 		mergedPRs, prErr := client.SearchMergedPRs(ctx, since, until)
 		if prErr != nil {
 			fmt.Fprintf(os.Stderr, "warning: could not search merged PRs: %v\n", prErr)
-		} else if len(mergedPRs) > 0 {
-			prNumbers := make([]int, len(mergedPRs))
-			prMap := make(map[int]*model.PR)
-			for i, pr := range mergedPRs {
-				prNumbers[i] = pr.Number
-				prCopy := pr
-				prMap[pr.Number] = &prCopy
-			}
-			linkedIssues, linkErr := client.FetchPRLinkedIssues(ctx, prNumbers)
-			if linkErr != nil {
-				fmt.Fprintf(os.Stderr, "warning: could not fetch PR linked issues: %v\n", linkErr)
-			} else {
-				for prNum, issues := range linkedIssues {
-					for _, issue := range issues {
-						closingPRs[issue.Number] = prMap[prNum]
-					}
-				}
-			}
+		} else {
+			closingPRs = buildClosingPRMap(ctx, client, mergedPRs)
 		}
 	}
 
@@ -268,32 +251,8 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	}
 }
 
-// buildStrategy creates the appropriate CycleTimeStrategy based on config.
-func buildStrategy(ctx context.Context, deps *Deps, client *gh.Client, issueNumber int) (cycletime.Strategy, []string) {
-	cfg := deps.Config
-	var warnings []string
-
-	switch cfg.CycleTime.Strategy {
-	case "pr":
-		return &cycletime.PRStrategy{}, warnings
-	case "project-board":
-		backlog := cfg.Statuses.Backlog
-		if backlog == "" {
-			backlog = "Backlog"
-		}
-		return &cycletime.ProjectBoardStrategy{
-			Client:        client,
-			ProjectID:     cfg.Project.ID,
-			StatusFieldID: cfg.Project.StatusFieldID,
-			BacklogStatus: backlog,
-		}, warnings
-	default: // "issue"
-		return &cycletime.IssueStrategy{}, warnings
-	}
-}
-
 // outputCycleTime renders cycle-time results in the requested format.
-func outputCycleTime(cmd *cobra.Command, deps *Deps, ct model.Metric, warnings []string, kind string, number int, title, state string, commitCount int) error {
+func outputCycleTime(cmd *cobra.Command, deps *Deps, ct model.Metric, warnings []string, kind string, number int, title, state string) error {
 	w := cmd.OutOrStdout()
 	repo := deps.Owner + "/" + deps.Repo
 
@@ -302,7 +261,7 @@ func outputCycleTime(cmd *cobra.Command, deps *Deps, ct model.Metric, warnings [
 		if kind == "PR" {
 			return format.WriteCycleTimePRJSON(w, repo, number, title, state, ct, warnings)
 		}
-		return format.WriteCycleTimeJSON(w, repo, number, title, state, commitCount, ct, warnings)
+		return format.WriteCycleTimeJSON(w, repo, number, title, state, ct, warnings)
 	case format.Markdown:
 		fmt.Fprintf(w, "| %s | Title | Started (UTC) | Cycle Time |\n", kind)
 		fmt.Fprintf(w, "| ---: | --- | --- | --- |\n")

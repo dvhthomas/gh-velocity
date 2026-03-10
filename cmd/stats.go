@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -115,7 +114,9 @@ func computeStats(ctx context.Context, deps *Deps, client *gh.Client, repo strin
 	var (
 		closedIssues []model.Issue
 		mergedPRs    []model.PR
+		closingPRs   map[int]*model.PR // issue number → closing PR (PR strategy only)
 		wipCount     *int
+		warnings     []string
 		mu           sync.Mutex // guards result writes from goroutines
 	)
 
@@ -126,7 +127,9 @@ func computeStats(ctx context.Context, deps *Deps, client *gh.Client, repo strin
 	g.Go(func() error {
 		issues, err := client.SearchClosedIssues(gctx, since, until)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not fetch closed issues: %v\n", err)
+			mu.Lock()
+			warnings = append(warnings, fmt.Sprintf("could not fetch closed issues: %v", err))
+			mu.Unlock()
 			return nil // graceful: don't fail the group
 		}
 		mu.Lock()
@@ -135,15 +138,21 @@ func computeStats(ctx context.Context, deps *Deps, client *gh.Client, repo strin
 		return nil
 	})
 
-	// Fetch merged PRs (for throughput, and PR strategy cycle time)
+	// Fetch merged PRs (for throughput, and PR strategy cycle time).
+	// When PR strategy is active, also fetches linked issues in the same goroutine
+	// to overlap with other parallel fetches.
 	g.Go(func() error {
 		prs, err := client.SearchMergedPRs(gctx, since, until)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not fetch merged PRs: %v\n", err)
+			mu.Lock()
+			warnings = append(warnings, fmt.Sprintf("could not fetch merged PRs: %v", err))
+			mu.Unlock()
 			return nil
 		}
+		prMap := buildClosingPRMap(gctx, client, prs)
 		mu.Lock()
 		mergedPRs = prs
+		closingPRs = prMap
 		mu.Unlock()
 		return nil
 	})
@@ -153,20 +162,14 @@ func computeStats(ctx context.Context, deps *Deps, client *gh.Client, repo strin
 		g.Go(func() error {
 			projectItems, err := client.ListProjectItems(gctx, cfg.Project.ID, cfg.Project.StatusFieldID)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "warning: could not fetch WIP from project board: %v\n", err)
+				mu.Lock()
+				warnings = append(warnings, fmt.Sprintf("could not fetch WIP from project board: %v", err))
+				mu.Unlock()
 				return nil
-			}
-			backlog := cfg.Statuses.Backlog
-			if backlog == "" {
-				backlog = "Backlog"
-			}
-			done := cfg.Statuses.Done
-			if done == "" {
-				done = "Done"
 			}
 			count := 0
 			for _, pi := range projectItems {
-				if pi.Status != backlog && pi.Status != done {
+				if pi.Status != cfg.Statuses.Backlog && pi.Status != cfg.Statuses.Done {
 					count++
 				}
 			}
@@ -179,7 +182,9 @@ func computeStats(ctx context.Context, deps *Deps, client *gh.Client, repo strin
 		g.Go(func() error {
 			activeIssues, err := client.SearchOpenIssuesWithLabels(gctx, cfg.Statuses.ActiveLabels)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "warning: could not fetch WIP from labels: %v\n", err)
+				mu.Lock()
+				warnings = append(warnings, fmt.Sprintf("could not fetch WIP from labels: %v", err))
+				mu.Unlock()
 				return nil
 			}
 			backlogSet := make(map[string]bool)
@@ -207,7 +212,10 @@ func computeStats(ctx context.Context, deps *Deps, client *gh.Client, repo strin
 	}
 
 	// Wait for all fetches to complete.
-	_ = g.Wait()
+	if waitErr := g.Wait(); waitErr != nil {
+		warnings = append(warnings, fmt.Sprintf("stats fetch error: %v", waitErr))
+	}
+	result.Warnings = warnings
 
 	// --- Phase 2: Compute metrics from fetched data ---
 	// All computation is CPU-bound; no further API calls needed
@@ -229,28 +237,10 @@ func computeStats(ctx context.Context, deps *Deps, client *gh.Client, repo strin
 	result.LeadTime = &leadStats
 
 	// Cycle Time
-	strat, _ := buildStrategy(ctx, deps, client, 0)
+	strat := buildCycleTimeStrategy(deps, client)
 
-	// For PR strategy, build issue→PR map from already-fetched merged PRs.
-	closingPRs := make(map[int]*model.PR)
-	if cfg.CycleTime.Strategy == "pr" && len(mergedPRs) > 0 {
-		prNumbers := make([]int, len(mergedPRs))
-		prMap := make(map[int]*model.PR)
-		for i, pr := range mergedPRs {
-			prNumbers[i] = pr.Number
-			prCopy := pr
-			prMap[pr.Number] = &prCopy
-		}
-		linkedIssues, linkErr := client.FetchPRLinkedIssues(ctx, prNumbers)
-		if linkErr != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not fetch PR linked issues: %v\n", linkErr)
-		} else {
-			for prNum, issues := range linkedIssues {
-				for _, issue := range issues {
-					closingPRs[issue.Number] = prMap[prNum]
-				}
-			}
-		}
+	if closingPRs == nil {
+		closingPRs = make(map[int]*model.PR)
 	}
 
 	var cycleDurations []time.Duration
