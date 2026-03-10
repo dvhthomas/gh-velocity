@@ -1,26 +1,27 @@
 package metrics
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/bitsbyme/gh-velocity/internal/classify"
+	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
 func TestBuildReleaseMetrics_Empty(t *testing.T) {
 	input := ReleaseInput{
-		Tag:           "v1.0.0",
-		Release:       model.Release{TagName: "v1.0.0", CreatedAt: time.Now()},
-		IssueCommits:  map[int][]model.Commit{},
-		Issues:        map[int]*model.Issue{},
-		FetchErrors:   map[int]error{},
-		BugLabels:     []string{"bug"},
-		FeatureLabels: []string{"enhancement"},
+		Tag:          "v1.0.0",
+		Release:      model.Release{TagName: "v1.0.0", CreatedAt: time.Now()},
+		IssueCommits: map[int][]model.Commit{},
+		Issues:       map[int]*model.Issue{},
+		FetchErrors:  map[int]error{},
 	}
 
-	rm, warnings, err := BuildReleaseMetrics(input)
+	rm, warnings, err := BuildReleaseMetrics(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -47,23 +48,30 @@ func TestBuildReleaseMetrics_SinglePassClassification(t *testing.T) {
 	}
 
 	issueCommits := map[int][]model.Commit{
-		1: {{SHA: "aaa", AuthoredAt: now.Add(-60 * time.Hour)}},
-		2: {{SHA: "bbb", AuthoredAt: now.Add(-40 * time.Hour)}},
-		3: {{SHA: "ccc", AuthoredAt: now.Add(-20 * time.Hour)}},
-		4: {{SHA: "ddd", AuthoredAt: now.Add(-80 * time.Hour)}},
+		1: {{SHA: "aaaaaaa", AuthoredAt: now.Add(-60 * time.Hour)}},
+		2: {{SHA: "bbbbbbb", AuthoredAt: now.Add(-40 * time.Hour)}},
+		3: {{SHA: "ccccccc", AuthoredAt: now.Add(-20 * time.Hour)}},
+		4: {{SHA: "ddddddd", AuthoredAt: now.Add(-80 * time.Hour)}},
+	}
+
+	classifier, err := classify.New(map[string][]string{
+		"bug":     {"label:bug"},
+		"feature": {"label:enhancement"},
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	input := ReleaseInput{
-		Tag:           "v1.0.0",
-		Release:       model.Release{TagName: "v1.0.0", CreatedAt: now},
-		IssueCommits:  issueCommits,
-		Issues:        issues,
-		FetchErrors:   map[int]error{},
-		BugLabels:     []string{"bug"},
-		FeatureLabels: []string{"enhancement"},
+		Tag:          "v1.0.0",
+		Release:      model.Release{TagName: "v1.0.0", CreatedAt: now},
+		IssueCommits: issueCommits,
+		Issues:       issues,
+		FetchErrors:  map[int]error{},
+		Classifier:   classifier,
 	}
 
-	rm, _, err := BuildReleaseMetrics(input)
+	rm, _, err := BuildReleaseMetrics(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -71,23 +79,20 @@ func TestBuildReleaseMetrics_SinglePassClassification(t *testing.T) {
 	if rm.TotalIssues != 4 {
 		t.Errorf("expected 4 issues, got %d", rm.TotalIssues)
 	}
-	if rm.BugCount != 2 {
-		t.Errorf("expected 2 bugs, got %d", rm.BugCount)
+	if rm.CategoryCounts["bug"] != 2 {
+		t.Errorf("expected 2 bugs, got %d", rm.CategoryCounts["bug"])
 	}
-	if rm.FeatureCount != 1 {
-		t.Errorf("expected 1 feature, got %d", rm.FeatureCount)
+	if rm.CategoryCounts["feature"] != 1 {
+		t.Errorf("expected 1 feature, got %d", rm.CategoryCounts["feature"])
 	}
-	if rm.OtherCount != 1 {
-		t.Errorf("expected 1 other, got %d", rm.OtherCount)
+	if rm.CategoryCounts["other"] != 1 {
+		t.Errorf("expected 1 other, got %d", rm.CategoryCounts["other"])
 	}
-	if rm.BugRatio != 0.5 {
-		t.Errorf("expected bug ratio 0.5, got %f", rm.BugRatio)
+	if rm.CategoryRatios["bug"] != 0.5 {
+		t.Errorf("expected bug ratio 0.5, got %f", rm.CategoryRatios["bug"])
 	}
-	if rm.FeatureRatio != 0.25 {
-		t.Errorf("expected feature ratio 0.25, got %f", rm.FeatureRatio)
-	}
-	if rm.OtherRatio != 0.25 {
-		t.Errorf("expected other ratio 0.25, got %f", rm.OtherRatio)
+	if rm.CategoryRatios["feature"] != 0.25 {
+		t.Errorf("expected feature ratio 0.25, got %f", rm.CategoryRatios["feature"])
 	}
 }
 
@@ -101,20 +106,19 @@ func TestBuildReleaseMetrics_LeadTimeAndCycleTime(t *testing.T) {
 		1: {Number: 1, Labels: []string{"bug"}, CreatedAt: created, ClosedAt: &closed},
 	}
 	issueCommits := map[int][]model.Commit{
-		1: {{SHA: "abc", AuthoredAt: commitTime}},
+		1: {{SHA: "abcdefg", AuthoredAt: commitTime}},
 	}
 
 	input := ReleaseInput{
-		Tag:           "v1.0.0",
-		Release:       model.Release{TagName: "v1.0.0", CreatedAt: now},
-		IssueCommits:  issueCommits,
-		Issues:        issues,
-		FetchErrors:   map[int]error{},
-		BugLabels:     []string{"bug"},
-		FeatureLabels: []string{"enhancement"},
+		Tag:               "v1.0.0",
+		Release:           model.Release{TagName: "v1.0.0", CreatedAt: now},
+		IssueCommits:      issueCommits,
+		Issues:            issues,
+		FetchErrors:       map[int]error{},
+		CycleTimeStrategy: &cycletime.IssueStrategy{},
 	}
 
-	rm, _, err := BuildReleaseMetrics(input)
+	rm, _, err := BuildReleaseMetrics(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -127,20 +131,32 @@ func TestBuildReleaseMetrics_LeadTimeAndCycleTime(t *testing.T) {
 
 	// Lead time: created -> closed = 48h
 	expectedLT := 48 * time.Hour
-	if im.LeadTime == nil || *im.LeadTime != expectedLT {
-		t.Errorf("expected lead time %v, got %v", expectedLT, im.LeadTime)
+	if im.LeadTime.Duration == nil || *im.LeadTime.Duration != expectedLT {
+		t.Errorf("expected lead time %v, got %v", expectedLT, im.LeadTime.Duration)
+	}
+	if im.LeadTime.Start == nil || im.LeadTime.Start.Signal != model.SignalIssueCreated {
+		t.Error("expected lead time start signal to be issue-created")
+	}
+	if im.LeadTime.End == nil || im.LeadTime.End.Signal != model.SignalIssueClosed {
+		t.Error("expected lead time end signal to be issue-closed")
 	}
 
-	// Cycle time: commit -> closed = 24h
-	expectedCT := 24 * time.Hour
-	if im.CycleTime == nil || *im.CycleTime != expectedCT {
-		t.Errorf("expected cycle time %v, got %v", expectedCT, im.CycleTime)
+	// Cycle time with issue strategy: created -> closed = 48h (same as lead time)
+	expectedCT := 48 * time.Hour
+	if im.CycleTime.Duration == nil || *im.CycleTime.Duration != expectedCT {
+		t.Errorf("expected cycle time %v, got %v", expectedCT, im.CycleTime.Duration)
+	}
+	if im.CycleTime.Start == nil || im.CycleTime.Start.Signal != model.SignalIssueCreated {
+		t.Error("expected cycle time start signal to be issue-created")
 	}
 
 	// Release lag: closed -> release = 24h
 	expectedLag := 24 * time.Hour
-	if im.ReleaseLag == nil || *im.ReleaseLag != expectedLag {
-		t.Errorf("expected release lag %v, got %v", expectedLag, im.ReleaseLag)
+	if im.ReleaseLag.Duration == nil || *im.ReleaseLag.Duration != expectedLag {
+		t.Errorf("expected release lag %v, got %v", expectedLag, im.ReleaseLag.Duration)
+	}
+	if im.ReleaseLag.End == nil || im.ReleaseLag.End.Signal != model.SignalReleasePublished {
+		t.Error("expected release lag end signal to be release-published")
 	}
 
 	// Stats should have count=1
@@ -151,22 +167,22 @@ func TestBuildReleaseMetrics_LeadTimeAndCycleTime(t *testing.T) {
 
 func TestBuildReleaseMetrics_FetchErrorsAsWarnings(t *testing.T) {
 	now := time.Now()
+	bugClassifier, _ := classify.New(map[string][]string{"bug": {"label:bug"}})
 	input := ReleaseInput{
 		Tag:     "v1.0.0",
 		Release: model.Release{TagName: "v1.0.0", CreatedAt: now},
 		IssueCommits: map[int][]model.Commit{
-			1: {{SHA: "abc", AuthoredAt: now}},
-			2: {{SHA: "def", AuthoredAt: now}},
+			1: {{SHA: "abcdefg", AuthoredAt: now}},
+			2: {{SHA: "defghij", AuthoredAt: now}},
 		},
 		Issues: map[int]*model.Issue{
 			1: {Number: 1, Labels: []string{"bug"}, CreatedAt: now},
 		},
-		FetchErrors:   map[int]error{2: fmt.Errorf("not found")},
-		BugLabels:     []string{"bug"},
-		FeatureLabels: []string{"enhancement"},
+		FetchErrors: map[int]error{2: fmt.Errorf("not found")},
+		Classifier:  bugClassifier,
 	}
 
-	rm, warnings, err := BuildReleaseMetrics(input)
+	rm, warnings, err := BuildReleaseMetrics(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -206,22 +222,20 @@ func TestBuildReleaseMetrics_LowLabelCoverageWarning(t *testing.T) {
 		3: {Number: 3, Labels: []string{"random"}, CreatedAt: now, ClosedAt: &closed},
 	}
 	issueCommits := map[int][]model.Commit{
-		1: {{SHA: "a", AuthoredAt: now}},
-		2: {{SHA: "b", AuthoredAt: now}},
-		3: {{SHA: "c", AuthoredAt: now}},
+		1: {{SHA: "aaaaaaa", AuthoredAt: now}},
+		2: {{SHA: "bbbbbbb", AuthoredAt: now}},
+		3: {{SHA: "ccccccc", AuthoredAt: now}},
 	}
 
 	input := ReleaseInput{
-		Tag:           "v1.0.0",
-		Release:       model.Release{TagName: "v1.0.0", CreatedAt: now},
-		IssueCommits:  issueCommits,
-		Issues:        issues,
-		FetchErrors:   map[int]error{},
-		BugLabels:     []string{"bug"},
-		FeatureLabels: []string{"enhancement"},
+		Tag:          "v1.0.0",
+		Release:      model.Release{TagName: "v1.0.0", CreatedAt: now},
+		IssueCommits: issueCommits,
+		Issues:       issues,
+		FetchErrors:  map[int]error{},
 	}
 
-	_, warnings, err := BuildReleaseMetrics(input)
+	_, warnings, err := BuildReleaseMetrics(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -249,12 +263,10 @@ func TestBuildReleaseMetrics_HotfixDetection(t *testing.T) {
 		IssueCommits:      map[int][]model.Commit{},
 		Issues:            map[int]*model.Issue{},
 		FetchErrors:       map[int]error{},
-		BugLabels:         []string{"bug"},
-		FeatureLabels:     []string{"enhancement"},
 		HotfixWindowHours: 72,
 	}
 
-	rm, _, err := BuildReleaseMetrics(input)
+	rm, _, err := BuildReleaseMetrics(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -281,12 +293,10 @@ func TestBuildReleaseMetrics_NotHotfix(t *testing.T) {
 		IssueCommits:      map[int][]model.Commit{},
 		Issues:            map[int]*model.Issue{},
 		FetchErrors:       map[int]error{},
-		BugLabels:         []string{"bug"},
-		FeatureLabels:     []string{"enhancement"},
 		HotfixWindowHours: 72,
 	}
 
-	rm, _, err := BuildReleaseMetrics(input)
+	rm, _, err := BuildReleaseMetrics(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -302,20 +312,18 @@ func TestBuildReleaseMetrics_OpenIssueNoLeadTime(t *testing.T) {
 		1: {Number: 1, State: "open", Labels: []string{"bug"}, CreatedAt: now.Add(-48 * time.Hour)},
 	}
 	issueCommits := map[int][]model.Commit{
-		1: {{SHA: "abc", AuthoredAt: now.Add(-24 * time.Hour)}},
+		1: {{SHA: "abcdefg", AuthoredAt: now.Add(-24 * time.Hour)}},
 	}
 
 	input := ReleaseInput{
-		Tag:           "v1.0.0",
-		Release:       model.Release{TagName: "v1.0.0", CreatedAt: now},
-		IssueCommits:  issueCommits,
-		Issues:        issues,
-		FetchErrors:   map[int]error{},
-		BugLabels:     []string{"bug"},
-		FeatureLabels: []string{"enhancement"},
+		Tag:          "v1.0.0",
+		Release:      model.Release{TagName: "v1.0.0", CreatedAt: now},
+		IssueCommits: issueCommits,
+		Issues:       issues,
+		FetchErrors:  map[int]error{},
 	}
 
-	rm, _, err := BuildReleaseMetrics(input)
+	rm, _, err := BuildReleaseMetrics(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -323,10 +331,10 @@ func TestBuildReleaseMetrics_OpenIssueNoLeadTime(t *testing.T) {
 	if len(rm.Issues) != 1 {
 		t.Fatalf("expected 1 issue, got %d", len(rm.Issues))
 	}
-	if rm.Issues[0].LeadTime != nil {
-		t.Error("expected nil lead time for open issue")
+	if rm.Issues[0].LeadTime.Duration != nil {
+		t.Error("expected nil lead time duration for open issue")
 	}
-	if rm.Issues[0].ReleaseLag != nil {
-		t.Error("expected nil release lag for open issue (no closed date)")
+	if rm.Issues[0].ReleaseLag.Duration != nil {
+		t.Error("expected nil release lag duration for open issue (no closed date)")
 	}
 }

@@ -1,9 +1,12 @@
 package metrics
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"github.com/bitsbyme/gh-velocity/internal/classify"
+	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -15,15 +18,16 @@ type ReleaseInput struct {
 	PrevRelease       *model.Release // nil if no previous release
 	IssueCommits      map[int][]model.Commit
 	Issues            map[int]*model.Issue // successfully fetched issues
+	LinkedPRs         map[int]*model.PR    // issue number → linked PR (may be nil)
 	FetchErrors       map[int]error        // issues that failed to fetch
-	BugLabels         []string
-	FeatureLabels     []string
+	Classifier        *classify.Classifier // nil = no classification
 	HotfixWindowHours float64
+	CycleTimeStrategy cycletime.Strategy // nil falls back to commit-based default
 }
 
 // BuildReleaseMetrics computes all release metrics from the provided input.
 // Returns the metrics, a list of warnings, and any error.
-func BuildReleaseMetrics(input ReleaseInput) (model.ReleaseMetrics, []string, error) {
+func BuildReleaseMetrics(ctx context.Context, input ReleaseInput) (model.ReleaseMetrics, []string, error) {
 	var warnings []string
 
 	// Collect fetch errors as warnings (skip-and-warn partial failure strategy)
@@ -32,6 +36,12 @@ func BuildReleaseMetrics(input ReleaseInput) (model.ReleaseMetrics, []string, er
 	}
 	if n := len(input.FetchErrors); n > 0 {
 		warnings = append(warnings, fmt.Sprintf("%d issue(s) skipped due to fetch errors", n))
+	}
+
+	releaseEnd := &model.Event{
+		Time:   input.Release.CreatedAt,
+		Signal: model.SignalReleasePublished,
+		Detail: input.Tag,
 	}
 
 	// Build per-issue metrics and collect durations for aggregation
@@ -50,59 +60,65 @@ func BuildReleaseMetrics(input ReleaseInput) (model.ReleaseMetrics, []string, er
 		}
 
 		// Lead time: created -> closed
-		lt := LeadTime(*issue)
-		im.LeadTime = lt
-		if lt != nil {
-			leadTimes = append(leadTimes, *lt)
+		im.LeadTime = LeadTime(*issue)
+		if im.LeadTime.Duration != nil {
+			leadTimes = append(leadTimes, *im.LeadTime.Duration)
 		}
 
-		// Cycle time: first commit -> closed
-		if len(issueCommitList) > 0 {
-			firstCommit := issueCommitList[len(issueCommitList)-1].AuthoredAt // commits are newest-first
-			var endTime time.Time
-			if issue.ClosedAt != nil {
-				endTime = *issue.ClosedAt
+		// Cycle time: computed by the configured strategy.
+		// Commits enrich output but do not determine start/end signals.
+		if input.CycleTimeStrategy != nil {
+			ctInput := cycletime.Input{
+				Issue:   issue,
+				Commits: issueCommitList,
 			}
-			ct := CycleTime(firstCommit, endTime)
-			im.CycleTime = ct
-			if ct != nil {
-				cycleTimes = append(cycleTimes, *ct)
+			if input.LinkedPRs != nil {
+				ctInput.PR = input.LinkedPRs[issueNum]
+			}
+			im.CycleTime = input.CycleTimeStrategy.Compute(ctx, ctInput)
+			if im.CycleTime.Duration != nil {
+				cycleTimes = append(cycleTimes, *im.CycleTime.Duration)
 			}
 		}
 
 		// Release lag: closed -> release date
 		if issue.ClosedAt != nil {
-			lag := input.Release.CreatedAt.Sub(*issue.ClosedAt)
-			im.ReleaseLag = &lag
-			releaseLags = append(releaseLags, lag)
+			closedEvent := &model.Event{
+				Time:   *issue.ClosedAt,
+				Signal: model.SignalIssueClosed,
+			}
+			im.ReleaseLag = NewMetric(closedEvent, releaseEnd)
+			if im.ReleaseLag.Duration != nil {
+				releaseLags = append(releaseLags, *im.ReleaseLag.Duration)
+			}
 		}
 
 		issueMetrics = append(issueMetrics, im)
 	}
 
-	// Single-pass label classification: counts + ratios + low-label-coverage warning
-	var bugCount, featureCount, otherCount int
-	for _, im := range issueMetrics {
-		if hasAnyLabel(im.Issue.Labels, input.BugLabels) {
-			bugCount++
-		} else if hasAnyLabel(im.Issue.Labels, input.FeatureLabels) {
-			featureCount++
+	// Classification: assign categories and compute counts/ratios.
+	categoryCounts := make(map[string]int)
+	for i := range issueMetrics {
+		if input.Classifier != nil {
+			issueMetrics[i].Category = input.Classifier.Classify(issueMetrics[i].Issue)
 		} else {
-			otherCount++
+			issueMetrics[i].Category = "other"
 		}
+		categoryCounts[issueMetrics[i].Category]++
 	}
 
 	total := len(issueMetrics)
-	var bugRatio, featureRatio, otherRatio float64
+	categoryRatios := make(map[string]float64)
 	if total > 0 {
 		ft := float64(total)
-		bugRatio = float64(bugCount) / ft
-		featureRatio = float64(featureCount) / ft
-		otherRatio = float64(otherCount) / ft
+		for cat, count := range categoryCounts {
+			categoryRatios[cat] = float64(count) / ft
+		}
 
-		// Low label coverage warning: "other" means unlabeled (no bug/feature label)
+		// Low classification coverage warning
+		otherCount := categoryCounts["other"]
 		if float64(otherCount)/ft > 0.5 {
-			warnings = append(warnings, fmt.Sprintf("Low label coverage: %d/%d issues have no bug/feature labels", otherCount, total))
+			warnings = append(warnings, fmt.Sprintf("Low label coverage: %d/%d issues classified as \"other\"", otherCount, total))
 		}
 	}
 
@@ -134,12 +150,8 @@ func BuildReleaseMetrics(input ReleaseInput) (model.ReleaseMetrics, []string, er
 		IsHotfix:        isHotfix,
 		Issues:          issueMetrics,
 		TotalIssues:     total,
-		BugCount:        bugCount,
-		FeatureCount:    featureCount,
-		OtherCount:      otherCount,
-		BugRatio:        bugRatio,
-		FeatureRatio:    featureRatio,
-		OtherRatio:      otherRatio,
+		CategoryCounts:  categoryCounts,
+		CategoryRatios:  categoryRatios,
 		LeadTimeStats:   ltStats,
 		CycleTimeStats:  ctStats,
 		ReleaseLagStats: rlStats,

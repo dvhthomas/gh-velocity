@@ -43,30 +43,19 @@ func NewLeadTimeCmd() *cobra.Command {
 			}
 
 			lt := metrics.LeadTime(*issue)
-			started := issue.ClosedAt != nil || issue.State == "open" // always true for issues
 
 			w := cmd.OutOrStdout()
 			switch deps.Format {
 			case format.JSON:
-				return format.WriteLeadTimeJSON(w, deps.Owner+"/"+deps.Repo, issueNumber, issue.Title, issue.State, issue.CreatedAt, lt, nil)
+				return format.WriteLeadTimeJSON(w, deps.Owner+"/"+deps.Repo, issueNumber, issue.Title, issue.State, lt, nil)
 			case format.Markdown:
-				fmt.Fprintf(w, "| Issue | Title | Started | Lead Time |\n")
+				fmt.Fprintf(w, "| Issue | Title | Created | Lead Time |\n")
 				fmt.Fprintf(w, "| ---: | --- | --- | --- |\n")
-				fmt.Fprintf(w, "| #%d | %s | %s | %s |\n", issueNumber, issue.Title, issue.CreatedAt.Format(time.DateOnly), format.FormatCycleStatus(lt, started))
+				fmt.Fprintf(w, "| #%d | %s | %s | %s |\n", issueNumber, issue.Title, issue.CreatedAt.Format(time.DateOnly), format.FormatMetric(lt))
 			default:
-				tp := format.NewTable(w, deps.IsTTY, deps.TermWidth)
-				tp.AddField(fmt.Sprintf("Issue #%d", issueNumber))
-				tp.AddField(issue.Title)
-				tp.EndRow()
-				tp.AddField("Started")
-				tp.AddField(issue.CreatedAt.Format(time.RFC3339))
-				tp.EndRow()
-				tp.AddField("Lead Time")
-				tp.AddField(format.FormatCycleStatus(lt, started))
-				tp.EndRow()
-				if err := tp.Render(); err != nil {
-					return err
-				}
+				fmt.Fprintf(w, "Issue #%d  %s\n", issueNumber, issue.Title)
+				fmt.Fprintf(w, "  Created:   %s\n", issue.CreatedAt.Format(time.RFC3339))
+				fmt.Fprintf(w, "  Lead Time: %s\n", format.FormatMetric(lt))
 			}
 
 			return nil

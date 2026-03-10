@@ -107,6 +107,54 @@ func TestMerge_PROnlyItems(t *testing.T) {
 	}
 }
 
+func TestMerge_CommitsUnionedOnDuplicate(t *testing.T) {
+	now := time.Now()
+	mergedAt := now.Add(-time.Hour)
+
+	prLinkItems := []model.DiscoveredItem{
+		{
+			Issue:    &model.Issue{Number: 42},
+			PR:       &model.PR{Number: 100, MergedAt: &mergedAt},
+			Commits:  []model.Commit{{SHA: "aaa"}, {SHA: "bbb"}},
+			Strategy: "pr-link",
+		},
+	}
+	commitRefItems := []model.DiscoveredItem{
+		{
+			Issue:    &model.Issue{Number: 42},
+			Commits:  []model.Commit{{SHA: "bbb"}, {SHA: "ccc"}},
+			Strategy: "commit-ref",
+		},
+	}
+
+	results := []model.StrategyResult{
+		{Name: "commit-ref", Items: commitRefItems},
+		{Name: "pr-link", Items: prLinkItems},
+	}
+
+	merged := Merge(results)
+	if len(merged) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(merged))
+	}
+	// PR data should come from pr-link (higher priority).
+	if merged[0].PR == nil || merged[0].PR.Number != 100 {
+		t.Error("expected PR data from pr-link")
+	}
+	// Commits should be unioned: aaa, bbb, ccc (bbb deduplicated).
+	if len(merged[0].Commits) != 3 {
+		t.Errorf("expected 3 commits (union), got %d", len(merged[0].Commits))
+	}
+	shas := make(map[string]bool)
+	for _, c := range merged[0].Commits {
+		shas[c.SHA] = true
+	}
+	for _, want := range []string{"aaa", "bbb", "ccc"} {
+		if !shas[want] {
+			t.Errorf("missing commit %s in merged result", want)
+		}
+	}
+}
+
 func TestMerge_SortedByNumber(t *testing.T) {
 	items := []model.DiscoveredItem{
 		{Issue: &model.Issue{Number: 30}, Strategy: "pr-link"},

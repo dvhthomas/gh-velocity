@@ -82,12 +82,12 @@ func ComputeStats(durations []time.Duration) model.Stats {
 	return stats
 }
 
-// IsOutlier returns true if duration exceeds the IQR outlier cutoff.
-func IsOutlier(d *time.Duration, stats model.Stats) bool {
-	if d == nil || stats.OutlierCutoff == nil {
+// IsOutlier returns true if the metric's duration exceeds the IQR outlier cutoff.
+func IsOutlier(m model.Metric, stats model.Stats) bool {
+	if m.Duration == nil || stats.OutlierCutoff == nil {
 		return false
 	}
-	return *d > *stats.OutlierCutoff
+	return *m.Duration > *stats.OutlierCutoff
 }
 
 // percentile computes the p-th percentile using nearest-rank method.

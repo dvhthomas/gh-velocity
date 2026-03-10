@@ -1,16 +1,11 @@
 package metrics
 
 import (
-	"time"
+	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
-// CycleTime calculates cycle time from first commit to end time.
-// In pr mode, end is the PR merge time. In local mode, end is the last commit time.
-// Returns nil if firstCommit or end is zero.
-func CycleTime(firstCommit, end time.Time) *time.Duration {
-	if firstCommit.IsZero() || end.IsZero() {
-		return nil
-	}
-	d := end.Sub(firstCommit)
-	return &d
+// CycleTime calculates cycle time from a start event to an end event.
+// Returns a Metric with nil Duration if either event is nil.
+func CycleTime(start, end *model.Event) model.Metric {
+	return NewMetric(start, end)
 }

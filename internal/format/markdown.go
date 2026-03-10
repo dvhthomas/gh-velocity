@@ -26,11 +26,11 @@ func WriteReleaseMarkdown(w io.Writer, rm model.ReleaseMetrics, warnings []strin
 
 	// Composition
 	b.WriteString("### Composition\n\n")
-	b.WriteString("| Type | Count | Ratio |\n")
+	b.WriteString("| Category | Count | Ratio |\n")
 	b.WriteString("| --- | ---: | ---: |\n")
-	b.WriteString(fmt.Sprintf("| Bug | %d | %.0f%% |\n", rm.BugCount, rm.BugRatio*100))
-	b.WriteString(fmt.Sprintf("| Feature | %d | %.0f%% |\n", rm.FeatureCount, rm.FeatureRatio*100))
-	b.WriteString(fmt.Sprintf("| Other | %d | %.0f%% |\n", rm.OtherCount, rm.OtherRatio*100))
+	for _, cat := range sortedCategories(rm.CategoryCounts) {
+		b.WriteString(fmt.Sprintf("| %s | %d | %.0f%% |\n", cat, rm.CategoryCounts[cat], rm.CategoryRatios[cat]*100))
+	}
 	b.WriteString(fmt.Sprintf("| **Total** | **%d** | |\n\n", rm.TotalIssues))
 
 	// Per-issue table
@@ -47,9 +47,9 @@ func WriteReleaseMarkdown(w io.Writer, rm model.ReleaseMetrics, warnings []strin
 			b.WriteString(fmt.Sprintf("| %d | %s | %s | %s | %s | %d | %s |\n",
 				im.Issue.Number,
 				title,
-				FormatDurationPtr(im.LeadTime),
-				FormatDurationPtr(im.CycleTime),
-				FormatDurationPtr(im.ReleaseLag),
+				FormatDurationPtr(im.LeadTime.Duration),
+				FormatDurationPtr(im.CycleTime.Duration),
+				FormatDurationPtr(im.ReleaseLag.Duration),
 				im.CommitCount,
 				flag,
 			))

@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 
+	"github.com/bitsbyme/gh-velocity/internal/classify"
 	"gopkg.in/yaml.v3"
 )
 
@@ -39,6 +40,14 @@ type Config struct {
 	Quality     QualityConfig     `yaml:"quality" json:"quality"`
 	Discussions DiscussionsConfig `yaml:"discussions" json:"discussions"`
 	CommitRef   CommitRefConfig   `yaml:"commit_ref" json:"commit_ref"`
+	CycleTime   CycleTimeConfig   `yaml:"cycle_time" json:"cycle_time"`
+}
+
+// CycleTimeConfig controls how cycle time is measured.
+type CycleTimeConfig struct {
+	// Strategy selects the cycle-time measurement approach.
+	// Values: "issue" (default), "pr", "project-board".
+	Strategy string `yaml:"strategy" json:"strategy"`
 }
 
 // CommitRefConfig controls the commit-ref strategy behavior.
@@ -77,9 +86,10 @@ type FieldsConfig struct {
 }
 
 type QualityConfig struct {
-	BugLabels         []string `yaml:"bug_labels" json:"bug_labels"`
-	FeatureLabels     []string `yaml:"feature_labels" json:"feature_labels"`
-	HotfixWindowHours float64  `yaml:"hotfix_window_hours" json:"hotfix_window_hours"`
+	BugLabels         []string            `yaml:"bug_labels" json:"bug_labels"`
+	FeatureLabels     []string            `yaml:"feature_labels" json:"feature_labels"`
+	Categories        map[string][]string `yaml:"categories" json:"categories,omitempty"`
+	HotfixWindowHours float64             `yaml:"hotfix_window_hours" json:"hotfix_window_hours"`
 }
 
 type DiscussionsConfig struct {
@@ -92,6 +102,7 @@ func Load(path string) (*Config, error) {
 
 	info, err := os.Stat(path)
 	if os.IsNotExist(err) {
+		cfg.Quality.Categories = defaultCategories(cfg.Quality.BugLabels, cfg.Quality.FeatureLabels)
 		return cfg, nil
 	}
 	if err != nil {
@@ -122,6 +133,12 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
+	// Backward compat: auto-generate categories from bug_labels/feature_labels
+	// when categories is not explicitly set.
+	if len(cfg.Quality.Categories) == 0 {
+		cfg.Quality.Categories = defaultCategories(cfg.Quality.BugLabels, cfg.Quality.FeatureLabels)
+	}
+
 	return cfg, nil
 }
 
@@ -134,6 +151,9 @@ func Defaults() *Config {
 func defaults() *Config {
 	return &Config{
 		Workflow: DefaultWorkflow,
+		CycleTime: CycleTimeConfig{
+			Strategy: "issue",
+		},
 		Quality: QualityConfig{
 			BugLabels:         []string{"bug"},
 			FeatureLabels:     []string{"enhancement"},
@@ -158,6 +178,7 @@ var knownTopLevelKeys = map[string]bool{
 	"quality":     true,
 	"discussions": true,
 	"commit_ref":  true,
+	"cycle_time":  true,
 }
 
 // warnUnknownKeysFromMap warns about any top-level keys in the parsed map
@@ -189,6 +210,17 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("config: quality.hotfix_window_hours must be at most %d, got %v", MaxHotfixWindowHours, cfg.Quality.HotfixWindowHours)
 	}
 
+	// cycle_time.strategy: must be a known value.
+	switch cfg.CycleTime.Strategy {
+	case "issue", "pr", "project-board":
+		// valid
+	default:
+		return fmt.Errorf("config: cycle_time.strategy must be \"issue\", \"pr\", or \"project-board\", got %q", cfg.CycleTime.Strategy)
+	}
+	if cfg.CycleTime.Strategy == "project-board" && cfg.Project.ID == "" {
+		return fmt.Errorf("config: cycle_time.strategy \"project-board\" requires project.id to be set")
+	}
+
 	// commit_ref.patterns: validate values.
 	for _, p := range cfg.CommitRef.Patterns {
 		switch p {
@@ -216,5 +248,26 @@ func validate(cfg *Config) error {
 		}
 	}
 
+	// Validate category matchers if present.
+	for catName, matchers := range cfg.Quality.Categories {
+		for _, m := range matchers {
+			if _, err := classify.ParseMatcher(m); err != nil {
+				return fmt.Errorf("config: quality.categories.%s: %w", catName, err)
+			}
+		}
+	}
+
 	return nil
+}
+
+// defaultCategories generates categories from legacy bug_labels/feature_labels.
+func defaultCategories(bugLabels, featureLabels []string) map[string][]string {
+	cats := make(map[string][]string)
+	for _, l := range bugLabels {
+		cats["bug"] = append(cats["bug"], "label:"+l)
+	}
+	for _, l := range featureLabels {
+		cats["feature"] = append(cats["feature"], "label:"+l)
+	}
+	return cats
 }

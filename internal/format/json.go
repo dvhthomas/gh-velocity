@@ -8,31 +8,63 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
+// JSONEvent is the JSON representation of a metric event.
+type JSONEvent struct {
+	Time   time.Time `json:"time"`
+	Signal string    `json:"signal"`
+	Detail string    `json:"detail,omitempty"`
+}
+
+// JSONMetric is the JSON representation of a metric with start/end events.
+type JSONMetric struct {
+	Start           *JSONEvent `json:"start"`
+	End             *JSONEvent `json:"end"`
+	DurationSeconds *int64     `json:"duration_seconds"`
+	Duration        string     `json:"duration"` // human-readable
+}
+
+func metricToJSON(m model.Metric) JSONMetric {
+	jm := JSONMetric{
+		DurationSeconds: durationToSeconds(m.Duration),
+		Duration:        FormatMetricDuration(m),
+	}
+	if m.Start != nil {
+		jm.Start = &JSONEvent{
+			Time:   m.Start.Time,
+			Signal: m.Start.Signal,
+			Detail: m.Start.Detail,
+		}
+	}
+	if m.End != nil {
+		jm.End = &JSONEvent{
+			Time:   m.End.Time,
+			Signal: m.End.Signal,
+			Detail: m.End.Detail,
+		}
+	}
+	return jm
+}
+
 // JSONLeadTimeOutput is the JSON representation of lead-time metrics.
 type JSONLeadTimeOutput struct {
-	Repository      string     `json:"repository"`
-	Issue           int        `json:"issue"`
-	Title           string     `json:"title"`
-	State           string     `json:"state"`
-	StartedAt       *time.Time `json:"started_at"`
-	LeadTimeSeconds *int64     `json:"lead_time_seconds"`
-	LeadTime        string     `json:"lead_time"`
-	Warnings        []string   `json:"warnings,omitempty"`
+	Repository string     `json:"repository"`
+	Issue      int        `json:"issue"`
+	Title      string     `json:"title"`
+	State      string     `json:"state"`
+	LeadTime   JSONMetric `json:"lead_time"`
+	Warnings   []string   `json:"warnings,omitempty"`
 }
 
 // JSONCycleTimeOutput is the JSON representation of cycle-time metrics.
 type JSONCycleTimeOutput struct {
-	Repository       string     `json:"repository"`
-	Issue            int        `json:"issue,omitempty"`
-	PR               int        `json:"pr,omitempty"`
-	Title            string     `json:"title"`
-	State            string     `json:"state"`
-	Commits          int        `json:"commits"`
-	StartedAt        *time.Time `json:"started_at"`
-	CycleTimeSeconds *int64     `json:"cycle_time_seconds"`
-	CycleTime        string     `json:"cycle_time"`
-	Signal           string     `json:"signal,omitempty"`
-	Warnings         []string   `json:"warnings,omitempty"`
+	Repository string     `json:"repository"`
+	Issue      int        `json:"issue,omitempty"`
+	PR         int        `json:"pr,omitempty"`
+	Title      string     `json:"title"`
+	State      string     `json:"state"`
+	Commits    int        `json:"commits"`
+	CycleTime  JSONMetric `json:"cycle_time"`
+	Warnings   []string   `json:"warnings,omitempty"`
 }
 
 // JSONReleaseOutput is the JSON representation of release metrics.
@@ -50,24 +82,21 @@ type JSONReleaseOutput struct {
 }
 
 type JSONComposition struct {
-	TotalIssues  int     `json:"total_issues"`
-	BugCount     int     `json:"bug_count"`
-	FeatureCount int     `json:"feature_count"`
-	OtherCount   int     `json:"other_count"`
-	BugRatio     float64 `json:"bug_ratio"`
-	FeatureRatio float64 `json:"feature_ratio"`
-	OtherRatio   float64 `json:"other_ratio"`
+	TotalIssues    int                `json:"total_issues"`
+	CategoryCounts map[string]int     `json:"category_counts"`
+	CategoryRatios map[string]float64 `json:"category_ratios"`
 }
 
 type JSONIssueMetrics struct {
-	Number            int    `json:"number"`
-	Title             string `json:"title"`
-	LeadTimeSeconds   *int64 `json:"lead_time_seconds"`
-	CycleTimeSeconds  *int64 `json:"cycle_time_seconds"`
-	ReleaseLagSeconds *int64 `json:"release_lag_seconds"`
-	CommitCount       int    `json:"commit_count"`
-	LeadTimeOutlier   bool   `json:"lead_time_outlier,omitempty"`
-	CycleTimeOutlier  bool   `json:"cycle_time_outlier,omitempty"`
+	Number           int        `json:"number"`
+	Title            string     `json:"title"`
+	Category         string     `json:"category"`
+	LeadTime         JSONMetric `json:"lead_time"`
+	CycleTime        JSONMetric `json:"cycle_time"`
+	ReleaseLag       JSONMetric `json:"release_lag"`
+	CommitCount      int        `json:"commit_count"`
+	LeadTimeOutlier  bool       `json:"lead_time_outlier,omitempty"`
+	CycleTimeOutlier bool       `json:"cycle_time_outlier,omitempty"`
 }
 
 type JSONAggregates struct {
@@ -88,47 +117,30 @@ type JSONStats struct {
 }
 
 // WriteLeadTimeJSON writes lead-time metrics as JSON to the writer.
-func WriteLeadTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, startedAt time.Time, lt *time.Duration, warnings []string) error {
+func WriteLeadTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, m model.Metric, warnings []string) error {
 	out := JSONLeadTimeOutput{
 		Repository: repo,
 		Issue:      issueNumber,
 		Title:      title,
 		State:      state,
-		StartedAt:  &startedAt,
+		LeadTime:   metricToJSON(m),
 		Warnings:   warnings,
-	}
-	if lt != nil {
-		s := int64(lt.Seconds())
-		out.LeadTimeSeconds = &s
-		out.LeadTime = FormatDuration(*lt)
-	} else {
-		out.LeadTime = "in progress"
 	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(out)
 }
 
-// WriteCycleTimeJSON writes cycle-time metrics as JSON to the writer.
-func WriteCycleTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, commits int, startedAt *time.Time, ct *time.Duration, signal string, warnings []string) error {
+// WriteCycleTimeJSON writes cycle-time metrics for an issue as JSON to the writer.
+func WriteCycleTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, commits int, m model.Metric, warnings []string) error {
 	out := JSONCycleTimeOutput{
 		Repository: repo,
 		Issue:      issueNumber,
 		Title:      title,
 		State:      state,
 		Commits:    commits,
-		StartedAt:  startedAt,
-		Signal:     signal,
+		CycleTime:  metricToJSON(m),
 		Warnings:   warnings,
-	}
-	if ct != nil {
-		s := int64(ct.Seconds())
-		out.CycleTimeSeconds = &s
-		out.CycleTime = FormatDuration(*ct)
-	} else if startedAt != nil {
-		out.CycleTime = "in progress"
-	} else {
-		out.CycleTime = "N/A"
 	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
@@ -136,24 +148,14 @@ func WriteCycleTimeJSON(w io.Writer, repo string, issueNumber int, title, state 
 }
 
 // WriteCycleTimePRJSON writes cycle-time metrics for a PR as JSON.
-func WriteCycleTimePRJSON(w io.Writer, repo string, prNumber int, title, state string, startedAt *time.Time, ct *time.Duration, signal string, warnings []string) error {
+func WriteCycleTimePRJSON(w io.Writer, repo string, prNumber int, title, state string, m model.Metric, warnings []string) error {
 	out := JSONCycleTimeOutput{
 		Repository: repo,
 		PR:         prNumber,
 		Title:      title,
 		State:      state,
-		StartedAt:  startedAt,
-		Signal:     signal,
+		CycleTime:  metricToJSON(m),
 		Warnings:   warnings,
-	}
-	if ct != nil {
-		s := int64(ct.Seconds())
-		out.CycleTimeSeconds = &s
-		out.CycleTime = FormatDuration(*ct)
-	} else if startedAt != nil {
-		out.CycleTime = "in progress"
-	} else {
-		out.CycleTime = "N/A"
 	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
@@ -162,21 +164,19 @@ func WriteCycleTimePRJSON(w io.Writer, repo string, prNumber int, title, state s
 
 // WriteReleaseJSON writes release metrics as JSON to the writer.
 func WriteReleaseJSON(w io.Writer, repo string, rm model.ReleaseMetrics, warnings []string) error {
+	comp := JSONComposition{
+		TotalIssues:    rm.TotalIssues,
+		CategoryCounts: rm.CategoryCounts,
+		CategoryRatios: rm.CategoryRatios,
+	}
+
 	out := JSONReleaseOutput{
 		Repository:  repo,
 		Tag:         rm.Tag,
 		PreviousTag: rm.PreviousTag,
 		Date:        rm.Date,
 		IsHotfix:    rm.IsHotfix,
-		Composition: JSONComposition{
-			TotalIssues:  rm.TotalIssues,
-			BugCount:     rm.BugCount,
-			FeatureCount: rm.FeatureCount,
-			OtherCount:   rm.OtherCount,
-			BugRatio:     rm.BugRatio,
-			FeatureRatio: rm.FeatureRatio,
-			OtherRatio:   rm.OtherRatio,
-		},
+		Composition: comp,
 		Aggregates: JSONAggregates{
 			LeadTime:   statsToJSON(rm.LeadTimeStats),
 			CycleTime:  statsToJSON(rm.CycleTimeStats),
@@ -192,14 +192,15 @@ func WriteReleaseJSON(w io.Writer, repo string, rm model.ReleaseMetrics, warning
 
 	for _, im := range rm.Issues {
 		out.Issues = append(out.Issues, JSONIssueMetrics{
-			Number:            im.Issue.Number,
-			Title:             im.Issue.Title,
-			LeadTimeSeconds:   durationToSeconds(im.LeadTime),
-			CycleTimeSeconds:  durationToSeconds(im.CycleTime),
-			ReleaseLagSeconds: durationToSeconds(im.ReleaseLag),
-			CommitCount:       im.CommitCount,
-			LeadTimeOutlier:   im.LeadTimeOutlier,
-			CycleTimeOutlier:  im.CycleTimeOutlier,
+			Number:           im.Issue.Number,
+			Title:            im.Issue.Title,
+			Category:         im.Category,
+			LeadTime:         metricToJSON(im.LeadTime),
+			CycleTime:        metricToJSON(im.CycleTime),
+			ReleaseLag:       metricToJSON(im.ReleaseLag),
+			CommitCount:      im.CommitCount,
+			LeadTimeOutlier:  im.LeadTimeOutlier,
+			CycleTimeOutlier: im.CycleTimeOutlier,
 		})
 	}
 

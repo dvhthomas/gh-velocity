@@ -3,6 +3,8 @@ package metrics
 import (
 	"testing"
 	"time"
+
+	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
 func TestComputeStats_Empty(t *testing.T) {
@@ -207,16 +209,16 @@ func TestIsOutlier(t *testing.T) {
 	stats := ComputeStats(durations)
 
 	normal := 3 * time.Hour
-	if IsOutlier(&normal, stats) {
+	if IsOutlier(model.Metric{Duration: &normal}, stats) {
 		t.Error("3h should not be an outlier")
 	}
 
 	extreme := 100 * time.Hour
-	if !IsOutlier(&extreme, stats) {
+	if !IsOutlier(model.Metric{Duration: &extreme}, stats) {
 		t.Error("100h should be an outlier")
 	}
 
-	if IsOutlier(nil, stats) {
+	if IsOutlier(model.Metric{}, stats) {
 		t.Error("nil duration should not be an outlier")
 	}
 }

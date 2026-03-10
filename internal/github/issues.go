@@ -19,6 +19,9 @@ type issueResponse struct {
 	Labels    []struct {
 		Name string `json:"name"`
 	} `json:"labels"`
+	// PullRequest is non-nil when the "issue" is actually a pull request.
+	// GitHub's REST /issues endpoint returns PRs too.
+	PullRequest *struct{} `json:"pull_request,omitempty"`
 }
 
 // GetIssue fetches an issue by number.
@@ -27,6 +30,10 @@ func (c *Client) GetIssue(ctx context.Context, number int) (*model.Issue, error)
 	path := fmt.Sprintf("repos/%s/%s/issues/%d", url.PathEscape(c.owner), url.PathEscape(c.repo), number)
 	if err := c.rest.DoWithContext(ctx, "GET", path, nil, &resp); err != nil {
 		return nil, fmt.Errorf("get issue #%d: %w", number, err)
+	}
+
+	if resp.PullRequest != nil {
+		return nil, fmt.Errorf("#%d is a pull request, not an issue; use --pr for PR cycle time", number)
 	}
 
 	labels := make([]string, len(resp.Labels))

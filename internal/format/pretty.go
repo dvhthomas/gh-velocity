@@ -3,6 +3,7 @@ package format
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/bitsbyme/gh-velocity/internal/model"
@@ -26,9 +27,11 @@ func WriteReleasePretty(w io.Writer, isTTY bool, width int, rm model.ReleaseMetr
 
 	// Composition
 	fmt.Fprintln(w, "Composition")
-	fmt.Fprintf(w, "  Bug:       %d (%.0f%%)\n", rm.BugCount, rm.BugRatio*100)
-	fmt.Fprintf(w, "  Feature:   %d (%.0f%%)\n", rm.FeatureCount, rm.FeatureRatio*100)
-	fmt.Fprintf(w, "  Other:     %d (%.0f%%)\n", rm.OtherCount, rm.OtherRatio*100)
+	cats := sortedCategories(rm.CategoryCounts)
+	for _, cat := range cats {
+		ratio := rm.CategoryRatios[cat]
+		fmt.Fprintf(w, "  %-10s %d (%.0f%%)\n", cat+":", rm.CategoryCounts[cat], ratio*100)
+	}
 	fmt.Fprintf(w, "  Total:     %d\n\n", rm.TotalIssues)
 
 	// Per-issue table
@@ -43,9 +46,9 @@ func WriteReleasePretty(w io.Writer, isTTY bool, width int, rm model.ReleaseMetr
 			}
 			tp.AddField(fmt.Sprintf("%d", im.Issue.Number))
 			tp.AddField(im.Issue.Title)
-			tp.AddField(FormatDurationPtr(im.LeadTime))
-			tp.AddField(FormatDurationPtr(im.CycleTime))
-			tp.AddField(FormatDurationPtr(im.ReleaseLag))
+			tp.AddField(FormatDurationPtr(im.LeadTime.Duration))
+			tp.AddField(FormatDurationPtr(im.CycleTime.Duration))
+			tp.AddField(FormatDurationPtr(im.ReleaseLag.Duration))
 			tp.AddField(fmt.Sprintf("%d", im.CommitCount))
 			tp.AddField(flag)
 			tp.EndRow()
@@ -76,6 +79,25 @@ func WriteReleasePretty(w io.Writer, isTTY bool, width int, rm model.ReleaseMetr
 	}
 
 	return nil
+}
+
+// sortedCategories returns category names in a stable order: "other" last,
+// rest alphabetical.
+func sortedCategories(counts map[string]int) []string {
+	cats := make([]string, 0, len(counts))
+	for cat := range counts {
+		cats = append(cats, cat)
+	}
+	sort.Slice(cats, func(i, j int) bool {
+		if cats[i] == "other" {
+			return false
+		}
+		if cats[j] == "other" {
+			return true
+		}
+		return cats[i] < cats[j]
+	})
+	return cats
 }
 
 func writePrettyStatsRow(tp tableprinter.TablePrinter, name string, s model.Stats) {

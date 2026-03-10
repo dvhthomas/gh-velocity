@@ -34,7 +34,8 @@ func Merge(strategyResults []model.StrategyResult) []model.DiscoveredItem {
 	})
 
 	// Track seen issues and PRs by number.
-	seenIssues := make(map[int]bool)
+	// issueIndex maps issue number → index in merged slice for commit union.
+	seenIssues := make(map[int]int) // issue number → merged index
 	seenPRs := make(map[int]bool)
 	var merged []model.DiscoveredItem
 
@@ -42,23 +43,23 @@ func Merge(strategyResults []model.StrategyResult) []model.DiscoveredItem {
 		for _, item := range sr.Items {
 			// Check if this issue was already added by a higher-priority strategy.
 			if item.Issue != nil {
-				if seenIssues[item.Issue.Number] {
+				if idx, seen := seenIssues[item.Issue.Number]; seen {
+					// Union commits from lower-priority strategy into the existing item.
+					merged[idx].Commits = unionCommits(merged[idx].Commits, item.Commits)
 					continue
 				}
-				seenIssues[item.Issue.Number] = true
+				seenIssues[item.Issue.Number] = len(merged)
 			}
 
 			// Check if this PR was already added by a higher-priority strategy.
 			if item.PR != nil {
 				if seenPRs[item.PR.Number] {
-					// If we have a new issue linked to an already-seen PR, skip.
-					if item.Issue != nil && seenIssues[item.Issue.Number] {
-						continue
-					}
 					// If the issue is new but PR is seen, still add the issue.
 					if item.Issue != nil {
-						seenIssues[item.Issue.Number] = true
-						merged = append(merged, item)
+						if _, seen := seenIssues[item.Issue.Number]; !seen {
+							seenIssues[item.Issue.Number] = len(merged)
+							merged = append(merged, item)
+						}
 					}
 					continue
 				}
@@ -77,6 +78,23 @@ func Merge(strategyResults []model.StrategyResult) []model.DiscoveredItem {
 	})
 
 	return merged
+}
+
+// unionCommits merges two commit slices, deduplicating by SHA.
+func unionCommits(a, b []model.Commit) []model.Commit {
+	seen := make(map[string]bool, len(a))
+	for _, c := range a {
+		seen[c.SHA] = true
+	}
+	result := make([]model.Commit, len(a))
+	copy(result, a)
+	for _, c := range b {
+		if !seen[c.SHA] {
+			result = append(result, c)
+			seen[c.SHA] = true
+		}
+	}
+	return result
 }
 
 // itemNumber returns the primary number for sorting (issue number if available, else PR number).

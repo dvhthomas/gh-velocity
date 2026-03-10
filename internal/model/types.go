@@ -4,6 +4,45 @@ package model
 
 import "time"
 
+// Signal name constants for consistent use across metrics.
+const (
+	SignalIssueCreated     = "issue-created"
+	SignalIssueClosed      = "issue-closed"
+	SignalStatusChange     = "status-change"
+	SignalLabel            = "label"
+	SignalPRCreated        = "pr-created"
+	SignalPRMerged         = "pr-merged"
+	SignalAssigned         = "assigned"
+	SignalCommit           = "commit"
+	SignalReleasePublished = "release-published"
+)
+
+// Event represents a point in time during an issue or PR's lifecycle.
+type Event struct {
+	Time   time.Time
+	Signal string // one of the Signal* constants
+	Detail string // e.g., "PR #42: title" or "Backlog -> In progress"
+}
+
+// Metric represents a measured duration between two events.
+// Start and End may be nil for in-progress or unmeasured metrics.
+type Metric struct {
+	Start    *Event
+	End      *Event
+	Duration *time.Duration
+}
+
+// NewMetric creates a Metric from start and end events, computing Duration
+// when both are present.
+func NewMetric(start, end *Event) Metric {
+	m := Metric{Start: start, End: end}
+	if start != nil && end != nil {
+		d := end.Time.Sub(start.Time)
+		m.Duration = &d
+	}
+	return m
+}
+
 // Issue represents a GitHub issue with the fields needed for metrics.
 type Issue struct {
 	Number    int
@@ -49,9 +88,10 @@ type Release struct {
 // IssueMetrics holds computed metrics for a single issue within a release.
 type IssueMetrics struct {
 	Issue            Issue
-	LeadTime         *time.Duration
-	CycleTime        *time.Duration
-	ReleaseLag       *time.Duration
+	Category         string // assigned category from classifier
+	LeadTime         Metric
+	CycleTime        Metric
+	ReleaseLag       Metric
 	CommitCount      int
 	LeadTimeOutlier  bool // flagged by IQR method
 	CycleTimeOutlier bool
@@ -64,13 +104,9 @@ type ReleaseMetrics struct {
 	Date            time.Time
 	Issues          []IssueMetrics
 	TotalIssues     int
-	BugCount        int
-	FeatureCount    int
-	OtherCount      int
-	BugRatio        float64
-	FeatureRatio    float64
-	OtherRatio      float64
-	Cadence         *time.Duration // time since previous release
+	CategoryCounts  map[string]int     // dynamic category counts
+	CategoryRatios  map[string]float64 // dynamic category ratios
+	Cadence         *time.Duration     // time since previous release
 	IsHotfix        bool
 	LeadTimeStats   Stats
 	CycleTimeStats  Stats

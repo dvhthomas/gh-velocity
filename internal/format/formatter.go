@@ -3,7 +3,10 @@ package format
 
 import (
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
 // Format represents an output format type.
@@ -68,4 +71,48 @@ func FormatCycleStatus(d *time.Duration, started bool) string {
 		return "in progress"
 	}
 	return "N/A"
+}
+
+// FormatMetric formats a Metric's duration with its signal summary.
+// Example: "10d 13h  (created -> closed)"
+func FormatMetric(m model.Metric) string {
+	dur := FormatMetricDuration(m)
+	summary := FormatSignalSummary(m)
+	if summary != "" {
+		return dur + "  " + summary
+	}
+	return dur
+}
+
+// FormatMetricDuration formats just the duration portion of a Metric.
+func FormatMetricDuration(m model.Metric) string {
+	if m.Duration != nil {
+		return FormatDuration(*m.Duration)
+	}
+	if m.Start != nil {
+		return "in progress"
+	}
+	return "N/A"
+}
+
+// FormatSignalSummary returns a parenthesized signal summary like "(created -> closed)".
+func FormatSignalSummary(m model.Metric) string {
+	if m.Start == nil {
+		return ""
+	}
+	startLabel := shortSignal(m.Start.Signal)
+	if m.End == nil {
+		return "(" + startLabel + " -> ...)"
+	}
+	endLabel := shortSignal(m.End.Signal)
+	return "(" + startLabel + " -> " + endLabel + ")"
+}
+
+// shortSignal returns a short display name for a signal constant.
+func shortSignal(signal string) string {
+	// Strip the common prefixes for brevity
+	signal = strings.TrimPrefix(signal, "issue-")
+	signal = strings.TrimPrefix(signal, "pr-")
+	signal = strings.TrimPrefix(signal, "release-")
+	return signal
 }
