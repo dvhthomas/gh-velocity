@@ -67,7 +67,7 @@ for entry in "${configs[@]}"; do
   fi
 
   # Validate composition metrics exist
-  if echo "$out" | jq -e '.composition.bug_count >= 0' >/dev/null 2>&1; then
+  if echo "$out" | jq -e '.composition.total_issues >= 0' >/dev/null 2>&1; then
     pass "$name: has composition metrics"
   else
     fail "$name: missing composition metrics"
