@@ -28,6 +28,17 @@ func NewReleaseCmd() *cobra.Command {
 
 Use --scope to show the scope diagnostic view: which issues and PRs each
 linking strategy discovered for the release.`,
+		Example: `  # Release metrics with auto-detected previous tag
+  gh velocity quality release v2.65.0
+
+  # Explicit previous tag
+  gh velocity quality release v2.65.0 --since v2.64.0
+
+  # Scope diagnostic: what did each strategy find?
+  gh velocity quality release v2.65.0 --scope
+
+  # Remote repo, JSON output
+  gh velocity quality release v2.65.0 -R cli/cli -f json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tag := args[0]

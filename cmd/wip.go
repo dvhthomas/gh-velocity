@@ -20,6 +20,14 @@ Primary source: Projects v2 board status (requires project.id in config).
 Fallback: open issues with active_labels (requires statuses.active_labels in config).
 
 Use -R owner/repo to filter board items to a specific repo.`,
+		Example: `  # Show WIP from configured project board
+  gh velocity status wip
+
+  # Filter to a specific repo on the board
+  gh velocity status wip -R owner/repo
+
+  # JSON output for CI/automation
+  gh velocity status wip -f json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -111,7 +119,7 @@ Use -R owner/repo to filter board items to a specific repo.`,
 			} else {
 				return &model.AppError{
 					Code:    model.ErrConfigInvalid,
-					Message: "wip requires either project.id or statuses.active_labels in .gh-velocity.yml",
+					Message: "wip requires either project.id or statuses.active_labels in .gh-velocity.yml\n\n  To auto-detect your setup:  gh velocity config preflight -R owner/repo\n  To find project board IDs:  gh velocity config discover -R owner/repo",
 				}
 			}
 

@@ -143,10 +143,16 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 			if err != nil {
 				if configFlag != "" {
 					// Explicit --config must exist and be valid.
-					return err
+					return &model.AppError{
+						Code:    model.ErrConfigInvalid,
+						Message: fmt.Sprintf("%v\n\n  To generate a starter config:  gh velocity config create\n  To auto-detect your setup:    gh velocity config preflight", err),
+					}
 				}
 				if hasLocal {
-					return err
+					return &model.AppError{
+						Code:    model.ErrConfigInvalid,
+						Message: fmt.Sprintf("%v\n\n  To generate a starter config:  gh velocity config create\n  To auto-detect your setup:    gh velocity config preflight", err),
+					}
 				}
 				// Config file not found is fine when running without
 				// a local repo — use defaults.
@@ -180,7 +186,8 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 	root.PersistentFlags().StringVarP(&formatFlag, "format", "f", "pretty", "Output format: json, pretty, markdown")
 	root.PersistentFlags().StringVarP(&repoFlag, "repo", "R", "", "Repository in owner/name format")
 	root.PersistentFlags().StringVar(&configFlag, "config", "", "Path to config file (default: .gh-velocity.yml)")
-	root.PersistentFlags().BoolVar(&postFlag, "post", false, "Post output to GitHub")
+	root.PersistentFlags().BoolVar(&postFlag, "post", false, "Post output to GitHub (coming soon)")
+	root.PersistentFlags().MarkHidden("post")
 
 	root.AddCommand(NewVersionCmd(version, buildTime))
 	root.AddCommand(NewConfigCmd())

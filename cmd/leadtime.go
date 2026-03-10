@@ -26,6 +26,15 @@ Bulk mode:    gh velocity lead-time --since 30d [--until 2026-03-01]
 
 In bulk mode, returns per-item rows plus aggregate statistics
 for all issues closed in the given date window.`,
+		Example: `  # Single issue
+  gh velocity flow lead-time 42
+  gh velocity flow lead-time 42 -R cli/cli
+
+  # All issues closed in the last 30 days
+  gh velocity flow lead-time --since 30d
+
+  # Custom window, JSON output
+  gh velocity flow lead-time --since 2026-01-01 --until 2026-02-01 -f json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 && sinceFlag != "" {
