@@ -34,6 +34,12 @@ func BuildReleaseMetrics(input ReleaseInput) (model.ReleaseMetrics, []string, er
 		warnings = append(warnings, fmt.Sprintf("%d issue(s) skipped due to fetch errors", n))
 	}
 
+	releaseEnd := &model.Event{
+		Time:   input.Release.CreatedAt,
+		Signal: model.SignalReleasePublished,
+		Detail: input.Tag,
+	}
+
 	// Build per-issue metrics and collect durations for aggregation
 	var issueMetrics []model.IssueMetrics
 	var leadTimes, cycleTimes, releaseLags []time.Duration
@@ -50,31 +56,44 @@ func BuildReleaseMetrics(input ReleaseInput) (model.ReleaseMetrics, []string, er
 		}
 
 		// Lead time: created -> closed
-		lt := LeadTime(*issue)
-		im.LeadTime = lt
-		if lt != nil {
-			leadTimes = append(leadTimes, *lt)
+		im.LeadTime = LeadTime(*issue)
+		if im.LeadTime.Duration != nil {
+			leadTimes = append(leadTimes, *im.LeadTime.Duration)
 		}
 
-		// Cycle time: first commit -> closed
+		// Cycle time: first commit -> closed (release path uses commit as start signal)
 		if len(issueCommitList) > 0 {
-			firstCommit := issueCommitList[len(issueCommitList)-1].AuthoredAt // commits are newest-first
-			var endTime time.Time
-			if issue.ClosedAt != nil {
-				endTime = *issue.ClosedAt
+			firstCommit := issueCommitList[len(issueCommitList)-1] // commits are newest-first
+			startEvent := &model.Event{
+				Time:   firstCommit.AuthoredAt,
+				Signal: model.SignalCommit,
+				Detail: firstCommit.SHA[:7],
 			}
-			ct := CycleTime(firstCommit, endTime)
-			im.CycleTime = ct
-			if ct != nil {
-				cycleTimes = append(cycleTimes, *ct)
+
+			var endEvent *model.Event
+			if issue.ClosedAt != nil {
+				endEvent = &model.Event{
+					Time:   *issue.ClosedAt,
+					Signal: model.SignalIssueClosed,
+				}
+			}
+
+			im.CycleTime = CycleTime(startEvent, endEvent)
+			if im.CycleTime.Duration != nil {
+				cycleTimes = append(cycleTimes, *im.CycleTime.Duration)
 			}
 		}
 
 		// Release lag: closed -> release date
 		if issue.ClosedAt != nil {
-			lag := input.Release.CreatedAt.Sub(*issue.ClosedAt)
-			im.ReleaseLag = &lag
-			releaseLags = append(releaseLags, lag)
+			closedEvent := &model.Event{
+				Time:   *issue.ClosedAt,
+				Signal: model.SignalIssueClosed,
+			}
+			im.ReleaseLag = NewMetric(closedEvent, releaseEnd)
+			if im.ReleaseLag.Duration != nil {
+				releaseLags = append(releaseLags, *im.ReleaseLag.Duration)
+			}
 		}
 
 		issueMetrics = append(issueMetrics, im)

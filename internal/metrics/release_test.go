@@ -47,10 +47,10 @@ func TestBuildReleaseMetrics_SinglePassClassification(t *testing.T) {
 	}
 
 	issueCommits := map[int][]model.Commit{
-		1: {{SHA: "aaa", AuthoredAt: now.Add(-60 * time.Hour)}},
-		2: {{SHA: "bbb", AuthoredAt: now.Add(-40 * time.Hour)}},
-		3: {{SHA: "ccc", AuthoredAt: now.Add(-20 * time.Hour)}},
-		4: {{SHA: "ddd", AuthoredAt: now.Add(-80 * time.Hour)}},
+		1: {{SHA: "aaaaaaa", AuthoredAt: now.Add(-60 * time.Hour)}},
+		2: {{SHA: "bbbbbbb", AuthoredAt: now.Add(-40 * time.Hour)}},
+		3: {{SHA: "ccccccc", AuthoredAt: now.Add(-20 * time.Hour)}},
+		4: {{SHA: "ddddddd", AuthoredAt: now.Add(-80 * time.Hour)}},
 	}
 
 	input := ReleaseInput{
@@ -101,7 +101,7 @@ func TestBuildReleaseMetrics_LeadTimeAndCycleTime(t *testing.T) {
 		1: {Number: 1, Labels: []string{"bug"}, CreatedAt: created, ClosedAt: &closed},
 	}
 	issueCommits := map[int][]model.Commit{
-		1: {{SHA: "abc", AuthoredAt: commitTime}},
+		1: {{SHA: "abcdefg", AuthoredAt: commitTime}},
 	}
 
 	input := ReleaseInput{
@@ -127,20 +127,32 @@ func TestBuildReleaseMetrics_LeadTimeAndCycleTime(t *testing.T) {
 
 	// Lead time: created -> closed = 48h
 	expectedLT := 48 * time.Hour
-	if im.LeadTime == nil || *im.LeadTime != expectedLT {
-		t.Errorf("expected lead time %v, got %v", expectedLT, im.LeadTime)
+	if im.LeadTime.Duration == nil || *im.LeadTime.Duration != expectedLT {
+		t.Errorf("expected lead time %v, got %v", expectedLT, im.LeadTime.Duration)
+	}
+	if im.LeadTime.Start == nil || im.LeadTime.Start.Signal != model.SignalIssueCreated {
+		t.Error("expected lead time start signal to be issue-created")
+	}
+	if im.LeadTime.End == nil || im.LeadTime.End.Signal != model.SignalIssueClosed {
+		t.Error("expected lead time end signal to be issue-closed")
 	}
 
 	// Cycle time: commit -> closed = 24h
 	expectedCT := 24 * time.Hour
-	if im.CycleTime == nil || *im.CycleTime != expectedCT {
-		t.Errorf("expected cycle time %v, got %v", expectedCT, im.CycleTime)
+	if im.CycleTime.Duration == nil || *im.CycleTime.Duration != expectedCT {
+		t.Errorf("expected cycle time %v, got %v", expectedCT, im.CycleTime.Duration)
+	}
+	if im.CycleTime.Start == nil || im.CycleTime.Start.Signal != model.SignalCommit {
+		t.Error("expected cycle time start signal to be commit")
 	}
 
 	// Release lag: closed -> release = 24h
 	expectedLag := 24 * time.Hour
-	if im.ReleaseLag == nil || *im.ReleaseLag != expectedLag {
-		t.Errorf("expected release lag %v, got %v", expectedLag, im.ReleaseLag)
+	if im.ReleaseLag.Duration == nil || *im.ReleaseLag.Duration != expectedLag {
+		t.Errorf("expected release lag %v, got %v", expectedLag, im.ReleaseLag.Duration)
+	}
+	if im.ReleaseLag.End == nil || im.ReleaseLag.End.Signal != model.SignalReleasePublished {
+		t.Error("expected release lag end signal to be release-published")
 	}
 
 	// Stats should have count=1
@@ -155,8 +167,8 @@ func TestBuildReleaseMetrics_FetchErrorsAsWarnings(t *testing.T) {
 		Tag:     "v1.0.0",
 		Release: model.Release{TagName: "v1.0.0", CreatedAt: now},
 		IssueCommits: map[int][]model.Commit{
-			1: {{SHA: "abc", AuthoredAt: now}},
-			2: {{SHA: "def", AuthoredAt: now}},
+			1: {{SHA: "abcdefg", AuthoredAt: now}},
+			2: {{SHA: "defghij", AuthoredAt: now}},
 		},
 		Issues: map[int]*model.Issue{
 			1: {Number: 1, Labels: []string{"bug"}, CreatedAt: now},
@@ -206,9 +218,9 @@ func TestBuildReleaseMetrics_LowLabelCoverageWarning(t *testing.T) {
 		3: {Number: 3, Labels: []string{"random"}, CreatedAt: now, ClosedAt: &closed},
 	}
 	issueCommits := map[int][]model.Commit{
-		1: {{SHA: "a", AuthoredAt: now}},
-		2: {{SHA: "b", AuthoredAt: now}},
-		3: {{SHA: "c", AuthoredAt: now}},
+		1: {{SHA: "aaaaaaa", AuthoredAt: now}},
+		2: {{SHA: "bbbbbbb", AuthoredAt: now}},
+		3: {{SHA: "ccccccc", AuthoredAt: now}},
 	}
 
 	input := ReleaseInput{
@@ -302,7 +314,7 @@ func TestBuildReleaseMetrics_OpenIssueNoLeadTime(t *testing.T) {
 		1: {Number: 1, State: "open", Labels: []string{"bug"}, CreatedAt: now.Add(-48 * time.Hour)},
 	}
 	issueCommits := map[int][]model.Commit{
-		1: {{SHA: "abc", AuthoredAt: now.Add(-24 * time.Hour)}},
+		1: {{SHA: "abcdefg", AuthoredAt: now.Add(-24 * time.Hour)}},
 	}
 
 	input := ReleaseInput{
@@ -323,10 +335,10 @@ func TestBuildReleaseMetrics_OpenIssueNoLeadTime(t *testing.T) {
 	if len(rm.Issues) != 1 {
 		t.Fatalf("expected 1 issue, got %d", len(rm.Issues))
 	}
-	if rm.Issues[0].LeadTime != nil {
-		t.Error("expected nil lead time for open issue")
+	if rm.Issues[0].LeadTime.Duration != nil {
+		t.Error("expected nil lead time duration for open issue")
 	}
-	if rm.Issues[0].ReleaseLag != nil {
-		t.Error("expected nil release lag for open issue (no closed date)")
+	if rm.Issues[0].ReleaseLag.Duration != nil {
+		t.Error("expected nil release lag duration for open issue (no closed date)")
 	}
 }

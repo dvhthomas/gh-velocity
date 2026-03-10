@@ -43,9 +43,9 @@ func WriteReleasePretty(w io.Writer, isTTY bool, width int, rm model.ReleaseMetr
 			}
 			tp.AddField(fmt.Sprintf("%d", im.Issue.Number))
 			tp.AddField(im.Issue.Title)
-			tp.AddField(FormatDurationPtr(im.LeadTime))
-			tp.AddField(FormatDurationPtr(im.CycleTime))
-			tp.AddField(FormatDurationPtr(im.ReleaseLag))
+			tp.AddField(FormatDurationPtr(im.LeadTime.Duration))
+			tp.AddField(FormatDurationPtr(im.CycleTime.Duration))
+			tp.AddField(FormatDurationPtr(im.ReleaseLag.Duration))
 			tp.AddField(fmt.Sprintf("%d", im.CommitCount))
 			tp.AddField(flag)
 			tp.EndRow()

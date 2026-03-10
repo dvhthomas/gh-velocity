@@ -69,10 +69,11 @@ func TestWriteReleaseJSON(t *testing.T) {
 	meanLT := 48 * time.Hour
 	medLT := 48 * time.Hour
 
+	now := time.Date(2026, 3, 9, 0, 0, 0, 0, time.UTC)
 	rm := model.ReleaseMetrics{
 		Tag:          "v1.0.0",
 		PreviousTag:  "v0.9.0",
-		Date:         time.Date(2026, 3, 9, 0, 0, 0, 0, time.UTC),
+		Date:         now,
 		Cadence:      &cadence,
 		TotalIssues:  1,
 		BugCount:     0,
@@ -82,9 +83,9 @@ func TestWriteReleaseJSON(t *testing.T) {
 		Issues: []model.IssueMetrics{
 			{
 				Issue:       model.Issue{Number: 1, Title: "Add feature"},
-				LeadTime:    &lt,
-				CycleTime:   &ct,
-				ReleaseLag:  &rl,
+				LeadTime:    model.Metric{Start: &model.Event{Time: now, Signal: "issue-created"}, End: &model.Event{Time: now.Add(lt), Signal: "issue-closed"}, Duration: &lt},
+				CycleTime:   model.Metric{Start: &model.Event{Time: now, Signal: "commit"}, End: &model.Event{Time: now.Add(ct), Signal: "issue-closed"}, Duration: &ct},
+				ReleaseLag:  model.Metric{Start: &model.Event{Time: now, Signal: "issue-closed"}, End: &model.Event{Time: now.Add(rl), Signal: "release-published"}, Duration: &rl},
 				CommitCount: 3,
 			},
 		},

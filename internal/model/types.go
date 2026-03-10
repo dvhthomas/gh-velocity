@@ -4,6 +4,34 @@ package model
 
 import "time"
 
+// Signal name constants for consistent use across metrics.
+const (
+	SignalIssueCreated     = "issue-created"
+	SignalIssueClosed      = "issue-closed"
+	SignalStatusChange     = "status-change"
+	SignalLabel            = "label"
+	SignalPRCreated        = "pr-created"
+	SignalPRMerged         = "pr-merged"
+	SignalAssigned         = "assigned"
+	SignalCommit           = "commit"
+	SignalReleasePublished = "release-published"
+)
+
+// Event represents a point in time during an issue or PR's lifecycle.
+type Event struct {
+	Time   time.Time
+	Signal string // one of the Signal* constants
+	Detail string // e.g., "PR #42: title" or "Backlog -> In progress"
+}
+
+// Metric represents a measured duration between two events.
+// Start and End may be nil for in-progress or unmeasured metrics.
+type Metric struct {
+	Start    *Event
+	End      *Event
+	Duration *time.Duration
+}
+
 // Issue represents a GitHub issue with the fields needed for metrics.
 type Issue struct {
 	Number    int
@@ -49,9 +77,9 @@ type Release struct {
 // IssueMetrics holds computed metrics for a single issue within a release.
 type IssueMetrics struct {
 	Issue            Issue
-	LeadTime         *time.Duration
-	CycleTime        *time.Duration
-	ReleaseLag       *time.Duration
+	LeadTime         Metric
+	CycleTime        Metric
+	ReleaseLag       Metric
 	CommitCount      int
 	LeadTimeOutlier  bool // flagged by IQR method
 	CycleTimeOutlier bool

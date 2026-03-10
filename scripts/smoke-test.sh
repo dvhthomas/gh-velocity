@@ -74,12 +74,12 @@ echo "lead-time (cli/cli#1)"
 out=$($BINARY lead-time 1 -R cli/cli 2>&1)
 show "$out"
 [[ "$out" == *"Lead Time"* ]] && pass "lead-time pretty" || fail "lead-time pretty"
-[[ "$out" == *"Started"* ]] && pass "lead-time shows started" || fail "lead-time shows started"
+[[ "$out" == *"Created:"* ]] && pass "lead-time shows created" || fail "lead-time shows created"
 
 out=$($BINARY lead-time 1 -R cli/cli -f json 2>&1)
 show "$out"
-echo "$out" | jq -e '.lead_time_seconds' >/dev/null 2>&1 && pass "lead-time json" || fail "lead-time json"
-echo "$out" | jq -e '.started_at' >/dev/null 2>&1 && pass "lead-time json started_at" || fail "lead-time json started_at"
+echo "$out" | jq -e '.lead_time.duration_seconds' >/dev/null 2>&1 && pass "lead-time json" || fail "lead-time json"
+echo "$out" | jq -e '.lead_time.start.signal' >/dev/null 2>&1 && pass "lead-time json start signal" || fail "lead-time json start signal"
 
 out=$($BINARY lead-time 1 -R cli/cli -f markdown 2>&1)
 show "$out"
@@ -109,7 +109,7 @@ show "$out"
 out=$($BINARY cycle-time --pr 1 -R cli/cli -f json 2>&1)
 show "$out"
 echo "$out" | jq -e '.pr' >/dev/null 2>&1 && pass "cycle-time --pr json" || fail "cycle-time --pr json"
-echo "$out" | jq -e '.started_at' >/dev/null 2>&1 && pass "cycle-time --pr json started_at" || fail "cycle-time --pr json started_at"
+echo "$out" | jq -e '.cycle_time.start.signal' >/dev/null 2>&1 && pass "cycle-time --pr json start signal" || fail "cycle-time --pr json start signal"
 
 # ── release ────────────────────────────────────────────────────────
 echo ""
