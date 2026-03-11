@@ -380,39 +380,78 @@ func TestCollectMatchEvidence(t *testing.T) {
 
 	evidence := collectMatchEvidence(categories, issues, prs)
 
-	// Should have bug and feature categories
-	if len(evidence) != 2 {
-		t.Fatalf("expected 2 categories, got %d", len(evidence))
+	// Find bug and feature categories in results.
+	findCat := func(name string) *CategoryEvidence {
+		for i := range evidence {
+			if evidence[i].Category == name {
+				return &evidence[i]
+			}
+		}
+		return nil
+	}
+	findMatcher := func(ce *CategoryEvidence, matcher string) *MatcherEvidence {
+		for i := range ce.Matchers {
+			if ce.Matchers[i].Matcher == matcher {
+				return &ce.Matchers[i]
+			}
+		}
+		return nil
 	}
 
-	// Bug category
-	bugCat := evidence[0]
-	if bugCat.Category != "bug" {
-		t.Errorf("expected bug category, got %q", bugCat.Category)
-	}
-	if len(bugCat.Matchers) != 2 {
-		t.Fatalf("expected 2 bug matchers, got %d", len(bugCat.Matchers))
+	bugCat := findCat("bug")
+	if bugCat == nil {
+		t.Fatal("expected bug category in evidence")
 	}
 
 	// label:bug should match issues #1, #2 and PR #10 = 3
-	bugMatcher := bugCat.Matchers[0]
-	if bugMatcher.Count != 3 {
-		t.Errorf("label:bug count = %d, want 3", bugMatcher.Count)
+	bugLabel := findMatcher(bugCat, "label:bug")
+	if bugLabel == nil {
+		t.Fatal("expected label:bug matcher")
 	}
-	if bugMatcher.Example == "" {
+	if bugLabel.Count != 3 {
+		t.Errorf("label:bug count = %d, want 3", bugLabel.Count)
+	}
+	if bugLabel.Example == "" {
 		t.Error("expected an example for label:bug")
 	}
 
 	// label:crash should match issue #2 = 1
-	crashMatcher := bugCat.Matchers[1]
-	if crashMatcher.Count != 1 {
-		t.Errorf("label:crash count = %d, want 1", crashMatcher.Count)
+	crashLabel := findMatcher(bugCat, "label:crash")
+	if crashLabel == nil {
+		t.Fatal("expected label:crash matcher")
+	}
+	if crashLabel.Count != 1 {
+		t.Errorf("label:crash count = %d, want 1", crashLabel.Count)
+	}
+
+	// Title probe "Fix crash" and "Fix memory leak" should be found by title:/^fix/i
+	fixTitle := findMatcher(bugCat, `title:/^fix[\(: ]/i`)
+	if fixTitle == nil {
+		t.Fatal("expected title fix probe")
+	}
+	if fixTitle.Count != 2 {
+		t.Errorf("title fix count = %d, want 2 (Fix crash + Fix memory)", fixTitle.Count)
+	}
+	if !fixTitle.Suggested {
+		t.Error("title probe should be marked as suggested")
 	}
 
 	// Feature category: label:enhancement should match #3 and #11 = 2
-	featCat := evidence[1]
-	if featCat.Matchers[0].Count != 2 {
-		t.Errorf("label:enhancement count = %d, want 2", featCat.Matchers[0].Count)
+	featCat := findCat("feature")
+	if featCat == nil {
+		t.Fatal("expected feature category in evidence")
+	}
+	enhLabel := findMatcher(featCat, "label:enhancement")
+	if enhLabel == nil {
+		t.Fatal("expected label:enhancement matcher")
+	}
+	if enhLabel.Count != 2 {
+		t.Errorf("label:enhancement count = %d, want 2", enhLabel.Count)
+	}
+
+	// Matchers should be sorted by count descending.
+	if bugCat.Matchers[0].Count < bugCat.Matchers[len(bugCat.Matchers)-1].Count {
+		t.Error("expected matchers sorted by count descending")
 	}
 }
 
@@ -424,17 +463,57 @@ func TestCollectMatchEvidence_NoItems(t *testing.T) {
 	}
 }
 
-func TestCollectMatchEvidence_ZeroMatches(t *testing.T) {
-	categories := map[string][]string{"bug": {"crash"}}
+func TestCollectMatchEvidence_TitleFallback(t *testing.T) {
+	// No labels at all, but titles follow conventional commits.
+	categories := map[string][]string{}
 	issues := []model.Issue{
-		{Number: 1, Title: "Some issue", Labels: []string{"enhancement"}},
+		{Number: 1, Title: "feat: add dark mode"},
+		{Number: 2, Title: "fix: crash on startup"},
+		{Number: 3, Title: "docs: update readme"},
+		{Number: 4, Title: "chore: update deps"},
 	}
+
 	evidence := collectMatchEvidence(categories, issues, nil)
-	if len(evidence) != 1 || evidence[0].Matchers[0].Count != 0 {
-		t.Errorf("expected 0 matches for crash label")
+
+	findCat := func(name string) *CategoryEvidence {
+		for i := range evidence {
+			if evidence[i].Category == name {
+				return &evidence[i]
+			}
+		}
+		return nil
 	}
-	if evidence[0].Matchers[0].Example != "" {
-		t.Error("expected no example when count is 0")
+
+	// Feature should find "feat: add dark mode" via title probe
+	featCat := findCat("feature")
+	if featCat == nil {
+		t.Fatal("expected feature category from title probes")
+	}
+	hasMatch := false
+	for _, me := range featCat.Matchers {
+		if me.Count > 0 {
+			hasMatch = true
+			break
+		}
+	}
+	if !hasMatch {
+		t.Error("expected title probes to find feat: prefix")
+	}
+
+	// Bug should find "fix: crash on startup"
+	bugCat := findCat("bug")
+	if bugCat == nil {
+		t.Fatal("expected bug category from title probes")
+	}
+	hasMatch = false
+	for _, me := range bugCat.Matchers {
+		if me.Count > 0 {
+			hasMatch = true
+			break
+		}
+	}
+	if !hasMatch {
+		t.Error("expected title probes to find fix: prefix")
 	}
 }
 

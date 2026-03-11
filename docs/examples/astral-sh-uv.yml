@@ -6,7 +6,7 @@
 # Discussions are disabled — enable them in repo settings for bulk --post
 # Token scopes: gist, project, read:org, repo, workflow
 # Config verification: YAML parses cleanly
-# Config verification: 3 categories defined, all matchers valid
+# Config verification: 4 categories defined, all matchers valid
 
 # Scope: which issues/PRs to analyze (GitHub search syntax)
 # Narrow with labels, assignees, milestones, etc.:
@@ -31,6 +31,9 @@ quality:
     - name: feature
       match:
         - "label:enhancement"
+    - name: chore
+      match:
+        - "title:/^build[\\(: ]/i"
     - name: docs
       match:
         - "label:documentation"
@@ -38,8 +41,19 @@ quality:
 
 # Match evidence (last 30 days of issues + PRs):
 #   bug / label:bug — 77 matches, e.g. #18391 Alphabetically sorting `uv.lock`'s package subsections
+#   bug / title:/\bfix(es|ed)?\b/i — 25 matches, e.g. #18066 Action Required: Fix Renovate Configuration
+#   bug / title:/^fix[\(: ]/i — 23 matches, e.g. #18383 fix(uv-platform): adjust windows ostype to match sys-info...
+#   bug / title:/^bug[\(: ]/i — 1 matches, e.g. #18026 bug - `uv sync` fails or behaves unexpectedly when mutual...
 #   feature / label:enhancement — 34 matches, e.g. #18335 Add torchcodec to uv-torch crate
+#   feature / title:/^add[\(: ]/i — 25 matches, e.g. #18335 Add torchcodec to uv-torch crate
+#   feature / title:/^feat[\(: ]/i — 0 matches (review this matcher)
+#   feature / title:/^feature[\(: ]/i — 0 matches (review this matcher)
+#   chore / title:/^build[\(: ]/i — 2 matches, e.g. #17950 Build isolation ignores project constraint during dynamic...
+#   chore / title:/^chore[\(: ]/i — 0 matches (review this matcher)
+#   chore / title:/^refactor[\(: ]/i — 0 matches (review this matcher)
+#   chore / title:/^ci[\(: ]/i — 0 matches (review this matcher)
 #   docs / label:documentation — 11 matches, e.g. #18300 documentation for valid `required-environments` values
+#   docs / title:/^docs?[\(: ]/i — 1 matches, e.g. #18206 docs(gitlab): move cache prune to `after_script`
 
 # Commit message scanning
 commit_ref:
@@ -79,6 +93,6 @@ lifecycle:
 #   needs-mre (22)
 #   enhancement (17)
 #   windows (4)
-#   error messages (4)
 #   external (4)
+#   error messages (4)
 #   internal (2)

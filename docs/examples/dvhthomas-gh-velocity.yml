@@ -3,10 +3,7 @@
 # Date: 2026-03-11
 #
 # Using project board: Project Tracker (#1)
-# Could not search recent issues: search issues: HTTP 403: API rate limit exceeded for user ID 134771. If you reach out to GitHub Support for help, please include the request ID FFFD:1AB62F:251A4CA:9EE7DAD:69B0F786 and timestamp 2026-03-11 05:03:02 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (https://api.github.com/search/issues?q=repo%3Advhthomas%2Fgh-velocity+is%3Aissue+is%3Aclosed+closed%3A2026-02-09T05%3A03%3A02Z..2026-03-11T05%3A03%3A02Z&per_page=100&page=1)
-# Could not search recent PRs: search PRs: HTTP 403: API rate limit exceeded for user ID 134771. If you reach out to GitHub Support for help, please include the request ID FFFD:1AB62F:251A562:9EE800F:69B0F786 and timestamp 2026-03-11 05:03:02 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (https://api.github.com/search/issues?q=repo%3Advhthomas%2Fgh-velocity+is%3Apr+is%3Amerged+merged%3A2026-02-09T05%3A03%3A02Z..2026-03-11T05%3A03%3A02Z&per_page=100&page=1)
 # Project board detected — using project-board strategy for cycle time
-# No recent activity found in the last 30 days — metrics may be empty initially
 # Discussions are enabled — --post can create Discussion posts
 # Token scopes: gist, project, read:org, repo, workflow
 # Config verification: YAML parses cleanly
@@ -29,16 +26,32 @@ scope:
 # First category to match wins. Unmatched items are classified as "other".
 quality:
   categories:
-    - name: bug
-      match:
-        - "label:bug"
     - name: feature
       match:
-        - "label:enhancement"
+        - "title:/^feat[\\(: ]/i"
+    - name: chore
+      match:
+        - "title:/^refactor[\\(: ]/i"
     - name: docs
       match:
-        - "label:documentation"
+        - "title:/^docs?[\\(: ]/i"
   hotfix_window_hours: 72
+
+# Match evidence (last 30 days of issues + PRs):
+#   bug / label:bug — 0 matches (review this matcher)
+#   bug / title:/^fix[\(: ]/i — 0 matches (review this matcher)
+#   bug / title:/^bug[\(: ]/i — 0 matches (review this matcher)
+#   bug / title:/\bfix(es|ed)?\b/i — 0 matches (review this matcher)
+#   feature / title:/^feat[\(: ]/i — 26 matches, e.g. #24 feat(verbose): debug output, preflight updates, smoke tests
+#   feature / label:enhancement — 0 matches (review this matcher)
+#   feature / title:/^feature[\(: ]/i — 0 matches (review this matcher)
+#   feature / title:/^add[\(: ]/i — 0 matches (review this matcher)
+#   chore / title:/^refactor[\(: ]/i — 1 matches, e.g. #9 refactor: rename release subcommand to quality release
+#   chore / title:/^chore[\(: ]/i — 0 matches (review this matcher)
+#   chore / title:/^ci[\(: ]/i — 0 matches (review this matcher)
+#   chore / title:/^build[\(: ]/i — 0 matches (review this matcher)
+#   docs / title:/^docs?[\(: ]/i — 1 matches, e.g. #6 docs: Add example configs for real OSS projects
+#   docs / label:documentation — 0 matches (review this matcher)
 
 # Commit message scanning
 commit_ref:
@@ -81,4 +94,4 @@ lifecycle:
 #   discussions: enabled
 #   token scopes: gist, project, read:org, repo, workflow
 
-# Recent activity (last 30 days): 0 issues closed, 0 PRs merged
+# Recent activity (last 30 days): 12 issues closed, 16 PRs merged

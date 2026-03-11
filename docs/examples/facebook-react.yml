@@ -28,18 +28,27 @@ quality:
     - name: bug
       match:
         - "label:Type: Bug"
-        - "label:Type: Regression"
     - name: feature
       match:
-        - "label:Type: Enhancement"
-        - "label:Type: Feature Request"
+        - "title:/^add[\\(: ]/i"
   hotfix_window_hours: 72
 
 # Match evidence (last 30 days of issues + PRs):
+#   bug / title:/^bug[\(: ]/i — 26 matches, e.g. #36002 Bug: why not Signal
+#   bug / title:/\bfix(es|ed)?\b/i — 15 matches, e.g. #35224 Title: Fix minor typo/formatting inconsistency in React d...
 #   bug / label:Type: Bug — 9 matches, e.g. #35954 [DevTools Bug]: confused on prerender pages and resulting...
+#   bug / title:/^fix[\(: ]/i — 2 matches, e.g. #35919 fix: remove unused variable to fix linter
 #   bug / label:Type: Regression — 0 matches (review this matcher)
+#   feature / title:/^add[\(: ]/i — 1 matches, e.g. #35947 Add support for event information in React scheduler trac...
 #   feature / label:Type: Enhancement — 0 matches (review this matcher)
 #   feature / label:Type: Feature Request — 0 matches (review this matcher)
+#   feature / title:/^feat[\(: ]/i — 0 matches (review this matcher)
+#   feature / title:/^feature[\(: ]/i — 0 matches (review this matcher)
+#   chore / title:/^chore[\(: ]/i — 0 matches (review this matcher)
+#   chore / title:/^refactor[\(: ]/i — 0 matches (review this matcher)
+#   chore / title:/^ci[\(: ]/i — 0 matches (review this matcher)
+#   chore / title:/^build[\(: ]/i — 0 matches (review this matcher)
+#   docs / title:/^docs?[\(: ]/i — 0 matches (review this matcher)
 
 # Commit message scanning
 commit_ref:

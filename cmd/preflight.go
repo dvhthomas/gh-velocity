@@ -7,6 +7,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/classify"
@@ -163,9 +164,10 @@ type CategoryEvidence struct {
 
 // MatcherEvidence records what a single matcher matched from recent items.
 type MatcherEvidence struct {
-	Matcher string `json:"matcher"`           // e.g., "label:bug"
-	Count   int    `json:"count"`             // total items matched
-	Example string `json:"example,omitempty"` // "#42 Fix crash on startup"
+	Matcher   string `json:"matcher"`             // e.g., "label:bug"
+	Count     int    `json:"count"`               // total items matched
+	Example   string `json:"example,omitempty"`   // "#42 Fix crash on startup"
+	Suggested bool   `json:"suggested,omitempty"` // true if this is a probed alternative
 }
 
 // VerificationResult validates the generated config is usable.
@@ -459,19 +461,39 @@ func isWordBoundary(c byte) bool {
 	return c == '-' || c == ' ' || c == '_' || c == '/' || c == ':'
 }
 
-// collectMatchEvidence runs each category matcher against recent issues and PRs,
-// recording the match count and one example per matcher.
-func collectMatchEvidence(categories map[string][]string, issues []model.Issue, prs []model.PR) []CategoryEvidence {
-	if len(categories) == 0 {
-		return nil
-	}
+// classifyItem is a unified representation of an issue or PR for matcher probing.
+type classifyItem struct {
+	number int
+	title  string
+	labels []string
+}
 
-	// Build classify inputs from issues and PRs.
-	type classifyItem struct {
-		number int
-		title  string
-		labels []string
-	}
+// titleProbes maps category names to title regex patterns to try when labels find nothing.
+// These cover conventional commit prefixes, common title patterns, and variants.
+var titleProbes = map[string][]string{
+	"bug":     {`title:/^fix[\(: ]/i`, `title:/^bug[\(: ]/i`, `title:/\bfix(es|ed)?\b/i`},
+	"feature": {`title:/^feat[\(: ]/i`, `title:/^feature[\(: ]/i`, `title:/^add[\(: ]/i`},
+	"chore":   {`title:/^chore[\(: ]/i`, `title:/^refactor[\(: ]/i`, `title:/^ci[\(: ]/i`, `title:/^build[\(: ]/i`},
+	"docs":    {`title:/^docs?[\(: ]/i`},
+}
+
+// probeJob describes a single matcher probe to run concurrently.
+type probeJob struct {
+	category  string
+	matcher   string
+	suggested bool
+}
+
+// probeResult is the output of a single concurrent probe.
+type probeResult struct {
+	probeJob
+	evidence MatcherEvidence
+}
+
+// collectMatchEvidence probes every matcher idea against recent items in parallel.
+// For each category it tests all detected label matchers AND all title probes,
+// then sorts by hit count so the best matchers surface first.
+func collectMatchEvidence(categories map[string][]string, issues []model.Issue, prs []model.PR) []CategoryEvidence {
 	var items []classifyItem
 	for _, iss := range issues {
 		items = append(items, classifyItem{number: iss.Number, title: iss.Title, labels: iss.Labels})
@@ -484,43 +506,78 @@ func collectMatchEvidence(categories map[string][]string, issues []model.Issue, 
 		return nil
 	}
 
+	// Build all probe jobs.
 	categoryOrder := []string{"bug", "feature", "chore", "docs"}
+	var jobs []probeJob
+	for _, cat := range categoryOrder {
+		if labels, ok := categories[cat]; ok {
+			for _, label := range labels {
+				jobs = append(jobs, probeJob{category: cat, matcher: "label:" + label})
+			}
+		}
+		for _, probe := range titleProbes[cat] {
+			jobs = append(jobs, probeJob{category: cat, matcher: probe, suggested: true})
+		}
+	}
+
+	// Run all probes concurrently.
+	results := make([]probeResult, len(jobs))
+	var wg sync.WaitGroup
+	for i, job := range jobs {
+		wg.Add(1)
+		go func(idx int, j probeJob) {
+			defer wg.Done()
+			me := probeMatcher(j.matcher, items)
+			me.Suggested = j.suggested
+			results[idx] = probeResult{probeJob: j, evidence: me}
+		}(i, job)
+	}
+	wg.Wait()
+
+	// Group by category and sort by hit count.
+	catMatchers := make(map[string][]MatcherEvidence)
+	for _, r := range results {
+		catMatchers[r.category] = append(catMatchers[r.category], r.evidence)
+	}
+
 	var evidence []CategoryEvidence
 	for _, cat := range categoryOrder {
-		matcherStrs, ok := categories[cat]
-		if !ok || len(matcherStrs) == 0 {
+		matchers := catMatchers[cat]
+		if len(matchers) == 0 {
 			continue
 		}
-		ce := CategoryEvidence{Category: cat}
-		for _, label := range matcherStrs {
-			matcherStr := "label:" + label
-			m, err := classify.ParseMatcher(matcherStr)
-			if err != nil {
-				continue
-			}
-			me := MatcherEvidence{Matcher: matcherStr}
-			for _, item := range items {
-				input := classify.Input{
-					Labels: item.labels,
-					Title:  item.title,
-				}
-				if m.Matches(input) {
-					me.Count++
-					if me.Example == "" {
-						// Truncate long titles
-						title := item.title
-						if len(title) > 60 {
-							title = title[:57] + "..."
-						}
-						me.Example = fmt.Sprintf("#%d %s", item.number, title)
-					}
-				}
-			}
-			ce.Matchers = append(ce.Matchers, me)
-		}
-		evidence = append(evidence, ce)
+		sort.Slice(matchers, func(i, j int) bool {
+			return matchers[i].Count > matchers[j].Count
+		})
+		evidence = append(evidence, CategoryEvidence{Category: cat, Matchers: matchers})
 	}
 	return evidence
+}
+
+// probeMatcher tests a single matcher string against all items.
+func probeMatcher(matcherStr string, items []classifyItem) MatcherEvidence {
+	me := MatcherEvidence{Matcher: matcherStr}
+	m, err := classify.ParseMatcher(matcherStr)
+	if err != nil {
+		return me
+	}
+	for _, item := range items {
+		input := classify.Input{
+			Labels: item.labels,
+			Title:  item.title,
+		}
+		if m.Matches(input) {
+			me.Count++
+			if me.Example == "" {
+				title := item.title
+				if len(title) > 60 {
+					title = title[:57] + "..."
+				}
+				me.Example = fmt.Sprintf("#%d %s", item.number, title)
+			}
+		}
+	}
+	return me
 }
 
 // countLabelUsage counts how often each label appears on recent closed issues.
@@ -580,29 +637,67 @@ func renderPreflightConfig(r *PreflightResult) string {
 	b.WriteString("#   title:/<regex>/i      — same, but case-insensitive\n")
 	b.WriteString("# First category to match wins. Unmatched items are classified as \"other\".\n")
 	b.WriteString("quality:\n")
-	categoryOrder := []string{"bug", "feature", "chore", "docs"}
-	hasCategories := false
-	for _, cat := range categoryOrder {
-		if labels, ok := r.Categories[cat]; ok && len(labels) > 0 {
-			hasCategories = true
-			break
-		}
+
+	// Build effective matchers per category from evidence.
+	// Use matchers with the highest hit rates.
+	evidenceByCategory := make(map[string]CategoryEvidence)
+	for _, ce := range r.MatchEvidence {
+		evidenceByCategory[ce.Category] = ce
 	}
-	if hasCategories {
-		b.WriteString("  categories:\n")
-		for _, cat := range categoryOrder {
-			labels, ok := r.Categories[cat]
-			if !ok || len(labels) == 0 {
+
+	categoryOrder := []string{"bug", "feature", "chore", "docs"}
+	type effectiveCategory struct {
+		name     string
+		matchers []MatcherEvidence
+	}
+	var cats []effectiveCategory
+	for _, cat := range categoryOrder {
+		ce, hasEvidence := evidenceByCategory[cat]
+		if !hasEvidence {
+			// No evidence data (no recent items) — use label matchers as-is.
+			if labels, ok := r.Categories[cat]; ok && len(labels) > 0 {
+				var mes []MatcherEvidence
+				for _, l := range labels {
+					mes = append(mes, MatcherEvidence{Matcher: "label:" + l})
+				}
+				cats = append(cats, effectiveCategory{name: cat, matchers: mes})
+			}
+			continue
+		}
+
+		// Separate label matchers from title probes.
+		var labelHits, titleHits []MatcherEvidence
+		for _, me := range ce.Matchers {
+			if me.Count == 0 {
 				continue
 			}
-			b.WriteString(fmt.Sprintf("    - name: %s\n", cat))
+			if me.Suggested {
+				titleHits = append(titleHits, me)
+			} else {
+				labelHits = append(labelHits, me)
+			}
+		}
+
+		// Prefer label matchers when they have signal.
+		// Only use title matchers when labels found nothing.
+		if len(labelHits) > 0 {
+			cats = append(cats, effectiveCategory{name: cat, matchers: labelHits})
+		} else if len(titleHits) > 0 {
+			cats = append(cats, effectiveCategory{name: cat, matchers: titleHits})
+		}
+	}
+
+	if len(cats) > 0 {
+		b.WriteString("  categories:\n")
+		for _, cat := range cats {
+			b.WriteString(fmt.Sprintf("    - name: %s\n", cat.name))
 			b.WriteString("      match:\n")
-			for _, l := range labels {
-				b.WriteString(fmt.Sprintf("        - \"label:%s\"\n", l))
+			for _, m := range cat.matchers {
+				b.WriteString(fmt.Sprintf("        - %q\n", m.Matcher))
 			}
 		}
 	} else {
-		// Sensible defaults when no labels were detected
+		// Sensible defaults when nothing was detected or matched
 		b.WriteString("  categories:\n")
 		b.WriteString("    - name: bug\n")
 		b.WriteString("      match:\n")
