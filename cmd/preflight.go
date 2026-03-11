@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bitsbyme/gh-velocity/internal/config"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
@@ -81,6 +82,21 @@ each choice. Use --write to save it directly.`,
 			}
 
 			configYAML := renderPreflightConfig(result)
+
+			// Round-trip validate: the YAML we generate must parse cleanly.
+			origWarn := config.WarnFunc
+			var roundTripWarnings []string
+			config.WarnFunc = func(format string, args ...any) {
+				roundTripWarnings = append(roundTripWarnings, fmt.Sprintf(format, args...))
+			}
+			_, parseErr := config.Parse([]byte(configYAML))
+			config.WarnFunc = origWarn
+			if parseErr != nil {
+				return fmt.Errorf("preflight generated invalid config (please report this): %w", parseErr)
+			}
+			for _, w := range roundTripWarnings {
+				return fmt.Errorf("preflight generated config with warnings (please report this): %s", w)
+			}
 
 			if writeFlag {
 				path := ".gh-velocity.yml"
@@ -371,19 +387,18 @@ func renderPreflightConfig(r *PreflightResult) string {
 		b.WriteString("\n")
 	}
 
-	// Posting readiness
+	// Posting readiness (as comments — not a valid config key)
 	if r.PostingReadiness != nil {
-		b.WriteString("# Posting readiness (for --post flag)\n")
-		b.WriteString("posting:\n")
+		b.WriteString("# Posting readiness (for --post flag):\n")
 		if r.PostingReadiness.DiscussionsEnabled {
-			b.WriteString("  discussions: enabled\n")
+			b.WriteString("#   discussions: enabled\n")
 		} else {
-			b.WriteString("  discussions: disabled  # Enable in repo Settings → General → Features\n")
+			b.WriteString("#   discussions: disabled — enable in repo Settings → General → Features\n")
 		}
 		if r.PostingReadiness.HasIssuesWrite {
-			b.WriteString("  issues: accessible\n")
+			b.WriteString("#   issues: accessible\n")
 		} else {
-			b.WriteString("  issues: no access\n")
+			b.WriteString("#   issues: no access\n")
 		}
 		b.WriteString("\n")
 	}
