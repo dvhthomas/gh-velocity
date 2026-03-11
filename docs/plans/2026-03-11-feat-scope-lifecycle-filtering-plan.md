@@ -121,7 +121,7 @@ With just these defaults and auto-injected `repo:`, a zero-config user gets:
 - **WIP**: `repo:owner/repo is:issue is:open` (minus backlog/done negation, which are no-ops without project_status) — works
 - **release**: tag-based discovery, scope only — works
 
-Users add specificity as needed: project boards get `project_status` arrays, label-workflow repos customize queries (e.g., `done.query: "is:closed reason:completed"`). The defaults are the floor, not the ceiling.
+**Override semantics**: If the user configures any lifecycle stage or scope, it completely replaces the internal default for that field. No merging, no layering. A user who sets `done.query: "is:closed reason:completed"` gets exactly that — the default `is:closed` is gone. Same for scope: if `scope.query` is set, no `repo:` auto-injection.
 
 - [ ] Update `Config` struct — remove `Statuses`, `Fields`, add `Scope`, update `Project`, add `Lifecycle`
 - [ ] Update `defaults()` — new default lifecycle
