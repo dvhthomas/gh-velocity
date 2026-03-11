@@ -225,12 +225,12 @@ func (c *Client) searchPaginated(ctx context.Context, query string) ([]searchIss
 }
 ```
 
-- [ ] Create `searchPaginated()` — extract shared pagination logic
-- [ ] Create `SearchIssues()` — uses `searchPaginated()`, converts to `model.Issue`
-- [ ] Create `SearchPRs()` — uses `searchPaginated()`, converts to `model.PR`
-- [ ] Deprecate `SearchClosedIssues`, `SearchOpenIssuesWithLabels`, `SearchMergedPRs` (keep as thin wrappers initially, remove in follow-up)
+- [x] Create `searchPaginated()` — extract shared pagination logic
+- [x] Create `SearchIssues()` — uses `searchPaginated()`, converts to `model.Issue`
+- [x] Create `SearchPRs()` — uses `searchPaginated()`, converts to `model.PR`
+- [x] Deprecate `SearchClosedIssues`, `SearchOpenIssuesWithLabels`, `SearchMergedPRs` (keep as thin wrappers initially, remove in follow-up)
 - [ ] Add `--verbose` page count reporting to search functions
-- [ ] `Client` struct: `SearchIssues`/`SearchPRs` do NOT use `c.owner`/`c.repo` — the query is pre-assembled. `Client` still needs owner/repo for non-search API calls (GetIssue, GetPR, tags, releases, etc.), so `NewClient(owner, repo)` signature stays.
+- [x] `Client` struct: `SearchIssues`/`SearchPRs` do NOT use `c.owner`/`c.repo` — the query is pre-assembled. `Client` still needs owner/repo for non-search API calls (GetIssue, GetPR, tags, releases, etc.), so `NewClient(owner, repo)` signature stays.
 
 **Tests**: Mock-based tests for pagination. Query passthrough (no modification).
 
