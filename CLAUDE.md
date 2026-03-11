@@ -36,6 +36,17 @@ task test:coverage  # Tests with coverage report
 - **Integration tests** run against the built binary (`task build`), not `go run`.
 - **Scope-first data fetching** — all issue/PR data fetching must go through GitHub Search API (REST) or GraphQL project items queries with a pre-assembled query string. Never hardcode `repo:`, `is:issue`, or date qualifiers directly in API calls. Instead, assemble queries from user scope (config + `--scope` flag) and command lifecycle qualifiers via `internal/scope`. This ensures every command benefits from user-defined filtering, even commands like `quality release` that only need scope (not lifecycle).
 
+## Hard Rules
+
+The following rules must **NEVER** be broken:
+
+- On a human can run an update of live GitHub data using the `GH_VELOCITY_POST_LIVE` environment. An agent or script may *NEVER* under any circumstances run such a command, or run code the has a similar effect:
+
+  ```sh
+  # Post lead time as a comment on issue #42
+  GH_VELOCITY_POST_LIVE=true gh velocity flow lead-time 42 --post
+  ```
+
 ## Workflow
 
 - Use /workflows:* skills and use GitHub issues, PRs, and the [project board](https://github.com/users/dvhthomas/projects/1).
