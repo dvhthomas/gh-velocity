@@ -367,9 +367,9 @@ For REST-only path (no project board), WIP is `is:open` with the scope applied. 
 - [ ] REST-only path: `is:open` with scope (backlog label exclusion if configured)
 - [ ] Ensure future lifecycle stages (e.g., on-hold) are automatically included in WIP
 
-#### 3f. Release (`cmd/release.go`)
+#### 3f. Quality release (`cmd/release.go`)
 
-Release uses the strategy pattern via `strategy.Runner`. Scope pre-filters the PR search that `prlink.go` performs.
+Release uses the strategy pattern (`prlink`, `commitref`, `changelog`) to discover items. `prlink.Discover()` internally calls `SearchMergedPRs` — scope must flow into that PR search so only PRs matching the user's scope are discovered.
 
 Add scope to `DiscoverInput`:
 
@@ -380,11 +380,17 @@ type DiscoverInput struct {
 }
 ```
 
-Update `prlink.go` to prepend scope to its merged PR search.
+Update `prlink.go` to prepend scope to its merged PR search query.
+
+**Flag collision**: The existing `--scope` flag on `quality release` (line 26 of release.go) shows a *diagnostic view* of what each strategy found. This collides with the new root-level `--scope` filter flag. Rename the diagnostic flag to `--discover` or `--strategy-view` to avoid confusion.
+
+After discovery, the classifier (`classify.NewClassifier`) and quality metrics still work as before — scope only affects which items are *discovered*, not how they're classified.
 
 - [ ] Add `Scope` to `strategy.DiscoverInput`
 - [ ] Update `prlink.Discover()` to include scope in PR search
+- [ ] Rename `--scope` diagnostic flag to `--discover` (breaking but pre-1.0)
 - [ ] Add verbose output in strategy runner
+- [ ] Verify classifier and quality metrics still work with scope-filtered items
 
 #### 3g. Report (`cmd/report.go`)
 
@@ -513,6 +519,8 @@ Search API has a separate rate limit (30 requests/minute for authenticated users
 - [ ] `project.status_field` resolved to field ID by visible name
 - [ ] `lifecycle` stages used by each command for the correct workflow stage
 - [ ] `cycle_time.strategy` controls `is:issue` vs `is:pr` injection
+- [ ] `quality release` passes scope into strategy discovery (prlink PR search)
+- [ ] `quality release --scope` renamed to `--discover` (no collision with root `--scope`)
 - [ ] WIP is negation of backlog/done/released (future stages auto-included)
 - [ ] Duplicate type qualifier in scope + strategy detected and errors
 - [ ] Zero-result searches warn with full query and clickable URL
