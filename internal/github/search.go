@@ -44,7 +44,7 @@ func searchItemToPR(item searchIssueResponse) model.PR {
 		Title:     item.Title,
 		State:     item.State,
 		Labels:    labels,
-		CreatedAt: item.CreatedAt,
+		CreatedAt: item.CreatedAt.UTC(),
 		URL:       item.HTMLURL,
 	}
 	if item.PullRequest != nil {
@@ -75,7 +75,7 @@ func (c *Client) searchPaginated(ctx context.Context, query string) ([]searchIss
 		}
 		page++
 		if page > 10 { // search API returns max 1000 results
-			log.Warn("results capped at 1000; narrow the query for complete data: %s", query)
+			log.Warn("results capped at 1000; narrow the date range or scope for complete data")
 			break
 		}
 	}
