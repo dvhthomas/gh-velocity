@@ -83,6 +83,10 @@ type MyWeekInsights struct {
 	NewIssues           int // issues opened in the lookback window
 	NewPRs              int // PRs opened in the lookback window
 	PRsAwaitingMyReview int // PRs from others waiting on my review
+	// Velocity metrics computed from lookback data
+	LeadTime  *time.Duration // median lead time of closed issues (created → closed)
+	CycleTime *time.Duration // median cycle time of merged PRs (created → merged)
+	Releases  int            // releases published in the lookback window
 }
 
 // ComputeInsights derives talking points from a MyWeekResult.
@@ -108,7 +112,64 @@ func ComputeInsights(r MyWeekResult) MyWeekInsights {
 		}
 	}
 	ins.PRsAwaitingMyReview = len(r.PRsAwaitingMyReview)
+	ins.Releases = len(r.Releases)
+
+	// Lead time: median of created → closed for closed issues
+	if len(r.IssuesClosed) > 0 {
+		var durations []time.Duration
+		for _, iss := range r.IssuesClosed {
+			if iss.ClosedAt != nil {
+				d := iss.ClosedAt.Sub(iss.CreatedAt)
+				if d > 0 {
+					durations = append(durations, d)
+				}
+			}
+		}
+		if len(durations) > 0 {
+			med := medianDuration(durations)
+			ins.LeadTime = &med
+		}
+	}
+
+	// Cycle time: median of created → merged for merged PRs
+	if len(r.PRsMerged) > 0 {
+		var durations []time.Duration
+		for _, pr := range r.PRsMerged {
+			if pr.MergedAt != nil {
+				d := pr.MergedAt.Sub(pr.CreatedAt)
+				if d > 0 {
+					durations = append(durations, d)
+				}
+			}
+		}
+		if len(durations) > 0 {
+			med := medianDuration(durations)
+			ins.CycleTime = &med
+		}
+	}
+
 	return ins
+}
+
+// medianDuration returns the median of a slice of durations.
+func medianDuration(durations []time.Duration) time.Duration {
+	n := len(durations)
+	sorted := make([]time.Duration, n)
+	copy(sorted, durations)
+	// Simple insertion sort — small N
+	for i := 1; i < n; i++ {
+		key := sorted[i]
+		j := i - 1
+		for j >= 0 && sorted[j] > key {
+			sorted[j+1] = sorted[j]
+			j--
+		}
+		sorted[j+1] = key
+	}
+	if n%2 == 0 {
+		return (sorted[n/2-1] + sorted[n/2]) / 2
+	}
+	return sorted[n/2]
 }
 
 // DaysBetween returns the number of whole days between two times.

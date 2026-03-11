@@ -228,6 +228,8 @@ type MyWeekResult struct {
 	PRsNeedingReview []PR   // open PRs with zero reviews (subset of PRsOpen)
 	// Review pressure: PRs from others waiting on me
 	PRsAwaitingMyReview []PR // open PRs where I'm a requested reviewer
+	// Releases published in the lookback period
+	Releases []Release
 }
 
 // StatsQuality holds defect rate metrics.

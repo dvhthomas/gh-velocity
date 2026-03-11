@@ -67,6 +67,17 @@ func buildInsightLines(r model.MyWeekResult) []string {
 	if len(r.PRsReviewed) > 0 {
 		lines = append(lines, fmt.Sprintf("Reviewed %d PRs.", len(r.PRsReviewed)))
 	}
+	if ins.Releases > 0 {
+		lines = append(lines, fmt.Sprintf("%d release(s) published.", ins.Releases))
+	}
+
+	// Lead time & cycle time
+	if ins.LeadTime != nil {
+		lines = append(lines, fmt.Sprintf("Median lead time: %s (issue created → closed).", formatDuration(*ins.LeadTime)))
+	}
+	if ins.CycleTime != nil {
+		lines = append(lines, fmt.Sprintf("Median cycle time: %s (PR created → merged).", formatDuration(*ins.CycleTime)))
+	}
 
 	// Blockers / attention needed
 	if ins.PRsAwaitingMyReview > 0 {
@@ -92,6 +103,22 @@ func buildInsightLines(r model.MyWeekResult) []string {
 	}
 
 	return lines
+}
+
+// formatDuration renders a duration as a human-friendly string (e.g., "3d 4h", "12h").
+func formatDuration(d time.Duration) string {
+	days := int(d.Hours() / 24)
+	hours := int(d.Hours()) % 24
+	if days > 0 && hours > 0 {
+		return fmt.Sprintf("%dd %dh", days, hours)
+	}
+	if days > 0 {
+		return fmt.Sprintf("%dd", days)
+	}
+	if hours > 0 {
+		return fmt.Sprintf("%dh", hours)
+	}
+	return "<1h"
 }
 
 // joinWith joins strings with sep (like strings.Join but only for 1-2 items).
@@ -147,6 +174,21 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult) error {
 			fmt.Fprintf(w, "\nPRs Reviewed: %d\n", len(r.PRsReviewed))
 			for _, pr := range r.PRsReviewed {
 				fmt.Fprintf(w, "  %s  %s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title)
+			}
+		}
+
+		if len(r.Releases) > 0 {
+			fmt.Fprintf(w, "\nReleases: %d\n", len(r.Releases))
+			for _, rel := range r.Releases {
+				dateStr := rel.CreatedAt.Format(time.DateOnly)
+				if rel.PublishedAt != nil {
+					dateStr = rel.PublishedAt.Format(time.DateOnly)
+				}
+				name := rel.Name
+				if name == "" {
+					name = rel.TagName
+				}
+				fmt.Fprintf(w, "  %s  %s\n", dateStr, name)
 			}
 		}
 	}
@@ -249,6 +291,25 @@ func WriteMyWeekMarkdown(rc RenderContext, r model.MyWeekResult) error {
 		fmt.Fprintf(w, "_None_\n")
 	}
 
+	if len(r.Releases) > 0 {
+		fmt.Fprintf(w, "\n**Releases (%d)**\n\n", len(r.Releases))
+		for _, rel := range r.Releases {
+			dateStr := rel.CreatedAt.Format(time.DateOnly)
+			if rel.PublishedAt != nil {
+				dateStr = rel.PublishedAt.Format(time.DateOnly)
+			}
+			name := rel.Name
+			if name == "" {
+				name = rel.TagName
+			}
+			if rel.URL != "" {
+				fmt.Fprintf(w, "- [%s](%s) (%s)\n", sanitizeMarkdown(name), rel.URL, dateStr)
+			} else {
+				fmt.Fprintf(w, "- %s (%s)\n", sanitizeMarkdown(name), dateStr)
+			}
+		}
+	}
+
 	// Lookahead
 	fmt.Fprintf(w, "\n### What's ahead\n\n")
 
@@ -304,8 +365,9 @@ type jsonMyWeekResult struct {
 }
 
 type jsonMyWeekLookback struct {
-	IssuesClosed []jsonMyWeekItem `json:"issues_closed"`
-	PRsMerged    []jsonMyWeekItem `json:"prs_merged"`
+	IssuesClosed []jsonMyWeekItem    `json:"issues_closed"`
+	PRsMerged    []jsonMyWeekItem    `json:"prs_merged"`
+	Releases     []jsonMyWeekRelease `json:"releases,omitempty"`
 	PRsReviewed  []jsonMyWeekItem `json:"prs_reviewed"`
 }
 
@@ -351,29 +413,50 @@ type jsonMyWeekSummary struct {
 
 type jsonMyWeekInsights struct {
 	Lines               []string `json:"lines"`
+	LeadTimeHours       *float64 `json:"lead_time_hours,omitempty"`
+	CycleTimeHours      *float64 `json:"cycle_time_hours,omitempty"`
 	StaleIssues         int      `json:"stale_issues"`
 	PRsNeedingReview    int      `json:"prs_needing_review"`
 	PRsAwaitingMyReview int      `json:"prs_awaiting_my_review"`
+	Releases            int      `json:"releases"`
 	NewIssues           int      `json:"new_issues"`
 	NewPRs              int      `json:"new_prs"`
+}
+
+type jsonMyWeekRelease struct {
+	Tag           string `json:"tag"`
+	Name          string `json:"name"`
+	URL           string `json:"url,omitempty"`
+	PublishedAt   string `json:"published_at"`
+	IsPrerelease  bool   `json:"is_prerelease,omitempty"`
 }
 
 // WriteMyWeekJSON writes a my-week summary as JSON.
 func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult) error {
 	ins := model.ComputeInsights(r)
+	jsonIns := jsonMyWeekInsights{
+		Lines:               buildInsightLines(r),
+		StaleIssues:         ins.StaleIssues,
+		PRsNeedingReview:    ins.PRsNeedingReview,
+		PRsAwaitingMyReview: ins.PRsAwaitingMyReview,
+		Releases:            ins.Releases,
+		NewIssues:           ins.NewIssues,
+		NewPRs:              ins.NewPRs,
+	}
+	if ins.LeadTime != nil {
+		h := ins.LeadTime.Hours()
+		jsonIns.LeadTimeHours = &h
+	}
+	if ins.CycleTime != nil {
+		h := ins.CycleTime.Hours()
+		jsonIns.CycleTimeHours = &h
+	}
 	out := jsonMyWeekResult{
-		Login: r.Login,
-		Repo:  r.Repo,
-		Since: r.Since.UTC().Format(time.RFC3339),
-		Until: r.Until.UTC().Format(time.RFC3339),
-		Insights: jsonMyWeekInsights{
-			Lines:               buildInsightLines(r),
-			StaleIssues:         ins.StaleIssues,
-			PRsNeedingReview:    ins.PRsNeedingReview,
-			PRsAwaitingMyReview: ins.PRsAwaitingMyReview,
-			NewIssues:           ins.NewIssues,
-			NewPRs:              ins.NewPRs,
-		},
+		Login:    r.Login,
+		Repo:     r.Repo,
+		Since:    r.Since.UTC().Format(time.RFC3339),
+		Until:    r.Until.UTC().Format(time.RFC3339),
+		Insights: jsonIns,
 		Summary: jsonMyWeekSummary{
 			IssuesClosed: len(r.IssuesClosed),
 			PRsMerged:    len(r.PRsMerged),
@@ -401,6 +484,20 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult) error {
 	for _, pr := range r.PRsReviewed {
 		out.Lookback.PRsReviewed = append(out.Lookback.PRsReviewed, jsonMyWeekItem{
 			Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels,
+		})
+	}
+	for _, rel := range r.Releases {
+		pubAt := rel.CreatedAt.UTC().Format(time.RFC3339)
+		if rel.PublishedAt != nil {
+			pubAt = rel.PublishedAt.UTC().Format(time.RFC3339)
+		}
+		name := rel.Name
+		if name == "" {
+			name = rel.TagName
+		}
+		out.Lookback.Releases = append(out.Lookback.Releases, jsonMyWeekRelease{
+			Tag: rel.TagName, Name: name, URL: rel.URL,
+			PublishedAt: pubAt, IsPrerelease: rel.IsPrerelease,
 		})
 	}
 
