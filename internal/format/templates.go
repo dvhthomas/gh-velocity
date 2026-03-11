@@ -650,3 +650,45 @@ func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult) e
 
 	return myweekMarkdownTmpl.Execute(w, data)
 }
+
+// ============================================================
+// Reviews (Review Pressure)
+// ============================================================
+
+var reviewsMarkdownTmpl = mustParseTemplate("reviews.md.tmpl")
+
+type reviewsTemplateData struct {
+	Repository string
+	Items      []reviewItemRow
+	Count      int
+	StaleCount int
+}
+
+type reviewItemRow struct {
+	Link   string
+	Title  string
+	Age    string
+	Signal string
+}
+
+func renderReviewsMarkdown(w io.Writer, rc RenderContext, result model.ReviewPressureResult) error {
+	sorted := sortReviewsByAgeDesc(result.AwaitingReview)
+	data := reviewsTemplateData{
+		Repository: result.Repository,
+		Count:      len(sorted),
+	}
+	for _, pr := range sorted {
+		signal := ""
+		if pr.IsStale {
+			signal = "STALE"
+			data.StaleCount++
+		}
+		data.Items = append(data.Items, reviewItemRow{
+			Link:   FormatItemLink(pr.Number, pr.URL, rc),
+			Title:  sanitizeMarkdown(pr.Title),
+			Age:    FormatDuration(pr.Age),
+			Signal: signal,
+		})
+	}
+	return reviewsMarkdownTmpl.Execute(w, data)
+}

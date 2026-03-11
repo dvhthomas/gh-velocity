@@ -244,6 +244,21 @@ type MyWeekResult struct {
 	Releases []Release
 }
 
+// ReviewPressureResult holds the review queue for a repository.
+type ReviewPressureResult struct {
+	Repository     string
+	AwaitingReview []PRAwaitingReview
+}
+
+// PRAwaitingReview represents a PR waiting for review.
+type PRAwaitingReview struct {
+	Number  int
+	Title   string
+	URL     string
+	Age     time.Duration // since PR was opened
+	IsStale bool          // >48h without review
+}
+
 // StatsQuality holds defect rate metrics.
 type StatsQuality struct {
 	BugCount    int

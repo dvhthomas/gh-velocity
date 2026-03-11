@@ -13,5 +13,6 @@ func NewStatusCmd() *cobra.Command {
 	}
 	cmd.AddCommand(NewWIPCmd())
 	cmd.AddCommand(NewMyWeekCmd())
+	cmd.AddCommand(NewReviewsCmd())
 	return cmd
 }

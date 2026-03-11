@@ -623,10 +623,10 @@ PRs Awaiting Review (sorted by wait time):
 
 ##### Phase 4 Acceptance Criteria
 
-- [ ] `gh velocity status reviews` shows PRs awaiting review sorted by wait time
-- [ ] PRs waiting >48h are flagged as STALE
-- [ ] No individual reviewer names or rankings appear in output
-- [ ] All three output formats work
+- [x] `gh velocity status reviews` shows PRs awaiting review sorted by wait time
+- [x] PRs waiting >48h are flagged as STALE
+- [x] No individual reviewer names or rankings appear in output
+- [x] All three output formats work
 - [ ] Solo repository detected and handled gracefully
 
 ---
