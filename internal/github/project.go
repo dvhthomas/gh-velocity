@@ -27,6 +27,10 @@ func ParseProjectURL(rawURL string) (owner string, number int, isOrg bool, err e
 		return "", 0, false, fmt.Errorf("project URL must be a github.com URL, got host %q", u.Host)
 	}
 	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	// Strip trailing /views/{N} if present (browser URLs include the view).
+	if len(parts) >= 6 && parts[4] == "views" {
+		parts = parts[:4]
+	}
 	// Expected: users/{user}/projects/{N} or orgs/{org}/projects/{N}
 	if len(parts) != 4 || (parts[0] != "users" && parts[0] != "orgs") || parts[2] != "projects" {
 		return "", 0, false, fmt.Errorf("project URL must be https://github.com/users/{user}/projects/{N} or https://github.com/orgs/{org}/projects/{N}, got %q", rawURL)

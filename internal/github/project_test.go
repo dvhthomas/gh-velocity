@@ -57,6 +57,41 @@ func TestParseProjectURL(t *testing.T) {
 			wantNumber: 5,
 			wantIsOrg:  false,
 		},
+		{
+			name:       "user project with view",
+			url:        "https://github.com/users/dvhthomas/projects/1/views/1",
+			wantOwner:  "dvhthomas",
+			wantNumber: 1,
+			wantIsOrg:  false,
+		},
+		{
+			name:       "org project with view",
+			url:        "https://github.com/orgs/myorg/projects/42/views/3",
+			wantOwner:  "myorg",
+			wantNumber: 42,
+			wantIsOrg:  true,
+		},
+		{
+			name:       "URL with query parameters",
+			url:        "https://github.com/users/dvhthomas/projects/1?query=is%3Aopen",
+			wantOwner:  "dvhthomas",
+			wantNumber: 1,
+			wantIsOrg:  false,
+		},
+		{
+			name:       "URL with fragment",
+			url:        "https://github.com/orgs/myorg/projects/42#board",
+			wantOwner:  "myorg",
+			wantNumber: 42,
+			wantIsOrg:  true,
+		},
+		{
+			name:       "URL with view query and fragment",
+			url:        "https://github.com/users/test/projects/3/views/1?filterQuery=label%3Abug#item",
+			wantOwner:  "test",
+			wantNumber: 3,
+			wantIsOrg:  false,
+		},
 	}
 
 	for _, tt := range tests {
