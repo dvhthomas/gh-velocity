@@ -269,7 +269,8 @@ func validate(cfg *Config) error {
 	hasProjectStatus := len(cfg.Lifecycle.Backlog.ProjectStatus) > 0 ||
 		len(cfg.Lifecycle.InProgress.ProjectStatus) > 0 ||
 		len(cfg.Lifecycle.InReview.ProjectStatus) > 0 ||
-		len(cfg.Lifecycle.Done.ProjectStatus) > 0
+		len(cfg.Lifecycle.Done.ProjectStatus) > 0 ||
+		len(cfg.Lifecycle.Released.ProjectStatus) > 0
 	if hasProjectStatus && cfg.Project.StatusField == "" {
 		return fmt.Errorf("config: project.status_field is required when lifecycle stages use project_status")
 	}
@@ -279,8 +280,7 @@ func validate(cfg *Config) error {
 
 	// Discussions category ID validation.
 	if id := cfg.Discussions.CategoryID; id != "" {
-		matched, _ := fmt.Sscanf(id, "DIC_%s", new(string))
-		if matched != 1 || !isAlphanumericAfterPrefix(id, "DIC_") {
+		if !strings.HasPrefix(id, "DIC_") || !isAlphanumericAfterPrefix(id, "DIC_") {
 			return fmt.Errorf("config: discussions.category_id must match ^DIC_[a-zA-Z0-9]+$, got %q", id)
 		}
 	}

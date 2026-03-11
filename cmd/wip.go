@@ -46,7 +46,7 @@ Use -R owner/repo to filter board items to a specific repo.`,
 
 			return &model.AppError{
 				Code:    model.ErrConfigInvalid,
-				Message: "wip requires project.url in .gh-velocity.yml\n\n  To auto-detect your setup:  gh velocity config preflight -R owner/repo\n  To find project board IDs:  gh velocity config discover -R owner/repo",
+				Message: "wip requires project.url in .gh-velocity.yml\n\n  To auto-detect your setup:  gh velocity config preflight -R owner/repo\n  To find project boards:     gh velocity config discover -R owner/repo",
 			}
 		},
 	}

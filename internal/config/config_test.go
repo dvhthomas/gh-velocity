@@ -391,6 +391,11 @@ func TestLoad_Validation(t *testing.T) {
 			wantErr: "project.url must be",
 		},
 		{
+			name:    "project.url non-numeric number",
+			yaml:    "project:\n  url: https://github.com/users/test/projects/abc",
+			wantErr: "project number",
+		},
+		{
 			name:    "project.url empty is OK",
 			yaml:    "project:\n  url: \"\"",
 			wantErr: "",

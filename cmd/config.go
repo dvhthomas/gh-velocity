@@ -182,7 +182,7 @@ func newConfigDiscoverCmd() *cobra.Command {
 		Long: `Queries the GitHub API to find Projects v2 boards linked to the target
 repository, then lists their fields and status options.
 
-Use this to find the project.id and project.status_field_id values
+Use this to find the project URL and status field name
 needed for .gh-velocity.yml configuration.`,
 		Example: `  # Discover projects for a remote repo
   gh velocity config discover -R cli/cli
