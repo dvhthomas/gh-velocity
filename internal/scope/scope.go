@@ -136,6 +136,16 @@ func OpenPRsByAuthorQuery(scopeStr, login string) Query {
 	}
 }
 
+// OpenPRsNeedingReviewQuery returns a Query for open PRs authored by a user
+// that have received zero reviews. Used to detect "waiting for review" state.
+func OpenPRsNeedingReviewQuery(scopeStr, login string) Query {
+	return Query{
+		Scope:     scopeStr,
+		Type:      "is:pr",
+		Lifecycle: fmt.Sprintf("is:open author:%s review:none", login),
+	}
+}
+
 // MergeScope combines config scope and flag scope with AND semantics.
 // Both are GitHub search query fragments; they're joined with a space.
 // Empty strings are ignored.

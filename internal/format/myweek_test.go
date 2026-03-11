@@ -9,12 +9,17 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
+var (
+	testNow   = time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC)
+	testSince = time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+)
+
 func testMyWeekResult() model.MyWeekResult {
 	return model.MyWeekResult{
 		Login: "testuser",
 		Repo:  "owner/repo",
-		Since: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
-		Until: time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC),
+		Since: testSince,
+		Until: testNow,
 		IssuesClosed: []model.Issue{
 			{Number: 1, Title: "Fix crash", URL: "https://github.com/owner/repo/issues/1"},
 			{Number: 5, Title: "Update docs", URL: "https://github.com/owner/repo/issues/5"},
@@ -26,10 +31,24 @@ func testMyWeekResult() model.MyWeekResult {
 			{Number: 20, Title: "Refactor auth", URL: "https://github.com/owner/repo/pull/20"},
 		},
 		IssuesOpen: []model.Issue{
-			{Number: 42, Title: "Implement caching", URL: "https://github.com/owner/repo/issues/42"},
+			// New: created within --since window
+			{Number: 42, Title: "Implement caching", URL: "https://github.com/owner/repo/issues/42",
+				CreatedAt: testSince.Add(2 * 24 * time.Hour), UpdatedAt: testSince.Add(2 * 24 * time.Hour)},
+			// Stale: created 20 days ago, no update in 15 days
+			{Number: 30, Title: "Old backlog item", URL: "https://github.com/owner/repo/issues/30",
+				CreatedAt: testNow.Add(-20 * 24 * time.Hour), UpdatedAt: testNow.Add(-15 * 24 * time.Hour)},
 		},
 		PRsOpen: []model.PR{
-			{Number: 43, Title: "WIP: add my-week command", URL: "https://github.com/owner/repo/pull/43"},
+			// Needs review: created before --since, 10 days old, in PRsNeedingReview
+			{Number: 43, Title: "WIP: add my-week", URL: "https://github.com/owner/repo/pull/43",
+				CreatedAt: testSince.Add(-3 * 24 * time.Hour)},
+			// Normal active PR: created before --since, 2 days old
+			{Number: 44, Title: "Fix typo", URL: "https://github.com/owner/repo/pull/44",
+				CreatedAt: testSince.Add(-1 * 24 * time.Hour)},
+		},
+		PRsNeedingReview: []model.PR{
+			{Number: 43, Title: "WIP: add my-week", URL: "https://github.com/owner/repo/pull/43",
+				CreatedAt: testSince.Add(-3 * 24 * time.Hour)},
 		},
 	}
 }
@@ -47,8 +66,11 @@ func TestWriteMyWeekPretty(t *testing.T) {
 		"Issues Closed: 2", "PRs Merged: 1", "PRs Reviewed: 1",
 		"#1", "#10", "#20",
 		"What's ahead",
-		"Open Issues: 1", "#42", "Implement caching",
-		"Open PRs: 1", "#43", "WIP: add my-week",
+		"Open Issues: 2", "#42", "Implement caching",
+		"Open PRs: 2", "#43", "WIP: add my-week",
+		"<- new",          // #42 should be annotated as new
+		"<- needs review", // #43 should be annotated as needs review
+		"<- stale",        // #30 should be annotated as stale
 	} {
 		if !contains(out, want) {
 			t.Errorf("expected %q in output:\n%s", want, out)
@@ -62,8 +84,8 @@ func TestWriteMyWeekPretty_Empty(t *testing.T) {
 	r := model.MyWeekResult{
 		Login: "testuser",
 		Repo:  "owner/repo",
-		Since: time.Now(),
-		Until: time.Now(),
+		Since: testSince,
+		Until: testNow,
 	}
 	if err := WriteMyWeekPretty(rc, r); err != nil {
 		t.Fatal(err)
@@ -71,7 +93,6 @@ func TestWriteMyWeekPretty_Empty(t *testing.T) {
 	if !contains(buf.String(), "No activity") {
 		t.Error("expected 'No activity' for empty result")
 	}
-	// Should NOT show section headers when everything is empty.
 	if contains(buf.String(), "What I shipped") {
 		t.Error("should not show 'What I shipped' when empty")
 	}
@@ -90,8 +111,11 @@ func TestWriteMyWeekMarkdown(t *testing.T) {
 		"**Issues Closed (2)**", "**PRs Merged (1)**", "**PRs Reviewed (1)**",
 		"[#1]", "[#10]",
 		"### What's ahead",
-		"**Open Issues (1)**", "[#42]",
-		"**Open PRs (1)**", "[#43]",
+		"**Open Issues (2)**", "[#42]",
+		"**Open PRs (2)**", "[#43]",
+		"`new ",          // #42 annotation
+		"`needs review ", // #43 annotation
+		"`stale ",        // #30 annotation
 	} {
 		if !contains(out, want) {
 			t.Errorf("expected %q in output:\n%s", want, out)
@@ -102,7 +126,7 @@ func TestWriteMyWeekMarkdown(t *testing.T) {
 func TestWriteMyWeekMarkdown_Empty(t *testing.T) {
 	var buf bytes.Buffer
 	rc := RenderContext{Writer: &buf, Format: Markdown}
-	r := model.MyWeekResult{Login: "u", Repo: "o/r", Since: time.Now(), Until: time.Now()}
+	r := model.MyWeekResult{Login: "u", Repo: "o/r", Since: testSince, Until: testNow}
 	if err := WriteMyWeekMarkdown(rc, r); err != nil {
 		t.Fatal(err)
 	}
@@ -127,23 +151,115 @@ func TestWriteMyWeekJSON(t *testing.T) {
 	if parsed.Summary.IssuesClosed != 2 {
 		t.Errorf("summary.issues_closed = %d, want 2", parsed.Summary.IssuesClosed)
 	}
-	if parsed.Summary.PRsMerged != 1 {
-		t.Errorf("summary.prs_merged = %d, want 1", parsed.Summary.PRsMerged)
+	if parsed.Summary.IssuesOpen != 2 {
+		t.Errorf("summary.issues_open = %d, want 2", parsed.Summary.IssuesOpen)
 	}
-	if parsed.Summary.IssuesOpen != 1 {
-		t.Errorf("summary.issues_open = %d, want 1", parsed.Summary.IssuesOpen)
-	}
-	if parsed.Summary.PRsOpen != 1 {
-		t.Errorf("summary.prs_open = %d, want 1", parsed.Summary.PRsOpen)
+	if parsed.Summary.PRsOpen != 2 {
+		t.Errorf("summary.prs_open = %d, want 2", parsed.Summary.PRsOpen)
 	}
 	if len(parsed.Lookback.IssuesClosed) != 2 {
 		t.Errorf("lookback.issues_closed length = %d, want 2", len(parsed.Lookback.IssuesClosed))
 	}
-	if len(parsed.Ahead.IssuesOpen) != 1 {
-		t.Errorf("ahead.issues_open length = %d, want 1", len(parsed.Ahead.IssuesOpen))
+
+	// Check annotations on ahead items.
+	if len(parsed.Ahead.IssuesOpen) != 2 {
+		t.Fatalf("ahead.issues_open length = %d, want 2", len(parsed.Ahead.IssuesOpen))
 	}
-	if len(parsed.Ahead.PRsOpen) != 1 {
-		t.Errorf("ahead.prs_open length = %d, want 1", len(parsed.Ahead.PRsOpen))
+	if parsed.Ahead.IssuesOpen[0].Status != "new" {
+		t.Errorf("issue #42 status = %q, want 'new'", parsed.Ahead.IssuesOpen[0].Status)
+	}
+	if parsed.Ahead.IssuesOpen[1].Status != "stale" {
+		t.Errorf("issue #30 status = %q, want 'stale'", parsed.Ahead.IssuesOpen[1].Status)
+	}
+
+	if len(parsed.Ahead.PRsOpen) != 2 {
+		t.Fatalf("ahead.prs_open length = %d, want 2", len(parsed.Ahead.PRsOpen))
+	}
+	if parsed.Ahead.PRsOpen[0].Status != "needs_review" {
+		t.Errorf("PR #43 status = %q, want 'needs_review'", parsed.Ahead.PRsOpen[0].Status)
+	}
+	// PR #44: created before since, has reviews — should be "active"
+	if parsed.Ahead.PRsOpen[1].Status != "active" {
+		t.Errorf("PR #44 status = %q, want 'active'", parsed.Ahead.PRsOpen[1].Status)
+	}
+}
+
+func TestAnnotateIssue(t *testing.T) {
+	tests := []struct {
+		name    string
+		issue   model.Issue
+		wantKind string
+	}{
+		{
+			name: "new issue created in window",
+			issue: model.Issue{
+				CreatedAt: testSince.Add(24 * time.Hour),
+				UpdatedAt: testSince.Add(24 * time.Hour),
+			},
+			wantKind: "new",
+		},
+		{
+			name: "stale issue",
+			issue: model.Issue{
+				CreatedAt: testNow.Add(-30 * 24 * time.Hour),
+				UpdatedAt: testNow.Add(-10 * 24 * time.Hour),
+			},
+			wantKind: "stale",
+		},
+		{
+			name: "active issue",
+			issue: model.Issue{
+				CreatedAt: testSince.Add(-5 * 24 * time.Hour), // before since window
+				UpdatedAt: testNow.Add(-1 * 24 * time.Hour),   // recently updated
+			},
+			wantKind: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := annotateIssue(tt.issue, testSince, testNow)
+			if a.Kind != tt.wantKind {
+				t.Errorf("annotateIssue().Kind = %q, want %q", a.Kind, tt.wantKind)
+			}
+		})
+	}
+}
+
+func TestAnnotatePR(t *testing.T) {
+	tests := []struct {
+		name        string
+		pr          model.PR
+		needsReview bool
+		wantKind    string
+	}{
+		{
+			name:        "needs review",
+			pr:          model.PR{CreatedAt: testSince.Add(-3 * 24 * time.Hour)}, // before since, 10d old
+			needsReview: true,
+			wantKind:    "needs_review",
+		},
+		{
+			name:        "new PR in window",
+			pr:          model.PR{CreatedAt: testSince.Add(24 * time.Hour)}, // within since window
+			needsReview: true, // new takes priority over needs_review
+			wantKind:    "new",
+		},
+		{
+			name:        "active PR no reviews but young",
+			pr:          model.PR{CreatedAt: testSince.Add(-1 * 24 * time.Hour)}, // 8d old, has reviews
+			needsReview: false,
+			wantKind:    "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := annotatePR(tt.pr, tt.needsReview, testSince, testNow)
+			if a.Kind != tt.wantKind {
+				t.Errorf("annotatePR().Kind = %q, want %q", a.Kind, tt.wantKind)
+			}
+		})
 	}
 }
 

@@ -211,6 +211,17 @@ func TestOpenIssuesByAssigneeQuery(t *testing.T) {
 	}
 }
 
+func TestOpenPRsNeedingReviewQuery(t *testing.T) {
+	q := OpenPRsNeedingReviewQuery("repo:owner/repo", "testuser")
+	built := q.Build()
+
+	for _, want := range []string{"repo:owner/repo", "is:pr", "is:open", "author:testuser", "review:none"} {
+		if !strings.Contains(built, want) {
+			t.Errorf("query %q missing %q", built, want)
+		}
+	}
+}
+
 func TestOpenPRsByAuthorQuery(t *testing.T) {
 	q := OpenPRsByAuthorQuery("repo:owner/repo", "testuser")
 	built := q.Build()

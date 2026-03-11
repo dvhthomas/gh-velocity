@@ -222,8 +222,9 @@ type MyWeekResult struct {
 	PRsMerged    []PR
 	PRsReviewed  []PR
 	// Lookahead: what's in progress
-	IssuesOpen []Issue // open issues assigned to me
-	PRsOpen    []PR    // open PRs I authored
+	IssuesOpen      []Issue // open issues assigned to me
+	PRsOpen         []PR    // open PRs I authored
+	PRsNeedingReview []PR   // open PRs with zero reviews (subset of PRsOpen)
 }
 
 // StatsQuality holds defect rate metrics.
