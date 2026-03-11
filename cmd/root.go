@@ -191,7 +191,11 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 			dryRun := postFlag && os.Getenv("GH_VELOCITY_POST_LIVE") != "true"
 
 			if debugFlag {
-				log.Debug("repo:         %s/%s", owner, repo)
+				repoSource := ""
+				if repoFlag == "" && os.Getenv("GH_REPO") == "" {
+					repoSource = " (auto-detected from git remote)"
+				}
+				log.Debug("repo:         %s/%s%s", owner, repo, repoSource)
 				log.Debug("local repo:   %v", hasLocal)
 				log.Debug("config:       %s", configPath)
 				log.Debug("format:       %s", formatFlag)

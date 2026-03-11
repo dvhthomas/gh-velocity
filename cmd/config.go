@@ -8,6 +8,7 @@ import (
 
 	"github.com/bitsbyme/gh-velocity/internal/config"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/spf13/cobra"
 )
@@ -196,6 +197,11 @@ needed for .gh-velocity.yml configuration.`,
 			owner, repo, err := resolveRepo(repoFlag)
 			if err != nil {
 				return err
+			}
+
+			// Detect auto-detection from git remote.
+			if repoFlag == "" && os.Getenv("GH_REPO") == "" {
+				log.Notice("Using repo %s/%s from git remote (use --repo to override)", owner, repo)
 			}
 
 			client, err := gh.NewClient(owner, repo)
