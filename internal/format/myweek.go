@@ -17,12 +17,20 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult) error {
 
 	fmt.Fprintf(w, "Issues Closed: %d\n", len(r.IssuesClosed))
 	for _, iss := range r.IssuesClosed {
-		fmt.Fprintf(w, "  %s  %s\n", FormatItemLink(iss.Number, iss.URL, rc), iss.Title)
+		dateStr := ""
+		if iss.ClosedAt != nil {
+			dateStr = iss.ClosedAt.Format(time.DateOnly) + "  "
+		}
+		fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(iss.Number, iss.URL, rc), dateStr, iss.Title)
 	}
 
 	fmt.Fprintf(w, "\nPRs Merged: %d\n", len(r.PRsMerged))
 	for _, pr := range r.PRsMerged {
-		fmt.Fprintf(w, "  %s  %s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title)
+		dateStr := ""
+		if pr.MergedAt != nil {
+			dateStr = pr.MergedAt.Format(time.DateOnly) + "  "
+		}
+		fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), dateStr, pr.Title)
 	}
 
 	fmt.Fprintf(w, "\nPRs Reviewed: %d\n", len(r.PRsReviewed))
@@ -46,7 +54,11 @@ func WriteMyWeekMarkdown(rc RenderContext, r model.MyWeekResult) error {
 	fmt.Fprintf(w, "### Issues Closed (%d)\n\n", len(r.IssuesClosed))
 	if len(r.IssuesClosed) > 0 {
 		for _, iss := range r.IssuesClosed {
-			fmt.Fprintf(w, "- %s %s\n", FormatItemLink(iss.Number, iss.URL, rc), sanitizeMarkdown(iss.Title))
+			dateStr := ""
+			if iss.ClosedAt != nil {
+				dateStr = " (" + iss.ClosedAt.Format(time.DateOnly) + ")"
+			}
+			fmt.Fprintf(w, "- %s %s%s\n", FormatItemLink(iss.Number, iss.URL, rc), sanitizeMarkdown(iss.Title), dateStr)
 		}
 	} else {
 		fmt.Fprintf(w, "_None_\n")
@@ -55,7 +67,11 @@ func WriteMyWeekMarkdown(rc RenderContext, r model.MyWeekResult) error {
 	fmt.Fprintf(w, "\n### PRs Merged (%d)\n\n", len(r.PRsMerged))
 	if len(r.PRsMerged) > 0 {
 		for _, pr := range r.PRsMerged {
-			fmt.Fprintf(w, "- %s %s\n", FormatItemLink(pr.Number, pr.URL, rc), sanitizeMarkdown(pr.Title))
+			dateStr := ""
+			if pr.MergedAt != nil {
+				dateStr = " (" + pr.MergedAt.Format(time.DateOnly) + ")"
+			}
+			fmt.Fprintf(w, "- %s %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), sanitizeMarkdown(pr.Title), dateStr)
 		}
 	} else {
 		fmt.Fprintf(w, "_None_\n")
@@ -89,6 +105,7 @@ type jsonMyWeekItem struct {
 	Number int      `json:"number"`
 	Title  string   `json:"title"`
 	URL    string   `json:"url"`
+	Date   string   `json:"date,omitempty"` // closed/merged date
 	Labels []string `json:"labels,omitempty"`
 }
 
@@ -113,14 +130,18 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult) error {
 	}
 
 	for _, iss := range r.IssuesClosed {
-		out.IssuesClosed = append(out.IssuesClosed, jsonMyWeekItem{
-			Number: iss.Number, Title: iss.Title, URL: iss.URL, Labels: iss.Labels,
-		})
+		item := jsonMyWeekItem{Number: iss.Number, Title: iss.Title, URL: iss.URL, Labels: iss.Labels}
+		if iss.ClosedAt != nil {
+			item.Date = iss.ClosedAt.UTC().Format(time.RFC3339)
+		}
+		out.IssuesClosed = append(out.IssuesClosed, item)
 	}
 	for _, pr := range r.PRsMerged {
-		out.PRsMerged = append(out.PRsMerged, jsonMyWeekItem{
-			Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels,
-		})
+		item := jsonMyWeekItem{Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels}
+		if pr.MergedAt != nil {
+			item.Date = pr.MergedAt.UTC().Format(time.RFC3339)
+		}
+		out.PRsMerged = append(out.PRsMerged, item)
 	}
 	for _, pr := range r.PRsReviewed {
 		out.PRsReviewed = append(out.PRsReviewed, jsonMyWeekItem{
