@@ -78,6 +78,9 @@ func newConfigShowCmd() *cobra.Command {
 			}
 			fmt.Fprintf(w, "discussions.category:        %s\n", cfg.Discussions.Category)
 			fmt.Fprintf(w, "cycle_time.strategy:         %s\n", cfg.CycleTime.Strategy)
+			if len(cfg.ExcludeUsers) > 0 {
+				fmt.Fprintf(w, "exclude_users:               %v\n", cfg.ExcludeUsers)
+			}
 			return nil
 		},
 	}
@@ -147,6 +150,12 @@ commit_ref:
 #   backlog:
 #     query: "is:open"
 #     project_status: ["Backlog", "Triage"]
+
+# Exclude bot accounts from metrics (e.g., dependabot, renovate).
+# These are filtered via -author: qualifiers in search queries.
+# exclude_users:
+#   - "dependabot[bot]"
+#   - "renovate[bot]"
 `
 
 func newConfigCreateCmd() *cobra.Command {
