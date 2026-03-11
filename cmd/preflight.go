@@ -352,6 +352,14 @@ var statusPatterns = map[string][]string{
 	"backlog": {"backlog", "icebox", "deferred", "wishlist"},
 }
 
+// ignorePrefixes lists label prefixes that indicate non-category/non-status labels.
+// Labels starting with these are skipped during classification.
+var ignorePrefixes = []string{
+	"event/",       // one-time events, not categories
+	"do-not-merge", // merge gates, not workflow status
+	"needs-",       // triage/process labels
+}
+
 // classifyLabels sorts repo labels into quality categories and status buckets.
 // Each label is assigned to the first matching category only (first-match-wins).
 func classifyLabels(result *PreflightResult, labels []string) {
@@ -360,6 +368,10 @@ func classifyLabels(result *PreflightResult, labels []string) {
 
 	for _, label := range labels {
 		lower := strings.ToLower(label)
+
+		if hasIgnorePrefix(lower) {
+			continue
+		}
 
 		// Quality categories: first match wins
 		for _, cat := range categoryOrder {
@@ -380,6 +392,16 @@ func classifyLabels(result *PreflightResult, labels []string) {
 			result.BacklogLabels = append(result.BacklogLabels, label)
 		}
 	}
+}
+
+// hasIgnorePrefix returns true if label starts with any ignore prefix.
+func hasIgnorePrefix(lower string) bool {
+	for _, prefix := range ignorePrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // matchesWordAny returns true if any pattern matches label at a word boundary.
@@ -542,7 +564,12 @@ func renderPreflightConfig(r *PreflightResult) string {
 			b.WriteString("  backlog:\n")
 			b.WriteString("    query: \"is:open")
 			for _, l := range r.BacklogLabels {
-				b.WriteString(fmt.Sprintf(" label:%q", l))
+				// Labels with spaces need quoting in GitHub search syntax.
+				if strings.Contains(l, " ") {
+					b.WriteString(fmt.Sprintf(" label:\\\"%s\\\"", l))
+				} else {
+					b.WriteString(fmt.Sprintf(" label:%s", l))
+				}
 			}
 			b.WriteString("\"\n")
 		}

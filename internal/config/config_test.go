@@ -266,6 +266,63 @@ nested:
 	}
 }
 
+func TestParse_CategoriesWithDefaultLabelsNoWarning(t *testing.T) {
+	// Categories + default bug_labels/feature_labels should NOT warn.
+	data := []byte(`quality:
+  categories:
+    - name: bug
+      match:
+        - label:bug
+`)
+	var warnings []string
+	origWarn := WarnFunc
+	WarnFunc = func(format string, args ...any) {
+		warnings = append(warnings, fmt.Sprintf(format, args...))
+	}
+	defer func() { WarnFunc = origWarn }()
+
+	_, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, w := range warnings {
+		if strings.Contains(w, "takes precedence") {
+			t.Error("should not warn about precedence when legacy labels are only defaults")
+		}
+	}
+}
+
+func TestParse_CategoriesWithExplicitLegacyLabelsWarns(t *testing.T) {
+	// Categories + explicit non-default bug_labels SHOULD warn.
+	data := []byte(`quality:
+  bug_labels: ["crash", "regression"]
+  categories:
+    - name: bug
+      match:
+        - label:bug
+`)
+	var warnings []string
+	origWarn := WarnFunc
+	WarnFunc = func(format string, args ...any) {
+		warnings = append(warnings, fmt.Sprintf(format, args...))
+	}
+	defer func() { WarnFunc = origWarn }()
+
+	_, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	found := false
+	for _, w := range warnings {
+		if strings.Contains(w, "takes precedence") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected precedence warning when explicit legacy labels and categories coexist")
+	}
+}
+
 func TestParse_ValidConfig(t *testing.T) {
 	data := []byte(`
 workflow: local

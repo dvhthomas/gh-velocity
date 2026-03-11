@@ -313,13 +313,15 @@ func isAlphanumericAfterPrefix(s, prefix string) bool {
 
 // resolveCategories ensures cfg.Quality.Categories is populated.
 // If the user specified explicit categories, those are used (and a warning
-// is emitted if legacy labels are also present). Otherwise, categories are
-// auto-generated from bug_labels/feature_labels for backward compatibility.
+// is emitted if legacy labels are also present in the YAML). Otherwise,
+// categories are auto-generated from bug_labels/feature_labels for backward compatibility.
 func resolveCategories(cfg *Config) {
-	hasLegacy := len(cfg.Quality.BugLabels) > 0 || len(cfg.Quality.FeatureLabels) > 0
-
 	if len(cfg.Quality.Categories) > 0 {
-		if hasLegacy {
+		// Legacy labels from defaults() are always present; only warn if they
+		// differ from the defaults, indicating the user explicitly set them.
+		explicitBug := !slicesEqual(cfg.Quality.BugLabels, []string{"bug"})
+		explicitFeature := !slicesEqual(cfg.Quality.FeatureLabels, []string{"enhancement"})
+		if explicitBug || explicitFeature {
 			WarnFunc("config: both 'categories' and 'bug_labels'/'feature_labels' are set; 'categories' takes precedence")
 		}
 		return
@@ -327,4 +329,17 @@ func resolveCategories(cfg *Config) {
 
 	// Auto-generate from legacy labels (including defaults).
 	cfg.Quality.Categories = classify.FromLegacyLabels(cfg.Quality.BugLabels, cfg.Quality.FeatureLabels)
+}
+
+// slicesEqual reports whether two string slices are identical.
+func slicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

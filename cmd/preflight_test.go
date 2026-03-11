@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"testing"
+
+	"github.com/bitsbyme/gh-velocity/internal/config"
 )
 
 func TestMatchesWord(t *testing.T) {
@@ -110,37 +112,159 @@ func TestClassifyLabels(t *testing.T) {
 	}
 }
 
-func TestRenderPreflightConfig_RoundTrips(t *testing.T) {
-	// A minimal result should produce YAML that round-trips through config.Parse.
-	result := &PreflightResult{
-		Repo:     "owner/repo",
-		Strategy: "issue",
-		Categories: map[string][]string{
-			"bug":     {"bug", "defect"},
-			"feature": {"enhancement"},
-		},
-		Hints: []string{"test hint"},
+func TestClassifyLabels_IgnorePrefixes(t *testing.T) {
+	labels := []string{
+		"bug",
+		"event/terraform-docs-day",      // should be ignored (event/ prefix)
+		"do-not-merge/work-in-progress", // should be ignored (do-not-merge prefix)
+		"needs-investigation",           // should be ignored (needs- prefix)
+		"kind/bug",                      // should match bug
+		"documentation",                 // should match docs
+		"in-progress",                   // should match active
 	}
 
-	yaml := renderPreflightConfig(result)
+	result := &PreflightResult{}
+	classifyLabels(result, labels)
 
-	// Verify no "posting:" block appears as a YAML key
-	if contains(yaml, "\nposting:\n") {
-		t.Error("renderPreflightConfig should not generate a 'posting:' YAML block")
-	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && searchString(s, substr)
-}
-
-func searchString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
+	// Docs should NOT contain "event/terraform-docs-day"
+	for _, l := range result.Categories["docs"] {
+		if l == "event/terraform-docs-day" {
+			t.Error("event/terraform-docs-day should be excluded by ignore prefix")
 		}
 	}
-	return false
+	if len(result.Categories["docs"]) != 1 || result.Categories["docs"][0] != "documentation" {
+		t.Errorf("expected docs [documentation], got %v", result.Categories["docs"])
+	}
+
+	// Active should NOT contain "do-not-merge/work-in-progress"
+	for _, l := range result.ActiveLabels {
+		if l == "do-not-merge/work-in-progress" {
+			t.Error("do-not-merge/work-in-progress should be excluded by ignore prefix")
+		}
+	}
+	if len(result.ActiveLabels) != 1 || result.ActiveLabels[0] != "in-progress" {
+		t.Errorf("expected active [in-progress], got %v", result.ActiveLabels)
+	}
+
+	// Bug should have both "bug" and "kind/bug"
+	if len(result.Categories["bug"]) != 2 {
+		t.Errorf("expected 2 bug labels, got %v", result.Categories["bug"])
+	}
+}
+
+func TestRenderPreflightConfig_RoundTrips(t *testing.T) {
+	tests := []struct {
+		name   string
+		result *PreflightResult
+	}{
+		{
+			name: "minimal",
+			result: &PreflightResult{
+				Repo:     "owner/repo",
+				Strategy: "issue",
+				Categories: map[string][]string{
+					"bug":     {"bug", "defect"},
+					"feature": {"enhancement"},
+				},
+				Hints: []string{"test hint"},
+			},
+		},
+		{
+			name: "labels with colons",
+			result: &PreflightResult{
+				Repo:     "facebook/react",
+				Strategy: "pr",
+				Categories: map[string][]string{
+					"bug":     {"Type: Bug", "Type: Regression"},
+					"feature": {"Type: Enhancement", "Type: Feature Request"},
+				},
+			},
+		},
+		{
+			name: "backlog labels with spaces",
+			result: &PreflightResult{
+				Repo:     "facebook/react",
+				Strategy: "pr",
+				Categories: map[string][]string{
+					"bug": {"bug"},
+				},
+				BacklogLabels: []string{"Resolution: Backlog"},
+			},
+		},
+		{
+			name: "backlog labels simple",
+			result: &PreflightResult{
+				Repo:     "owner/repo",
+				Strategy: "issue",
+				Categories: map[string][]string{
+					"bug": {"bug"},
+				},
+				BacklogLabels: []string{"backlog", "icebox"},
+			},
+		},
+		{
+			name: "project board with status options",
+			result: &PreflightResult{
+				Repo:          "owner/repo",
+				Strategy:      "project-board",
+				HasProject:    true,
+				ProjectURL:    "https://github.com/users/test/projects/1",
+				StatusOptions: []string{"Backlog", "In Progress", "In Review", "Done"},
+				Categories: map[string][]string{
+					"bug":     {"bug"},
+					"feature": {"enhancement"},
+				},
+			},
+		},
+		{
+			name: "no categories detected",
+			result: &PreflightResult{
+				Repo:     "owner/repo",
+				Strategy: "issue",
+			},
+		},
+		{
+			name: "labels with special characters",
+			result: &PreflightResult{
+				Repo:     "owner/repo",
+				Strategy: "pr",
+				Categories: map[string][]string{
+					"bug":     {"kind/bug", "priority:critical-bug"},
+					"feature": {"kind/feature", "kind/api-change"},
+				},
+				BacklogLabels: []string{"priority/backlog", "lifecycle/frozen"},
+			},
+		},
+		{
+			name: "hints with newlines",
+			result: &PreflightResult{
+				Repo:     "owner/repo",
+				Strategy: "issue",
+				Hints:    []string{"line one\nline two", "normal hint"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			yamlStr := renderPreflightConfig(tt.result)
+
+			// Suppress warnings during parse (defaults may overlap with categories).
+			origWarn := config.WarnFunc
+			config.WarnFunc = func(string, ...any) {}
+			defer func() { config.WarnFunc = origWarn }()
+
+			cfg, err := config.Parse([]byte(yamlStr))
+			if err != nil {
+				t.Fatalf("generated YAML does not parse:\n%s\nerror: %v", yamlStr, err)
+			}
+
+			// Basic sanity: config should have a valid strategy
+			if cfg.CycleTime.Strategy == "" {
+				t.Error("expected non-empty cycle_time.strategy")
+			}
+		})
+	}
 }
 
 func TestVerifyConfig_ValidConfig(t *testing.T) {
