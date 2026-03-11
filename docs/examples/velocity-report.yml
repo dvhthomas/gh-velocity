@@ -4,8 +4,8 @@
 #   1. Install the extension: gh extension install dvhthomas/gh-velocity
 #   2. Enable Discussions in repo Settings → General → Features
 #   3. Create a Discussion category (e.g., "Reports")
-#   4. Add .gh-velocity.yml with discussions.category_id
-#      (find it with: gh velocity config discover -R owner/repo)
+#   4. Add .gh-velocity.yml with discussions.category set to category name
+#      (e.g., discussions:\n  category: General)
 #
 # The report updates in place each week (idempotent via HTML comment markers).
 # To always create a new Discussion, use --new-post instead of --post.

@@ -283,7 +283,7 @@ func TestDiscussionPoster_ForceNew(t *testing.T) {
 	}
 }
 
-func TestDiscussionPoster_MissingCategoryID(t *testing.T) {
+func TestDiscussionPoster_MissingCategory(t *testing.T) {
 	mock := &mockDiscussionClient{}
 	poster := &DiscussionPoster{Client: mock}
 
@@ -294,7 +294,7 @@ func TestDiscussionPoster_MissingCategoryID(t *testing.T) {
 		Target:  DiscussionTarget,
 	})
 	if err == nil {
-		t.Fatal("expected error for missing category_id")
+		t.Fatal("expected error for missing category")
 	}
 	var appErr *model.AppError
 	if !errors.As(err, &appErr) {

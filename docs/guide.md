@@ -371,9 +371,9 @@ statuses:
   active_labels: ["in-progress", "wip"]    # labels that mean "work started"
   backlog_labels: ["backlog", "icebox"]    # labels that suppress cycle time
 
-# GitHub Discussions integration (for future posting)
+# GitHub Discussions integration (for --post on bulk commands)
 discussions:
-  category_id: "DIC_kwDOAbc123"
+  category: General
 ```
 
 ### Configuration details

@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // Discussion represents a GitHub Discussion.
@@ -49,6 +50,50 @@ func (c *Client) CheckDiscussionsEnabled(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("check discussions enabled: %w", err)
 	}
 	return resp.HasDiscussions, nil
+}
+
+// ResolveDiscussionCategoryID resolves a human-readable category name
+// (e.g. "General") to its GraphQL node ID (e.g. "DIC_kwDO...").
+// The match is case-insensitive.
+func (c *Client) ResolveDiscussionCategoryID(ctx context.Context, name string) (string, error) {
+	query := `query($owner: String!, $repo: String!) {
+		repository(owner: $owner, name: $repo) {
+			discussionCategories(first: 50) {
+				nodes { id name }
+			}
+		}
+	}`
+	variables := map[string]any{
+		"owner": c.owner,
+		"repo":  c.repo,
+	}
+	var resp struct {
+		Repository struct {
+			DiscussionCategories struct {
+				Nodes []struct {
+					ID   string `json:"id"`
+					Name string `json:"name"`
+				} `json:"nodes"`
+			} `json:"discussionCategories"`
+		} `json:"repository"`
+	}
+	if err := c.gql.DoWithContext(ctx, query, variables, &resp); err != nil {
+		return "", fmt.Errorf("resolve discussion category: %w", err)
+	}
+
+	lower := strings.ToLower(name)
+	for _, cat := range resp.Repository.DiscussionCategories.Nodes {
+		if strings.ToLower(cat.Name) == lower {
+			return cat.ID, nil
+		}
+	}
+
+	// Build list of available categories for the error message.
+	var names []string
+	for _, cat := range resp.Repository.DiscussionCategories.Nodes {
+		names = append(names, cat.Name)
+	}
+	return "", fmt.Errorf("discussion category %q not found; available: %s", name, strings.Join(names, ", "))
 }
 
 // SearchDiscussions searches for discussions in the given category,

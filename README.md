@@ -110,7 +110,7 @@ GH_VELOCITY_POST_LIVE=true gh velocity flow lead-time 42 --new-post
 | Single PR (`flow cycle-time --pr 5`) | PR comment |
 | Bulk (`report --since 30d`) | Discussion post |
 
-Discussion posting requires `discussions.category_id` in your config (find it with `config discover`).
+Discussion posting requires `discussions.category` (e.g., `General`) in your config. The tool resolves the name to a GraphQL ID at runtime.
 
 ### CI / GitHub Actions
 

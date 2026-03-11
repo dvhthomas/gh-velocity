@@ -149,7 +149,7 @@ func (p *DiscussionPoster) Post(ctx context.Context, opts PostOptions) error {
 	if opts.CategoryID == "" {
 		return &model.AppError{
 			Code:    model.ErrPostFailed,
-			Message: "posting to Discussions requires a category_id in config",
+			Message: "posting to Discussions requires discussions.category in config",
 		}
 	}
 

@@ -92,7 +92,7 @@ type QualityConfig struct {
 }
 
 type DiscussionsConfig struct {
-	CategoryID string `yaml:"category_id" json:"category_id"`
+	Category string `yaml:"category" json:"category"`
 }
 
 // Load reads and parses the config file. Returns default config if file doesn't exist.
@@ -278,10 +278,10 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("config: project.url is required when lifecycle stages use project_status")
 	}
 
-	// Discussions category ID validation.
-	if id := cfg.Discussions.CategoryID; id != "" {
-		if !strings.HasPrefix(id, "DIC_") || !isAlphanumericAfterPrefix(id, "DIC_") {
-			return fmt.Errorf("config: discussions.category_id must match ^DIC_[a-zA-Z0-9]+$, got %q", id)
+	// Discussions category name validation.
+	if name := cfg.Discussions.Category; name != "" {
+		if strings.TrimSpace(name) == "" {
+			return fmt.Errorf("config: discussions.category must be a non-empty name, got %q", name)
 		}
 	}
 
@@ -297,19 +297,6 @@ func validate(cfg *Config) error {
 	return nil
 }
 
-// isAlphanumericAfterPrefix checks that everything after the prefix is [a-zA-Z0-9].
-func isAlphanumericAfterPrefix(s, prefix string) bool {
-	rest := strings.TrimPrefix(s, prefix)
-	if rest == "" {
-		return false
-	}
-	for _, c := range rest {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
-			return false
-		}
-	}
-	return true
-}
 
 // resolveCategories ensures cfg.Quality.Categories is populated.
 // If the user specified explicit categories, those are used (and a warning

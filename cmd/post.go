@@ -5,8 +5,11 @@ import (
 	"context"
 	"io"
 
+	"fmt"
+
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
+	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/spf13/cobra"
 )
@@ -32,7 +35,21 @@ func postIfEnabled(cmd *cobra.Command, deps *Deps, client *gh.Client, opts posti
 		var poster posting.Poster
 		switch opts.Target {
 		case posting.DiscussionTarget:
-			opts.CategoryID = deps.Config.Discussions.CategoryID
+			categoryName := deps.Config.Discussions.Category
+			if categoryName == "" {
+				return &model.AppError{
+					Code:    model.ErrConfigInvalid,
+					Message: "posting to Discussions requires discussions.category in config",
+				}
+			}
+			categoryID, err := client.ResolveDiscussionCategoryID(cmd.Context(), categoryName)
+			if err != nil {
+				return &model.AppError{
+					Code:    model.ErrPostFailed,
+					Message: fmt.Sprintf("resolve discussion category %q: %v", categoryName, err),
+				}
+			}
+			opts.CategoryID = categoryID
 			poster = &posting.DiscussionPoster{
 				Client: &discussionAdapter{client: client},
 				DryRun: deps.DryRun,

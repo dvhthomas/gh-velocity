@@ -75,7 +75,7 @@ func newConfigShowCmd() *cobra.Command {
 					fmt.Fprintf(w, "  - %s: %v\n", cat.Name, cat.Matchers)
 				}
 			}
-			fmt.Fprintf(w, "discussions.category_id:     %s\n", cfg.Discussions.CategoryID)
+			fmt.Fprintf(w, "discussions.category:        %s\n", cfg.Discussions.Category)
 			fmt.Fprintf(w, "cycle_time.strategy:         %s\n", cfg.CycleTime.Strategy)
 			return nil
 		},

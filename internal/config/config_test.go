@@ -458,18 +458,13 @@ func TestLoad_Validation(t *testing.T) {
 			wantErr: "",
 		},
 		{
-			name:    "category_id valid",
-			yaml:    "discussions:\n  category_id: DIC_abc123",
+			name:    "category valid",
+			yaml:    "discussions:\n  category: General",
 			wantErr: "",
 		},
 		{
-			name:    "category_id invalid",
-			yaml:    "discussions:\n  category_id: NOT_valid",
-			wantErr: "discussions.category_id must match",
-		},
-		{
-			name:    "category_id empty is OK",
-			yaml:    "discussions:\n  category_id: \"\"",
+			name:    "category empty is OK",
+			yaml:    "discussions:\n  category: \"\"",
 			wantErr: "",
 		},
 		{
@@ -553,7 +548,7 @@ project:
 quality:
   hotfix_window_hours: 48
 discussions:
-  category_id: DIC_kwDOTest`,
+  category: General`,
 			wantErr: "",
 		},
 	}

@@ -27,7 +27,7 @@ cycle_time:
   strategy: issue
 
 discussions:
-  category_id: "DIC_kwDORiulCM4C4CrY"  # General
+  category: General
 
 lifecycle:
   done:
