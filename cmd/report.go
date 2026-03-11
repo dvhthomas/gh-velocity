@@ -102,9 +102,9 @@ unavailable.`,
 			case format.JSON:
 				fmtErr = format.WriteReportJSON(w, result)
 			case format.Markdown:
-				fmtErr = format.WriteReportMarkdown(w, result)
+				fmtErr = format.WriteReportMarkdown(deps.RenderCtx(w), result)
 			default:
-				fmtErr = format.WriteReportPretty(w, deps.IsTTY, deps.TermWidth, result)
+				fmtErr = format.WriteReportPretty(deps.RenderCtx(w), result)
 			}
 			if fmtErr != nil {
 				return fmtErr

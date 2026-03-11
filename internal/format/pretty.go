@@ -2,7 +2,6 @@ package format
 
 import (
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/bitsbyme/gh-velocity/internal/model"
@@ -10,7 +9,8 @@ import (
 )
 
 // WriteReleasePretty writes release metrics as a formatted table to the writer.
-func WriteReleasePretty(w io.Writer, isTTY bool, width int, rm model.ReleaseMetrics, warnings []string) error {
+func WriteReleasePretty(rc RenderContext, rm model.ReleaseMetrics, warnings []string) error {
+	w := rc.Writer
 	fmt.Fprintf(w, "Release %s\n", rm.Tag)
 	fmt.Fprintln(w, strings.Repeat("=", 60))
 	fmt.Fprintln(w)
@@ -35,15 +35,16 @@ func WriteReleasePretty(w io.Writer, isTTY bool, width int, rm model.ReleaseMetr
 	// Per-issue table
 	if len(rm.Issues) > 0 {
 		fmt.Fprintln(w, "Issues")
-		tp := NewTable(w, isTTY, width)
-		tp.AddHeader([]string{"#", "Title", "Lead Time", "Cycle Time", "Rel. Lag", "Commits", ""})
+		tp := NewTable(w, rc.IsTTY, rc.Width)
+		tp.AddHeader([]string{"#", "Title", "Labels", "Lead Time", "Cycle Time", "Rel. Lag", "Commits", ""})
 		for _, im := range rm.Issues {
 			flag := ""
 			if im.LeadTimeOutlier || im.CycleTimeOutlier {
 				flag = "OUTLIER"
 			}
-			tp.AddField(fmt.Sprintf("%d", im.Issue.Number))
+			tp.AddField(FormatItemLink(im.Issue.Number, im.Issue.URL, rc))
 			tp.AddField(im.Issue.Title)
+			tp.AddField(FormatLabels(im.Issue.Labels))
 			tp.AddField(FormatDurationPtr(im.LeadTime.Duration))
 			tp.AddField(FormatDurationPtr(im.CycleTime.Duration))
 			tp.AddField(FormatDurationPtr(im.ReleaseLag.Duration))
@@ -59,7 +60,7 @@ func WriteReleasePretty(w io.Writer, isTTY bool, width int, rm model.ReleaseMetr
 
 	// Aggregates
 	fmt.Fprintln(w, "Aggregates")
-	tp := NewTable(w, isTTY, width)
+	tp := NewTable(w, rc.IsTTY, rc.Width)
 	tp.AddHeader([]string{"Metric", "Mean", "Median", "Std Dev", "P90", "P95", "Outliers"})
 	writePrettyStatsRow(tp, "Lead Time", rm.LeadTimeStats)
 	writePrettyStatsRow(tp, "Cycle Time", rm.CycleTimeStats)

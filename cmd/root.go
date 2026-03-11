@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -36,10 +37,23 @@ type Deps struct {
 	Owner        string
 	Repo         string
 	Scope        string // merged config + flag scope (GitHub search query fragment)
+	ExcludeUsers string // "-author:bot1 -author:bot2" exclusion qualifiers from config
 	HasLocalRepo bool   // true when a local git checkout is available
 	IsTTY        bool   // true when stdout is a terminal
 	TermWidth    int    // terminal width in columns (0 = unknown)
 	Debug        bool   // true when --debug is set
+}
+
+// RenderCtx builds a format.RenderContext from Deps and a writer.
+func (d *Deps) RenderCtx(w io.Writer) format.RenderContext {
+	return format.RenderContext{
+		Writer: w,
+		Format: d.Format,
+		IsTTY:  d.IsTTY,
+		Width:  d.TermWidth,
+		Owner:  d.Owner,
+		Repo:   d.Repo,
+	}
 }
 
 // DepsFromContext extracts Deps from the command context.
@@ -222,6 +236,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				Owner:        owner,
 				Repo:         repo,
 				Scope:        resolvedScope,
+				ExcludeUsers: scope.BuildExclusions(cfg.ExcludeUsers),
 				HasLocalRepo: hasLocal,
 				IsTTY:        isTTY,
 				TermWidth:    termWidth,

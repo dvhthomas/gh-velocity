@@ -51,6 +51,8 @@ type JSONLeadTimeOutput struct {
 	Issue      int        `json:"issue"`
 	Title      string     `json:"title"`
 	State      string     `json:"state"`
+	URL        string     `json:"url,omitempty"`
+	Labels     []string   `json:"labels,omitempty"`
 	LeadTime   JSONMetric `json:"lead_time"`
 	Warnings   []string   `json:"warnings,omitempty"`
 }
@@ -62,6 +64,8 @@ type JSONCycleTimeOutput struct {
 	PR         int        `json:"pr,omitempty"`
 	Title      string     `json:"title"`
 	State      string     `json:"state"`
+	URL        string     `json:"url,omitempty"`
+	Labels     []string   `json:"labels,omitempty"`
 	CycleTime  JSONMetric `json:"cycle_time"`
 	Warnings   []string   `json:"warnings,omitempty"`
 }
@@ -94,6 +98,8 @@ type JSONCategoryComposition struct {
 type JSONIssueMetrics struct {
 	Number           int        `json:"number"`
 	Title            string     `json:"title"`
+	URL              string     `json:"url,omitempty"`
+	Labels           []string   `json:"labels,omitempty"`
 	Category         string     `json:"category"`
 	LeadTime         JSONMetric `json:"lead_time"`
 	CycleTime        JSONMetric `json:"cycle_time"`
@@ -121,12 +127,14 @@ type JSONStats struct {
 }
 
 // WriteLeadTimeJSON writes lead-time metrics as JSON to the writer.
-func WriteLeadTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, m model.Metric, warnings []string) error {
+func WriteLeadTimeJSON(w io.Writer, repo string, issueNumber int, title, state, issueURL string, labels []string, m model.Metric, warnings []string) error {
 	out := JSONLeadTimeOutput{
 		Repository: repo,
 		Issue:      issueNumber,
 		Title:      title,
 		State:      state,
+		URL:        issueURL,
+		Labels:     labels,
 		LeadTime:   metricToJSON(m),
 		Warnings:   warnings,
 	}
@@ -136,12 +144,14 @@ func WriteLeadTimeJSON(w io.Writer, repo string, issueNumber int, title, state s
 }
 
 // WriteCycleTimeJSON writes cycle-time metrics for an issue as JSON to the writer.
-func WriteCycleTimeJSON(w io.Writer, repo string, issueNumber int, title, state string, m model.Metric, warnings []string) error {
+func WriteCycleTimeJSON(w io.Writer, repo string, issueNumber int, title, state, itemURL string, labels []string, m model.Metric, warnings []string) error {
 	out := JSONCycleTimeOutput{
 		Repository: repo,
 		Issue:      issueNumber,
 		Title:      title,
 		State:      state,
+		URL:        itemURL,
+		Labels:     labels,
 		CycleTime:  metricToJSON(m),
 		Warnings:   warnings,
 	}
@@ -151,12 +161,14 @@ func WriteCycleTimeJSON(w io.Writer, repo string, issueNumber int, title, state 
 }
 
 // WriteCycleTimePRJSON writes cycle-time metrics for a PR as JSON.
-func WriteCycleTimePRJSON(w io.Writer, repo string, prNumber int, title, state string, m model.Metric, warnings []string) error {
+func WriteCycleTimePRJSON(w io.Writer, repo string, prNumber int, title, state, itemURL string, labels []string, m model.Metric, warnings []string) error {
 	out := JSONCycleTimeOutput{
 		Repository: repo,
 		PR:         prNumber,
 		Title:      title,
 		State:      state,
+		URL:        itemURL,
+		Labels:     labels,
 		CycleTime:  metricToJSON(m),
 		Warnings:   warnings,
 	}
@@ -201,6 +213,8 @@ func WriteReleaseJSON(w io.Writer, repo string, rm model.ReleaseMetrics, warning
 		out.Issues = append(out.Issues, JSONIssueMetrics{
 			Number:           im.Issue.Number,
 			Title:            im.Issue.Title,
+			URL:              im.Issue.URL,
+			Labels:           im.Issue.Labels,
 			Category:         im.Category,
 			LeadTime:         metricToJSON(im.LeadTime),
 			CycleTime:        metricToJSON(im.CycleTime),

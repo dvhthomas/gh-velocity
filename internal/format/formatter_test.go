@@ -149,7 +149,8 @@ func TestWriteReleaseMarkdown(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := WriteReleaseMarkdown(&buf, rm, nil); err != nil {
+	rc := RenderContext{Writer: &buf, Format: Markdown}
+	if err := WriteReleaseMarkdown(rc, rm, nil); err != nil {
 		t.Fatal(err)
 	}
 

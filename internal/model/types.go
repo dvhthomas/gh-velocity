@@ -52,6 +52,7 @@ type Issue struct {
 	IssueType string // GitHub Issue Type (from GraphQL); empty for REST-sourced issues
 	CreatedAt time.Time
 	ClosedAt  *time.Time
+	UpdatedAt time.Time // last activity timestamp from GitHub
 	URL       string
 }
 
@@ -170,12 +171,15 @@ type ProjectItem struct {
 
 // WIPItem represents an in-progress work item for display.
 type WIPItem struct {
-	Number int
-	Title  string
-	Status string
-	Age    time.Duration
-	Repo   string // populated for cross-repo board views
-	Kind   string // "Issue", "PullRequest", "DraftIssue"
+	Number    int
+	Title     string
+	Status    string
+	Age       time.Duration
+	Repo      string // populated for cross-repo board views
+	Kind      string // "Issue", "PullRequest", "DraftIssue"
+	URL       string
+	Labels    []string
+	UpdatedAt time.Time // last activity timestamp, for staleness detection
 }
 
 // StatsResult holds all dashboard sections for output.

@@ -11,15 +11,16 @@ import (
 
 // Query holds the components of a search query.
 type Query struct {
-	Scope     string // user scope from config + flag
-	Lifecycle string // command lifecycle qualifiers (e.g., "is:closed closed:2026-01-01..2026-02-01")
-	Type      string // "is:issue" or "is:pr" (from strategy)
+	Scope        string // user scope from config + flag
+	Lifecycle    string // command lifecycle qualifiers (e.g., "is:closed closed:2026-01-01..2026-02-01")
+	Type         string // "is:issue" or "is:pr" (from strategy)
+	ExcludeUsers string // "-author:bot1 -author:bot2" exclusion qualifiers
 }
 
 // Build assembles the full search query string by joining non-empty parts.
 func (q Query) Build() string {
 	var parts []string
-	for _, p := range []string{q.Scope, q.Type, q.Lifecycle} {
+	for _, p := range []string{q.Scope, q.Type, q.Lifecycle, q.ExcludeUsers} {
 		if s := strings.TrimSpace(p); s != "" {
 			parts = append(parts, s)
 		}
@@ -48,11 +49,28 @@ func (q Query) Verbose() string {
 	if q.Lifecycle != "" {
 		fmt.Fprintf(&sb, "[lifecycle] %s\n", q.Lifecycle)
 	}
+	if q.ExcludeUsers != "" {
+		fmt.Fprintf(&sb, "[exclude]   %s\n", q.ExcludeUsers)
+	}
 	fmt.Fprintf(&sb, "[query]     %s\n", q.Build())
 	if u := q.URL(); u != "" {
 		fmt.Fprintf(&sb, "[url]       %s\n", u)
 	}
 	return sb.String()
+}
+
+// BuildExclusions builds a search qualifier string that excludes the given
+// usernames from results. Each user becomes a "-author:username" qualifier.
+// Returns empty string if no users are provided.
+func BuildExclusions(users []string) string {
+	if len(users) == 0 {
+		return ""
+	}
+	parts := make([]string, len(users))
+	for i, u := range users {
+		parts[i] = "-author:" + u
+	}
+	return strings.Join(parts, " ")
 }
 
 // ClosedIssueQuery returns a Query for issues closed in the given date range.

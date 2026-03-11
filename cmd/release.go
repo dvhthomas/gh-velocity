@@ -125,9 +125,9 @@ linking strategy discovered for the release.`,
 			case format.JSON:
 				fmtErr = format.WriteReleaseJSON(w, deps.Owner+"/"+deps.Repo, rm, warnings)
 			case format.Markdown:
-				fmtErr = format.WriteReleaseMarkdown(w, rm, warnings)
+				fmtErr = format.WriteReleaseMarkdown(deps.RenderCtx(w), rm, warnings)
 			default:
-				fmtErr = format.WriteReleasePretty(w, deps.IsTTY, deps.TermWidth, rm, warnings)
+				fmtErr = format.WriteReleasePretty(deps.RenderCtx(w), rm, warnings)
 			}
 			if fmtErr != nil {
 				return fmtErr

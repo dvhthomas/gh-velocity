@@ -34,6 +34,8 @@ type jsonWindow struct {
 type jsonBulkLeadItem struct {
 	Number   int        `json:"number"`
 	Title    string     `json:"title"`
+	URL      string     `json:"url,omitempty"`
+	Labels   []string   `json:"labels,omitempty"`
 	LeadTime JSONMetric `json:"lead_time"`
 }
 
@@ -54,6 +56,8 @@ func WriteLeadTimeBulkJSON(w io.Writer, repo string, since, until time.Time, ite
 		out.Items = append(out.Items, jsonBulkLeadItem{
 			Number:   item.Issue.Number,
 			Title:    item.Issue.Title,
+			URL:      item.Issue.URL,
+			Labels:   item.Issue.Labels,
 			LeadTime: metricToJSON(item.Metric),
 		})
 	}
@@ -66,50 +70,52 @@ func WriteLeadTimeBulkJSON(w io.Writer, repo string, since, until time.Time, ite
 // --- Markdown ---
 
 // WriteLeadTimeBulkMarkdown writes bulk lead-time results as a markdown table.
-func WriteLeadTimeBulkMarkdown(w io.Writer, repo string, since, until time.Time, items []BulkLeadTimeItem, stats model.Stats) error {
+func WriteLeadTimeBulkMarkdown(rc RenderContext, repo string, since, until time.Time, items []BulkLeadTimeItem, stats model.Stats) error {
 	sorted := sortByCloseDateDesc(items)
 
-	fmt.Fprintf(w, "## Lead Time: %s (%s – %s UTC)\n\n",
+	fmt.Fprintf(rc.Writer, "## Lead Time: %s (%s – %s UTC)\n\n",
 		repo, since.UTC().Format(time.DateOnly), until.UTC().Format(time.DateOnly))
 
-	fmt.Fprintf(w, "| Issue | Title | Created (UTC) | Closed (UTC) | Lead Time |\n")
-	fmt.Fprintf(w, "| ---: | --- | --- | --- | --- |\n")
+	fmt.Fprintf(rc.Writer, "| Issue | Title | Labels | Created (UTC) | Closed (UTC) | Lead Time |\n")
+	fmt.Fprintf(rc.Writer, "| ---: | --- | --- | --- | --- | --- |\n")
 	for _, item := range sorted {
 		closedStr := "N/A"
 		if item.Issue.ClosedAt != nil {
 			closedStr = item.Issue.ClosedAt.UTC().Format(time.DateOnly)
 		}
-		fmt.Fprintf(w, "| #%d | %s | %s | %s | %s |\n",
-			item.Issue.Number,
+		fmt.Fprintf(rc.Writer, "| %s | %s | %s | %s | %s | %s |\n",
+			FormatItemLink(item.Issue.Number, item.Issue.URL, rc),
 			sanitizeMarkdown(item.Issue.Title),
+			FormatLabels(item.Issue.Labels),
 			item.Issue.CreatedAt.UTC().Format(time.DateOnly),
 			closedStr,
 			FormatMetricDuration(item.Metric),
 		)
 	}
 
-	fmt.Fprintf(w, "\n**Summary:** %s\n", formatStatsSummary(stats))
+	fmt.Fprintf(rc.Writer, "\n**Summary:** %s\n", formatStatsSummary(stats))
 	return nil
 }
 
 // --- Pretty ---
 
 // WriteLeadTimeBulkPretty writes bulk lead-time results as a formatted table.
-func WriteLeadTimeBulkPretty(w io.Writer, isTTY bool, width int, repo string, since, until time.Time, items []BulkLeadTimeItem, stats model.Stats) error {
+func WriteLeadTimeBulkPretty(rc RenderContext, repo string, since, until time.Time, items []BulkLeadTimeItem, stats model.Stats) error {
 	sorted := sortByCloseDateDesc(items)
 
-	fmt.Fprintf(w, "Lead Time: %s (%s – %s UTC)\n\n",
+	fmt.Fprintf(rc.Writer, "Lead Time: %s (%s – %s UTC)\n\n",
 		repo, since.UTC().Format(time.DateOnly), until.UTC().Format(time.DateOnly))
 
-	tp := NewTable(w, isTTY, width)
-	tp.AddHeader([]string{"#", "Title", "Created", "Closed", "Lead Time"})
+	tp := NewTable(rc.Writer, rc.IsTTY, rc.Width)
+	tp.AddHeader([]string{"#", "Title", "Labels", "Created", "Closed", "Lead Time"})
 	for _, item := range sorted {
 		closedStr := "N/A"
 		if item.Issue.ClosedAt != nil {
 			closedStr = item.Issue.ClosedAt.UTC().Format(time.DateOnly)
 		}
-		tp.AddField(fmt.Sprintf("%d", item.Issue.Number))
+		tp.AddField(FormatItemLink(item.Issue.Number, item.Issue.URL, rc))
 		tp.AddField(item.Issue.Title)
+		tp.AddField(FormatLabels(item.Issue.Labels))
 		tp.AddField(item.Issue.CreatedAt.UTC().Format(time.DateOnly))
 		tp.AddField(closedStr)
 		tp.AddField(FormatMetricDuration(item.Metric))
@@ -119,7 +125,7 @@ func WriteLeadTimeBulkPretty(w io.Writer, isTTY bool, width int, repo string, si
 		return err
 	}
 
-	fmt.Fprintf(w, "\n%s\n", formatStatsSummary(stats))
+	fmt.Fprintf(rc.Writer, "\n%s\n", formatStatsSummary(stats))
 	return nil
 }
 
@@ -147,6 +153,8 @@ type jsonBulkCycleTimeOutput struct {
 type jsonBulkCycleItem struct {
 	Number    int        `json:"number"`
 	Title     string     `json:"title"`
+	URL       string     `json:"url,omitempty"`
+	Labels    []string   `json:"labels,omitempty"`
 	CycleTime JSONMetric `json:"cycle_time"`
 }
 
@@ -168,6 +176,8 @@ func WriteCycleTimeBulkJSON(w io.Writer, repo string, since, until time.Time, st
 		out.Items = append(out.Items, jsonBulkCycleItem{
 			Number:    item.Issue.Number,
 			Title:     item.Issue.Title,
+			URL:       item.Issue.URL,
+			Labels:    item.Issue.Labels,
 			CycleTime: metricToJSON(item.Metric),
 		})
 	}
@@ -180,14 +190,14 @@ func WriteCycleTimeBulkJSON(w io.Writer, repo string, since, until time.Time, st
 // --- Cycle Time Markdown ---
 
 // WriteCycleTimeBulkMarkdown writes bulk cycle-time results as a markdown table.
-func WriteCycleTimeBulkMarkdown(w io.Writer, repo string, since, until time.Time, strategy string, items []BulkCycleTimeItem, stats model.Stats) error {
+func WriteCycleTimeBulkMarkdown(rc RenderContext, repo string, since, until time.Time, strategy string, items []BulkCycleTimeItem, stats model.Stats) error {
 	sorted := sortCycleByCloseDateDesc(items)
 
-	fmt.Fprintf(w, "## Cycle Time: %s (%s – %s UTC) [%s]\n\n",
+	fmt.Fprintf(rc.Writer, "## Cycle Time: %s (%s – %s UTC) [%s]\n\n",
 		repo, since.UTC().Format(time.DateOnly), until.UTC().Format(time.DateOnly), strategy)
 
-	fmt.Fprintf(w, "| Issue | Title | Started (UTC) | Closed (UTC) | Cycle Time |\n")
-	fmt.Fprintf(w, "| ---: | --- | --- | --- | --- |\n")
+	fmt.Fprintf(rc.Writer, "| Issue | Title | Labels | Started (UTC) | Closed (UTC) | Cycle Time |\n")
+	fmt.Fprintf(rc.Writer, "| ---: | --- | --- | --- | --- | --- |\n")
 	for _, item := range sorted {
 		startedStr := "N/A"
 		if item.Metric.Start != nil {
@@ -197,30 +207,31 @@ func WriteCycleTimeBulkMarkdown(w io.Writer, repo string, since, until time.Time
 		if item.Issue.ClosedAt != nil {
 			closedStr = item.Issue.ClosedAt.UTC().Format(time.DateOnly)
 		}
-		fmt.Fprintf(w, "| #%d | %s | %s | %s | %s |\n",
-			item.Issue.Number,
+		fmt.Fprintf(rc.Writer, "| %s | %s | %s | %s | %s | %s |\n",
+			FormatItemLink(item.Issue.Number, item.Issue.URL, rc),
 			sanitizeMarkdown(item.Issue.Title),
+			FormatLabels(item.Issue.Labels),
 			startedStr,
 			closedStr,
 			FormatMetricDuration(item.Metric),
 		)
 	}
 
-	fmt.Fprintf(w, "\n**Summary:** %s\n", formatStatsSummary(stats))
+	fmt.Fprintf(rc.Writer, "\n**Summary:** %s\n", formatStatsSummary(stats))
 	return nil
 }
 
 // --- Cycle Time Pretty ---
 
 // WriteCycleTimeBulkPretty writes bulk cycle-time results as a formatted table.
-func WriteCycleTimeBulkPretty(w io.Writer, isTTY bool, width int, repo string, since, until time.Time, strategy string, items []BulkCycleTimeItem, stats model.Stats) error {
+func WriteCycleTimeBulkPretty(rc RenderContext, repo string, since, until time.Time, strategy string, items []BulkCycleTimeItem, stats model.Stats) error {
 	sorted := sortCycleByCloseDateDesc(items)
 
-	fmt.Fprintf(w, "Cycle Time: %s (%s – %s UTC) [%s]\n\n",
+	fmt.Fprintf(rc.Writer, "Cycle Time: %s (%s – %s UTC) [%s]\n\n",
 		repo, since.UTC().Format(time.DateOnly), until.UTC().Format(time.DateOnly), strategy)
 
-	tp := NewTable(w, isTTY, width)
-	tp.AddHeader([]string{"#", "Title", "Started", "Closed", "Cycle Time"})
+	tp := NewTable(rc.Writer, rc.IsTTY, rc.Width)
+	tp.AddHeader([]string{"#", "Title", "Labels", "Started", "Closed", "Cycle Time"})
 	for _, item := range sorted {
 		startedStr := "N/A"
 		if item.Metric.Start != nil {
@@ -230,8 +241,9 @@ func WriteCycleTimeBulkPretty(w io.Writer, isTTY bool, width int, repo string, s
 		if item.Issue.ClosedAt != nil {
 			closedStr = item.Issue.ClosedAt.UTC().Format(time.DateOnly)
 		}
-		tp.AddField(fmt.Sprintf("%d", item.Issue.Number))
+		tp.AddField(FormatItemLink(item.Issue.Number, item.Issue.URL, rc))
 		tp.AddField(item.Issue.Title)
+		tp.AddField(FormatLabels(item.Issue.Labels))
 		tp.AddField(startedStr)
 		tp.AddField(closedStr)
 		tp.AddField(FormatMetricDuration(item.Metric))
@@ -241,7 +253,7 @@ func WriteCycleTimeBulkPretty(w io.Writer, isTTY bool, width int, repo string, s
 		return err
 	}
 
-	fmt.Fprintf(w, "\n%s\n", formatStatsSummary(stats))
+	fmt.Fprintf(rc.Writer, "\n%s\n", formatStatsSummary(stats))
 	return nil
 }
 

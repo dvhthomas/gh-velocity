@@ -23,6 +23,7 @@ func searchItemToIssue(item searchIssueResponse) model.Issue {
 		State:     item.State,
 		Labels:    labels,
 		CreatedAt: item.CreatedAt.UTC(),
+		UpdatedAt: item.UpdatedAt.UTC(),
 		ClosedAt:  item.ClosedAt,
 		URL:       item.HTMLURL,
 	}
@@ -65,7 +66,20 @@ func (c *Client) searchPaginated(ctx context.Context, query string) ([]searchIss
 		path := fmt.Sprintf("search/issues?q=%s&per_page=100&page=%d",
 			url.QueryEscape(query), page)
 		if err := c.rest.DoWithContext(ctx, "GET", path, nil, &resp); err != nil {
-			return nil, err
+			if wait, ok := rateLimitWait(err); ok {
+				log.Warn("search rate-limited; waiting %s before retry", wait)
+				select {
+				case <-time.After(wait):
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
+				// Retry once after waiting.
+				if retryErr := c.rest.DoWithContext(ctx, "GET", path, nil, &resp); retryErr != nil {
+					return nil, retryErr
+				}
+			} else {
+				return nil, err
+			}
 		}
 
 		allItems = append(allItems, resp.Items...)

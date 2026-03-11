@@ -73,7 +73,9 @@ Default window is the last 30 days.`,
 			}
 
 			issueQuery := scope.ClosedIssueQuery(deps.Scope, since, until)
+			issueQuery.ExcludeUsers = deps.ExcludeUsers
 			prQuery := scope.MergedPRQuery(deps.Scope, since, until)
+			prQuery.ExcludeUsers = deps.ExcludeUsers
 			if deps.Debug {
 				log.Debug("throughput issue query:\n%s", issueQuery.Verbose())
 				log.Debug("throughput PR query:\n%s", prQuery.Verbose())

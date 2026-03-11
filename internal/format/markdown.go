@@ -10,7 +10,7 @@ import (
 )
 
 // WriteReleaseMarkdown writes release metrics as a markdown table.
-func WriteReleaseMarkdown(w io.Writer, rm model.ReleaseMetrics, warnings []string) error {
+func WriteReleaseMarkdown(rc RenderContext, rm model.ReleaseMetrics, warnings []string) error {
 	var b strings.Builder
 
 	b.WriteString(fmt.Sprintf("## Release %s\n\n", rm.Tag))
@@ -37,17 +37,18 @@ func WriteReleaseMarkdown(w io.Writer, rm model.ReleaseMetrics, warnings []strin
 	// Per-issue table
 	if len(rm.Issues) > 0 {
 		b.WriteString("### Issues\n\n")
-		b.WriteString("| # | Title | Lead Time | Cycle Time | Release Lag | Commits | |\n")
-		b.WriteString("| ---: | --- | --- | --- | --- | ---: | --- |\n")
+		b.WriteString("| # | Title | Labels | Lead Time | Cycle Time | Release Lag | Commits | |\n")
+		b.WriteString("| ---: | --- | --- | --- | --- | --- | ---: | --- |\n")
 		for _, im := range rm.Issues {
 			title := sanitizeMarkdown(im.Issue.Title)
 			flag := ""
 			if im.LeadTimeOutlier || im.CycleTimeOutlier {
 				flag = "OUTLIER"
 			}
-			b.WriteString(fmt.Sprintf("| %d | %s | %s | %s | %s | %d | %s |\n",
-				im.Issue.Number,
+			b.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %s | %d | %s |\n",
+				FormatItemLink(im.Issue.Number, im.Issue.URL, rc),
 				title,
+				FormatLabels(im.Issue.Labels),
 				FormatDurationPtr(im.LeadTime.Duration),
 				FormatDurationPtr(im.CycleTime.Duration),
 				FormatDurationPtr(im.ReleaseLag.Duration),
@@ -74,7 +75,7 @@ func WriteReleaseMarkdown(w io.Writer, rm model.ReleaseMetrics, warnings []strin
 		}
 	}
 
-	_, err := io.WriteString(w, b.String())
+	_, err := io.WriteString(rc.Writer, b.String())
 	return err
 }
 
