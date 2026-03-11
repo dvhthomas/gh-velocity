@@ -276,10 +276,7 @@ func checkPostingReadiness(ctx context.Context, client *gh.Client) *PostingReadi
 		pr.DiscussionsEnabled = enabled
 	}
 
-	// Best-effort check: can we list comments? (proves at least read access)
-	// We use issue #1 as a probe — if it doesn't exist, we get 404 (not 403).
-	// A 403 means no access at all.
-	pr.HasIssuesWrite = true // optimistic; we can't truly verify write without writing
+	pr.HasIssuesWrite = true // optimistic; can't verify write access without writing
 	return pr
 }
 
@@ -307,18 +304,15 @@ func classifyLabels(result *PreflightResult, labels []string) {
 		lower := strings.ToLower(label)
 
 		// Quality categories: first match wins
-		matched := false
 		for _, cat := range categoryOrder {
 			if matchesWordAny(lower, categoryPatterns[cat]) {
 				if result.Categories == nil {
 					result.Categories = make(map[string][]string)
 				}
 				result.Categories[cat] = append(result.Categories[cat], label)
-				matched = true
 				break
 			}
 		}
-		_ = matched
 
 		// Status labels: independent of categories
 		if matchesWordAny(lower, statusPatterns["active"]) {
