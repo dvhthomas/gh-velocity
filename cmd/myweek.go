@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
@@ -74,6 +76,11 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 		log.Warn("Authenticated as %s — my-week shows activity for the authenticated user", login)
 	}
 
+	// my-week always targets the -R repo, ignoring config scope.
+	// This is a personal activity command — you want "what did I do in repo X",
+	// not "what did I do filtered by the config's scope query".
+	repoScope := fmt.Sprintf("repo:%s/%s", deps.Owner, deps.Repo)
+
 	// Fetch issues closed, PRs merged, and PRs reviewed in parallel.
 	var issuesClosed []model.Issue
 	var prsMerged, prsReviewed []model.PR
@@ -82,7 +89,7 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 	g.SetLimit(5)
 
 	g.Go(func() error {
-		q := scope.ClosedIssuesByAuthorQuery(deps.Scope, login, since, now)
+		q := scope.ClosedIssuesByAuthorQuery(repoScope, login, since, now)
 		q.ExcludeUsers = deps.ExcludeUsers
 		if deps.Debug {
 			log.Debug("my-week issues query:\n%s", q.Verbose())
@@ -96,7 +103,7 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 	})
 
 	g.Go(func() error {
-		q := scope.MergedPRsByAuthorQuery(deps.Scope, login, since, now)
+		q := scope.MergedPRsByAuthorQuery(repoScope, login, since, now)
 		q.ExcludeUsers = deps.ExcludeUsers
 		if deps.Debug {
 			log.Debug("my-week PRs query:\n%s", q.Verbose())
@@ -110,7 +117,7 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 	})
 
 	g.Go(func() error {
-		q := scope.ReviewedPRsByAuthorQuery(deps.Scope, login, since, now)
+		q := scope.ReviewedPRsByAuthorQuery(repoScope, login, since, now)
 		q.ExcludeUsers = deps.ExcludeUsers
 		if deps.Debug {
 			log.Debug("my-week reviews query:\n%s", q.Verbose())
