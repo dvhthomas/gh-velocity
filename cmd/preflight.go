@@ -19,8 +19,9 @@ import (
 
 func newConfigPreflightCmd() *cobra.Command {
 	var (
-		writeFlag   bool
-		projectFlag int
+		writeFlag      bool
+		projectURLFlag string
+		projectFlag    int // deprecated
 	)
 
 	cmd := &cobra.Command{
@@ -30,23 +31,23 @@ func newConfigPreflightCmd() *cobra.Command {
 
 It inspects:
   - Labels (to detect bug, feature, and status labels)
-  - A specific Projects v2 board (to find board IDs and status fields)
+  - A specific Projects v2 board (to find status fields and lifecycle mapping)
   - Recent merged PRs (to gauge activity and linking patterns)
   - Recent closed issues (to check label usage)
 
-Use --project to specify which project board number to analyze.
-Find project numbers with: gh velocity config discover -R owner/repo
+Use --project-url to include a project board in the analysis. Copy the URL
+from your browser when viewing the project board.
 
 The output is a recommended .gh-velocity.yml with comments explaining
 each choice. Use --write to save it directly.`,
-		Example: `  # Analyze repo and a specific project board
-  gh velocity config preflight -R owner/repo --project 3
+		Example: `  # Analyze repo with a project board
+  gh velocity config preflight -R owner/repo --project-url https://github.com/orgs/myorg/projects/1
 
   # Without a project board (label-based analysis only)
   gh velocity config preflight -R cli/cli
 
   # Write config directly to .gh-velocity.yml
-  gh velocity config preflight --write --project 3
+  gh velocity config preflight --write --project-url https://github.com/users/me/projects/3
 
   # JSON output for tooling
   gh velocity config preflight -R owner/repo -f json`,
@@ -68,9 +69,22 @@ each choice. Use --write to save it directly.`,
 			w := cmd.OutOrStdout()
 			formatFlag, _ := cmd.Root().PersistentFlags().GetString("format")
 
+			// Resolve project number from --project-url or deprecated --project.
+			projectNumber := projectFlag
+			if projectURLFlag != "" {
+				_, num, _, urlErr := gh.ParseProjectURL(projectURLFlag)
+				if urlErr != nil {
+					return &model.AppError{
+						Code:    model.ErrConfigInvalid,
+						Message: fmt.Sprintf("invalid --project-url: %v", urlErr),
+					}
+				}
+				projectNumber = num
+			}
+
 			log.Notice("Analyzing %s/%s...", owner, repo)
 
-			result, err := runPreflight(ctx, client, owner, repo, projectFlag)
+			result, err := runPreflight(ctx, client, owner, repo, projectNumber)
 			if err != nil {
 				return err
 			}
@@ -116,7 +130,9 @@ each choice. Use --write to save it directly.`,
 	}
 
 	cmd.Flags().BoolVar(&writeFlag, "write", false, "Write the recommended config to .gh-velocity.yml")
-	cmd.Flags().IntVar(&projectFlag, "project", 0, "Project board number to analyze (find with 'config discover')")
+	cmd.Flags().StringVar(&projectURLFlag, "project-url", "", "Project board URL (e.g., https://github.com/orgs/myorg/projects/1)")
+	cmd.Flags().IntVar(&projectFlag, "project", 0, "Project board number (deprecated: use --project-url)")
+	_ = cmd.Flags().MarkDeprecated("project", "use --project-url instead")
 	return cmd
 }
 
