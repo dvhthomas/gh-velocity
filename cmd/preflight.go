@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bitsbyme/gh-velocity/internal/classify"
 	"github.com/bitsbyme/gh-velocity/internal/config"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
@@ -140,7 +141,18 @@ type PreflightResult struct {
 	RecentPRs        int                 `json:"recent_prs_merged"`
 	AllLabels        []labelCount        `json:"labels"`
 	PostingReadiness *PostingReadiness   `json:"posting_readiness,omitempty"`
+	Verification     *VerificationResult `json:"verification,omitempty"`
 	Hints            []string            `json:"hints"`
+}
+
+// VerificationResult validates the generated config is usable.
+type VerificationResult struct {
+	Valid         bool     `json:"valid"`
+	ConfigParses bool     `json:"config_parses"`
+	MatchersValid bool    `json:"matchers_valid"`
+	CategoryCount int     `json:"category_count"`
+	MissingLabels []string `json:"missing_labels,omitempty"`
+	Warnings      []string `json:"warnings,omitempty"`
 }
 
 // PostingReadiness reports whether the token and repo support --post operations.
@@ -243,6 +255,20 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 	}
 	if pr.HasIssuesWrite {
 		result.Hints = append(result.Hints, "Token has issues read access (write is best-effort check)")
+	}
+
+	// 7. Verify the generated config
+	result.Verification = verifyConfig(result, labels)
+	if v := result.Verification; v != nil {
+		if v.ConfigParses {
+			result.Hints = append(result.Hints, "Config verification: YAML parses cleanly")
+		}
+		if v.MatchersValid {
+			result.Hints = append(result.Hints, fmt.Sprintf("Config verification: %d categories defined, all matchers valid", v.CategoryCount))
+		}
+		for _, ml := range v.MissingLabels {
+			result.Hints = append(result.Hints, fmt.Sprintf("Config verification: label %q not found on repo — will never match", ml))
+		}
 	}
 
 	return result, nil
@@ -533,4 +559,61 @@ func findStatus(options []string, patterns ...string) string {
 		}
 	}
 	return ""
+}
+
+// verifyConfig validates the generated config by parsing it, constructing a
+// classifier, and cross-referencing category labels against the repo's actual labels.
+func verifyConfig(result *PreflightResult, repoLabels []string) *VerificationResult {
+	vr := &VerificationResult{}
+
+	// 1. Parse the generated YAML
+	configYAML := renderPreflightConfig(result)
+	origWarn := config.WarnFunc
+	config.WarnFunc = func(format string, args ...any) {
+		vr.Warnings = append(vr.Warnings, fmt.Sprintf(format, args...))
+	}
+	cfg, parseErr := config.Parse([]byte(configYAML))
+	config.WarnFunc = origWarn
+
+	vr.ConfigParses = parseErr == nil
+	if parseErr != nil {
+		vr.Warnings = append(vr.Warnings, fmt.Sprintf("config parse error: %v", parseErr))
+		return vr
+	}
+
+	// 2. Validate matchers compile via classifier
+	_, classifyErr := classify.NewClassifier(cfg.Quality.Categories)
+	vr.MatchersValid = classifyErr == nil
+	if classifyErr != nil {
+		vr.Warnings = append(vr.Warnings, fmt.Sprintf("invalid matchers: %v", classifyErr))
+	}
+	vr.CategoryCount = len(cfg.Quality.Categories)
+
+	// 3. Validate strategy prerequisites
+	if cfg.CycleTime.Strategy == "project-board" && cfg.Project.ID == "" {
+		vr.Warnings = append(vr.Warnings, "strategy \"project-board\" requires project.id to be set")
+	}
+
+	// 4. Cross-reference category labels against repo labels
+	if len(repoLabels) > 0 {
+		repoLabelSet := make(map[string]bool, len(repoLabels))
+		for _, l := range repoLabels {
+			repoLabelSet[strings.ToLower(l)] = true
+		}
+		for _, cat := range cfg.Quality.Categories {
+			for _, m := range cat.Matchers {
+				prefix, value, ok := strings.Cut(m, ":")
+				if ok && prefix == "label" {
+					if !repoLabelSet[strings.ToLower(value)] {
+						vr.MissingLabels = append(vr.MissingLabels, value)
+						vr.Warnings = append(vr.Warnings,
+							fmt.Sprintf("label %q in %s category not found on repo — will never match", value, cat.Name))
+					}
+				}
+			}
+		}
+	}
+
+	vr.Valid = vr.ConfigParses && vr.MatchersValid && len(vr.MissingLabels) == 0
+	return vr
 }

@@ -142,3 +142,89 @@ func searchString(s, substr string) bool {
 	}
 	return false
 }
+
+func TestVerifyConfig_ValidConfig(t *testing.T) {
+	result := &PreflightResult{
+		Repo:     "owner/repo",
+		Strategy: "issue",
+		Categories: map[string][]string{
+			"bug":     {"bug"},
+			"feature": {"enhancement"},
+		},
+	}
+	repoLabels := []string{"bug", "enhancement", "docs"}
+
+	vr := verifyConfig(result, repoLabels)
+
+	if !vr.Valid {
+		t.Errorf("expected valid, got invalid: warnings=%v", vr.Warnings)
+	}
+	if !vr.ConfigParses {
+		t.Error("expected config to parse")
+	}
+	if !vr.MatchersValid {
+		t.Error("expected matchers to be valid")
+	}
+	if vr.CategoryCount != 2 {
+		t.Errorf("expected 2 categories, got %d", vr.CategoryCount)
+	}
+	if len(vr.MissingLabels) != 0 {
+		t.Errorf("expected no missing labels, got %v", vr.MissingLabels)
+	}
+}
+
+func TestVerifyConfig_MissingLabel(t *testing.T) {
+	result := &PreflightResult{
+		Repo:     "owner/repo",
+		Strategy: "issue",
+		Categories: map[string][]string{
+			"bug": {"bug", "regression"},
+		},
+	}
+	// "regression" is NOT in the repo's labels
+	repoLabels := []string{"bug", "enhancement"}
+
+	vr := verifyConfig(result, repoLabels)
+
+	if vr.Valid {
+		t.Error("expected invalid due to missing label")
+	}
+	if len(vr.MissingLabels) != 1 || vr.MissingLabels[0] != "regression" {
+		t.Errorf("expected missing [regression], got %v", vr.MissingLabels)
+	}
+}
+
+func TestVerifyConfig_NoRepoLabels(t *testing.T) {
+	result := &PreflightResult{
+		Repo:     "owner/repo",
+		Strategy: "issue",
+	}
+
+	// When no repo labels are available, skip cross-reference.
+	vr := verifyConfig(result, nil)
+
+	if !vr.ConfigParses {
+		t.Error("expected config to parse")
+	}
+	// Valid because we can't verify labels without repo data.
+	if !vr.Valid {
+		t.Errorf("expected valid when no repo labels, got warnings=%v", vr.Warnings)
+	}
+}
+
+func TestVerifyConfig_ProjectBoardWithoutID(t *testing.T) {
+	result := &PreflightResult{
+		Repo:       "owner/repo",
+		Strategy:   "project-board",
+		HasProject: true,
+		// ProjectID intentionally empty
+	}
+
+	vr := verifyConfig(result, nil)
+
+	// The generated YAML won't include project.id, but strategy is project-board.
+	// config.Parse should reject this.
+	if vr.ConfigParses && len(vr.Warnings) == 0 {
+		t.Error("expected warning about project-board requiring project.id")
+	}
+}
