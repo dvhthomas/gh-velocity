@@ -12,6 +12,5 @@ func NewQualityCmd() *cobra.Command {
 		Long:  "Quality metrics scoped to releases: defect rate, hotfix detection, category composition.",
 	}
 	cmd.AddCommand(NewReleaseCmd())
-	cmd.AddCommand(NewBusFactorCmd())
 	return cmd
 }

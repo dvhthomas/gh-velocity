@@ -5,7 +5,9 @@
 # Requires: gh auth (valid GitHub token), built ./gh-velocity binary.
 set -euo pipefail
 
-BINARY="./gh-velocity"
+# Resolve repo root so this script works from worktrees and subdirectories.
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+BINARY="${REPO_ROOT}/gh-velocity"
 PASS=0
 FAIL=0
 ERRORS=""

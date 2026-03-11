@@ -278,6 +278,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 	root.AddCommand(NewConfigCmd())
 	root.AddCommand(NewFlowCmd())
 	root.AddCommand(NewQualityCmd())
+	root.AddCommand(NewRiskCmd())
 	root.AddCommand(NewStatusCmd())
 	root.AddCommand(NewReportCmd())
 
