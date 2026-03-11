@@ -63,7 +63,7 @@ func TestWriteBusFactorPretty(t *testing.T) {
 		"Alice (100%)",
 		"Bob (78%)",
 		"distributed",
-		"Summary: 1 HIGH risk, 1 MEDIUM risk, 1 LOW risk areas",
+		"1 HIGH risk, 1 MEDIUM risk, 1 LOW risk areas",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("pretty output missing %q\ngot:\n%s", want, out)

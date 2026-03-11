@@ -140,5 +140,5 @@ func countRisks(result metrics.BusFactorResult) (high, medium, low int) {
 
 func formatRiskSummary(result metrics.BusFactorResult) string {
 	high, med, low := countRisks(result)
-	return fmt.Sprintf("Summary: %d HIGH risk, %d MEDIUM risk, %d LOW risk areas", high, med, low)
+	return fmt.Sprintf("%d HIGH risk, %d MEDIUM risk, %d LOW risk areas", high, med, low)
 }
