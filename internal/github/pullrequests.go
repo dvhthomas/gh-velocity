@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"net/url"
 	"strings"
 	"time"
 
@@ -34,56 +33,14 @@ type searchResponse struct {
 	Items             []searchIssueResponse `json:"items"`
 }
 
-// SearchMergedPRs finds all PRs merged in the given date range using the search API.
-// Uses: GET /search/issues?q=repo:{owner}/{repo}+is:pr+is:merged+merged:{start}..{end}
-// Returns at most 1000 results (GitHub search API limit).
+// SearchMergedPRs finds all PRs merged in the given date range.
+// Deprecated: Use SearchPRs with a pre-assembled query from scope.Query.Build().
 func (c *Client) SearchMergedPRs(ctx context.Context, start, end time.Time) ([]model.PR, error) {
 	startStr := start.UTC().Format("2006-01-02T15:04:05Z")
 	endStr := end.UTC().Format("2006-01-02T15:04:05Z")
-
 	query := fmt.Sprintf("repo:%s/%s is:pr is:merged merged:%s..%s",
 		c.owner, c.repo, startStr, endStr)
-
-	var allPRs []model.PR
-	page := 1
-
-	for {
-		var resp searchResponse
-		path := fmt.Sprintf("search/issues?q=%s&per_page=100&page=%d",
-			url.QueryEscape(query), page)
-		if err := c.rest.DoWithContext(ctx, "GET", path, nil, &resp); err != nil {
-			return nil, fmt.Errorf("search merged PRs: %w", err)
-		}
-
-		for _, item := range resp.Items {
-			labels := make([]string, len(item.Labels))
-			for i, l := range item.Labels {
-				labels[i] = l.Name
-			}
-			pr := model.PR{
-				Number:    item.Number,
-				Title:     item.Title,
-				State:     item.State,
-				Labels:    labels,
-				CreatedAt: item.CreatedAt,
-				URL:       item.HTMLURL,
-			}
-			if item.PullRequest != nil {
-				pr.MergedAt = item.PullRequest.MergedAt
-			}
-			allPRs = append(allPRs, pr)
-		}
-
-		if len(resp.Items) < 100 {
-			break
-		}
-		page++
-		if page > 10 { // search API returns max 1000 results (10 pages of 100)
-			break
-		}
-	}
-
-	return allPRs, nil
+	return c.SearchPRs(ctx, query)
 }
 
 type prNode struct {

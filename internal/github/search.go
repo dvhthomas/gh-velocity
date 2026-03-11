@@ -33,21 +33,31 @@ func searchItemToIssue(item searchIssueResponse) model.Issue {
 	return issue
 }
 
-// SearchClosedIssues finds all issues closed in the given date range using the search API.
-// Uses: GET /search/issues?q=repo:{owner}/{repo}+is:issue+is:closed+closed:{start}..{end}
-// Returns at most 1000 results (GitHub search API limit).
-// Warns on stderr if results are capped.
-// Returns model.Issue with fields populated from search results (number, title, state, createdAt, closedAt).
-func (c *Client) SearchClosedIssues(ctx context.Context, since, until time.Time) ([]model.Issue, error) {
-	// NOTE: GitHub Search API requires the query as a single string parameter via REST.
-	// This is not GraphQL — string interpolation is the correct approach here.
-	sinceStr := since.UTC().Format("2006-01-02T15:04:05Z")
-	untilStr := until.UTC().Format("2006-01-02T15:04:05Z")
+// searchItemToPR converts a search API item to a model.PR.
+func searchItemToPR(item searchIssueResponse) model.PR {
+	labels := make([]string, len(item.Labels))
+	for i, l := range item.Labels {
+		labels[i] = l.Name
+	}
+	pr := model.PR{
+		Number:    item.Number,
+		Title:     item.Title,
+		State:     item.State,
+		Labels:    labels,
+		CreatedAt: item.CreatedAt.UTC(),
+		URL:       item.HTMLURL,
+	}
+	if item.PullRequest != nil {
+		pr.MergedAt = item.PullRequest.MergedAt
+	}
+	return pr
+}
 
-	query := fmt.Sprintf("repo:%s/%s is:issue is:closed closed:%s..%s",
-		c.owner, c.repo, sinceStr, untilStr)
-
-	var allIssues []model.Issue
+// searchPaginated executes a paginated GitHub search API query and returns raw items.
+// The query must be a complete, pre-assembled search string.
+// Returns at most 1000 results (GitHub search API limit of 10 pages × 100 per page).
+func (c *Client) searchPaginated(ctx context.Context, query string) ([]searchIssueResponse, error) {
+	var allItems []searchIssueResponse
 	page := 1
 
 	for {
@@ -55,60 +65,73 @@ func (c *Client) SearchClosedIssues(ctx context.Context, since, until time.Time)
 		path := fmt.Sprintf("search/issues?q=%s&per_page=100&page=%d",
 			url.QueryEscape(query), page)
 		if err := c.rest.DoWithContext(ctx, "GET", path, nil, &resp); err != nil {
-			return nil, fmt.Errorf("search closed issues: %w", err)
+			return nil, err
 		}
 
-		for _, item := range resp.Items {
-			allIssues = append(allIssues, searchItemToIssue(item))
-		}
+		allItems = append(allItems, resp.Items...)
 
 		if len(resp.Items) < 100 {
 			break
 		}
 		page++
-		if page > 10 { // search API returns max 1000 results (10 pages of 100)
-			log.Warn("results capped at 1000; narrow the date range for complete data")
+		if page > 10 { // search API returns max 1000 results
+			log.Warn("results capped at 1000; narrow the date range or scope for complete data")
 			break
 		}
 	}
 
-	return allIssues, nil
+	return allItems, nil
 }
 
-// SearchOpenIssuesWithLabels finds open issues that have at least one of the given labels.
-// Uses: GET /search/issues?q=repo:{owner}/{repo}+is:issue+is:open+label:{label1},label:{label2},...
-// Returns at most 1000 results (GitHub search API limit).
+// SearchIssues executes a GitHub search API query and returns issues.
+// The query must be a complete, pre-assembled search string (e.g., from scope.Query.Build()).
+// The Client's owner/repo are NOT injected — the query is used as-is.
+func (c *Client) SearchIssues(ctx context.Context, query string) ([]model.Issue, error) {
+	items, err := c.searchPaginated(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("search issues: %w", err)
+	}
+
+	issues := make([]model.Issue, 0, len(items))
+	for _, item := range items {
+		issues = append(issues, searchItemToIssue(item))
+	}
+	return issues, nil
+}
+
+// SearchPRs executes a GitHub search API query and returns PRs.
+// The query must be a complete, pre-assembled search string (e.g., from scope.Query.Build()).
+// The Client's owner/repo are NOT injected — the query is used as-is.
+func (c *Client) SearchPRs(ctx context.Context, query string) ([]model.PR, error) {
+	items, err := c.searchPaginated(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("search PRs: %w", err)
+	}
+
+	prs := make([]model.PR, 0, len(items))
+	for _, item := range items {
+		prs = append(prs, searchItemToPR(item))
+	}
+	return prs, nil
+}
+
+// SearchClosedIssues finds all issues closed in the given date range.
+// Deprecated: Use SearchIssues with a pre-assembled query from scope.Query.Build().
+func (c *Client) SearchClosedIssues(ctx context.Context, since, until time.Time) ([]model.Issue, error) {
+	sinceStr := since.UTC().Format("2006-01-02T15:04:05Z")
+	untilStr := until.UTC().Format("2006-01-02T15:04:05Z")
+	query := fmt.Sprintf("repo:%s/%s is:issue is:closed closed:%s..%s",
+		c.owner, c.repo, sinceStr, untilStr)
+	return c.SearchIssues(ctx, query)
+}
+
+// SearchOpenIssuesWithLabels finds open issues with the given labels.
+// Deprecated: Use SearchIssues with a pre-assembled query from scope.Query.Build().
 func (c *Client) SearchOpenIssuesWithLabels(ctx context.Context, labels []string) ([]model.Issue, error) {
 	var query strings.Builder
 	query.WriteString(fmt.Sprintf("repo:%s/%s is:issue is:open", c.owner, c.repo))
 	for _, l := range labels {
 		query.WriteString(fmt.Sprintf(` label:"%s"`, l))
 	}
-
-	var allIssues []model.Issue
-	page := 1
-
-	for {
-		var resp searchResponse
-		path := fmt.Sprintf("search/issues?q=%s&per_page=100&page=%d",
-			url.QueryEscape(query.String()), page)
-		if err := c.rest.DoWithContext(ctx, "GET", path, nil, &resp); err != nil {
-			return nil, fmt.Errorf("search open issues with labels: %w", err)
-		}
-
-		for _, item := range resp.Items {
-			allIssues = append(allIssues, searchItemToIssue(item))
-		}
-
-		if len(resp.Items) < 100 {
-			break
-		}
-		page++
-		if page > 10 {
-			log.Warn("results capped at 1000; consider narrowing your label filters")
-			break
-		}
-	}
-
-	return allIssues, nil
+	return c.SearchIssues(ctx, query.String())
 }
