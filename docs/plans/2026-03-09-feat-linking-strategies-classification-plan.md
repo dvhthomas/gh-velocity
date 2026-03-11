@@ -1,7 +1,7 @@
 ---
 title: "feat: Linking Strategies & Flexible Classification"
 type: feat
-status: active
+status: completed
 date: 2026-03-09
 brainstorm: docs/brainstorms/2026-03-09-linking-strategies-brainstorm.md
 ---
