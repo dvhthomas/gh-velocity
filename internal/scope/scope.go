@@ -91,6 +91,33 @@ func MergedPRQuery(scopeStr string, since, until time.Time) Query {
 	}
 }
 
+// ClosedIssuesByAuthorQuery returns a Query for issues closed by a specific author.
+func ClosedIssuesByAuthorQuery(scopeStr, login string, since, until time.Time) Query {
+	return Query{
+		Scope:     scopeStr,
+		Type:      "is:issue",
+		Lifecycle: fmt.Sprintf("is:closed author:%s closed:%s..%s", login, since.UTC().Format(time.RFC3339), until.UTC().Format(time.RFC3339)),
+	}
+}
+
+// MergedPRsByAuthorQuery returns a Query for PRs merged by a specific author.
+func MergedPRsByAuthorQuery(scopeStr, login string, since, until time.Time) Query {
+	return Query{
+		Scope:     scopeStr,
+		Type:      "is:pr",
+		Lifecycle: fmt.Sprintf("is:merged author:%s merged:%s..%s", login, since.UTC().Format(time.RFC3339), until.UTC().Format(time.RFC3339)),
+	}
+}
+
+// ReviewedPRsByAuthorQuery returns a Query for PRs reviewed by a specific user.
+func ReviewedPRsByAuthorQuery(scopeStr, login string, since, until time.Time) Query {
+	return Query{
+		Scope:     scopeStr,
+		Type:      "is:pr",
+		Lifecycle: fmt.Sprintf("reviewed-by:%s updated:%s..%s", login, since.UTC().Format(time.RFC3339), until.UTC().Format(time.RFC3339)),
+	}
+}
+
 // MergeScope combines config scope and flag scope with AND semantics.
 // Both are GitHub search query fragments; they're joined with a space.
 // Empty strings are ignored.

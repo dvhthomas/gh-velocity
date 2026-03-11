@@ -149,6 +149,57 @@ func TestMergedPRQuery(t *testing.T) {
 	}
 }
 
+func TestClosedIssuesByAuthorQuery(t *testing.T) {
+	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	until := time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC)
+	q := ClosedIssuesByAuthorQuery("repo:owner/repo", "testuser", since, until)
+	built := q.Build()
+
+	for _, want := range []string{"repo:owner/repo", "is:issue", "is:closed", "author:testuser", "closed:"} {
+		if !strings.Contains(built, want) {
+			t.Errorf("query %q missing %q", built, want)
+		}
+	}
+}
+
+func TestMergedPRsByAuthorQuery(t *testing.T) {
+	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	until := time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC)
+	q := MergedPRsByAuthorQuery("repo:owner/repo", "testuser", since, until)
+	built := q.Build()
+
+	for _, want := range []string{"repo:owner/repo", "is:pr", "is:merged", "author:testuser", "merged:"} {
+		if !strings.Contains(built, want) {
+			t.Errorf("query %q missing %q", built, want)
+		}
+	}
+}
+
+func TestReviewedPRsByAuthorQuery(t *testing.T) {
+	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	until := time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC)
+	q := ReviewedPRsByAuthorQuery("repo:owner/repo", "testuser", since, until)
+	built := q.Build()
+
+	for _, want := range []string{"repo:owner/repo", "is:pr", "reviewed-by:testuser", "updated:"} {
+		if !strings.Contains(built, want) {
+			t.Errorf("query %q missing %q", built, want)
+		}
+	}
+}
+
+func TestAuthorQueryWithExcludeUsers(t *testing.T) {
+	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	until := time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC)
+	q := ClosedIssuesByAuthorQuery("repo:owner/repo", "testuser", since, until)
+	q.ExcludeUsers = BuildExclusions([]string{"dependabot[bot]"})
+	built := q.Build()
+
+	if !strings.Contains(built, "-author:dependabot[bot]") {
+		t.Errorf("query %q missing exclude_users", built)
+	}
+}
+
 func TestMergeScope(t *testing.T) {
 	tests := []struct {
 		name   string

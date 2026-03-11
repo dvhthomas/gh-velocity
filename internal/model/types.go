@@ -211,6 +211,17 @@ type ThroughputResult struct {
 	PRsMerged    int
 }
 
+// MyWeekResult holds the "my week" summary for one user.
+type MyWeekResult struct {
+	Login        string
+	Repo         string
+	Since        time.Time
+	Until        time.Time
+	IssuesClosed []Issue
+	PRsMerged    []PR
+	PRsReviewed  []PR
+}
+
 // StatsQuality holds defect rate metrics.
 type StatsQuality struct {
 	BugCount    int

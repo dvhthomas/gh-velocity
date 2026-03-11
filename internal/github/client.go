@@ -62,6 +62,21 @@ func (c *Client) CanonicalRepo(ctx context.Context) (owner, name string, ok bool
 	return repo.Owner.Login, repo.Name, true, nil
 }
 
+// GetAuthenticatedUser returns the login of the authenticated GitHub user.
+// Works with all token types (classic PAT, fine-grained PAT, GitHub App).
+func (c *Client) GetAuthenticatedUser(ctx context.Context) (string, error) {
+	var user struct {
+		Login string `json:"login"`
+	}
+	if err := c.rest.DoWithContext(ctx, "GET", "user", nil, &user); err != nil {
+		return "", fmt.Errorf("get authenticated user: %w", err)
+	}
+	if user.Login == "" {
+		return "", fmt.Errorf("get authenticated user: empty login returned")
+	}
+	return user.Login, nil
+}
+
 // TokenScopes returns the OAuth scopes granted to the current token.
 // Uses GET /user and reads the X-OAuth-Scopes response header.
 // Fine-grained PATs may return an empty list (they don't use OAuth scopes).
