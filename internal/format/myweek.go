@@ -4,92 +4,40 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
-// annotation describes why an open item deserves attention.
-type annotation struct {
-	Kind    string // "new", "needs_review", "stale", or ""
-	AgeDays int    // days since creation
-	StaleDays int  // days since last update (0 if not stale)
-}
-
-const (
-	staleThresholdDays = 7 // no update in 7+ days = stale
-)
-
-// annotateIssue computes an annotation for an open issue.
-func annotateIssue(iss model.Issue, since, now time.Time) annotation {
-	a := annotation{AgeDays: daysBetween(iss.CreatedAt, now)}
-	switch {
-	case !iss.CreatedAt.Before(since): // created within --since window
-		a.Kind = "new"
-	case daysBetween(iss.UpdatedAt, now) >= staleThresholdDays:
-		a.Kind = "stale"
-		a.StaleDays = daysBetween(iss.UpdatedAt, now)
-	}
-	return a
-}
-
-// annotatePR computes an annotation for an open PR.
-func annotatePR(pr model.PR, needsReview bool, since, now time.Time) annotation {
-	a := annotation{AgeDays: daysBetween(pr.CreatedAt, now)}
-	switch {
-	case !pr.CreatedAt.Before(since):
-		a.Kind = "new"
-	case needsReview && a.AgeDays >= 2: // give 1 day grace before flagging
-		a.Kind = "needs_review"
-	}
-	// PRs don't have UpdatedAt, so we don't flag stale — use needs_review instead.
-	return a
-}
-
-func daysBetween(a, b time.Time) int {
-	return int(math.Floor(b.Sub(a).Hours() / 24))
-}
-
-// prNeedsReview returns true if the PR number appears in the needsReview set.
-func prNeedsReview(pr model.PR, needsReview []model.PR) bool {
-	for _, nr := range needsReview {
-		if nr.Number == pr.Number {
-			return true
-		}
-	}
-	return false
-}
-
-// formatAnnotation returns a short suffix string for pretty/terminal output.
-func formatAnnotation(a annotation) string {
-	switch a.Kind {
-	case "new":
-		return fmt.Sprintf("  <- new (%dd ago)", a.AgeDays)
-	case "needs_review":
-		return fmt.Sprintf("  <- needs review (%dd)", a.AgeDays)
-	case "stale":
-		return fmt.Sprintf("  <- stale (%dd, no update in %dd)", a.AgeDays, a.StaleDays)
+// formatStatus returns a short suffix string for pretty/terminal output.
+func formatStatus(s model.ItemStatus) string {
+	switch s.Status {
+	case model.StatusNew:
+		return fmt.Sprintf("  <- new (%dd ago)", s.AgeDays)
+	case model.StatusNeedsReview:
+		return fmt.Sprintf("  <- needs review (%dd)", s.AgeDays)
+	case model.StatusStale:
+		return fmt.Sprintf("  <- stale (%dd, no update in %dd)", s.AgeDays, s.StaleDays)
 	default:
-		if a.AgeDays > 0 {
-			return fmt.Sprintf("  (%dd)", a.AgeDays)
+		if s.AgeDays > 0 {
+			return fmt.Sprintf("  (%dd)", s.AgeDays)
 		}
 		return ""
 	}
 }
 
-// formatAnnotationMarkdown returns a markdown annotation suffix.
-func formatAnnotationMarkdown(a annotation) string {
-	switch a.Kind {
-	case "new":
-		return fmt.Sprintf(" `new %dd ago`", a.AgeDays)
-	case "needs_review":
-		return fmt.Sprintf(" `needs review %dd`", a.AgeDays)
-	case "stale":
-		return fmt.Sprintf(" `stale %dd, no update %dd`", a.AgeDays, a.StaleDays)
+// formatStatusMarkdown returns a markdown annotation suffix.
+func formatStatusMarkdown(s model.ItemStatus) string {
+	switch s.Status {
+	case model.StatusNew:
+		return fmt.Sprintf(" `new %dd ago`", s.AgeDays)
+	case model.StatusNeedsReview:
+		return fmt.Sprintf(" `needs review %dd`", s.AgeDays)
+	case model.StatusStale:
+		return fmt.Sprintf(" `stale %dd, no update %dd`", s.AgeDays, s.StaleDays)
 	default:
-		if a.AgeDays > 0 {
-			return fmt.Sprintf(" *%dd*", a.AgeDays)
+		if s.AgeDays > 0 {
+			return fmt.Sprintf(" *%dd*", s.AgeDays)
 		}
 		return ""
 	}
@@ -144,17 +92,17 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult) error {
 		if len(r.IssuesOpen) > 0 {
 			fmt.Fprintf(w, "\nOpen Issues: %d\n", len(r.IssuesOpen))
 			for _, iss := range r.IssuesOpen {
-				a := annotateIssue(iss, r.Since, r.Until)
-				fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(iss.Number, iss.URL, rc), iss.Title, formatAnnotation(a))
+				s := model.IssueStatus(iss, r.Since, r.Until)
+				fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(iss.Number, iss.URL, rc), iss.Title, formatStatus(s))
 			}
 		}
 
 		if len(r.PRsOpen) > 0 {
 			fmt.Fprintf(w, "\nOpen PRs: %d\n", len(r.PRsOpen))
 			for _, pr := range r.PRsOpen {
-				nr := prNeedsReview(pr, r.PRsNeedingReview)
-				a := annotatePR(pr, nr, r.Since, r.Until)
-				fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title, formatAnnotation(a))
+				nr := model.PRNeedsReview(pr, r.PRsNeedingReview)
+				s := model.PRStatus(pr, nr, r.Since, r.Until)
+				fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title, formatStatus(s))
 			}
 		}
 	}
@@ -216,8 +164,8 @@ func WriteMyWeekMarkdown(rc RenderContext, r model.MyWeekResult) error {
 	fmt.Fprintf(w, "**Open Issues (%d)**\n\n", len(r.IssuesOpen))
 	if len(r.IssuesOpen) > 0 {
 		for _, iss := range r.IssuesOpen {
-			a := annotateIssue(iss, r.Since, r.Until)
-			fmt.Fprintf(w, "- %s %s%s\n", FormatItemLink(iss.Number, iss.URL, rc), sanitizeMarkdown(iss.Title), formatAnnotationMarkdown(a))
+			s := model.IssueStatus(iss, r.Since, r.Until)
+			fmt.Fprintf(w, "- %s %s%s\n", FormatItemLink(iss.Number, iss.URL, rc), sanitizeMarkdown(iss.Title), formatStatusMarkdown(s))
 		}
 	} else {
 		fmt.Fprintf(w, "_None_\n")
@@ -226,9 +174,9 @@ func WriteMyWeekMarkdown(rc RenderContext, r model.MyWeekResult) error {
 	fmt.Fprintf(w, "\n**Open PRs (%d)**\n\n", len(r.PRsOpen))
 	if len(r.PRsOpen) > 0 {
 		for _, pr := range r.PRsOpen {
-			nr := prNeedsReview(pr, r.PRsNeedingReview)
-			a := annotatePR(pr, nr, r.Since, r.Until)
-			fmt.Fprintf(w, "- %s %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), sanitizeMarkdown(pr.Title), formatAnnotationMarkdown(a))
+			nr := model.PRNeedsReview(pr, r.PRsNeedingReview)
+			s := model.PRStatus(pr, nr, r.Since, r.Until)
+			fmt.Fprintf(w, "- %s %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), sanitizeMarkdown(pr.Title), formatStatusMarkdown(s))
 		}
 	} else {
 		fmt.Fprintf(w, "_None_\n")
@@ -324,26 +272,18 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult) error {
 
 	// Ahead — with annotations
 	for _, iss := range r.IssuesOpen {
-		a := annotateIssue(iss, r.Since, r.Until)
-		status := a.Kind
-		if status == "" {
-			status = "active"
-		}
+		s := model.IssueStatus(iss, r.Since, r.Until)
 		out.Ahead.IssuesOpen = append(out.Ahead.IssuesOpen, jsonMyWeekAheadItem{
 			Number: iss.Number, Title: iss.Title, URL: iss.URL, Labels: iss.Labels,
-			AgeDays: a.AgeDays, StaleDays: a.StaleDays, Status: status,
+			AgeDays: s.AgeDays, StaleDays: s.StaleDays, Status: s.Status,
 		})
 	}
 	for _, pr := range r.PRsOpen {
-		nr := prNeedsReview(pr, r.PRsNeedingReview)
-		a := annotatePR(pr, nr, r.Since, r.Until)
-		status := a.Kind
-		if status == "" {
-			status = "active"
-		}
+		nr := model.PRNeedsReview(pr, r.PRsNeedingReview)
+		s := model.PRStatus(pr, nr, r.Since, r.Until)
 		out.Ahead.PRsOpen = append(out.Ahead.PRsOpen, jsonMyWeekAheadItem{
 			Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels,
-			AgeDays: a.AgeDays, StaleDays: a.StaleDays, Status: status,
+			AgeDays: s.AgeDays, StaleDays: s.StaleDays, Status: s.Status,
 		})
 	}
 

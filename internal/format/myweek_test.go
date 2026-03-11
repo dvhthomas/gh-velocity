@@ -184,84 +184,8 @@ func TestWriteMyWeekJSON(t *testing.T) {
 	}
 }
 
-func TestAnnotateIssue(t *testing.T) {
-	tests := []struct {
-		name    string
-		issue   model.Issue
-		wantKind string
-	}{
-		{
-			name: "new issue created in window",
-			issue: model.Issue{
-				CreatedAt: testSince.Add(24 * time.Hour),
-				UpdatedAt: testSince.Add(24 * time.Hour),
-			},
-			wantKind: "new",
-		},
-		{
-			name: "stale issue",
-			issue: model.Issue{
-				CreatedAt: testNow.Add(-30 * 24 * time.Hour),
-				UpdatedAt: testNow.Add(-10 * 24 * time.Hour),
-			},
-			wantKind: "stale",
-		},
-		{
-			name: "active issue",
-			issue: model.Issue{
-				CreatedAt: testSince.Add(-5 * 24 * time.Hour), // before since window
-				UpdatedAt: testNow.Add(-1 * 24 * time.Hour),   // recently updated
-			},
-			wantKind: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := annotateIssue(tt.issue, testSince, testNow)
-			if a.Kind != tt.wantKind {
-				t.Errorf("annotateIssue().Kind = %q, want %q", a.Kind, tt.wantKind)
-			}
-		})
-	}
-}
-
-func TestAnnotatePR(t *testing.T) {
-	tests := []struct {
-		name        string
-		pr          model.PR
-		needsReview bool
-		wantKind    string
-	}{
-		{
-			name:        "needs review",
-			pr:          model.PR{CreatedAt: testSince.Add(-3 * 24 * time.Hour)}, // before since, 10d old
-			needsReview: true,
-			wantKind:    "needs_review",
-		},
-		{
-			name:        "new PR in window",
-			pr:          model.PR{CreatedAt: testSince.Add(24 * time.Hour)}, // within since window
-			needsReview: true, // new takes priority over needs_review
-			wantKind:    "new",
-		},
-		{
-			name:        "active PR no reviews but young",
-			pr:          model.PR{CreatedAt: testSince.Add(-1 * 24 * time.Hour)}, // 8d old, has reviews
-			needsReview: false,
-			wantKind:    "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := annotatePR(tt.pr, tt.needsReview, testSince, testNow)
-			if a.Kind != tt.wantKind {
-				t.Errorf("annotatePR().Kind = %q, want %q", a.Kind, tt.wantKind)
-			}
-		})
-	}
-}
+// Status logic tests are in internal/model/status_test.go.
+// Formatter tests above verify the rendering of status annotations.
 
 func contains(s, sub string) bool {
 	return len(s) >= len(sub) && (s == sub || len(s) > 0 && containsSubstring(s, sub))
