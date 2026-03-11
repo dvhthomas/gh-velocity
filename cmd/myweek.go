@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"time"
-
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
@@ -52,7 +50,7 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 		}
 	}
 
-	now := time.Now().UTC()
+	now := deps.Now()
 	since, err := dateutil.Parse(sinceStr, now)
 	if err != nil {
 		return &model.AppError{Code: model.ErrConfigInvalid, Message: err.Error()}

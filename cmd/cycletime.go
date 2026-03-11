@@ -203,7 +203,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		}
 	}
 
-	now := time.Now().UTC()
+	now := deps.Now()
 	since, err := dateutil.Parse(sinceStr, now)
 	if err != nil {
 		return &model.AppError{Code: model.ErrConfigInvalid, Message: err.Error()}

@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"time"
-
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
@@ -45,7 +43,7 @@ Default window is the last 30 days.`,
 				}
 			}
 
-			now := time.Now().UTC()
+			now := deps.Now()
 
 			if sinceFlag == "" {
 				sinceFlag = "30d"

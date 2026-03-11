@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/config"
 	"github.com/bitsbyme/gh-velocity/internal/format"
@@ -42,6 +43,22 @@ type Deps struct {
 	IsTTY        bool   // true when stdout is a terminal
 	TermWidth    int    // terminal width in columns (0 = unknown)
 	Debug        bool   // true when --debug is set
+	Now          func() time.Time // returns current time; override via GH_VELOCITY_NOW for testing
+}
+
+// nowFunc returns a function that provides the current time.
+// If GH_VELOCITY_NOW is set, the returned function always returns that fixed time.
+func nowFunc() func() time.Time {
+	if env := os.Getenv("GH_VELOCITY_NOW"); env != "" {
+		if t, err := time.Parse(time.RFC3339, env); err == nil {
+			return func() time.Time { return t }
+		}
+		// Also accept date-only format.
+		if t, err := time.Parse(time.DateOnly, env); err == nil {
+			return func() time.Time { return t.UTC() }
+		}
+	}
+	return func() time.Time { return time.Now().UTC() }
 }
 
 // RenderCtx builds a format.RenderContext from Deps and a writer.
@@ -241,6 +258,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				IsTTY:        isTTY,
 				TermWidth:    termWidth,
 				Debug:        debugFlag,
+				Now:          nowFunc(),
 			}
 
 			cmd.SetContext(context.WithValue(cmd.Context(), configKey, deps))

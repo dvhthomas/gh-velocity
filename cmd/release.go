@@ -169,8 +169,7 @@ func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Cl
 	release, err := client.GetRelease(ctx, tag)
 	if err != nil {
 		warnings = append(warnings, fmt.Sprintf("no GitHub release for %s, using current time for release date", tag))
-		now := time.Now()
-		release = &model.Release{TagName: tag, CreatedAt: now}
+		release = &model.Release{TagName: tag, CreatedAt: deps.Now()}
 	}
 
 	// Fetch previous release for hotfix/cadence detection

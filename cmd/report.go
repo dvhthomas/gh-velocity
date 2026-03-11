@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"time"
-
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
@@ -49,7 +47,7 @@ unavailable.`,
 				}
 			}
 
-			now := time.Now().UTC()
+			now := deps.Now()
 
 			// Default: 30 days
 			if sinceFlag == "" {
