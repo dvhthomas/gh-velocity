@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
   discussions: write
   issues: write
 
@@ -29,7 +30,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_VELOCITY_POST_LIVE: "true"
         run: |
-          ./gh-velocity report --since 7d --new-post --repo dvhthomas/gh-velocity
+          ./gh-velocity report --since 7d --new-post --debug --repo dvhthomas/gh-velocity
 
       - name: Open issue on failure
         if: failure()

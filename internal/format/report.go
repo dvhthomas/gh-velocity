@@ -107,6 +107,13 @@ func WriteReportMarkdown(w io.Writer, r model.StatsResult) error {
 			r.Quality.BugCount, r.Quality.TotalIssues, r.Quality.DefectRate*100)
 	}
 
+	if len(r.Warnings) > 0 {
+		fmt.Fprintf(w, "\n> [!WARNING]\n")
+		for _, msg := range r.Warnings {
+			fmt.Fprintf(w, "> %s\n", msg)
+		}
+	}
+
 	return nil
 }
 
