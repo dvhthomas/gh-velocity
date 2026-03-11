@@ -1,0 +1,157 @@
+package scope
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestQuery_Build(t *testing.T) {
+	tests := []struct {
+		name  string
+		query Query
+		want  string
+	}{
+		{
+			name: "all parts",
+			query: Query{
+				Scope:     "repo:myorg/myrepo label:bug",
+				Type:      "is:issue",
+				Lifecycle: "is:closed closed:2026-01-01..2026-02-01",
+			},
+			want: "repo:myorg/myrepo label:bug is:issue is:closed closed:2026-01-01..2026-02-01",
+		},
+		{
+			name: "scope only",
+			query: Query{
+				Scope: "repo:myorg/myrepo",
+			},
+			want: "repo:myorg/myrepo",
+		},
+		{
+			name: "lifecycle only",
+			query: Query{
+				Lifecycle: "is:closed",
+			},
+			want: "is:closed",
+		},
+		{
+			name:  "empty",
+			query: Query{},
+			want:  "",
+		},
+		{
+			name: "scope and type only",
+			query: Query{
+				Scope: "repo:myorg/myrepo",
+				Type:  "is:pr",
+			},
+			want: "repo:myorg/myrepo is:pr",
+		},
+		{
+			name: "whitespace trimmed",
+			query: Query{
+				Scope:     "  repo:myorg/myrepo  ",
+				Lifecycle: "  is:closed  ",
+			},
+			want: "repo:myorg/myrepo is:closed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.query.Build()
+			if got != tt.want {
+				t.Errorf("Build() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestQuery_URL(t *testing.T) {
+	q := Query{
+		Scope:     "repo:myorg/myrepo",
+		Type:      "is:issue",
+		Lifecycle: "is:closed",
+	}
+
+	u := q.URL()
+	if !strings.HasPrefix(u, "https://github.com/issues?q=") {
+		t.Errorf("URL() should start with GitHub issues URL, got %q", u)
+	}
+	if !strings.Contains(u, "repo") {
+		t.Errorf("URL() should contain encoded query, got %q", u)
+	}
+
+	// Empty query returns empty URL.
+	empty := Query{}
+	if got := empty.URL(); got != "" {
+		t.Errorf("empty URL() = %q, want empty", got)
+	}
+}
+
+func TestQuery_String(t *testing.T) {
+	q := Query{Scope: "repo:test", Type: "is:issue"}
+	if q.String() != q.Build() {
+		t.Error("String() should equal Build()")
+	}
+}
+
+func TestQuery_Verbose(t *testing.T) {
+	q := Query{
+		Scope:     "repo:myorg/myrepo",
+		Type:      "is:issue",
+		Lifecycle: "is:closed",
+	}
+
+	v := q.Verbose()
+	if !strings.Contains(v, "[scope]") {
+		t.Error("Verbose() should contain [scope]")
+	}
+	if !strings.Contains(v, "[type]") {
+		t.Error("Verbose() should contain [type]")
+	}
+	if !strings.Contains(v, "[lifecycle]") {
+		t.Error("Verbose() should contain [lifecycle]")
+	}
+	if !strings.Contains(v, "[query]") {
+		t.Error("Verbose() should contain [query]")
+	}
+	if !strings.Contains(v, "[url]") {
+		t.Error("Verbose() should contain [url]")
+	}
+
+	// Empty parts should be omitted.
+	partial := Query{Lifecycle: "is:closed"}
+	pv := partial.Verbose()
+	if strings.Contains(pv, "[scope]") {
+		t.Error("Verbose() should omit empty [scope]")
+	}
+	if strings.Contains(pv, "[type]") {
+		t.Error("Verbose() should omit empty [type]")
+	}
+}
+
+func TestMergeScope(t *testing.T) {
+	tests := []struct {
+		name   string
+		config string
+		flag   string
+		want   string
+	}{
+		{"both", "repo:myorg/myrepo", "label:bug", "repo:myorg/myrepo label:bug"},
+		{"config only", "repo:myorg/myrepo", "", "repo:myorg/myrepo"},
+		{"flag only", "", "label:bug", "label:bug"},
+		{"neither", "", "", ""},
+		{"whitespace config", "  repo:test  ", "", "repo:test"},
+		{"whitespace flag", "", "  label:bug  ", "label:bug"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := MergeScope(tt.config, tt.flag)
+			if got != tt.want {
+				t.Errorf("MergeScope(%q, %q) = %q, want %q", tt.config, tt.flag, got, tt.want)
+			}
+		})
+	}
+}

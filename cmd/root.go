@@ -186,8 +186,8 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				log.Debug("config:       %s", configPath)
 				log.Debug("format:       %s", formatFlag)
 				log.Debug("strategy:     %s", cfg.CycleTime.Strategy)
-				if cfg.Project.ID != "" {
-					log.Debug("project.id:   %s", cfg.Project.ID)
+				if cfg.Project.URL != "" {
+					log.Debug("project.url:  %s", cfg.Project.URL)
 				}
 				if postFlag {
 					mode := "dry-run"

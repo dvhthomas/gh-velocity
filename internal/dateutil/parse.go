@@ -18,8 +18,8 @@ func Parse(s string, now time.Time) (time.Time, error) {
 	now = now.UTC()
 
 	// Relative: Nd
-	if strings.HasSuffix(s, "d") {
-		numStr := strings.TrimSuffix(s, "d")
+	if before, ok := strings.CutSuffix(s, "d"); ok {
+		numStr := before
 		n, err := strconv.Atoi(numStr)
 		if err != nil || n < 0 {
 			return time.Time{}, fmt.Errorf("invalid date %q: expected YYYY-MM-DD, RFC3339, or relative (e.g., 30d)", s)

@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/model"
@@ -114,19 +116,14 @@ func (c *Client) FetchPRLinkedIssues(ctx context.Context, prNumbers []int) (map[
 	result := make(map[int][]model.Issue)
 
 	for i := 0; i < len(prNumbers); i += batchSize {
-		end := i + batchSize
-		if end > len(prNumbers) {
-			end = len(prNumbers)
-		}
+		end := min(i+batchSize, len(prNumbers))
 		batch := prNumbers[i:end]
 
 		batchResult, err := c.fetchPRLinkedIssuesBatch(ctx, batch)
 		if err != nil {
 			return nil, err
 		}
-		for k, v := range batchResult {
-			result[k] = v
-		}
+		maps.Copy(result, batchResult)
 	}
 
 	return result, nil
@@ -135,9 +132,9 @@ func (c *Client) FetchPRLinkedIssues(ctx context.Context, prNumbers []int) (map[
 // fetchPRLinkedIssuesBatch fetches linked issues for a single batch of PRs.
 func (c *Client) fetchPRLinkedIssuesBatch(ctx context.Context, prNumbers []int) (map[int][]model.Issue, error) {
 	// Build aliased query fragments
-	queryFragments := ""
+	var queryFragments strings.Builder
 	for _, num := range prNumbers {
-		queryFragments += fmt.Sprintf(`
+		queryFragments.WriteString(fmt.Sprintf(`
     pr%d: pullRequest(number: %d) {
       number
       title
@@ -155,15 +152,15 @@ func (c *Client) fetchPRLinkedIssuesBatch(ctx context.Context, prNumbers []int) 
           }
         }
       }
-    }`, num, num)
+    }`, num, num))
 	}
 
 	query := fmt.Sprintf(`query($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {%s
   }
-}`, queryFragments)
+}`, queryFragments.String())
 
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"owner": c.owner,
 		"name":  c.repo,
 	}

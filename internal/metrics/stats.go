@@ -101,12 +101,6 @@ func percentile(sorted []time.Duration, p int) time.Duration {
 		return sorted[0]
 	}
 	// Nearest-rank: rank = ceil(p/100 * n)
-	rank := int(math.Ceil(float64(p) / 100.0 * float64(n)))
-	if rank < 1 {
-		rank = 1
-	}
-	if rank > n {
-		rank = n
-	}
+	rank := min(max(int(math.Ceil(float64(p)/100.0*float64(n))), 1), n)
 	return sorted[rank-1]
 }

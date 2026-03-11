@@ -89,9 +89,23 @@ tasks:
     cmds:
       - bash scripts/smoke-test-ext.sh
 
+  tidy:
+    internal: true
+    cmds:
+      - go mod tidy
+      - echo '✓ go mod tidy passed'
+
+  modernize:
+    internal: true
+    cmds:
+      - go run golang.org/x/tools/go/analysis/passes/modernize/cmd/modernize@latest -fix ./...
+      - echo '✓ Modernize passed'
+
   quality:
     desc: Run all quality checks (recommended before commit)
     cmds:
+      - task: tidy
+      - task: modernize
       - task: test
       - task: lint
       - task: staticcheck

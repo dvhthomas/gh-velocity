@@ -41,7 +41,7 @@ func TestErrorEnvelope_JSON(t *testing.T) {
 		Error: &AppError{
 			Code:    ErrNotFound,
 			Message: "issue #42 not found in owner/repo",
-			Details: map[string]interface{}{
+			Details: map[string]any{
 				"resource": "issue",
 				"number":   float64(42),
 			},

@@ -217,14 +217,14 @@ func TestVerifyConfig_ProjectBoardWithoutID(t *testing.T) {
 		Repo:       "owner/repo",
 		Strategy:   "project-board",
 		HasProject: true,
-		// ProjectID intentionally empty
+		// ProjectURL intentionally empty
 	}
 
 	vr := verifyConfig(result, nil)
 
-	// The generated YAML won't include project.id, but strategy is project-board.
+	// The generated YAML won't include project.url, but strategy is project-board.
 	// config.Parse should reject this.
 	if vr.ConfigParses && len(vr.Warnings) == 0 {
-		t.Error("expected warning about project-board requiring project.id")
+		t.Error("expected warning about project-board requiring project.url")
 	}
 }

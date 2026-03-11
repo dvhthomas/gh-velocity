@@ -96,7 +96,7 @@ func (c *Client) ListProjectItems(ctx context.Context, projectID, statusFieldID 
 	var cursor *string
 
 	for {
-		variables := map[string]interface{}{
+		variables := map[string]any{
 			"projectId": projectID,
 		}
 		if cursor != nil {

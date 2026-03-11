@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/log"
@@ -78,9 +79,10 @@ func (c *Client) SearchClosedIssues(ctx context.Context, since, until time.Time)
 // Uses: GET /search/issues?q=repo:{owner}/{repo}+is:issue+is:open+label:{label1},label:{label2},...
 // Returns at most 1000 results (GitHub search API limit).
 func (c *Client) SearchOpenIssuesWithLabels(ctx context.Context, labels []string) ([]model.Issue, error) {
-	query := fmt.Sprintf("repo:%s/%s is:issue is:open", c.owner, c.repo)
+	var query strings.Builder
+	query.WriteString(fmt.Sprintf("repo:%s/%s is:issue is:open", c.owner, c.repo))
 	for _, l := range labels {
-		query += fmt.Sprintf(` label:"%s"`, l)
+		query.WriteString(fmt.Sprintf(` label:"%s"`, l))
 	}
 
 	var allIssues []model.Issue
@@ -89,7 +91,7 @@ func (c *Client) SearchOpenIssuesWithLabels(ctx context.Context, labels []string
 	for {
 		var resp searchResponse
 		path := fmt.Sprintf("search/issues?q=%s&per_page=100&page=%d",
-			url.QueryEscape(query), page)
+			url.QueryEscape(query.String()), page)
 		if err := c.rest.DoWithContext(ctx, "GET", path, nil, &resp); err != nil {
 			return nil, fmt.Errorf("search open issues with labels: %w", err)
 		}

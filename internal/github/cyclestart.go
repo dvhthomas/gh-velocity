@@ -66,7 +66,7 @@ func (c *Client) GetClosingPR(ctx context.Context, issueNumber int) (*model.PR, 
     }
   }
 }`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"owner":  c.owner,
 		"repo":   c.repo,
 		"number": issueNumber,
@@ -165,7 +165,7 @@ func (c *Client) GetProjectStatus(ctx context.Context, issueNumber int, projectI
   }
 }`
 
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"owner":  c.owner,
 		"repo":   c.repo,
 		"number": issueNumber,

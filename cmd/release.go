@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"time"
 
@@ -252,19 +253,13 @@ func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Cl
 	fetchErrors := make(map[int]error)
 
 	// Copy known issues
-	for num, issue := range knownIssues {
-		issues[num] = issue
-	}
+	maps.Copy(issues, knownIssues)
 
 	// Fetch remaining issues
 	if len(toFetch) > 0 {
 		fetched, errs := client.FetchIssues(ctx, toFetch)
-		for num, issue := range fetched {
-			issues[num] = issue
-		}
-		for num, fetchErr := range errs {
-			fetchErrors[num] = fetchErr
-		}
+		maps.Copy(issues, fetched)
+		maps.Copy(fetchErrors, errs)
 	}
 
 	input := metrics.ReleaseInput{
