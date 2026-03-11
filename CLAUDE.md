@@ -34,6 +34,7 @@ task test:coverage  # Tests with coverage report
 - **GraphQL variables only** — never use `fmt.Sprintf` to build GraphQL queries. Always use the `variables` map in `client.Do(query, variables, &result)`. User/config values (`project.id`, `status_field_id`, etc.) must only enter queries as GraphQL variables.
 - **Sequential `cmds`** in Taskfile, not parallel `deps` (prevents race conditions).
 - **Integration tests** run against the built binary (`task build`), not `go run`.
+- **Scope-first data fetching** — all issue/PR data fetching must go through GitHub Search API (REST) or GraphQL project items queries with a pre-assembled query string. Never hardcode `repo:`, `is:issue`, or date qualifiers directly in API calls. Instead, assemble queries from user scope (config + `--scope` flag) and command lifecycle qualifiers via `internal/scope`. This ensures every command benefits from user-defined filtering, even commands like `quality release` that only need scope (not lifecycle).
 
 ## Workflow
 
