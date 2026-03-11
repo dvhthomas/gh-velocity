@@ -25,6 +25,12 @@ func testMyWeekResult() model.MyWeekResult {
 		PRsReviewed: []model.PR{
 			{Number: 20, Title: "Refactor auth", URL: "https://github.com/owner/repo/pull/20"},
 		},
+		IssuesOpen: []model.Issue{
+			{Number: 42, Title: "Implement caching", URL: "https://github.com/owner/repo/issues/42"},
+		},
+		PRsOpen: []model.PR{
+			{Number: 43, Title: "WIP: add my-week command", URL: "https://github.com/owner/repo/pull/43"},
+		},
 	}
 }
 
@@ -35,9 +41,17 @@ func TestWriteMyWeekPretty(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"testuser", "Issues Closed: 2", "PRs Merged: 1", "PRs Reviewed: 1", "#1", "#10", "#20"} {
+	for _, want := range []string{
+		"testuser",
+		"What I shipped",
+		"Issues Closed: 2", "PRs Merged: 1", "PRs Reviewed: 1",
+		"#1", "#10", "#20",
+		"What's ahead",
+		"Open Issues: 1", "#42", "Implement caching",
+		"Open PRs: 1", "#43", "WIP: add my-week",
+	} {
 		if !contains(out, want) {
-			t.Errorf("expected %q in output", want)
+			t.Errorf("expected %q in output:\n%s", want, out)
 		}
 	}
 }
@@ -57,6 +71,10 @@ func TestWriteMyWeekPretty_Empty(t *testing.T) {
 	if !contains(buf.String(), "No activity") {
 		t.Error("expected 'No activity' for empty result")
 	}
+	// Should NOT show section headers when everything is empty.
+	if contains(buf.String(), "What I shipped") {
+		t.Error("should not show 'What I shipped' when empty")
+	}
 }
 
 func TestWriteMyWeekMarkdown(t *testing.T) {
@@ -66,9 +84,17 @@ func TestWriteMyWeekMarkdown(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"## My Week", "### Issues Closed (2)", "### PRs Merged (1)", "### PRs Reviewed (1)", "[#1]", "[#10]"} {
+	for _, want := range []string{
+		"## My Week",
+		"### What I shipped",
+		"**Issues Closed (2)**", "**PRs Merged (1)**", "**PRs Reviewed (1)**",
+		"[#1]", "[#10]",
+		"### What's ahead",
+		"**Open Issues (1)**", "[#42]",
+		"**Open PRs (1)**", "[#43]",
+	} {
 		if !contains(out, want) {
-			t.Errorf("expected %q in output", want)
+			t.Errorf("expected %q in output:\n%s", want, out)
 		}
 	}
 }
@@ -104,8 +130,20 @@ func TestWriteMyWeekJSON(t *testing.T) {
 	if parsed.Summary.PRsMerged != 1 {
 		t.Errorf("summary.prs_merged = %d, want 1", parsed.Summary.PRsMerged)
 	}
-	if len(parsed.IssuesClosed) != 2 {
-		t.Errorf("issues_closed length = %d, want 2", len(parsed.IssuesClosed))
+	if parsed.Summary.IssuesOpen != 1 {
+		t.Errorf("summary.issues_open = %d, want 1", parsed.Summary.IssuesOpen)
+	}
+	if parsed.Summary.PRsOpen != 1 {
+		t.Errorf("summary.prs_open = %d, want 1", parsed.Summary.PRsOpen)
+	}
+	if len(parsed.Lookback.IssuesClosed) != 2 {
+		t.Errorf("lookback.issues_closed length = %d, want 2", len(parsed.Lookback.IssuesClosed))
+	}
+	if len(parsed.Ahead.IssuesOpen) != 1 {
+		t.Errorf("ahead.issues_open length = %d, want 1", len(parsed.Ahead.IssuesOpen))
+	}
+	if len(parsed.Ahead.PRsOpen) != 1 {
+		t.Errorf("ahead.prs_open length = %d, want 1", len(parsed.Ahead.PRsOpen))
 	}
 }
 

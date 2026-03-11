@@ -200,6 +200,28 @@ func TestAuthorQueryWithExcludeUsers(t *testing.T) {
 	}
 }
 
+func TestOpenIssuesByAssigneeQuery(t *testing.T) {
+	q := OpenIssuesByAssigneeQuery("repo:owner/repo", "testuser")
+	built := q.Build()
+
+	for _, want := range []string{"repo:owner/repo", "is:issue", "is:open", "assignee:testuser"} {
+		if !strings.Contains(built, want) {
+			t.Errorf("query %q missing %q", built, want)
+		}
+	}
+}
+
+func TestOpenPRsByAuthorQuery(t *testing.T) {
+	q := OpenPRsByAuthorQuery("repo:owner/repo", "testuser")
+	built := q.Build()
+
+	for _, want := range []string{"repo:owner/repo", "is:pr", "is:open", "author:testuser"} {
+		if !strings.Contains(built, want) {
+			t.Errorf("query %q missing %q", built, want)
+		}
+	}
+}
+
 func TestMergeScope(t *testing.T) {
 	tests := []struct {
 		name   string

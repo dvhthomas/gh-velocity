@@ -118,6 +118,24 @@ func ReviewedPRsByAuthorQuery(scopeStr, login string, since, until time.Time) Qu
 	}
 }
 
+// OpenIssuesByAssigneeQuery returns a Query for open issues assigned to a user.
+func OpenIssuesByAssigneeQuery(scopeStr, login string) Query {
+	return Query{
+		Scope:     scopeStr,
+		Type:      "is:issue",
+		Lifecycle: fmt.Sprintf("is:open assignee:%s", login),
+	}
+}
+
+// OpenPRsByAuthorQuery returns a Query for open PRs authored by a user.
+func OpenPRsByAuthorQuery(scopeStr, login string) Query {
+	return Query{
+		Scope:     scopeStr,
+		Type:      "is:pr",
+		Lifecycle: fmt.Sprintf("is:open author:%s", login),
+	}
+}
+
 // MergeScope combines config scope and flag scope with AND semantics.
 // Both are GitHub search query fragments; they're joined with a space.
 // Empty strings are ignored.

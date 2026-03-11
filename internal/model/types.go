@@ -217,9 +217,13 @@ type MyWeekResult struct {
 	Repo         string
 	Since        time.Time
 	Until        time.Time
+	// Lookback: what happened
 	IssuesClosed []Issue
 	PRsMerged    []PR
 	PRsReviewed  []PR
+	// Lookahead: what's in progress
+	IssuesOpen []Issue // open issues assigned to me
+	PRsOpen    []PR    // open PRs I authored
 }
 
 // StatsQuality holds defect rate metrics.

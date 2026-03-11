@@ -20,9 +20,11 @@ func NewMyWeekCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "my-week",
 		Short: "Your activity summary for 1:1 prep",
-		Long: `Shows issues closed, PRs merged, and PRs reviewed by the authenticated user.
+		Long: `Shows what you shipped and what's ahead — designed for 1:1 prep.
 
-Designed for weekly 1:1 meetings — paste the markdown output into your prep doc.
+Lookback: issues closed, PRs merged, PRs reviewed in the --since period.
+Lookahead: open issues assigned to you, open PRs you authored.
+
 Always uses the authenticated GitHub user (gh auth status).`,
 		Example: `  # Last 7 days (default)
   gh velocity status my-week
@@ -81,13 +83,14 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 	// not "what did I do filtered by the config's scope query".
 	repoScope := fmt.Sprintf("repo:%s/%s", deps.Owner, deps.Repo)
 
-	// Fetch issues closed, PRs merged, and PRs reviewed in parallel.
-	var issuesClosed []model.Issue
-	var prsMerged, prsReviewed []model.PR
+	// Fetch lookback and lookahead data in parallel.
+	var issuesClosed, issuesOpen []model.Issue
+	var prsMerged, prsReviewed, prsOpen []model.PR
 
 	g, gCtx := errgroup.WithContext(ctx)
 	g.SetLimit(5)
 
+	// Lookback: what happened in the --since period.
 	g.Go(func() error {
 		q := scope.ClosedIssuesByAuthorQuery(repoScope, login, since, now)
 		q.ExcludeUsers = deps.ExcludeUsers
@@ -130,6 +133,35 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 		return nil
 	})
 
+	// Lookahead: what's in progress right now.
+	g.Go(func() error {
+		q := scope.OpenIssuesByAssigneeQuery(repoScope, login)
+		q.ExcludeUsers = deps.ExcludeUsers
+		if deps.Debug {
+			log.Debug("my-week open issues query:\n%s", q.Verbose())
+		}
+		issues, err := client.SearchIssues(gCtx, q.Build())
+		if err != nil {
+			return err
+		}
+		issuesOpen = issues
+		return nil
+	})
+
+	g.Go(func() error {
+		q := scope.OpenPRsByAuthorQuery(repoScope, login)
+		q.ExcludeUsers = deps.ExcludeUsers
+		if deps.Debug {
+			log.Debug("my-week open PRs query:\n%s", q.Verbose())
+		}
+		prs, err := client.SearchPRs(gCtx, q.Build())
+		if err != nil {
+			return err
+		}
+		prsOpen = prs
+		return nil
+	})
+
 	if err := g.Wait(); err != nil {
 		return err
 	}
@@ -142,6 +174,8 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 		IssuesClosed: issuesClosed,
 		PRsMerged:    prsMerged,
 		PRsReviewed:  prsReviewed,
+		IssuesOpen:   issuesOpen,
+		PRsOpen:      prsOpen,
 	}
 
 	w := cmd.OutOrStdout()
