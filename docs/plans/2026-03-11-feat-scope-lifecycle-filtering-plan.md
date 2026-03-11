@@ -197,9 +197,9 @@ func ParseProjectURL(rawURL string) (owner string, number int, isOrg bool, err e
 func (c *Client) ResolveProject(ctx context.Context, projectURL, statusFieldName string) (projectID, statusFieldID string, err error)
 ```
 
-- [ ] Add `ParseProjectURL()` in `internal/github/project.go`
-- [ ] Add `ResolveProject()` GraphQL query to get node ID + status field ID by visible name
-- [ ] Tests for URL parsing (user projects, org projects, invalid URLs)
+- [x] Add `ParseProjectURL()` in `internal/github/project.go`
+- [x] Add `ResolveProject()` GraphQL query to get node ID + status field ID by visible name
+- [x] Tests for URL parsing (user projects, org projects, invalid URLs)
 
 ### Phase 2: Refactor search API to accept assembled queries
 
