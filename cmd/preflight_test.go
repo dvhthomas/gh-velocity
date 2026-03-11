@@ -379,7 +379,7 @@ func TestCollectMatchEvidence(t *testing.T) {
 		{Number: 11, Title: "New widget", Labels: []string{"enhancement"}},
 	}
 
-	evidence := collectMatchEvidence(categories, issues, prs)
+	evidence := collectMatchEvidence(categories, nil, issues, prs)
 
 	// Find bug and feature categories in results.
 	findCat := func(name string) *CategoryEvidence {
@@ -458,7 +458,7 @@ func TestCollectMatchEvidence(t *testing.T) {
 
 func TestCollectMatchEvidence_NoItems(t *testing.T) {
 	categories := map[string][]string{"bug": {"bug"}}
-	evidence := collectMatchEvidence(categories, nil, nil)
+	evidence := collectMatchEvidence(categories, nil, nil, nil)
 	if evidence != nil {
 		t.Errorf("expected nil evidence with no items, got %v", evidence)
 	}
@@ -474,7 +474,7 @@ func TestCollectMatchEvidence_TitleFallback(t *testing.T) {
 		{Number: 4, Title: "chore: update deps"},
 	}
 
-	evidence := collectMatchEvidence(categories, issues, nil)
+	evidence := collectMatchEvidence(categories, nil, issues, nil)
 
 	findCat := func(name string) *CategoryEvidence {
 		for i := range evidence {
@@ -549,6 +549,133 @@ func TestRenderPreflightConfig_NoAutoDetectedHint(t *testing.T) {
 
 	if strings.Contains(yamlStr, "auto-detected from git remote") {
 		t.Error("should not contain auto-detection hint when RepoAutoDetected is false")
+	}
+}
+
+func TestCollectMatchEvidence_WithDiscoveredTypes(t *testing.T) {
+	categories := map[string][]string{"bug": {"bug"}}
+	discoveredTypes := []string{"Bug", "Feature", "Task"}
+	issues := []model.Issue{
+		{Number: 1, Title: "Fix crash", Labels: []string{"bug"}, IssueType: "Bug"},
+		{Number: 2, Title: "Add feature", Labels: []string{}, IssueType: "Feature"},
+		{Number: 3, Title: "Clean up", Labels: []string{}, IssueType: "Task"},
+	}
+
+	evidence := collectMatchEvidence(categories, discoveredTypes, issues, nil)
+
+	findCat := func(name string) *CategoryEvidence {
+		for i := range evidence {
+			if evidence[i].Category == name {
+				return &evidence[i]
+			}
+		}
+		return nil
+	}
+	findMatcher := func(ce *CategoryEvidence, matcher string) *MatcherEvidence {
+		for i := range ce.Matchers {
+			if ce.Matchers[i].Matcher == matcher {
+				return &ce.Matchers[i]
+			}
+		}
+		return nil
+	}
+
+	// Bug category should have both label:bug and type:Bug matchers.
+	bugCat := findCat("bug")
+	if bugCat == nil {
+		t.Fatal("expected bug category")
+	}
+	typeBug := findMatcher(bugCat, "type:Bug")
+	if typeBug == nil {
+		t.Fatal("expected type:Bug matcher")
+	}
+	if typeBug.Count != 1 {
+		t.Errorf("type:Bug count = %d, want 1", typeBug.Count)
+	}
+	if typeBug.Suggested {
+		t.Error("type: matchers should not be marked as suggested")
+	}
+
+	// Feature category should have type:Feature.
+	featCat := findCat("feature")
+	if featCat == nil {
+		t.Fatal("expected feature category")
+	}
+	typeFeat := findMatcher(featCat, "type:Feature")
+	if typeFeat == nil {
+		t.Fatal("expected type:Feature matcher")
+	}
+	if typeFeat.Count != 1 {
+		t.Errorf("type:Feature count = %d, want 1", typeFeat.Count)
+	}
+
+	// Chore category should have type:Task.
+	choreCat := findCat("chore")
+	if choreCat == nil {
+		t.Fatal("expected chore category")
+	}
+	typeTask := findMatcher(choreCat, "type:Task")
+	if typeTask == nil {
+		t.Fatal("expected type:Task matcher")
+	}
+	if typeTask.Count != 1 {
+		t.Errorf("type:Task count = %d, want 1", typeTask.Count)
+	}
+}
+
+func TestCollectMatchEvidence_UnmappedTypesIgnored(t *testing.T) {
+	// Types that don't map to any category should not generate probe jobs.
+	categories := map[string][]string{}
+	discoveredTypes := []string{"Spike", "Epic"}
+	issues := []model.Issue{
+		{Number: 1, Title: "Research spike", IssueType: "Spike"},
+	}
+
+	evidence := collectMatchEvidence(categories, discoveredTypes, issues, nil)
+
+	// No type: matchers should exist since Spike and Epic don't map to any category.
+	for _, ce := range evidence {
+		for _, me := range ce.Matchers {
+			if strings.HasPrefix(me.Matcher, "type:") {
+				t.Errorf("unexpected type matcher %q for unmapped type", me.Matcher)
+			}
+		}
+	}
+}
+
+func TestRenderPreflightConfig_BaselineCategories(t *testing.T) {
+	// When no evidence or labels detected, baseline should include bug, feature, chore.
+	result := &PreflightResult{
+		Repo:     "owner/repo",
+		Strategy: "issue",
+	}
+
+	yamlStr := renderPreflightConfig(result)
+
+	if !strings.Contains(yamlStr, "- name: bug") {
+		t.Error("baseline should include bug category")
+	}
+	if !strings.Contains(yamlStr, "- name: feature") {
+		t.Error("baseline should include feature category")
+	}
+	if !strings.Contains(yamlStr, "- name: chore") {
+		t.Error("baseline should include chore category")
+	}
+}
+
+func TestTypePatterns(t *testing.T) {
+	// Verify typePatterns maps expected types to categories.
+	if types, ok := typePatterns["bug"]; !ok || len(types) == 0 {
+		t.Error("expected bug type patterns")
+	}
+	if types, ok := typePatterns["feature"]; !ok || len(types) == 0 {
+		t.Error("expected feature type patterns")
+	}
+	if types, ok := typePatterns["chore"]; !ok || len(types) == 0 {
+		t.Error("expected chore type patterns")
+	}
+	if _, ok := typePatterns["docs"]; ok {
+		t.Error("docs should not be in typePatterns")
 	}
 }
 

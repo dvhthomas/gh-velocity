@@ -49,6 +49,7 @@ type Issue struct {
 	Title     string
 	State     string // "open" or "closed"
 	Labels    []string
+	IssueType string // GitHub Issue Type (from GraphQL); empty for REST-sourced issues
 	CreatedAt time.Time
 	ClosedAt  *time.Time
 	URL       string
@@ -164,6 +165,7 @@ type ProjectItem struct {
 	StatusAt    *time.Time // when status was last set (updatedAt on field value)
 	CreatedAt   time.Time
 	Labels      []string
+	IssueType   string // GitHub Issue Type; empty for PRs and DraftIssues
 }
 
 // WIPItem represents an in-progress work item for display.
