@@ -9,15 +9,23 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
+// formatAge returns a human-readable age string.
+func formatAge(days int) string {
+	if days == 0 {
+		return "today"
+	}
+	return fmt.Sprintf("%dd", days)
+}
+
 // formatStatus returns a short suffix string for pretty/terminal output.
 func formatStatus(s model.ItemStatus) string {
 	switch s.Status {
 	case model.StatusNew:
-		return fmt.Sprintf("  <- new (%dd ago)", s.AgeDays)
+		return fmt.Sprintf("  <- new (%s)", formatAge(s.AgeDays))
 	case model.StatusNeedsReview:
-		return fmt.Sprintf("  <- needs review (%dd)", s.AgeDays)
+		return fmt.Sprintf("  <- needs review (%s)", formatAge(s.AgeDays))
 	case model.StatusStale:
-		return fmt.Sprintf("  <- stale (%dd, no update in %dd)", s.AgeDays, s.StaleDays)
+		return fmt.Sprintf("  <- stale (%s, no update in %dd)", formatAge(s.AgeDays), s.StaleDays)
 	default:
 		if s.AgeDays > 0 {
 			return fmt.Sprintf("  (%dd)", s.AgeDays)
@@ -30,11 +38,11 @@ func formatStatus(s model.ItemStatus) string {
 func formatStatusMarkdown(s model.ItemStatus) string {
 	switch s.Status {
 	case model.StatusNew:
-		return fmt.Sprintf(" `new %dd ago`", s.AgeDays)
+		return fmt.Sprintf(" `new %s`", formatAge(s.AgeDays))
 	case model.StatusNeedsReview:
-		return fmt.Sprintf(" `needs review %dd`", s.AgeDays)
+		return fmt.Sprintf(" `needs review %s`", formatAge(s.AgeDays))
 	case model.StatusStale:
-		return fmt.Sprintf(" `stale %dd, no update %dd`", s.AgeDays, s.StaleDays)
+		return fmt.Sprintf(" `stale %s, no update %dd`", formatAge(s.AgeDays), s.StaleDays)
 	default:
 		if s.AgeDays > 0 {
 			return fmt.Sprintf(" *%dd*", s.AgeDays)

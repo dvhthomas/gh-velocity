@@ -77,6 +77,11 @@ func PRNeedsReview(pr PR, needingReview []PR) bool {
 }
 
 // DaysBetween returns the number of whole days between two times.
+// Returns 0 if b is before a (never negative).
 func DaysBetween(a, b time.Time) int {
-	return int(math.Floor(b.Sub(a).Hours() / 24))
+	d := int(math.Floor(b.Sub(a).Hours() / 24))
+	if d < 0 {
+		return 0
+	}
+	return d
 }
