@@ -192,7 +192,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 
 			if debugFlag {
 				repoSource := ""
-				if repoFlag == "" && os.Getenv("GH_REPO") == "" {
+				if isRepoAutoDetected(repoFlag) {
 					repoSource = " (auto-detected from git remote)"
 				}
 				log.Debug("repo:         %s/%s%s", owner, repo, repoSource)
@@ -278,6 +278,12 @@ func localRepoMatches(dir, owner, repo string) bool {
 		return false
 	}
 	return strings.EqualFold(r.Owner, owner) && strings.EqualFold(r.Name, repo)
+}
+
+// isRepoAutoDetected returns true when resolveRepo will fall through to
+// git remote detection (i.e., no --repo flag and no GH_REPO env var).
+func isRepoAutoDetected(repoFlag string) bool {
+	return repoFlag == "" && os.Getenv("GH_REPO") == ""
 }
 
 // resolveRepo determines the target repository from --repo flag,

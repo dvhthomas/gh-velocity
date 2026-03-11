@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/bitsbyme/gh-velocity/internal/config"
@@ -514,6 +515,40 @@ func TestCollectMatchEvidence_TitleFallback(t *testing.T) {
 	}
 	if !hasMatch {
 		t.Error("expected title probes to find fix: prefix")
+	}
+}
+
+func TestRenderPreflightConfig_AutoDetectedHint(t *testing.T) {
+	result := &PreflightResult{
+		Repo:             "owner/repo",
+		Strategy:         "issue",
+		RepoAutoDetected: true,
+		Hints:            []string{"existing hint"},
+	}
+
+	// Simulate what RunE does: append auto-detection hint.
+	result.Hints = append(result.Hints,
+		"Repo owner/repo auto-detected from git remote. Use -R owner/repo to target a different repository.")
+
+	yamlStr := renderPreflightConfig(result)
+
+	// The auto-detection hint should appear in the YAML comments.
+	if !strings.Contains(yamlStr, "auto-detected from git remote") {
+		t.Errorf("expected auto-detection hint in YAML output, got:\n%s", yamlStr)
+	}
+}
+
+func TestRenderPreflightConfig_NoAutoDetectedHint(t *testing.T) {
+	result := &PreflightResult{
+		Repo:     "owner/repo",
+		Strategy: "issue",
+		Hints:    []string{"some other hint"},
+	}
+
+	yamlStr := renderPreflightConfig(result)
+
+	if strings.Contains(yamlStr, "auto-detected from git remote") {
+		t.Error("should not contain auto-detection hint when RepoAutoDetected is false")
 	}
 }
 

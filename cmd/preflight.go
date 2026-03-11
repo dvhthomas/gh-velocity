@@ -62,7 +62,7 @@ each choice. Use --write to save it directly.`,
 			}
 
 			// Detect auto-detection from git remote.
-			repoAutoDetected := repoFlag == "" && os.Getenv("GH_REPO") == ""
+			repoAutoDetected := isRepoAutoDetected(repoFlag)
 			if repoAutoDetected {
 				log.Notice("Using repo %s/%s from git remote (use --repo to override)", owner, repo)
 			}
@@ -98,9 +98,8 @@ each choice. Use --write to save it directly.`,
 
 			if repoAutoDetected {
 				result.RepoAutoDetected = true
-				result.Hints = append([]string{
-					fmt.Sprintf("Repo %s auto-detected from git remote. Use -R owner/repo to target a different repository.", result.Repo),
-				}, result.Hints...)
+				result.Hints = append(result.Hints,
+					fmt.Sprintf("Repo %s auto-detected from git remote. Use -R owner/repo to target a different repository.", result.Repo))
 			}
 
 			if formatFlag == "json" {

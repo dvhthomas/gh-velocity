@@ -200,7 +200,7 @@ needed for .gh-velocity.yml configuration.`,
 			}
 
 			// Detect auto-detection from git remote.
-			if repoFlag == "" && os.Getenv("GH_REPO") == "" {
+			if isRepoAutoDetected(repoFlag) {
 				log.Notice("Using repo %s/%s from git remote (use --repo to override)", owner, repo)
 			}
 
