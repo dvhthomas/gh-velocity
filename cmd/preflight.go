@@ -356,6 +356,13 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 
 	if len(result.DiscoveredTypes) > 0 {
 		result.Hints = append(result.Hints, fmt.Sprintf("Discovered issue types: %v", result.DiscoveredTypes))
+	} else {
+		// Be explicit so users know discovery ran and found nothing.
+		if projectID != "" {
+			result.Hints = append(result.Hints, "No issue types found on repo or project board items")
+		} else {
+			result.Hints = append(result.Hints, "No issue types configured on this repository")
+		}
 	}
 
 	// Report unmapped types.
