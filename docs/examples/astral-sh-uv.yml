@@ -36,6 +36,11 @@ quality:
         - "label:documentation"
   hotfix_window_hours: 72
 
+# Match evidence (last 30 days of issues + PRs):
+#   bug / label:bug — 77 matches, e.g. #18391 Alphabetically sorting `uv.lock`'s package subsections
+#   feature / label:enhancement — 34 matches, e.g. #18335 Add torchcodec to uv-torch crate
+#   docs / label:documentation — 11 matches, e.g. #18300 documentation for valid `required-environments` values
+
 # Commit message scanning
 commit_ref:
   patterns: ["closes"]
@@ -73,7 +78,7 @@ lifecycle:
 #   question (28)
 #   needs-mre (22)
 #   enhancement (17)
-#   error messages (4)
 #   windows (4)
+#   error messages (4)
 #   external (4)
 #   internal (2)

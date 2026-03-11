@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/bitsbyme/gh-velocity/internal/config"
+	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
 func TestMatchesWord(t *testing.T) {
@@ -243,6 +244,31 @@ func TestRenderPreflightConfig_RoundTrips(t *testing.T) {
 				Hints:    []string{"line one\nline two", "normal hint"},
 			},
 		},
+		{
+			name: "with match evidence",
+			result: &PreflightResult{
+				Repo:     "owner/repo",
+				Strategy: "pr",
+				Categories: map[string][]string{
+					"bug":     {"bug"},
+					"feature": {"enhancement"},
+				},
+				MatchEvidence: []CategoryEvidence{
+					{
+						Category: "bug",
+						Matchers: []MatcherEvidence{
+							{Matcher: "label:bug", Count: 12, Example: "#42 Fix crash on startup"},
+						},
+					},
+					{
+						Category: "feature",
+						Matchers: []MatcherEvidence{
+							{Matcher: "label:enhancement", Count: 0}, // no matches
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -333,6 +359,82 @@ func TestVerifyConfig_NoRepoLabels(t *testing.T) {
 	// Valid because we can't verify labels without repo data.
 	if !vr.Valid {
 		t.Errorf("expected valid when no repo labels, got warnings=%v", vr.Warnings)
+	}
+}
+
+func TestCollectMatchEvidence(t *testing.T) {
+	categories := map[string][]string{
+		"bug":     {"bug", "crash"},
+		"feature": {"enhancement"},
+	}
+	issues := []model.Issue{
+		{Number: 1, Title: "Fix crash on startup", Labels: []string{"bug"}},
+		{Number: 2, Title: "Null pointer in parser", Labels: []string{"bug", "crash"}},
+		{Number: 3, Title: "Add dark mode", Labels: []string{"enhancement"}},
+		{Number: 4, Title: "Clean up docs", Labels: []string{"documentation"}},
+	}
+	prs := []model.PR{
+		{Number: 10, Title: "Fix memory leak", Labels: []string{"bug"}},
+		{Number: 11, Title: "New widget", Labels: []string{"enhancement"}},
+	}
+
+	evidence := collectMatchEvidence(categories, issues, prs)
+
+	// Should have bug and feature categories
+	if len(evidence) != 2 {
+		t.Fatalf("expected 2 categories, got %d", len(evidence))
+	}
+
+	// Bug category
+	bugCat := evidence[0]
+	if bugCat.Category != "bug" {
+		t.Errorf("expected bug category, got %q", bugCat.Category)
+	}
+	if len(bugCat.Matchers) != 2 {
+		t.Fatalf("expected 2 bug matchers, got %d", len(bugCat.Matchers))
+	}
+
+	// label:bug should match issues #1, #2 and PR #10 = 3
+	bugMatcher := bugCat.Matchers[0]
+	if bugMatcher.Count != 3 {
+		t.Errorf("label:bug count = %d, want 3", bugMatcher.Count)
+	}
+	if bugMatcher.Example == "" {
+		t.Error("expected an example for label:bug")
+	}
+
+	// label:crash should match issue #2 = 1
+	crashMatcher := bugCat.Matchers[1]
+	if crashMatcher.Count != 1 {
+		t.Errorf("label:crash count = %d, want 1", crashMatcher.Count)
+	}
+
+	// Feature category: label:enhancement should match #3 and #11 = 2
+	featCat := evidence[1]
+	if featCat.Matchers[0].Count != 2 {
+		t.Errorf("label:enhancement count = %d, want 2", featCat.Matchers[0].Count)
+	}
+}
+
+func TestCollectMatchEvidence_NoItems(t *testing.T) {
+	categories := map[string][]string{"bug": {"bug"}}
+	evidence := collectMatchEvidence(categories, nil, nil)
+	if evidence != nil {
+		t.Errorf("expected nil evidence with no items, got %v", evidence)
+	}
+}
+
+func TestCollectMatchEvidence_ZeroMatches(t *testing.T) {
+	categories := map[string][]string{"bug": {"crash"}}
+	issues := []model.Issue{
+		{Number: 1, Title: "Some issue", Labels: []string{"enhancement"}},
+	}
+	evidence := collectMatchEvidence(categories, issues, nil)
+	if len(evidence) != 1 || evidence[0].Matchers[0].Count != 0 {
+		t.Errorf("expected 0 matches for crash label")
+	}
+	if evidence[0].Matchers[0].Example != "" {
+		t.Error("expected no example when count is 0")
 	}
 }
 

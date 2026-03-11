@@ -149,9 +149,23 @@ type PreflightResult struct {
 	RecentIssues     int                 `json:"recent_issues_closed"`
 	RecentPRs        int                 `json:"recent_prs_merged"`
 	AllLabels        []labelCount        `json:"labels"`
+	MatchEvidence    []CategoryEvidence  `json:"match_evidence,omitempty"`
 	PostingReadiness *PostingReadiness   `json:"posting_readiness,omitempty"`
 	Verification     *VerificationResult `json:"verification,omitempty"`
 	Hints            []string            `json:"hints"`
+}
+
+// CategoryEvidence shows how well each matcher performs against recent data.
+type CategoryEvidence struct {
+	Category string            `json:"category"`
+	Matchers []MatcherEvidence `json:"matchers"`
+}
+
+// MatcherEvidence records what a single matcher matched from recent items.
+type MatcherEvidence struct {
+	Matcher string `json:"matcher"`           // e.g., "label:bug"
+	Count   int    `json:"count"`             // total items matched
+	Example string `json:"example,omitempty"` // "#42 Fix crash on startup"
 }
 
 // VerificationResult validates the generated config is usable.
@@ -272,6 +286,9 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 	if result.RecentIssues == 0 && result.RecentPRs == 0 {
 		result.Hints = append(result.Hints, "No recent activity found in the last 30 days — metrics may be empty initially")
 	}
+
+	// 5b. Collect match evidence: run each matcher against recent items
+	result.MatchEvidence = collectMatchEvidence(result.Categories, issues, prs)
 
 	// 6. Check posting readiness (best-effort)
 	pr := checkPostingReadiness(ctx, client)
@@ -442,6 +459,70 @@ func isWordBoundary(c byte) bool {
 	return c == '-' || c == ' ' || c == '_' || c == '/' || c == ':'
 }
 
+// collectMatchEvidence runs each category matcher against recent issues and PRs,
+// recording the match count and one example per matcher.
+func collectMatchEvidence(categories map[string][]string, issues []model.Issue, prs []model.PR) []CategoryEvidence {
+	if len(categories) == 0 {
+		return nil
+	}
+
+	// Build classify inputs from issues and PRs.
+	type classifyItem struct {
+		number int
+		title  string
+		labels []string
+	}
+	var items []classifyItem
+	for _, iss := range issues {
+		items = append(items, classifyItem{number: iss.Number, title: iss.Title, labels: iss.Labels})
+	}
+	for _, pr := range prs {
+		items = append(items, classifyItem{number: pr.Number, title: pr.Title, labels: pr.Labels})
+	}
+
+	if len(items) == 0 {
+		return nil
+	}
+
+	categoryOrder := []string{"bug", "feature", "chore", "docs"}
+	var evidence []CategoryEvidence
+	for _, cat := range categoryOrder {
+		matcherStrs, ok := categories[cat]
+		if !ok || len(matcherStrs) == 0 {
+			continue
+		}
+		ce := CategoryEvidence{Category: cat}
+		for _, label := range matcherStrs {
+			matcherStr := "label:" + label
+			m, err := classify.ParseMatcher(matcherStr)
+			if err != nil {
+				continue
+			}
+			me := MatcherEvidence{Matcher: matcherStr}
+			for _, item := range items {
+				input := classify.Input{
+					Labels: item.labels,
+					Title:  item.title,
+				}
+				if m.Matches(input) {
+					me.Count++
+					if me.Example == "" {
+						// Truncate long titles
+						title := item.title
+						if len(title) > 60 {
+							title = title[:57] + "..."
+						}
+						me.Example = fmt.Sprintf("#%d %s", item.number, title)
+					}
+				}
+			}
+			ce.Matchers = append(ce.Matchers, me)
+		}
+		evidence = append(evidence, ce)
+	}
+	return evidence
+}
+
 // countLabelUsage counts how often each label appears on recent closed issues.
 func countLabelUsage(result *PreflightResult, issues []model.Issue) {
 	counts := make(map[string]int)
@@ -531,6 +612,26 @@ func renderPreflightConfig(r *PreflightResult) string {
 		b.WriteString("        - \"label:enhancement\"\n")
 	}
 	b.WriteString("  hotfix_window_hours: 72\n")
+
+	// Match evidence: show what each matcher found in recent items.
+	if len(r.MatchEvidence) > 0 {
+		b.WriteString("\n")
+		b.WriteString("# Match evidence (last 30 days of issues + PRs):\n")
+		hasAnyMatches := false
+		for _, ce := range r.MatchEvidence {
+			for _, me := range ce.Matchers {
+				hasAnyMatches = hasAnyMatches || me.Count > 0
+				if me.Count > 0 {
+					b.WriteString(fmt.Sprintf("#   %s / %s — %d matches, e.g. %s\n", ce.Category, me.Matcher, me.Count, me.Example))
+				} else {
+					b.WriteString(fmt.Sprintf("#   %s / %s — 0 matches (review this matcher)\n", ce.Category, me.Matcher))
+				}
+			}
+		}
+		if !hasAnyMatches {
+			b.WriteString("#   (no matches found — labels may not be applied to recent items)\n")
+		}
+	}
 	b.WriteString("\n")
 
 	// Commit patterns

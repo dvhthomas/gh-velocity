@@ -35,6 +35,12 @@ quality:
         - "label:Type: Feature Request"
   hotfix_window_hours: 72
 
+# Match evidence (last 30 days of issues + PRs):
+#   bug / label:Type: Bug — 9 matches, e.g. #35954 [DevTools Bug]: confused on prerender pages and resulting...
+#   bug / label:Type: Regression — 0 matches (review this matcher)
+#   feature / label:Type: Enhancement — 0 matches (review this matcher)
+#   feature / label:Type: Feature Request — 0 matches (review this matcher)
+
 # Commit message scanning
 commit_ref:
   patterns: ["closes"]

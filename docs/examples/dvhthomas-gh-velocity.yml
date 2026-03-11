@@ -3,7 +3,10 @@
 # Date: 2026-03-11
 #
 # Using project board: Project Tracker (#1)
+# Could not search recent issues: search issues: HTTP 403: API rate limit exceeded for user ID 134771. If you reach out to GitHub Support for help, please include the request ID FFFD:1AB62F:251A4CA:9EE7DAD:69B0F786 and timestamp 2026-03-11 05:03:02 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (https://api.github.com/search/issues?q=repo%3Advhthomas%2Fgh-velocity+is%3Aissue+is%3Aclosed+closed%3A2026-02-09T05%3A03%3A02Z..2026-03-11T05%3A03%3A02Z&per_page=100&page=1)
+# Could not search recent PRs: search PRs: HTTP 403: API rate limit exceeded for user ID 134771. If you reach out to GitHub Support for help, please include the request ID FFFD:1AB62F:251A562:9EE800F:69B0F786 and timestamp 2026-03-11 05:03:02 UTC. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (https://api.github.com/search/issues?q=repo%3Advhthomas%2Fgh-velocity+is%3Apr+is%3Amerged+merged%3A2026-02-09T05%3A03%3A02Z..2026-03-11T05%3A03%3A02Z&per_page=100&page=1)
 # Project board detected — using project-board strategy for cycle time
+# No recent activity found in the last 30 days — metrics may be empty initially
 # Discussions are enabled — --post can create Discussion posts
 # Token scopes: gist, project, read:org, repo, workflow
 # Config verification: YAML parses cleanly
@@ -78,4 +81,4 @@ lifecycle:
 #   discussions: enabled
 #   token scopes: gist, project, read:org, repo, workflow
 
-# Recent activity (last 30 days): 12 issues closed, 16 PRs merged
+# Recent activity (last 30 days): 0 issues closed, 0 PRs merged
