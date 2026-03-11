@@ -31,14 +31,15 @@ var WarnFunc = func(format string, args ...any) {
 
 // Config represents the .gh-velocity.yml configuration.
 type Config struct {
-	Workflow    string            `yaml:"workflow" json:"workflow"`
-	Scope       ScopeConfig       `yaml:"scope" json:"scope"`
-	Project     ProjectConfig     `yaml:"project" json:"project"`
-	Lifecycle   LifecycleConfig   `yaml:"lifecycle" json:"lifecycle"`
-	Quality     QualityConfig     `yaml:"quality" json:"quality"`
-	Discussions DiscussionsConfig `yaml:"discussions" json:"discussions"`
-	CommitRef   CommitRefConfig   `yaml:"commit_ref" json:"commit_ref"`
-	CycleTime   CycleTimeConfig   `yaml:"cycle_time" json:"cycle_time"`
+	Workflow     string            `yaml:"workflow" json:"workflow"`
+	Scope        ScopeConfig       `yaml:"scope" json:"scope"`
+	Project      ProjectConfig     `yaml:"project" json:"project"`
+	Lifecycle    LifecycleConfig   `yaml:"lifecycle" json:"lifecycle"`
+	Quality      QualityConfig     `yaml:"quality" json:"quality"`
+	Discussions  DiscussionsConfig `yaml:"discussions" json:"discussions"`
+	CommitRef    CommitRefConfig   `yaml:"commit_ref" json:"commit_ref"`
+	CycleTime    CycleTimeConfig   `yaml:"cycle_time" json:"cycle_time"`
+	ExcludeUsers []string          `yaml:"exclude_users" json:"exclude_users"`
 }
 
 // ScopeConfig holds the user's scope query — a GitHub search query fragment.
@@ -176,14 +177,15 @@ func defaults() *Config {
 
 // knownTopLevelKeys lists the YAML keys that map to Config struct fields.
 var knownTopLevelKeys = map[string]bool{
-	"workflow":    true,
-	"scope":       true,
-	"project":     true,
-	"lifecycle":   true,
-	"quality":     true,
-	"discussions": true,
-	"commit_ref":  true,
-	"cycle_time":  true,
+	"workflow":      true,
+	"scope":         true,
+	"project":       true,
+	"lifecycle":     true,
+	"quality":       true,
+	"discussions":   true,
+	"commit_ref":    true,
+	"cycle_time":    true,
+	"exclude_users": true,
 }
 
 // warnUnknownKeysFromMap warns about any top-level keys in the parsed map
@@ -296,7 +298,6 @@ func validate(cfg *Config) error {
 
 	return nil
 }
-
 
 // resolveCategories ensures cfg.Quality.Categories is populated.
 // If the user specified explicit categories, those are used (and a warning

@@ -518,37 +518,30 @@ func TestCollectMatchEvidence_TitleFallback(t *testing.T) {
 	}
 }
 
-func TestRenderPreflightConfig_AutoDetectedHint(t *testing.T) {
+func TestRenderPreflightConfig_NoHintsInYAML(t *testing.T) {
 	result := &PreflightResult{
 		Repo:             "owner/repo",
 		Strategy:         "issue",
 		RepoAutoDetected: true,
-		Hints:            []string{"existing hint"},
-	}
-
-	// Simulate what RunE does: append auto-detection hint.
-	result.Hints = append(result.Hints,
-		"Repo owner/repo auto-detected from git remote. Use -R owner/repo to target a different repository.")
-
-	yamlStr := renderPreflightConfig(result)
-
-	// The auto-detection hint should appear in the YAML comments.
-	if !strings.Contains(yamlStr, "auto-detected from git remote") {
-		t.Errorf("expected auto-detection hint in YAML output, got:\n%s", yamlStr)
-	}
-}
-
-func TestRenderPreflightConfig_NoAutoDetectedHint(t *testing.T) {
-	result := &PreflightResult{
-		Repo:     "owner/repo",
-		Strategy: "issue",
-		Hints:    []string{"some other hint"},
+		Hints: []string{
+			"existing hint",
+			"Repo owner/repo auto-detected from git remote. Use -R owner/repo to target a different repository.",
+		},
 	}
 
 	yamlStr := renderPreflightConfig(result)
 
+	// Hints should NOT appear in the config YAML — they go to stderr diagnostics.
 	if strings.Contains(yamlStr, "auto-detected from git remote") {
-		t.Error("should not contain auto-detection hint when RepoAutoDetected is false")
+		t.Errorf("hints should not be in config YAML, got:\n%s", yamlStr)
+	}
+	if strings.Contains(yamlStr, "existing hint") {
+		t.Errorf("hints should not be in config YAML, got:\n%s", yamlStr)
+	}
+
+	// But hints should still be on the result for printPreflightDiagnostics.
+	if len(result.Hints) != 2 {
+		t.Errorf("expected 2 hints on result, got %d", len(result.Hints))
 	}
 }
 

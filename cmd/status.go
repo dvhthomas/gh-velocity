@@ -12,5 +12,6 @@ func NewStatusCmd() *cobra.Command {
 		Long:  "What is happening right now? In-progress work and aging.",
 	}
 	cmd.AddCommand(NewWIPCmd())
+	cmd.AddCommand(NewMyWeekCmd())
 	return cmd
 }

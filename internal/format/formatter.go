@@ -3,11 +3,23 @@ package format
 
 import (
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
+
+// RenderContext consolidates common formatter parameters to prevent
+// parameter list explosion as output concerns (links, labels) grow.
+type RenderContext struct {
+	Writer io.Writer
+	Format Format
+	IsTTY  bool
+	Width  int
+	Owner  string // repository owner, for constructing URLs
+	Repo   string // repository name
+}
 
 // Format represents an output format type.
 type Format string

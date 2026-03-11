@@ -18,13 +18,15 @@ type jsonWIPOutput struct {
 }
 
 type jsonWIPItem struct {
-	Number     int    `json:"number,omitempty"`
-	Title      string `json:"title"`
-	Status     string `json:"status"`
-	AgeSeconds int64  `json:"age_seconds"`
-	Age        string `json:"age"`
-	Repo       string `json:"repo,omitempty"`
-	Kind       string `json:"kind"`
+	Number     int      `json:"number,omitempty"`
+	Title      string   `json:"title"`
+	URL        string   `json:"url,omitempty"`
+	Labels     []string `json:"labels,omitempty"`
+	Status     string   `json:"status"`
+	AgeSeconds int64    `json:"age_seconds"`
+	Age        string   `json:"age"`
+	Repo       string   `json:"repo,omitempty"`
+	Kind       string   `json:"kind"`
 }
 
 // WriteWIPJSON writes WIP items as JSON.
@@ -38,6 +40,8 @@ func WriteWIPJSON(w io.Writer, repo string, items []model.WIPItem) error {
 		out.Items = append(out.Items, jsonWIPItem{
 			Number:     item.Number,
 			Title:      item.Title,
+			URL:        item.URL,
+			Labels:     item.Labels,
 			Status:     item.Status,
 			AgeSeconds: int64(item.Age.Seconds()),
 			Age:        FormatDuration(item.Age),
@@ -53,51 +57,53 @@ func WriteWIPJSON(w io.Writer, repo string, items []model.WIPItem) error {
 // --- Markdown ---
 
 // WriteWIPMarkdown writes WIP items as a markdown table.
-func WriteWIPMarkdown(w io.Writer, repo string, items []model.WIPItem) error {
+func WriteWIPMarkdown(rc RenderContext, repo string, items []model.WIPItem) error {
 	sorted := sortWIPByAgeDesc(items)
 
-	fmt.Fprintf(w, "## Work in Progress: %s\n\n", repo)
-	fmt.Fprintf(w, "| # | Title | Status | Age | Kind |\n")
-	fmt.Fprintf(w, "| ---: | --- | --- | --- | --- |\n")
+	fmt.Fprintf(rc.Writer, "## Work in Progress: %s\n\n", repo)
+	fmt.Fprintf(rc.Writer, "| # | Title | Labels | Status | Age | Kind |\n")
+	fmt.Fprintf(rc.Writer, "| ---: | --- | --- | --- | --- | --- |\n")
 	for _, item := range sorted {
 		num := ""
 		if item.Number > 0 {
-			num = fmt.Sprintf("#%d", item.Number)
+			num = FormatItemLink(item.Number, item.URL, rc)
 		}
-		fmt.Fprintf(w, "| %s | %s | %s | %s | %s |\n",
+		fmt.Fprintf(rc.Writer, "| %s | %s | %s | %s | %s | %s |\n",
 			num,
 			sanitizeMarkdown(item.Title),
+			FormatLabels(item.Labels),
 			item.Status,
 			FormatDuration(item.Age),
 			item.Kind,
 		)
 	}
-	fmt.Fprintf(w, "\n**Count:** %d\n", len(items))
+	fmt.Fprintf(rc.Writer, "\n**Count:** %d\n", len(items))
 	return nil
 }
 
 // --- Pretty ---
 
 // WriteWIPPretty writes WIP items as a formatted table.
-func WriteWIPPretty(w io.Writer, isTTY bool, width int, repo string, items []model.WIPItem) error {
+func WriteWIPPretty(rc RenderContext, repo string, items []model.WIPItem) error {
 	sorted := sortWIPByAgeDesc(items)
 
-	fmt.Fprintf(w, "Work in Progress: %s (%d items)\n\n", repo, len(items))
+	fmt.Fprintf(rc.Writer, "Work in Progress: %s (%d items)\n\n", repo, len(items))
 
 	if len(sorted) == 0 {
-		fmt.Fprintln(w, "  No items in progress.")
+		fmt.Fprintln(rc.Writer, "  No items in progress.")
 		return nil
 	}
 
-	tp := NewTable(w, isTTY, width)
-	tp.AddHeader([]string{"#", "Title", "Status", "Age", "Kind"})
+	tp := NewTable(rc.Writer, rc.IsTTY, rc.Width)
+	tp.AddHeader([]string{"#", "Title", "Labels", "Status", "Age", "Kind"})
 	for _, item := range sorted {
 		num := ""
 		if item.Number > 0 {
-			num = fmt.Sprintf("%d", item.Number)
+			num = FormatItemLink(item.Number, item.URL, rc)
 		}
 		tp.AddField(num)
 		tp.AddField(item.Title)
+		tp.AddField(FormatLabels(item.Labels))
 		tp.AddField(item.Status)
 		tp.AddField(FormatDuration(item.Age))
 		tp.AddField(item.Kind)

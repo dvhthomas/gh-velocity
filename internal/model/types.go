@@ -52,6 +52,7 @@ type Issue struct {
 	IssueType string // GitHub Issue Type (from GraphQL); empty for REST-sourced issues
 	CreatedAt time.Time
 	ClosedAt  *time.Time
+	UpdatedAt time.Time // last activity timestamp from GitHub
 	URL       string
 }
 
@@ -69,6 +70,7 @@ type PR struct {
 	Title     string
 	State     string
 	Labels    []string
+	Author    string // GitHub login of the PR author
 	CreatedAt time.Time
 	MergedAt  *time.Time
 	URL       string
@@ -170,12 +172,15 @@ type ProjectItem struct {
 
 // WIPItem represents an in-progress work item for display.
 type WIPItem struct {
-	Number int
-	Title  string
-	Status string
-	Age    time.Duration
-	Repo   string // populated for cross-repo board views
-	Kind   string // "Issue", "PullRequest", "DraftIssue"
+	Number    int
+	Title     string
+	Status    string
+	Age       time.Duration
+	Repo      string // populated for cross-repo board views
+	Kind      string // "Issue", "PullRequest", "DraftIssue"
+	URL       string
+	Labels    []string
+	UpdatedAt time.Time // last activity timestamp, for staleness detection
 }
 
 // StatsResult holds all dashboard sections for output.
@@ -205,6 +210,26 @@ type ThroughputResult struct {
 	Until        time.Time
 	IssuesClosed int
 	PRsMerged    int
+}
+
+// MyWeekResult holds the "my week" summary for one user.
+type MyWeekResult struct {
+	Login        string
+	Repo         string
+	Since        time.Time
+	Until        time.Time
+	// Lookback: what happened
+	IssuesClosed []Issue
+	PRsMerged    []PR
+	PRsReviewed  []PR
+	// Lookahead: what's in progress
+	IssuesOpen      []Issue // open issues assigned to me
+	PRsOpen         []PR    // open PRs I authored
+	PRsNeedingReview []PR   // open PRs with zero reviews (subset of PRsOpen)
+	// Review pressure: PRs from others waiting on me
+	PRsAwaitingMyReview []PR // open PRs where I'm a requested reviewer
+	// Releases published in the lookback period
+	Releases []Release
 }
 
 // StatsQuality holds defect rate metrics.

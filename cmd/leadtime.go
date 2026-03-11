@@ -102,15 +102,17 @@ func runLeadTimeSingle(cmd *cobra.Command, arg string) error {
 	})
 	switch deps.Format {
 	case format.JSON:
-		if err = format.WriteLeadTimeJSON(w, deps.Owner+"/"+deps.Repo, issueNumber, issue.Title, issue.State, lt, nil); err != nil {
+		if err = format.WriteLeadTimeJSON(w, deps.Owner+"/"+deps.Repo, issueNumber, issue.Title, issue.State, issue.URL, issue.Labels, lt, nil); err != nil {
 			return err
 		}
 	case format.Markdown:
+		rc := deps.RenderCtx(w)
 		fmt.Fprintf(w, "| Issue | Title | Created (UTC) | Lead Time |\n")
 		fmt.Fprintf(w, "| ---: | --- | --- | --- |\n")
-		fmt.Fprintf(w, "| #%d | %s | %s | %s |\n", issueNumber, issue.Title, issue.CreatedAt.UTC().Format(time.DateOnly), format.FormatMetric(lt))
+		fmt.Fprintf(w, "| %s | %s | %s | %s |\n", format.FormatItemLink(issueNumber, issue.URL, rc), issue.Title, issue.CreatedAt.UTC().Format(time.DateOnly), format.FormatMetric(lt))
 	default:
-		fmt.Fprintf(w, "Issue #%d  %s\n", issueNumber, issue.Title)
+		rc := deps.RenderCtx(w)
+		fmt.Fprintf(w, "Issue %s  %s\n", format.FormatItemLink(issueNumber, issue.URL, rc), issue.Title)
 		fmt.Fprintf(w, "  Created:   %s UTC\n", issue.CreatedAt.UTC().Format(time.RFC3339))
 		fmt.Fprintf(w, "  Lead Time: %s\n", format.FormatMetric(lt))
 	}
@@ -129,7 +131,7 @@ func runLeadTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		}
 	}
 
-	now := time.Now().UTC()
+	now := deps.Now()
 	since, err := dateutil.Parse(sinceStr, now)
 	if err != nil {
 		return &model.AppError{Code: model.ErrConfigInvalid, Message: err.Error()}
@@ -153,6 +155,7 @@ func runLeadTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	}
 
 	q := scope.ClosedIssueQuery(deps.Scope, since, until)
+	q.ExcludeUsers = deps.ExcludeUsers
 	if deps.Debug {
 		log.Debug("lead-time query:\n%s", q.Verbose())
 	}
@@ -187,9 +190,9 @@ func runLeadTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	case format.JSON:
 		fmtErr = format.WriteLeadTimeBulkJSON(w, repo, since, until, items, stats)
 	case format.Markdown:
-		fmtErr = format.WriteLeadTimeBulkMarkdown(w, repo, since, until, items, stats)
+		fmtErr = format.WriteLeadTimeBulkMarkdown(deps.RenderCtx(w), repo, since, until, items, stats)
 	default:
-		fmtErr = format.WriteLeadTimeBulkPretty(w, deps.IsTTY, deps.TermWidth, repo, since, until, items, stats)
+		fmtErr = format.WriteLeadTimeBulkPretty(deps.RenderCtx(w), repo, since, until, items, stats)
 	}
 	if fmtErr != nil {
 		return fmtErr

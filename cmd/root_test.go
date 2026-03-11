@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/spf13/cobra"
@@ -149,6 +150,43 @@ func TestIsRepoAutoDetected(t *testing.T) {
 				t.Errorf("isRepoAutoDetected(%q) = %v, want %v (GH_REPO=%q)", tt.repoFlag, got, tt.want, tt.ghRepo)
 			}
 		})
+	}
+}
+
+func TestNowFunc_Default(t *testing.T) {
+	t.Setenv("GH_VELOCITY_NOW", "")
+	fn := nowFunc()
+	got := fn()
+	// Should be within 1 second of actual now.
+	if diff := time.Since(got); diff > time.Second || diff < -time.Second {
+		t.Errorf("nowFunc() returned %v, expected ~now", got)
+	}
+}
+
+func TestNowFunc_RFC3339(t *testing.T) {
+	t.Setenv("GH_VELOCITY_NOW", "2026-03-01T12:00:00Z")
+	fn := nowFunc()
+	want := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+	if got := fn(); !got.Equal(want) {
+		t.Errorf("nowFunc() = %v, want %v", got, want)
+	}
+}
+
+func TestNowFunc_DateOnly(t *testing.T) {
+	t.Setenv("GH_VELOCITY_NOW", "2026-03-01")
+	fn := nowFunc()
+	want := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	if got := fn(); !got.Equal(want) {
+		t.Errorf("nowFunc() = %v, want %v", got, want)
+	}
+}
+
+func TestNowFunc_InvalidFallsBack(t *testing.T) {
+	t.Setenv("GH_VELOCITY_NOW", "not-a-date")
+	fn := nowFunc()
+	got := fn()
+	if diff := time.Since(got); diff > time.Second || diff < -time.Second {
+		t.Errorf("nowFunc() with invalid env returned %v, expected ~now", got)
 	}
 }
 

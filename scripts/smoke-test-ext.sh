@@ -93,6 +93,26 @@ out=$(gh velocity release v2.65.0 -R cli/cli --since v2.64.0 -f markdown 2>/dev/
 [[ "$out" == *"## Release v2.65.0"* ]] && pass "release markdown" || fail "release markdown: $out"
 [[ "$out" == *"Outliers"* ]] && pass "release markdown outliers" || fail "release markdown outliers: $out"
 
+# ── my-week ───────────────────────────────────────────────────────
+echo ""
+echo "my-week (dvhthomas/gh-velocity)"
+
+out=$(gh velocity status my-week -R dvhthomas/gh-velocity --since 30d 2>&1)
+[[ "$out" == *"My Week"* ]] && pass "my-week pretty" || fail "my-week pretty: $out"
+[[ "$out" == *"What I shipped"* ]] && pass "my-week lookback" || fail "my-week missing lookback: $out"
+[[ "$out" == *"What's ahead"* ]] && pass "my-week lookahead" || fail "my-week missing lookahead: $out"
+
+out=$(gh velocity status my-week -R dvhthomas/gh-velocity --since 30d -f json 2>&1)
+echo "$out" | jq -e '.login' >/dev/null 2>&1 && pass "my-week json has login" || fail "my-week json: $out"
+echo "$out" | jq -e '.summary.issues_closed >= 0' >/dev/null 2>&1 && pass "my-week json summary" || fail "my-week json summary: $out"
+echo "$out" | jq -e '.lookback' >/dev/null 2>&1 && pass "my-week json lookback" || fail "my-week json lookback: $out"
+echo "$out" | jq -e '.ahead' >/dev/null 2>&1 && pass "my-week json ahead" || fail "my-week json ahead: $out"
+
+out=$(gh velocity status my-week -R dvhthomas/gh-velocity --since 30d -f markdown 2>&1)
+[[ "$out" == *"## My Week"* ]] && pass "my-week markdown" || fail "my-week markdown: $out"
+[[ "$out" == *"What I shipped"* ]] && pass "my-week markdown lookback" || fail "my-week markdown lookback: $out"
+[[ "$out" == *"What's ahead"* ]] && pass "my-week markdown lookahead" || fail "my-week markdown lookahead: $out"
+
 # ── error handling ─────────────────────────────────────────────────
 echo ""
 echo "error handling"

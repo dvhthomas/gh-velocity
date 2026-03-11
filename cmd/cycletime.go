@@ -142,7 +142,7 @@ func runCycleTimePR(cmd *cobra.Command, prNumber int) error {
 		Context: "pr-" + strconv.Itoa(prNumber),
 		Target:  posting.PRComment,
 		Number:  prNumber,
-	}, ct, warnings, "PR", prNumber, pr.Title, pr.State)
+	}, ct, warnings, "PR", prNumber, pr.Title, pr.State, pr.URL, pr.Labels)
 }
 
 // runCycleTimeIssue computes cycle time for an issue using the configured strategy.
@@ -189,7 +189,7 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 		Context: strconv.Itoa(issueNumber),
 		Target:  posting.IssueComment,
 		Number:  issueNumber,
-	}, ct, warnings, "Issue", issueNumber, issue.Title, issue.State)
+	}, ct, warnings, "Issue", issueNumber, issue.Title, issue.State, issue.URL, issue.Labels)
 }
 
 // runCycleTimeBulk computes cycle time for all issues closed in a date window.
@@ -203,7 +203,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		}
 	}
 
-	now := time.Now().UTC()
+	now := deps.Now()
 	since, err := dateutil.Parse(sinceStr, now)
 	if err != nil {
 		return &model.AppError{Code: model.ErrConfigInvalid, Message: err.Error()}
@@ -227,6 +227,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	}
 
 	issueQuery := scope.ClosedIssueQuery(deps.Scope, since, until)
+	issueQuery.ExcludeUsers = deps.ExcludeUsers
 	if deps.Debug {
 		log.Debug("cycle-time issue query:\n%s", issueQuery.Verbose())
 	}
@@ -241,6 +242,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	closingPRs := make(map[int]*model.PR)
 	if deps.Config.CycleTime.Strategy == "pr" {
 		prQuery := scope.MergedPRQuery(deps.Scope, since, until)
+		prQuery.ExcludeUsers = deps.ExcludeUsers
 		if deps.Debug {
 			log.Debug("cycle-time PR query:\n%s", prQuery.Verbose())
 		}
@@ -283,9 +285,9 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	case format.JSON:
 		fmtErr = format.WriteCycleTimeBulkJSON(w, repo, since, until, deps.Config.CycleTime.Strategy, items, stats)
 	case format.Markdown:
-		fmtErr = format.WriteCycleTimeBulkMarkdown(w, repo, since, until, deps.Config.CycleTime.Strategy, items, stats)
+		fmtErr = format.WriteCycleTimeBulkMarkdown(deps.RenderCtx(w), repo, since, until, deps.Config.CycleTime.Strategy, items, stats)
 	default:
-		fmtErr = format.WriteCycleTimeBulkPretty(w, deps.IsTTY, deps.TermWidth, repo, since, until, deps.Config.CycleTime.Strategy, items, stats)
+		fmtErr = format.WriteCycleTimeBulkPretty(deps.RenderCtx(w), repo, since, until, deps.Config.CycleTime.Strategy, items, stats)
 	}
 	if fmtErr != nil {
 		return fmtErr
@@ -294,7 +296,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 }
 
 // outputCycleTime renders cycle-time results in the requested format and optionally posts.
-func outputCycleTime(cmd *cobra.Command, deps *Deps, client *gh.Client, postOpts posting.PostOptions, ct model.Metric, warnings []string, kind string, number int, title, state string) error {
+func outputCycleTime(cmd *cobra.Command, deps *Deps, client *gh.Client, postOpts posting.PostOptions, ct model.Metric, warnings []string, kind string, number int, title, state, itemURL string, labels []string) error {
 	w, postFn := postIfEnabled(cmd, deps, client, postOpts)
 	repo := deps.Owner + "/" + deps.Repo
 
@@ -306,14 +308,14 @@ func outputCycleTime(cmd *cobra.Command, deps *Deps, client *gh.Client, postOpts
 	switch deps.Format {
 	case format.JSON:
 		if kind == "PR" {
-			fmtErr = format.WriteCycleTimePRJSON(w, repo, number, title, state, ct, warnings)
+			fmtErr = format.WriteCycleTimePRJSON(w, repo, number, title, state, itemURL, labels, ct, warnings)
 		} else {
-			fmtErr = format.WriteCycleTimeJSON(w, repo, number, title, state, ct, warnings)
+			fmtErr = format.WriteCycleTimeJSON(w, repo, number, title, state, itemURL, labels, ct, warnings)
 		}
 	case format.Markdown:
-		fmtErr = format.WriteCycleTimeMarkdown(w, kind, number, title, ct)
+		fmtErr = format.WriteCycleTimeMarkdown(deps.RenderCtx(w), kind, number, title, itemURL, ct)
 	default:
-		fmtErr = format.WriteCycleTimePretty(w, kind, number, title, deps.Config.CycleTime.Strategy, ct)
+		fmtErr = format.WriteCycleTimePretty(deps.RenderCtx(w), kind, number, title, itemURL, deps.Config.CycleTime.Strategy, ct)
 	}
 	if fmtErr != nil {
 		return fmtErr

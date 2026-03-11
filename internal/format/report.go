@@ -82,7 +82,8 @@ func WriteReportJSON(w io.Writer, r model.StatsResult) error {
 // --- Markdown ---
 
 // WriteReportMarkdown writes dashboard metrics as markdown.
-func WriteReportMarkdown(w io.Writer, r model.StatsResult) error {
+func WriteReportMarkdown(rc RenderContext, r model.StatsResult) error {
+	w := rc.Writer
 	fmt.Fprintf(w, "## Report: %s (%s – %s UTC)\n\n",
 		r.Repository, r.Since.UTC().Format(time.DateOnly), r.Until.UTC().Format(time.DateOnly))
 
@@ -120,7 +121,8 @@ func WriteReportMarkdown(w io.Writer, r model.StatsResult) error {
 // --- Pretty ---
 
 // WriteReportPretty writes dashboard metrics as formatted text.
-func WriteReportPretty(w io.Writer, isTTY bool, width int, r model.StatsResult) error {
+func WriteReportPretty(rc RenderContext, r model.StatsResult) error {
+	w := rc.Writer
 	fmt.Fprintf(w, "Report: %s (%s – %s UTC)\n\n",
 		r.Repository, r.Since.UTC().Format(time.DateOnly), r.Until.UTC().Format(time.DateOnly))
 

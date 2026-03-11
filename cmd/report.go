@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"time"
-
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
@@ -49,7 +47,7 @@ unavailable.`,
 				}
 			}
 
-			now := time.Now().UTC()
+			now := deps.Now()
 
 			// Default: 30 days
 			if sinceFlag == "" {
@@ -102,9 +100,9 @@ unavailable.`,
 			case format.JSON:
 				fmtErr = format.WriteReportJSON(w, result)
 			case format.Markdown:
-				fmtErr = format.WriteReportMarkdown(w, result)
+				fmtErr = format.WriteReportMarkdown(deps.RenderCtx(w), result)
 			default:
-				fmtErr = format.WriteReportPretty(w, deps.IsTTY, deps.TermWidth, result)
+				fmtErr = format.WriteReportPretty(deps.RenderCtx(w), result)
 			}
 			if fmtErr != nil {
 				return fmtErr

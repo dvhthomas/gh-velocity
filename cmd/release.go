@@ -125,9 +125,9 @@ linking strategy discovered for the release.`,
 			case format.JSON:
 				fmtErr = format.WriteReleaseJSON(w, deps.Owner+"/"+deps.Repo, rm, warnings)
 			case format.Markdown:
-				fmtErr = format.WriteReleaseMarkdown(w, rm, warnings)
+				fmtErr = format.WriteReleaseMarkdown(deps.RenderCtx(w), rm, warnings)
 			default:
-				fmtErr = format.WriteReleasePretty(w, deps.IsTTY, deps.TermWidth, rm, warnings)
+				fmtErr = format.WriteReleasePretty(deps.RenderCtx(w), rm, warnings)
 			}
 			if fmtErr != nil {
 				return fmtErr
@@ -169,8 +169,7 @@ func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Cl
 	release, err := client.GetRelease(ctx, tag)
 	if err != nil {
 		warnings = append(warnings, fmt.Sprintf("no GitHub release for %s, using current time for release date", tag))
-		now := time.Now()
-		release = &model.Release{TagName: tag, CreatedAt: now}
+		release = &model.Release{TagName: tag, CreatedAt: deps.Now()}
 	}
 
 	// Fetch previous release for hotfix/cadence detection
