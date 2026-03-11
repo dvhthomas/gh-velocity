@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
@@ -78,10 +76,10 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 		log.Warn("Authenticated as %s — my-week shows activity for the authenticated user", login)
 	}
 
-	// my-week always targets the -R repo, ignoring config scope.
-	// This is a personal activity command — you want "what did I do in repo X",
-	// not "what did I do filtered by the config's scope query".
-	repoScope := fmt.Sprintf("repo:%s/%s", deps.Owner, deps.Repo)
+	// Use the resolved scope from config + --scope flag, which already
+	// falls back to repo:owner/repo when no config scope is set.
+	// This lets configs define cross-repo or project-board scopes.
+	repoScope := deps.Scope
 
 	// Fetch lookback and lookahead data in parallel.
 	var issuesClosed, issuesOpen []model.Issue
