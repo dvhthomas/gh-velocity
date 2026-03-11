@@ -51,11 +51,70 @@ func formatStatusMarkdown(s model.ItemStatus) string {
 	}
 }
 
+// buildInsightLines returns human-readable observations for 1:1 talking points.
+// Returns nil if there's nothing notable to say.
+func buildInsightLines(r model.MyWeekResult) []string {
+	ins := model.ComputeInsights(r)
+	days := model.DaysBetween(r.Since, r.Until)
+	var lines []string
+
+	// Shipping velocity
+	total := len(r.IssuesClosed) + len(r.PRsMerged)
+	if total > 0 {
+		lines = append(lines, fmt.Sprintf("Shipped %d items (%d issues closed, %d PRs merged) in %d days.",
+			total, len(r.IssuesClosed), len(r.PRsMerged), days))
+	}
+	if len(r.PRsReviewed) > 0 {
+		lines = append(lines, fmt.Sprintf("Reviewed %d PRs.", len(r.PRsReviewed)))
+	}
+
+	// Blockers / attention needed
+	if ins.PRsAwaitingMyReview > 0 {
+		lines = append(lines, fmt.Sprintf("%d PR(s) from others waiting on your review.", ins.PRsAwaitingMyReview))
+	}
+	if ins.PRsNeedingReview > 0 {
+		lines = append(lines, fmt.Sprintf("%d of your open PR(s) waiting for first review.", ins.PRsNeedingReview))
+	}
+	if ins.StaleIssues > 0 {
+		lines = append(lines, fmt.Sprintf("%d open issue(s) stale (no update in %d+ days).", ins.StaleIssues, model.StaleThresholdDays))
+	}
+
+	// New scope
+	if ins.NewIssues > 0 || ins.NewPRs > 0 {
+		parts := []string{}
+		if ins.NewIssues > 0 {
+			parts = append(parts, fmt.Sprintf("%d issue(s)", ins.NewIssues))
+		}
+		if ins.NewPRs > 0 {
+			parts = append(parts, fmt.Sprintf("%d PR(s)", ins.NewPRs))
+		}
+		lines = append(lines, fmt.Sprintf("New work picked up: %s.", joinWith(parts, " and ")))
+	}
+
+	return lines
+}
+
+// joinWith joins strings with sep (like strings.Join but only for 1-2 items).
+func joinWith(parts []string, sep string) string {
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return parts[0] + sep + parts[1]
+}
+
 // WriteMyWeekPretty writes a my-week summary as formatted text.
 func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult) error {
 	w := rc.Writer
 	fmt.Fprintf(w, "My Week — %s (%s)\n", r.Login, r.Repo)
 	fmt.Fprintf(w, "  %s to %s\n", r.Since.Format(time.DateOnly), r.Until.Format(time.DateOnly))
+
+	// Insights
+	if insights := buildInsightLines(r); len(insights) > 0 {
+		fmt.Fprintf(w, "\n── Insights ────────────────────────────────\n\n")
+		for _, line := range insights {
+			fmt.Fprintf(w, "  %s\n", line)
+		}
+	}
 
 	// Lookback
 	hasLookback := len(r.IssuesClosed) > 0 || len(r.PRsMerged) > 0 || len(r.PRsReviewed) > 0
@@ -115,7 +174,22 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult) error {
 		}
 	}
 
-	if !hasLookback && !hasLookahead {
+	// Review queue: PRs from others waiting on you
+	if len(r.PRsAwaitingMyReview) > 0 {
+		fmt.Fprintf(w, "\n── Review queue ────────────────────────────\n")
+		fmt.Fprintf(w, "\nAwaiting Your Review: %d\n", len(r.PRsAwaitingMyReview))
+		for _, pr := range r.PRsAwaitingMyReview {
+			age := model.DaysBetween(pr.CreatedAt, r.Until)
+			author := pr.Author
+			if author == "" {
+				author = "unknown"
+			}
+			fmt.Fprintf(w, "  %s  %s  @%s (%s)\n",
+				FormatItemLink(pr.Number, pr.URL, rc), pr.Title, author, formatAge(age))
+		}
+	}
+
+	if !hasLookback && !hasLookahead && len(r.PRsAwaitingMyReview) == 0 {
 		fmt.Fprintf(w, "\nNo activity in this period.\n")
 	}
 
@@ -127,6 +201,15 @@ func WriteMyWeekMarkdown(rc RenderContext, r model.MyWeekResult) error {
 	w := rc.Writer
 	fmt.Fprintf(w, "## My Week — %s\n\n", r.Login)
 	fmt.Fprintf(w, "**%s** | %s to %s\n\n", r.Repo, r.Since.Format(time.DateOnly), r.Until.Format(time.DateOnly))
+
+	// Insights
+	if insights := buildInsightLines(r); len(insights) > 0 {
+		fmt.Fprintf(w, "### Insights\n\n")
+		for _, line := range insights {
+			fmt.Fprintf(w, "- %s\n", line)
+		}
+		fmt.Fprintf(w, "\n")
+	}
 
 	// Lookback
 	fmt.Fprintf(w, "### What I shipped\n\n")
@@ -190,18 +273,34 @@ func WriteMyWeekMarkdown(rc RenderContext, r model.MyWeekResult) error {
 		fmt.Fprintf(w, "_None_\n")
 	}
 
+	// Review queue
+	if len(r.PRsAwaitingMyReview) > 0 {
+		fmt.Fprintf(w, "\n### Review queue\n\n")
+		fmt.Fprintf(w, "**Awaiting Your Review (%d)**\n\n", len(r.PRsAwaitingMyReview))
+		for _, pr := range r.PRsAwaitingMyReview {
+			age := model.DaysBetween(pr.CreatedAt, r.Until)
+			author := pr.Author
+			if author == "" {
+				author = "unknown"
+			}
+			fmt.Fprintf(w, "- %s %s — @%s *%s*\n",
+				FormatItemLink(pr.Number, pr.URL, rc), sanitizeMarkdown(pr.Title), author, formatAge(age))
+		}
+	}
+
 	return nil
 }
 
 // jsonMyWeekResult is the JSON serialization of MyWeekResult.
 type jsonMyWeekResult struct {
-	Login    string            `json:"login"`
-	Repo     string            `json:"repo"`
-	Since    string            `json:"since"`
-	Until    string            `json:"until"`
+	Login    string             `json:"login"`
+	Repo     string             `json:"repo"`
+	Since    string             `json:"since"`
+	Until    string             `json:"until"`
+	Insights jsonMyWeekInsights `json:"insights"`
 	Lookback jsonMyWeekLookback `json:"lookback"`
-	Ahead    jsonMyWeekAhead   `json:"ahead"`
-	Summary  jsonMyWeekSummary `json:"summary"`
+	Ahead    jsonMyWeekAhead    `json:"ahead"`
+	Summary  jsonMyWeekSummary  `json:"summary"`
 }
 
 type jsonMyWeekLookback struct {
@@ -211,8 +310,17 @@ type jsonMyWeekLookback struct {
 }
 
 type jsonMyWeekAhead struct {
-	IssuesOpen []jsonMyWeekAheadItem `json:"issues_open"`
-	PRsOpen    []jsonMyWeekAheadItem `json:"prs_open"`
+	IssuesOpen          []jsonMyWeekAheadItem `json:"issues_open"`
+	PRsOpen             []jsonMyWeekAheadItem `json:"prs_open"`
+	PRsAwaitingMyReview []jsonMyWeekReviewItem `json:"prs_awaiting_my_review"`
+}
+
+type jsonMyWeekReviewItem struct {
+	Number  int    `json:"number"`
+	Title   string `json:"title"`
+	URL     string `json:"url"`
+	Author  string `json:"author"`
+	AgeDays int    `json:"age_days"`
 }
 
 type jsonMyWeekItem struct {
@@ -241,13 +349,31 @@ type jsonMyWeekSummary struct {
 	PRsOpen      int `json:"prs_open"`
 }
 
+type jsonMyWeekInsights struct {
+	Lines               []string `json:"lines"`
+	StaleIssues         int      `json:"stale_issues"`
+	PRsNeedingReview    int      `json:"prs_needing_review"`
+	PRsAwaitingMyReview int      `json:"prs_awaiting_my_review"`
+	NewIssues           int      `json:"new_issues"`
+	NewPRs              int      `json:"new_prs"`
+}
+
 // WriteMyWeekJSON writes a my-week summary as JSON.
 func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult) error {
+	ins := model.ComputeInsights(r)
 	out := jsonMyWeekResult{
 		Login: r.Login,
 		Repo:  r.Repo,
 		Since: r.Since.UTC().Format(time.RFC3339),
 		Until: r.Until.UTC().Format(time.RFC3339),
+		Insights: jsonMyWeekInsights{
+			Lines:               buildInsightLines(r),
+			StaleIssues:         ins.StaleIssues,
+			PRsNeedingReview:    ins.PRsNeedingReview,
+			PRsAwaitingMyReview: ins.PRsAwaitingMyReview,
+			NewIssues:           ins.NewIssues,
+			NewPRs:              ins.NewPRs,
+		},
 		Summary: jsonMyWeekSummary{
 			IssuesClosed: len(r.IssuesClosed),
 			PRsMerged:    len(r.PRsMerged),
@@ -292,6 +418,17 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult) error {
 		out.Ahead.PRsOpen = append(out.Ahead.PRsOpen, jsonMyWeekAheadItem{
 			Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels,
 			AgeDays: s.AgeDays, StaleDays: s.StaleDays, Status: s.Status,
+		})
+	}
+
+	// Review queue
+	for _, pr := range r.PRsAwaitingMyReview {
+		out.Ahead.PRsAwaitingMyReview = append(out.Ahead.PRsAwaitingMyReview, jsonMyWeekReviewItem{
+			Number:  pr.Number,
+			Title:   pr.Title,
+			URL:     pr.URL,
+			Author:  pr.Author,
+			AgeDays: model.DaysBetween(pr.CreatedAt, r.Until),
 		})
 	}
 

@@ -83,10 +83,10 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 
 	// Fetch lookback and lookahead data in parallel.
 	var issuesClosed, issuesOpen []model.Issue
-	var prsMerged, prsReviewed, prsOpen, prsNeedingReview []model.PR
+	var prsMerged, prsReviewed, prsOpen, prsNeedingReview, prsAwaitingMyReview []model.PR
 
 	g, gCtx := errgroup.WithContext(ctx)
-	g.SetLimit(6)
+	g.SetLimit(7)
 
 	// Lookback: what happened in the --since period.
 	g.Go(func() error {
@@ -174,6 +174,20 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 		return nil
 	})
 
+	g.Go(func() error {
+		q := scope.ReviewRequestedQuery(repoScope, login)
+		q.ExcludeUsers = deps.ExcludeUsers
+		if deps.Debug {
+			log.Debug("my-week review-requested query:\n%s", q.Verbose())
+		}
+		prs, err := client.SearchPRs(gCtx, q.Build())
+		if err != nil {
+			return err
+		}
+		prsAwaitingMyReview = prs
+		return nil
+	})
+
 	if err := g.Wait(); err != nil {
 		return err
 	}
@@ -188,7 +202,8 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 		PRsReviewed:  prsReviewed,
 		IssuesOpen:       issuesOpen,
 		PRsOpen:         prsOpen,
-		PRsNeedingReview: prsNeedingReview,
+		PRsNeedingReview:    prsNeedingReview,
+		PRsAwaitingMyReview: prsAwaitingMyReview,
 	}
 
 	w := cmd.OutOrStdout()

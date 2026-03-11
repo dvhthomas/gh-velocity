@@ -76,6 +76,41 @@ func PRNeedsReview(pr PR, needingReview []PR) bool {
 	return false
 }
 
+// MyWeekInsights captures derived observations for 1:1 talking points.
+type MyWeekInsights struct {
+	StaleIssues         int // open issues with no recent update
+	PRsNeedingReview    int // open PRs waiting for first review
+	NewIssues           int // issues opened in the lookback window
+	NewPRs              int // PRs opened in the lookback window
+	PRsAwaitingMyReview int // PRs from others waiting on my review
+}
+
+// ComputeInsights derives talking points from a MyWeekResult.
+func ComputeInsights(r MyWeekResult) MyWeekInsights {
+	var ins MyWeekInsights
+	for _, iss := range r.IssuesOpen {
+		s := IssueStatus(iss, r.Since, r.Until)
+		switch s.Status {
+		case StatusStale:
+			ins.StaleIssues++
+		case StatusNew:
+			ins.NewIssues++
+		}
+	}
+	for _, pr := range r.PRsOpen {
+		nr := PRNeedsReview(pr, r.PRsNeedingReview)
+		s := PRStatus(pr, nr, r.Since, r.Until)
+		switch s.Status {
+		case StatusNeedsReview:
+			ins.PRsNeedingReview++
+		case StatusNew:
+			ins.NewPRs++
+		}
+	}
+	ins.PRsAwaitingMyReview = len(r.PRsAwaitingMyReview)
+	return ins
+}
+
 // DaysBetween returns the number of whole days between two times.
 // Returns 0 if b is before a (never negative).
 func DaysBetween(a, b time.Time) int {

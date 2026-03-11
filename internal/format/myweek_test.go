@@ -62,6 +62,12 @@ func TestWriteMyWeekPretty(t *testing.T) {
 	out := buf.String()
 	for _, want := range []string{
 		"testuser",
+		"Insights",
+		"Shipped 3 items", "in 7 days",
+		"Reviewed 1 PRs",
+		"1 of your open PR(s) waiting for first review",
+		"1 open issue(s) stale",
+		"New work picked up: 1 issue(s).",
 		"What I shipped",
 		"Issues Closed: 2", "PRs Merged: 1", "PRs Reviewed: 1",
 		"#1", "#10", "#20",
@@ -107,6 +113,10 @@ func TestWriteMyWeekMarkdown(t *testing.T) {
 	out := buf.String()
 	for _, want := range []string{
 		"## My Week",
+		"### Insights",
+		"Shipped 3 items",
+		"waiting for first review",
+		"stale",
 		"### What I shipped",
 		"**Issues Closed (2)**", "**PRs Merged (1)**", "**PRs Reviewed (1)**",
 		"[#1]", "[#10]",
@@ -147,6 +157,15 @@ func TestWriteMyWeekJSON(t *testing.T) {
 	}
 	if parsed.Login != "testuser" {
 		t.Errorf("login = %q, want testuser", parsed.Login)
+	}
+	if len(parsed.Insights.Lines) == 0 {
+		t.Error("expected insights lines to be non-empty")
+	}
+	if parsed.Insights.StaleIssues != 1 {
+		t.Errorf("insights.stale_issues = %d, want 1", parsed.Insights.StaleIssues)
+	}
+	if parsed.Insights.PRsNeedingReview != 1 {
+		t.Errorf("insights.prs_needing_review = %d, want 1", parsed.Insights.PRsNeedingReview)
 	}
 	if parsed.Summary.IssuesClosed != 2 {
 		t.Errorf("summary.issues_closed = %d, want 2", parsed.Summary.IssuesClosed)

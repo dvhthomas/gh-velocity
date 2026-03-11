@@ -70,6 +70,7 @@ type PR struct {
 	Title     string
 	State     string
 	Labels    []string
+	Author    string // GitHub login of the PR author
 	CreatedAt time.Time
 	MergedAt  *time.Time
 	URL       string
@@ -225,6 +226,8 @@ type MyWeekResult struct {
 	IssuesOpen      []Issue // open issues assigned to me
 	PRsOpen         []PR    // open PRs I authored
 	PRsNeedingReview []PR   // open PRs with zero reviews (subset of PRsOpen)
+	// Review pressure: PRs from others waiting on me
+	PRsAwaitingMyReview []PR // open PRs where I'm a requested reviewer
 }
 
 // StatsQuality holds defect rate metrics.

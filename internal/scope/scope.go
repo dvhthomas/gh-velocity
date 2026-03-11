@@ -146,6 +146,16 @@ func OpenPRsNeedingReviewQuery(scopeStr, login string) Query {
 	}
 }
 
+// ReviewRequestedQuery returns a Query for open PRs where the user has been
+// requested as a reviewer. These are PRs from other people waiting on you.
+func ReviewRequestedQuery(scopeStr, login string) Query {
+	return Query{
+		Scope:     scopeStr,
+		Type:      "is:pr",
+		Lifecycle: fmt.Sprintf("is:open review-requested:%s", login),
+	}
+}
+
 // MergeScope combines config scope and flag scope with AND semantics.
 // Both are GitHub search query fragments; they're joined with a space.
 // Empty strings are ignored.

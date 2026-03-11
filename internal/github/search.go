@@ -40,11 +40,16 @@ func searchItemToPR(item searchIssueResponse) model.PR {
 	for i, l := range item.Labels {
 		labels[i] = l.Name
 	}
+	var author string
+	if item.User != nil {
+		author = item.User.Login
+	}
 	pr := model.PR{
 		Number:    item.Number,
 		Title:     item.Title,
 		State:     item.State,
 		Labels:    labels,
+		Author:    author,
 		CreatedAt: item.CreatedAt.UTC(),
 		URL:       item.HTMLURL,
 	}
