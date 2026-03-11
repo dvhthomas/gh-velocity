@@ -149,11 +149,12 @@ type VerificationResult struct {
 }
 
 // PostingReadiness reports whether the token and repo support --post operations.
-// All checks are best-effort (fine-grained PATs don't expose scopes via headers).
 type PostingReadiness struct {
-	DiscussionsEnabled bool  `json:"discussions_enabled"`
-	HasIssuesWrite     bool  `json:"has_issues_write"`
-	CategoryValid      *bool `json:"category_valid,omitempty"` // nil = not configured
+	DiscussionsEnabled bool     `json:"discussions_enabled"`
+	HasRepoScope       bool     `json:"has_repo_scope"`
+	HasProjectScope    bool     `json:"has_project_scope"`
+	TokenScopes        []string `json:"token_scopes,omitempty"`   // empty for fine-grained PATs
+	CategoryValid      *bool    `json:"category_valid,omitempty"` // nil = not configured
 }
 
 type labelCount struct {
@@ -245,8 +246,16 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 	} else {
 		result.Hints = append(result.Hints, "Discussions are disabled — enable them in repo settings for bulk --post")
 	}
-	if pr.HasIssuesWrite {
-		result.Hints = append(result.Hints, "Token has issues read access (write is best-effort check)")
+	if len(pr.TokenScopes) > 0 {
+		result.Hints = append(result.Hints, fmt.Sprintf("Token scopes: %s", strings.Join(pr.TokenScopes, ", ")))
+		if !pr.HasRepoScope {
+			result.Hints = append(result.Hints, "Missing 'repo' scope — --post to issues/PRs and discussions requires 'repo'")
+		}
+		if !pr.HasProjectScope {
+			result.Hints = append(result.Hints, "Missing 'project' scope — project board queries require 'project'")
+		}
+	} else {
+		result.Hints = append(result.Hints, "Fine-grained PAT detected (no OAuth scopes) — ensure repo read/write and project permissions are configured")
 	}
 
 	// 7. Verify the generated config
@@ -276,7 +285,21 @@ func checkPostingReadiness(ctx context.Context, client *gh.Client) *PostingReadi
 		pr.DiscussionsEnabled = enabled
 	}
 
-	pr.HasIssuesWrite = true // optimistic; can't verify write access without writing
+	// Check token scopes via X-OAuth-Scopes header.
+	// Fine-grained PATs return empty scopes (they use permissions, not OAuth scopes).
+	scopes, err := client.TokenScopes(ctx)
+	if err == nil && len(scopes) > 0 {
+		pr.TokenScopes = scopes
+		for _, s := range scopes {
+			switch s {
+			case "repo":
+				pr.HasRepoScope = true
+			case "project":
+				pr.HasProjectScope = true
+			}
+		}
+	}
+
 	return pr
 }
 
@@ -470,15 +493,30 @@ func renderPreflightConfig(r *PreflightResult) string {
 	// Posting readiness (as comments — not a valid config key)
 	if r.PostingReadiness != nil {
 		b.WriteString("# Posting readiness (for --post flag):\n")
+		b.WriteString("#\n")
+		b.WriteString("# Required scopes per feature:\n")
+		b.WriteString("#   --post to issue/PR comments:  repo\n")
+		b.WriteString("#   --post to discussions:        repo (+ discussions enabled)\n")
+		b.WriteString("#   project board queries:        project, read:org (if org project)\n")
+		b.WriteString("#\n")
+		b.WriteString("# GitHub Actions: set permissions in workflow YAML:\n")
+		b.WriteString("#   permissions:\n")
+		b.WriteString("#     issues: write        # for --post to issue comments\n")
+		b.WriteString("#     pull-requests: write  # for --post to PR comments\n")
+		b.WriteString("#     discussions: write    # for --post to discussions\n")
+		b.WriteString("#\n")
 		if r.PostingReadiness.DiscussionsEnabled {
 			b.WriteString("#   discussions: enabled\n")
 		} else {
 			b.WriteString("#   discussions: disabled — enable in repo Settings → General → Features\n")
 		}
-		if r.PostingReadiness.HasIssuesWrite {
-			b.WriteString("#   issues: accessible\n")
+		if len(r.PostingReadiness.TokenScopes) > 0 {
+			b.WriteString(fmt.Sprintf("#   token scopes: %s\n", strings.Join(r.PostingReadiness.TokenScopes, ", ")))
+			if !r.PostingReadiness.HasRepoScope {
+				b.WriteString("#   ⚠ missing 'repo' scope — --post will fail\n")
+			}
 		} else {
-			b.WriteString("#   issues: no access\n")
+			b.WriteString("#   fine-grained PAT — verify repo and project permissions are configured\n")
 		}
 		b.WriteString("\n")
 	}
