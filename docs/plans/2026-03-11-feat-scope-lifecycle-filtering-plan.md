@@ -123,11 +123,11 @@ With just these defaults and auto-injected `repo:`, a zero-config user gets:
 
 **Override semantics**: If the user configures any lifecycle stage or scope, it completely replaces the internal default for that field. No merging, no layering. A user who sets `done.query: "is:closed reason:completed"` gets exactly that — the default `is:closed` is gone. Same for scope: if `scope.query` is set, no `repo:` auto-injection.
 
-- [ ] Update `Config` struct — remove `Statuses`, `Fields`, add `Scope`, update `Project`, add `Lifecycle`
-- [ ] Update `defaults()` — new default lifecycle
-- [ ] Update `knownTopLevelKeys` — remove `"statuses"`, `"fields"`, add `"scope"`, `"lifecycle"`
-- [ ] Update `validate()` — new project URL validation, lifecycle stage validation, remove PVT_*/PVTSSF_* regex
-- [ ] Update config tests — all table-driven tests need new config format
+- [x] Update `Config` struct — remove `Statuses`, `Fields`, add `Scope`, update `Project`, add `Lifecycle`
+- [x] Update `defaults()` — new default lifecycle
+- [x] Update `knownTopLevelKeys` — remove `"statuses"`, `"fields"`, add `"scope"`, `"lifecycle"`
+- [x] Update `validate()` — new project URL validation, lifecycle stage validation, remove PVT_*/PVTSSF_* regex
+- [x] Update config tests — all table-driven tests need new config format
 
 **Tests**: Table-driven validation for new config fields. Invalid project URL. Missing `status_field` when `project_status` used. Valid minimal config. Full config.
 
@@ -176,8 +176,8 @@ Helper to merge config scope with flag scope:
 func MergeScope(configScope, flagScope string) string
 ```
 
-- [ ] Create `internal/scope/scope.go` — `Query` type, `Build()`, `URL()`, `Verbose()`
-- [ ] Create `internal/scope/scope_test.go` — table-driven tests for query assembly, URL encoding, verbose output
+- [x] Create `internal/scope/scope.go` — `Query` type, `Build()`, `URL()`, `Verbose()`
+- [x] Create `internal/scope/scope_test.go` — table-driven tests for query assembly, URL encoding, verbose output
 
 **Tests**: Empty scope. Scope + lifecycle. Scope + lifecycle + type. URL encoding. Verbose format. MergeScope with both, one, neither.
 
