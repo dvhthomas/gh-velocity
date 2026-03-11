@@ -464,11 +464,11 @@ Summary: 1 HIGH risk, 1 MEDIUM risk, 2 LOW risk areas
 - [ ] `gh velocity status my-week` shows issues closed, PRs merged, PRs reviewed with links
 - [ ] `gh velocity status my-week --format markdown` produces paste-ready output
 - [ ] My-week uses authenticated user identity (cached on `Deps`), errors on auth failure
-- [ ] `gh velocity quality bus-factor` shows per-directory knowledge risk
-- [ ] Bus factor uses single `git log --numstat` invocation (verify with `--debug`)
-- [ ] Bus factor completes in <5s for repos with <10,000 commits
-- [ ] Bus factor validates `--since` through `dateutil.Parse()` before passing to git
-- [ ] Bus factor checks `deps.HasLocalRepo`, errors clearly when unavailable
+- [x] `gh velocity quality bus-factor` shows per-directory knowledge risk
+- [x] Bus factor uses single `git log --numstat` invocation (verify with `--debug`)
+- [x] Bus factor completes in <5s for repos with <10,000 commits
+- [x] Bus factor validates `--since` through `dateutil.Parse()` before passing to git
+- [x] Bus factor checks `deps.HasLocalRepo`, errors clearly when unavailable
 - [ ] Privacy: contributor emails only in JSON output, names only in pretty/markdown
 - [ ] All three output formats work for both commands
 

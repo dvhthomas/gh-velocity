@@ -1,0 +1,105 @@
+package cmd
+
+import (
+	"os"
+
+	"github.com/bitsbyme/gh-velocity/internal/dateutil"
+	"github.com/bitsbyme/gh-velocity/internal/format"
+	"github.com/bitsbyme/gh-velocity/internal/git"
+	"github.com/bitsbyme/gh-velocity/internal/log"
+	"github.com/bitsbyme/gh-velocity/internal/metrics"
+	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/spf13/cobra"
+)
+
+const (
+	busFactorDepth      = 2
+	busFactorMinCommits = 5
+)
+
+// NewBusFactorCmd returns the bus-factor command.
+func NewBusFactorCmd() *cobra.Command {
+	var sinceFlag string
+
+	cmd := &cobra.Command{
+		Use:   "bus-factor",
+		Short: "Knowledge risk per directory from git history",
+		Long: `Analyzes local git history to identify directories where knowledge is
+concentrated in one or two people. Helps spot areas that would stall
+if a key contributor became unavailable.
+
+Risk levels:
+  HIGH   — 1 contributor
+  MEDIUM — 2 contributors, primary >70% of commits
+  LOW    — 3+ contributors with distributed commits`,
+		Example: `  # Last 90 days (default)
+  gh velocity quality bus-factor
+
+  # Last 180 days
+  gh velocity quality bus-factor --since 180d
+
+  # JSON for CI/scripts
+  gh velocity quality bus-factor --format json`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runBusFactor(cmd, sinceFlag)
+		},
+	}
+
+	cmd.Flags().StringVar(&sinceFlag, "since", "90d", "Lookback period (YYYY-MM-DD, RFC3339, or Nd relative)")
+	return cmd
+}
+
+func runBusFactor(cmd *cobra.Command, sinceStr string) error {
+	ctx := cmd.Context()
+	deps := DepsFromContext(ctx)
+	if deps == nil {
+		return &model.AppError{
+			Code:    model.ErrConfigInvalid,
+			Message: "internal error: missing dependencies",
+		}
+	}
+
+	if !deps.HasLocalRepo {
+		return &model.AppError{
+			Code:    model.ErrConfigInvalid,
+			Message: "bus-factor requires a local git checkout. Run from within the repository or use a GitHub Action with actions/checkout.",
+		}
+	}
+
+	now := deps.Now()
+	since, err := dateutil.Parse(sinceStr, now)
+	if err != nil {
+		return &model.AppError{Code: model.ErrConfigInvalid, Message: err.Error()}
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return &model.AppError{Code: model.ErrNotGitRepo, Message: "could not determine working directory: " + err.Error()}
+	}
+
+	runner := git.NewRunner(wd)
+
+	if deps.Debug {
+		log.Debug("bus-factor: since=%s depth=%d min-commits=%d", since.Format("2006-01-02"), busFactorDepth, busFactorMinCommits)
+	}
+
+	paths, err := runner.ContributorsByPath(ctx, since, busFactorDepth, busFactorMinCommits)
+	if err != nil {
+		return &model.AppError{Code: model.ErrNotGitRepo, Message: "git log failed: " + err.Error()}
+	}
+
+	result := metrics.ComputeBusFactor(paths, since, busFactorDepth)
+
+	w := cmd.OutOrStdout()
+	rc := deps.RenderCtx(w)
+
+	switch deps.Format {
+	case format.JSON:
+		return format.WriteBusFactorJSON(w, result)
+	case format.Markdown:
+		return format.WriteBusFactorMarkdown(rc, result)
+	default:
+		return format.WriteBusFactorPretty(rc, result)
+	}
+}

@@ -73,18 +73,6 @@ func (d *Deps) RenderCtx(w io.Writer) format.RenderContext {
 	}
 }
 
-// RenderCtx builds a format.RenderContext from Deps and a writer.
-func (d *Deps) RenderCtx(w io.Writer) format.RenderContext {
-	return format.RenderContext{
-		Writer: w,
-		Format: d.Format,
-		IsTTY:  d.IsTTY,
-		Width:  d.TermWidth,
-		Owner:  d.Owner,
-		Repo:   d.Repo,
-	}
-}
-
 // DepsFromContext extracts Deps from the command context.
 func DepsFromContext(ctx context.Context) *Deps {
 	if d, ok := ctx.Value(configKey).(*Deps); ok {

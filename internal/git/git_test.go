@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 // setupTestRepo creates a temp git repo with some commits and tags for testing.
@@ -233,6 +234,140 @@ func TestCommitsForIssue_InjectionRejected(t *testing.T) {
 	if err == nil {
 		t.Error("CommitsForIssue with flag injection should fail")
 	}
+}
+
+func TestTruncatePath(t *testing.T) {
+	tests := []struct {
+		path  string
+		depth int
+		want  string
+	}{
+		{"internal/git/git.go", 2, "internal/git/"},
+		{"internal/git/git.go", 1, "internal/"},
+		{"cmd/root.go", 2, "cmd/"},
+		{"cmd/root.go", 1, "cmd/"},
+		{"main.go", 2, "."},
+		{"main.go", 1, "."},
+		{"a/b/c/d/e.go", 2, "a/b/"},
+		{"a/b/c/d/e.go", 3, "a/b/c/"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got := truncatePath(tt.path, tt.depth)
+			if got != tt.want {
+				t.Errorf("truncatePath(%q, %d) = %q, want %q", tt.path, tt.depth, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestContributorsByPath(t *testing.T) {
+	dir := setupBusFactorRepo(t)
+	r := NewRunner(dir)
+
+	paths, err := r.ContributorsByPath(context.Background(), parseDate(t, "2020-01-01"), 2, 1)
+	if err != nil {
+		t.Fatalf("ContributorsByPath: %v", err)
+	}
+
+	if len(paths) == 0 {
+		t.Fatal("expected at least 1 path")
+	}
+
+	// Check that we have the expected directories.
+	pathMap := make(map[string]PathContributors)
+	for _, p := range paths {
+		pathMap[p.Path] = p
+	}
+
+	// internal/git/ should have alice and bob
+	if p, ok := pathMap["internal/git/"]; ok {
+		if p.TotalCommits < 2 {
+			t.Errorf("internal/git/ total commits = %d, want >= 2", p.TotalCommits)
+		}
+	}
+}
+
+func TestContributorsByPath_MinCommitsFilter(t *testing.T) {
+	dir := setupBusFactorRepo(t)
+	r := NewRunner(dir)
+
+	// With high min-commits, no paths should qualify.
+	paths, err := r.ContributorsByPath(context.Background(), parseDate(t, "2020-01-01"), 2, 1000)
+	if err != nil {
+		t.Fatalf("ContributorsByPath: %v", err)
+	}
+	if len(paths) != 0 {
+		t.Errorf("expected 0 paths with min-commits=1000, got %d", len(paths))
+	}
+}
+
+// setupBusFactorRepo creates a test repo with multiple authors and directories.
+func setupBusFactorRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+
+	run := func(args ...string) {
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("setup %v: %v\n%s", args, err, out)
+		}
+	}
+
+	run("git", "init")
+	run("git", "config", "user.email", "alice@test.com")
+	run("git", "config", "user.name", "Alice")
+
+	// Alice commits to internal/git/
+	if err := os.MkdirAll(filepath.Join(dir, "internal", "git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "internal", "git", "runner.go"), []byte("package git\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("git", "add", ".")
+	run("git", "commit", "-m", "alice: add git runner")
+
+	// Alice again
+	if err := os.WriteFile(filepath.Join(dir, "internal", "git", "runner.go"), []byte("package git\n// updated\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("git", "add", ".")
+	run("git", "commit", "-m", "alice: update git runner")
+
+	// Bob commits to internal/git/
+	run("git", "config", "user.email", "bob@test.com")
+	run("git", "config", "user.name", "Bob")
+	if err := os.WriteFile(filepath.Join(dir, "internal", "git", "util.go"), []byte("package git\n// util\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("git", "add", ".")
+	run("git", "commit", "-m", "bob: add git util")
+
+	// Alice commits to cmd/
+	run("git", "config", "user.email", "alice@test.com")
+	run("git", "config", "user.name", "Alice")
+	if err := os.MkdirAll(filepath.Join(dir, "cmd"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "cmd", "root.go"), []byte("package cmd\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("git", "add", ".")
+	run("git", "commit", "-m", "alice: add cmd root")
+
+	return dir
+}
+
+func parseDate(t *testing.T, s string) time.Time {
+	t.Helper()
+	tm, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tm
 }
 
 func TestAllCommits_InjectionRejected(t *testing.T) {
