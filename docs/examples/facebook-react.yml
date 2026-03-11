@@ -16,7 +16,13 @@
 scope:
   query: "repo:facebook/react"
 
-# Issue classification
+# Issue/PR classification — assigns each item to a category.
+# Each entry in 'match' is a matcher string. Supported formats:
+#   label:<name>          — matches a GitHub label (case-insensitive)
+#   type:<name>           — matches a GitHub Issue Type (exact)
+#   title:/<regex>/       — matches the title with a Go regex
+#   title:/<regex>/i      — same, but case-insensitive
+# First category to match wins. Unmatched items are classified as "other".
 quality:
   categories:
     - name: bug
@@ -62,9 +68,9 @@ lifecycle:
 #   discussions: disabled — enable in repo Settings → General → Features
 #   token scopes: gist, project, read:org, repo, workflow
 
-# Recent activity (last 30 days): 42 issues closed, 68 PRs merged
+# Recent activity (last 30 days): 43 issues closed, 68 PRs merged
 # Most-used labels on recent closed issues:
-#   Status: Unconfirmed (37)
+#   Status: Unconfirmed (38)
 #   Resolution: Stale (21)
 #   Type: Bug (9)
 #   Component: Developer Tools (4)

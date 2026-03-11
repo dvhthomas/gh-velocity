@@ -16,7 +16,13 @@
 scope:
   query: "repo:kubernetes/kubernetes"
 
-# Issue classification
+# Issue/PR classification — assigns each item to a category.
+# Each entry in 'match' is a matcher string. Supported formats:
+#   label:<name>          — matches a GitHub label (case-insensitive)
+#   type:<name>           — matches a GitHub Issue Type (exact)
+#   title:/<regex>/       — matches the title with a Go regex
+#   title:/<regex>/i      — same, but case-insensitive
+# First category to match wins. Unmatched items are classified as "other".
 quality:
   categories:
     - name: bug
@@ -81,12 +87,12 @@ lifecycle:
 #   needs-sig (19)
 #   kind/failing-test (15)
 #   sig/network (13)
-#   sig/scheduling (12)
 #   priority/backlog (12)
-#   sig/cli (11)
+#   sig/scheduling (12)
 #   sig/apps (11)
+#   sig/cli (11)
 #   wg/device-management (11)
 #   sig/storage (10)
 #   priority/important-soon (9)
-#   priority/important-longterm (7)
 #   sig/scalability (7)
+#   priority/important-longterm (7)

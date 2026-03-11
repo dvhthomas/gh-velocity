@@ -491,7 +491,13 @@ func renderPreflightConfig(r *PreflightResult) string {
 	b.WriteString("\n")
 
 	// Quality categories
-	b.WriteString("# Issue classification\n")
+	b.WriteString("# Issue/PR classification — assigns each item to a category.\n")
+	b.WriteString("# Each entry in 'match' is a matcher string. Supported formats:\n")
+	b.WriteString("#   label:<name>          — matches a GitHub label (case-insensitive)\n")
+	b.WriteString("#   type:<name>           — matches a GitHub Issue Type (exact)\n")
+	b.WriteString("#   title:/<regex>/       — matches the title with a Go regex\n")
+	b.WriteString("#   title:/<regex>/i      — same, but case-insensitive\n")
+	b.WriteString("# First category to match wins. Unmatched items are classified as \"other\".\n")
 	b.WriteString("quality:\n")
 	categoryOrder := []string{"bug", "feature", "chore", "docs"}
 	hasCategories := false

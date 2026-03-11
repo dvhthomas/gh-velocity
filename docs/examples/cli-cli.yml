@@ -4,6 +4,7 @@
 #
 # Using default issue strategy (created → closed)
 # Discussions are enabled — --post can create Discussion posts
+# Token scopes: gist, project, read:org, repo, workflow
 # Config verification: YAML parses cleanly
 # Config verification: 4 categories defined, all matchers valid
 
@@ -15,7 +16,13 @@
 scope:
   query: "repo:cli/cli"
 
-# Issue classification
+# Issue/PR classification — assigns each item to a category.
+# Each entry in 'match' is a matcher string. Supported formats:
+#   label:<name>          — matches a GitHub label (case-insensitive)
+#   type:<name>           — matches a GitHub Issue Type (exact)
+#   title:/<regex>/       — matches the title with a Go regex
+#   title:/<regex>/i      — same, but case-insensitive
+# First category to match wins. Unmatched items are classified as "other".
 quality:
   categories:
     - name: bug
@@ -61,6 +68,7 @@ lifecycle:
 #     discussions: write    # for --post to discussions
 #
 #   discussions: enabled
+#   token scopes: gist, project, read:org, repo, workflow
 
 # Recent activity (last 30 days): 119 issues closed, 58 PRs merged
 # Most-used labels on recent closed issues:
@@ -74,12 +82,12 @@ lifecycle:
 #   priority-3 (8)
 #   gh-issue (6)
 #   gh-repo (5)
-#   priority-2 (4)
 #   core (4)
-#   gh-project (3)
-#   stale (3)
-#   platform (3)
+#   priority-2 (4)
 #   more-info-needed (3)
-#   docs (2)
-#   blocked (2)
+#   stale (3)
+#   gh-project (3)
+#   platform (3)
 #   gh-api (2)
+#   blocked (2)
+#   docs (2)

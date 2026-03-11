@@ -17,7 +17,13 @@
 scope:
   query: "repo:dvhthomas/gh-velocity"
 
-# Issue classification
+# Issue/PR classification — assigns each item to a category.
+# Each entry in 'match' is a matcher string. Supported formats:
+#   label:<name>          — matches a GitHub label (case-insensitive)
+#   type:<name>           — matches a GitHub Issue Type (exact)
+#   title:/<regex>/       — matches the title with a Go regex
+#   title:/<regex>/i      — same, but case-insensitive
+# First category to match wins. Unmatched items are classified as "other".
 quality:
   categories:
     - name: bug

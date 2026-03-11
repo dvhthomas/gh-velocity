@@ -16,7 +16,13 @@
 scope:
   query: "repo:astral-sh/uv"
 
-# Issue classification
+# Issue/PR classification — assigns each item to a category.
+# Each entry in 'match' is a matcher string. Supported formats:
+#   label:<name>          — matches a GitHub label (case-insensitive)
+#   type:<name>           — matches a GitHub Issue Type (exact)
+#   title:/<regex>/       — matches the title with a Go regex
+#   title:/<regex>/i      — same, but case-insensitive
+# First category to match wins. Unmatched items are classified as "other".
 quality:
   categories:
     - name: bug
@@ -67,7 +73,7 @@ lifecycle:
 #   question (28)
 #   needs-mre (22)
 #   enhancement (17)
+#   error messages (4)
 #   windows (4)
 #   external (4)
-#   error messages (4)
 #   internal (2)
