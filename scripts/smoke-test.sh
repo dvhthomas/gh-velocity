@@ -234,7 +234,7 @@ out=$($BINARY config preflight -R cli/cli 2>&1)
 show "$out"
 [[ "$out" == *"quality:"* ]] && pass "preflight generates quality config" || fail "preflight generates quality config"
 [[ "$out" == *"cycle_time:"* ]] && pass "preflight generates cycle_time config" || fail "preflight generates cycle_time config"
-[[ "$out" == *"bug_labels:"* ]] && pass "preflight detects bug labels" || fail "preflight detects bug labels"
+[[ "$out" == *"categories:"* ]] && pass "preflight generates categories" || fail "preflight generates categories"
 
 out=$($BINARY config preflight -R cli/cli -f json 2>/dev/null)
 echo "$out" | jq '.strategy' 2>/dev/null | sed 's/^/    strategy: /'
@@ -302,10 +302,11 @@ echo "preflight posting readiness"
 out=$($BINARY config preflight -R cli/cli -f json 2>/dev/null)
 echo "$out" | jq '.posting_readiness.discussions_enabled' 2>/dev/null | sed 's/^/    discussions: /'
 echo "$out" | jq -e '.posting_readiness' >/dev/null 2>&1 && pass "preflight json has posting_readiness" || fail "preflight json has posting_readiness"
+echo "$out" | jq -e '.verification.config_parses' >/dev/null 2>&1 && pass "preflight json has verification" || fail "preflight json has verification"
 
 out=$($BINARY config preflight -R cli/cli 2>&1)
 show "$out"
-[[ "$out" == *"posting:"* ]] && pass "preflight pretty shows posting section" || fail "preflight pretty shows posting section"
+[[ "$out" == *"Posting readiness"* ]] && pass "preflight pretty shows posting section" || fail "preflight pretty shows posting section"
 
 # ── CI logging format ────────────────────────────────────────────
 echo ""

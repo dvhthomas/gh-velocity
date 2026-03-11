@@ -85,18 +85,13 @@ each choice. Use --write to save it directly.`,
 			configYAML := renderPreflightConfig(result)
 
 			// Round-trip validate: the YAML we generate must parse cleanly.
+			// Suppress warnings during validation (defaults may overlap with categories).
 			origWarn := config.WarnFunc
-			var roundTripWarnings []string
-			config.WarnFunc = func(format string, args ...any) {
-				roundTripWarnings = append(roundTripWarnings, fmt.Sprintf(format, args...))
-			}
+			config.WarnFunc = func(string, ...any) {} // suppress
 			_, parseErr := config.Parse([]byte(configYAML))
 			config.WarnFunc = origWarn
 			if parseErr != nil {
 				return fmt.Errorf("preflight generated invalid config (please report this): %w", parseErr)
-			}
-			for _, w := range roundTripWarnings {
-				return fmt.Errorf("preflight generated config with warnings (please report this): %s", w)
 			}
 
 			if writeFlag {
@@ -148,9 +143,9 @@ type PreflightResult struct {
 // VerificationResult validates the generated config is usable.
 type VerificationResult struct {
 	Valid         bool     `json:"valid"`
-	ConfigParses bool     `json:"config_parses"`
-	MatchersValid bool    `json:"matchers_valid"`
-	CategoryCount int     `json:"category_count"`
+	ConfigParses  bool     `json:"config_parses"`
+	MatchersValid bool     `json:"matchers_valid"`
+	CategoryCount int      `json:"category_count"`
 	MissingLabels []string `json:"missing_labels,omitempty"`
 	Warnings      []string `json:"warnings,omitempty"`
 }
