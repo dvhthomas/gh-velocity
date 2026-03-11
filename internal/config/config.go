@@ -4,8 +4,10 @@ package config
 import (
 	"fmt"
 	"math"
+	"net/url"
 	"os"
-	"regexp"
+	"strconv"
+	"strings"
 
 	"github.com/bitsbyme/gh-velocity/internal/classify"
 	"github.com/bitsbyme/gh-velocity/internal/log"
@@ -21,11 +23,7 @@ const (
 	MaxHotfixWindowHours     = 8760      // 1 year in hours
 )
 
-var (
-	projectIDPattern     = regexp.MustCompile(`^PVT_[a-zA-Z0-9]+$`)
-	statusFieldIDPattern = regexp.MustCompile(`^PVTSSF_[a-zA-Z0-9]+$`)
-	categoryIDPattern    = regexp.MustCompile(`^DIC_[a-zA-Z0-9]+$`)
-)
+var categoryIDPattern = fmt.Sprintf("^DIC_[a-zA-Z0-9]+$")
 
 // WarnFunc is called for non-fatal warnings (e.g., unknown config keys).
 // Defaults to log.Warn.
@@ -36,13 +34,44 @@ var WarnFunc = func(format string, args ...any) {
 // Config represents the .gh-velocity.yml configuration.
 type Config struct {
 	Workflow    string            `yaml:"workflow" json:"workflow"`
+	Scope       ScopeConfig       `yaml:"scope" json:"scope"`
 	Project     ProjectConfig     `yaml:"project" json:"project"`
-	Statuses    StatusConfig      `yaml:"statuses" json:"statuses"`
-	Fields      FieldsConfig      `yaml:"fields" json:"fields"`
+	Lifecycle   LifecycleConfig   `yaml:"lifecycle" json:"lifecycle"`
 	Quality     QualityConfig     `yaml:"quality" json:"quality"`
 	Discussions DiscussionsConfig `yaml:"discussions" json:"discussions"`
 	CommitRef   CommitRefConfig   `yaml:"commit_ref" json:"commit_ref"`
 	CycleTime   CycleTimeConfig   `yaml:"cycle_time" json:"cycle_time"`
+}
+
+// ScopeConfig holds the user's scope query — a GitHub search query fragment.
+type ScopeConfig struct {
+	Query string `yaml:"query" json:"query"`
+}
+
+// ProjectConfig identifies a GitHub Projects v2 board.
+type ProjectConfig struct {
+	// URL is the GitHub project URL, e.g. "https://github.com/users/dvhthomas/projects/1"
+	URL string `yaml:"url" json:"url"`
+	// StatusField is the visible name of the status field, e.g. "Status"
+	StatusField string `yaml:"status_field" json:"status_field"`
+}
+
+// LifecycleStage defines the query qualifiers and/or project statuses for a workflow stage.
+type LifecycleStage struct {
+	// Query is appended to scope for REST search API calls (e.g., "is:closed").
+	Query string `yaml:"query" json:"query"`
+	// ProjectStatus lists project board status values for GraphQL filtering.
+	ProjectStatus []string `yaml:"project_status" json:"project_status"`
+}
+
+// LifecycleConfig defines the lifecycle stages for workflow-based filtering.
+// Commands know which stage to use; users define what each stage means.
+type LifecycleConfig struct {
+	Backlog    LifecycleStage `yaml:"backlog" json:"backlog"`
+	InProgress LifecycleStage `yaml:"in-progress" json:"in-progress"`
+	InReview   LifecycleStage `yaml:"in-review" json:"in-review"`
+	Done       LifecycleStage `yaml:"done" json:"done"`
+	Released   LifecycleStage `yaml:"released" json:"released"`
 }
 
 // CycleTimeConfig controls how cycle time is measured.
@@ -55,36 +84,6 @@ type CycleTimeConfig struct {
 // CommitRefConfig controls the commit-ref strategy behavior.
 type CommitRefConfig struct {
 	Patterns []string `yaml:"patterns" json:"patterns"` // ["closes"] or ["closes", "refs"]
-}
-
-type ProjectConfig struct {
-	ID            string `yaml:"id" json:"id"`
-	StatusFieldID string `yaml:"status_field_id" json:"status_field_id"`
-}
-
-type StatusConfig struct {
-	Backlog    string `yaml:"backlog" json:"backlog"`
-	Ready      string `yaml:"ready" json:"ready"`
-	InProgress string `yaml:"in_progress" json:"in_progress"`
-	InReview   string `yaml:"in_review" json:"in_review"`
-	Done       string `yaml:"done" json:"done"`
-
-	// BacklogLabels are issue labels that indicate work has NOT started.
-	// When an issue has any of these labels, cycle time is suppressed.
-	// Example: ["backlog", "icebox", "deferred"]
-	BacklogLabels []string `yaml:"backlog_labels" json:"backlog_labels"`
-
-	// ActiveLabels are issue labels that indicate work HAS started.
-	// When one of these labels is added to an issue, that becomes a
-	// cycle time signal. Example: ["in-progress", "in progress", "wip"]
-	// This is an alternative to Projects v2 for repos that use labels
-	// to track status (common in OSS).
-	ActiveLabels []string `yaml:"active_labels" json:"active_labels"`
-}
-
-type FieldsConfig struct {
-	StartDate  string `yaml:"start_date" json:"start_date"`
-	TargetDate string `yaml:"target_date" json:"target_date"`
 }
 
 type QualityConfig struct {
@@ -162,17 +161,17 @@ func defaults() *Config {
 		CycleTime: CycleTimeConfig{
 			Strategy: "issue",
 		},
+		Lifecycle: LifecycleConfig{
+			Backlog:    LifecycleStage{Query: "is:open"},
+			InProgress: LifecycleStage{Query: "is:open"},
+			InReview:   LifecycleStage{Query: "is:open"},
+			Done:       LifecycleStage{Query: "is:closed"},
+			// Released: no default — tag-based discovery, no query needed.
+		},
 		Quality: QualityConfig{
 			BugLabels:         []string{"bug"},
 			FeatureLabels:     []string{"enhancement"},
 			HotfixWindowHours: DefaultHotfixWindowHours,
-		},
-		Statuses: StatusConfig{
-			Backlog:    "Backlog",
-			Ready:      "Ready",
-			InProgress: "In progress",
-			InReview:   "In review",
-			Done:       "Done",
 		},
 	}
 }
@@ -180,9 +179,9 @@ func defaults() *Config {
 // knownTopLevelKeys lists the YAML keys that map to Config struct fields.
 var knownTopLevelKeys = map[string]bool{
 	"workflow":    true,
+	"scope":       true,
 	"project":     true,
-	"statuses":    true,
-	"fields":      true,
+	"lifecycle":   true,
 	"quality":     true,
 	"discussions": true,
 	"commit_ref":  true,
@@ -197,6 +196,28 @@ func warnUnknownKeysFromMap(raw map[string]any) {
 			WarnFunc("config: unknown key %q (ignored)", key)
 		}
 	}
+}
+
+// projectURLPattern matches GitHub project URLs:
+//   - https://github.com/users/{user}/projects/{N}
+//   - https://github.com/orgs/{org}/projects/{N}
+func validateProjectURL(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("config: project.url is not a valid URL: %w", err)
+	}
+	if u.Host != "github.com" {
+		return fmt.Errorf("config: project.url must be a github.com URL, got host %q", u.Host)
+	}
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	// Expected: users/{user}/projects/{N} or orgs/{org}/projects/{N}
+	if len(parts) != 4 || (parts[0] != "users" && parts[0] != "orgs") || parts[2] != "projects" {
+		return fmt.Errorf("config: project.url must be https://github.com/users/{user}/projects/{N} or https://github.com/orgs/{org}/projects/{N}, got %q", rawURL)
+	}
+	if _, err := strconv.Atoi(parts[3]); err != nil {
+		return fmt.Errorf("config: project.url must end with a project number, got %q", parts[3])
+	}
+	return nil
 }
 
 func validate(cfg *Config) error {
@@ -225,8 +246,8 @@ func validate(cfg *Config) error {
 	default:
 		return fmt.Errorf("config: cycle_time.strategy must be \"issue\", \"pr\", or \"project-board\", got %q", cfg.CycleTime.Strategy)
 	}
-	if cfg.CycleTime.Strategy == "project-board" && cfg.Project.ID == "" {
-		return fmt.Errorf("config: cycle_time.strategy \"project-board\" requires project.id to be set")
+	if cfg.CycleTime.Strategy == "project-board" && cfg.Project.URL == "" {
+		return fmt.Errorf("config: cycle_time.strategy \"project-board\" requires project.url to be set")
 	}
 
 	// commit_ref.patterns: validate values.
@@ -239,20 +260,30 @@ func validate(cfg *Config) error {
 		}
 	}
 
-	// GraphQL node ID validation (only when set).
-	if id := cfg.Project.ID; id != "" {
-		if !projectIDPattern.MatchString(id) {
-			return fmt.Errorf("config: project.id must match %s, got %q", projectIDPattern.String(), id)
+	// Project URL validation (only when set).
+	if cfg.Project.URL != "" {
+		if err := validateProjectURL(cfg.Project.URL); err != nil {
+			return err
 		}
 	}
-	if id := cfg.Project.StatusFieldID; id != "" {
-		if !statusFieldIDPattern.MatchString(id) {
-			return fmt.Errorf("config: project.status_field_id must match %s, got %q", statusFieldIDPattern.String(), id)
-		}
+
+	// status_field is required when any lifecycle stage uses project_status.
+	hasProjectStatus := len(cfg.Lifecycle.Backlog.ProjectStatus) > 0 ||
+		len(cfg.Lifecycle.InProgress.ProjectStatus) > 0 ||
+		len(cfg.Lifecycle.InReview.ProjectStatus) > 0 ||
+		len(cfg.Lifecycle.Done.ProjectStatus) > 0
+	if hasProjectStatus && cfg.Project.StatusField == "" {
+		return fmt.Errorf("config: project.status_field is required when lifecycle stages use project_status")
 	}
+	if hasProjectStatus && cfg.Project.URL == "" {
+		return fmt.Errorf("config: project.url is required when lifecycle stages use project_status")
+	}
+
+	// Discussions category ID validation.
 	if id := cfg.Discussions.CategoryID; id != "" {
-		if !categoryIDPattern.MatchString(id) {
-			return fmt.Errorf("config: discussions.category_id must match %s, got %q", categoryIDPattern.String(), id)
+		matched, _ := fmt.Sscanf(id, "DIC_%s", new(string))
+		if matched != 1 || !isAlphanumericAfterPrefix(id, "DIC_") {
+			return fmt.Errorf("config: discussions.category_id must match ^DIC_[a-zA-Z0-9]+$, got %q", id)
 		}
 	}
 
@@ -266,6 +297,20 @@ func validate(cfg *Config) error {
 	}
 
 	return nil
+}
+
+// isAlphanumericAfterPrefix checks that everything after the prefix is [a-zA-Z0-9].
+func isAlphanumericAfterPrefix(s, prefix string) bool {
+	rest := strings.TrimPrefix(s, prefix)
+	if rest == "" {
+		return false
+	}
+	for _, c := range rest {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
+			return false
+		}
+	}
+	return true
 }
 
 // resolveCategories ensures cfg.Quality.Categories is populated.
