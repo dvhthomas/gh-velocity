@@ -443,7 +443,11 @@ func renderPreflightConfig(r *PreflightResult) string {
 	b.WriteString("\n")
 
 	// Scope
-	b.WriteString("# Scope: which issues/PRs to analyze\n")
+	b.WriteString("# Scope: which issues/PRs to analyze (GitHub search syntax)\n")
+	b.WriteString("# Narrow with labels, assignees, milestones, etc.:\n")
+	b.WriteString("#   query: \"repo:owner/repo label:team-backend\"\n")
+	b.WriteString("#   query: \"org:myorg label:bug\"  # org-wide\n")
+	b.WriteString("# Override per-run with: --scope 'label:\"priority:high\"'\n")
 	b.WriteString("scope:\n")
 	b.WriteString(fmt.Sprintf("  query: \"repo:%s\"\n", r.Repo))
 	b.WriteString("\n")
@@ -509,6 +513,23 @@ func renderPreflightConfig(r *PreflightResult) string {
 		b.WriteString("# Lifecycle stages mapped from board columns\n")
 		b.WriteString("lifecycle:\n")
 		writeLifecycleMapping(&b, r.StatusOptions)
+		b.WriteString("\n")
+	} else {
+		// Default lifecycle without a project board
+		b.WriteString("# Lifecycle: how commands identify work stages\n")
+		b.WriteString("# Each stage has a query (GitHub search qualifiers) that commands append.\n")
+		b.WriteString("# With a project board, add project_status arrays for board-based filtering.\n")
+		b.WriteString("lifecycle:\n")
+		b.WriteString("  done:\n")
+		b.WriteString("    query: \"is:closed\"\n")
+		if len(r.BacklogLabels) > 0 {
+			b.WriteString("  backlog:\n")
+			b.WriteString("    query: \"is:open")
+			for _, l := range r.BacklogLabels {
+				b.WriteString(fmt.Sprintf(" label:%q", l))
+			}
+			b.WriteString("\"\n")
+		}
 		b.WriteString("\n")
 	}
 
