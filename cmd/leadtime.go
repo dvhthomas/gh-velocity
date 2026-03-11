@@ -8,9 +8,11 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/bitsbyme/gh-velocity/internal/posting"
+	"github.com/bitsbyme/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
 )
 
@@ -150,7 +152,17 @@ func runLeadTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		return err
 	}
 
-	issues, err := client.SearchClosedIssues(ctx, since, until)
+	sinceStr2 := since.UTC().Format("2006-01-02T15:04:05Z")
+	untilStr2 := until.UTC().Format("2006-01-02T15:04:05Z")
+	q := scope.Query{
+		Scope:     deps.Scope,
+		Type:      "is:issue",
+		Lifecycle: fmt.Sprintf("is:closed closed:%s..%s", sinceStr2, untilStr2),
+	}
+	if deps.Debug {
+		log.Debug("lead-time query:\n%s", q.Verbose())
+	}
+	issues, err := client.SearchIssues(ctx, q.Build())
 	if err != nil {
 		return err
 	}

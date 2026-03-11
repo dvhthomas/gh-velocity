@@ -149,22 +149,22 @@ show "$out"
 [[ "$out" == *"Release v2.65.0"* ]] && pass "release alias works" || fail "release alias works"
 [[ "$out" == *"quality release"* ]] && pass "release alias shows deprecation" || fail "release alias shows deprecation"
 
-# ── quality release --scope ───────────────────────────────────────
+# ── quality release --discover ────────────────────────────────────
 echo ""
-echo "quality release --scope (cli/cli v2.65.0)"
+echo "quality release --discover (cli/cli v2.65.0)"
 
-out=$($BINARY quality release v2.65.0 -R cli/cli --since v2.64.0 --scope 2>&1)
+out=$($BINARY quality release v2.65.0 -R cli/cli --since v2.64.0 --discover 2>&1)
 show "$out"
-[[ "$out" == *"Scope: v2.65.0"* ]] && pass "quality release --scope pretty" || fail "quality release --scope pretty"
-[[ "$out" == *"Strategy:"* ]] && pass "quality release --scope shows strategies" || fail "quality release --scope shows strategies"
+[[ "$out" == *"Scope: v2.65.0"* ]] && pass "quality release --discover pretty" || fail "quality release --discover pretty"
+[[ "$out" == *"Strategy:"* ]] && pass "quality release --discover shows strategies" || fail "quality release --discover shows strategies"
 
-out=$($BINARY quality release v2.65.0 -R cli/cli --since v2.64.0 --scope -f json 2>/dev/null)
+out=$($BINARY quality release v2.65.0 -R cli/cli --since v2.64.0 --discover -f json 2>/dev/null)
 echo "$out" | jq . 2>/dev/null | sed 's/^/    /'
-echo "$out" | jq -e '.strategies' >/dev/null 2>&1 && pass "quality release --scope json" || fail "quality release --scope json"
+echo "$out" | jq -e '.strategies' >/dev/null 2>&1 && pass "quality release --discover json" || fail "quality release --discover json"
 
-out=$($BINARY quality release v2.65.0 -R cli/cli --since v2.64.0 --scope -f markdown 2>/dev/null)
+out=$($BINARY quality release v2.65.0 -R cli/cli --since v2.64.0 --discover -f markdown 2>/dev/null)
 show "$out"
-[[ "$out" == *"## Scope:"* ]] && pass "quality release --scope markdown" || fail "quality release --scope markdown"
+[[ "$out" == *"## Scope:"* ]] && pass "quality release --discover markdown" || fail "quality release --discover markdown"
 
 # ── report ────────────────────────────────────────────────────────
 echo ""

@@ -268,10 +268,10 @@ type Deps struct {
 deps.Scope = scope.MergeScope(cfg.Scope.Query, scopeFlag)
 ```
 
-- [ ] Add `--scope` flag to root command
-- [ ] Add `Scope` field to `Deps`
-- [ ] Merge config + flag scope in `PersistentPreRunE`
-- [ ] Update `--debug` output to show scope
+- [x] Add `--scope` flag to root command
+- [x] Add `Scope` field to `Deps`
+- [x] Merge config + flag scope in `PersistentPreRunE`
+- [x] Update `--debug` output to show scope
 
 #### 3b. Lead time (`cmd/leadtime.go`)
 
@@ -296,8 +296,8 @@ issues, err := client.SearchIssues(ctx, q.Build())
 
 The command knows it needs the "done" stage and appends the date range. The user's lifecycle config provides the qualifiers (e.g., `is:closed` or `is:closed reason:completed`).
 
-- [ ] Refactor `runLeadTimeBulk` to use `scope.Query` + `SearchIssues`
-- [ ] Add verbose query output when `--debug`
+- [x] Refactor `runLeadTimeBulk` to use `scope.Query` + `SearchIssues`
+- [x] Add verbose query output when `--debug`
 
 #### 3c. Cycle time (`cmd/cycletime.go`)
 
@@ -334,9 +334,9 @@ case "project-board":
 }
 ```
 
-- [ ] Refactor `runCycleTimeBulk` — strategy-aware scope.Query assembly
+- [x] Refactor `runCycleTimeBulk` — strategy-aware scope.Query assembly
 - [ ] Handle project-board strategy with GraphQL project status filter
-- [ ] Add verbose output
+- [x] Add verbose output
 
 #### 3d. Throughput (`cmd/throughput.go`)
 
@@ -357,8 +357,8 @@ prQ := scope.Query{
 }
 ```
 
-- [ ] Refactor throughput to use `scope.Query` for both issue and PR queries
-- [ ] Add verbose output
+- [x] Refactor throughput to use `scope.Query` for both issue and PR queries
+- [x] Add verbose output
 
 #### 3e. WIP (`cmd/wip.go`)
 
@@ -409,17 +409,17 @@ Update `prlink.go` to prepend scope to its merged PR search query.
 
 After discovery, the classifier (`classify.NewClassifier`) and quality metrics still work as before — scope only affects which items are *discovered*, not how they're classified.
 
-- [ ] Add `Scope` to `strategy.DiscoverInput`
-- [ ] Update `prlink.Discover()` to include scope in PR search
-- [ ] Rename `--scope` diagnostic flag to `--discover` (breaking but pre-1.0)
+- [x] Add `Scope` to `strategy.DiscoverInput`
+- [x] Update `prlink.Discover()` to include scope in PR search
+- [x] Rename `--scope` diagnostic flag to `--discover` (breaking but pre-1.0)
 - [ ] Add verbose output in strategy runner
-- [ ] Verify classifier and quality metrics still work with scope-filtered items
+- [x] Verify classifier and quality metrics still work with scope-filtered items
 
 #### 3g. Report (`cmd/report.go`)
 
 Report is a composite — it calls the other commands' logic. Scope flows through `Deps.Scope` automatically.
 
-- [ ] Verify report correctly inherits scope from Deps
+- [x] Verify report correctly inherits scope from Deps
 
 ### Phase 4: Verbose output
 

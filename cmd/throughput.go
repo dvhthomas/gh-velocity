@@ -1,13 +1,16 @@
 package cmd
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/bitsbyme/gh-velocity/internal/posting"
+	"github.com/bitsbyme/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
 )
 
@@ -70,8 +73,24 @@ Default window is the last 30 days.`,
 				return err
 			}
 
-			issues, issueErr := client.SearchClosedIssues(ctx, since, until)
-			prs, prErr := client.SearchMergedPRs(ctx, since, until)
+			sinceStr2 := since.UTC().Format("2006-01-02T15:04:05Z")
+			untilStr2 := until.UTC().Format("2006-01-02T15:04:05Z")
+			issueQuery := scope.Query{
+				Scope:     deps.Scope,
+				Type:      "is:issue",
+				Lifecycle: fmt.Sprintf("is:closed closed:%s..%s", sinceStr2, untilStr2),
+			}
+			prQuery := scope.Query{
+				Scope:     deps.Scope,
+				Type:      "is:pr",
+				Lifecycle: fmt.Sprintf("is:merged merged:%s..%s", sinceStr2, untilStr2),
+			}
+			if deps.Debug {
+				log.Debug("throughput issue query:\n%s", issueQuery.Verbose())
+				log.Debug("throughput PR query:\n%s", prQuery.Verbose())
+			}
+			issues, issueErr := client.SearchIssues(ctx, issueQuery.Build())
+			prs, prErr := client.SearchPRs(ctx, prQuery.Build())
 
 			tp := model.ThroughputResult{
 				Repository: deps.Owner + "/" + deps.Repo,

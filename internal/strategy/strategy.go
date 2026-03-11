@@ -31,6 +31,7 @@ type DiscoverInput struct {
 	Commits     []model.Commit
 	Release     *model.Release // GitHub release (for changelog body)
 	Client      *gh.Client
+	Scope       string // pre-merged scope query fragment (from config + --scope flag)
 
 	// CommitRefPatterns controls which commit-ref patterns to match.
 	// Default: ["closes"]. Add "refs" for bare #N matching.
