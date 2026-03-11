@@ -380,12 +380,14 @@ type wipTemplateData struct {
 }
 
 type wipItemRow struct {
-	Link   string
-	Title  string
-	Labels string
-	Status string
-	Age    string
-	Kind   string
+	Link         string
+	Title        string
+	Labels       string
+	Status       string
+	Age          string
+	Kind         string
+	LastActivity string
+	Staleness    string
 }
 
 func renderWIPMarkdown(w io.Writer, rc RenderContext, repo string, items []model.WIPItem) error {
@@ -400,12 +402,14 @@ func renderWIPMarkdown(w io.Writer, rc RenderContext, repo string, items []model
 			link = FormatItemLink(item.Number, item.URL, rc)
 		}
 		data.Items = append(data.Items, wipItemRow{
-			Link:   link,
-			Title:  sanitizeMarkdown(item.Title),
-			Labels: FormatLabels(item.Labels),
-			Status: item.Status,
-			Age:    FormatDuration(item.Age),
-			Kind:   item.Kind,
+			Link:         link,
+			Title:        sanitizeMarkdown(item.Title),
+			Labels:       FormatLabels(item.Labels),
+			Status:       item.Status,
+			Age:          FormatDuration(item.Age),
+			Kind:         item.Kind,
+			LastActivity: formatLastActivity(item.UpdatedAt),
+			Staleness:    string(item.Staleness),
 		})
 	}
 	return wipMarkdownTmpl.Execute(w, data)

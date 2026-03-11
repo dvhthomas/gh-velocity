@@ -1,9 +1,9 @@
 ## Work in Progress: {{.Repository}}
 
-| # | Title | Labels | Status | Age | Kind |
+| # | Title | Status | Age | Last Activity | Signal |
 | ---: | --- | --- | --- | --- | --- |
 {{- range .Items}}
-| {{.Link}} | {{.Title}} | {{.Labels}} | {{.Status}} | {{.Age}} | {{.Kind}} |
+| {{.Link}} | {{.Title}} | {{.Status}} | {{.Age}} | {{.LastActivity}} | {{.Staleness}} |
 {{- end}}
 
 **Count:** {{.Count}}

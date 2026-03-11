@@ -461,16 +461,16 @@ Summary: 1 HIGH risk, 1 MEDIUM risk, 2 LOW risk areas
 
 ##### Phase 2 Acceptance Criteria
 
-- [ ] `gh velocity status my-week` shows issues closed, PRs merged, PRs reviewed with links
-- [ ] `gh velocity status my-week --format markdown` produces paste-ready output
-- [ ] My-week uses authenticated user identity (cached on `Deps`), errors on auth failure
+- [x] `gh velocity status my-week` shows issues closed, PRs merged, PRs reviewed with links
+- [x] `gh velocity status my-week --format markdown` produces paste-ready output
+- [x] My-week uses authenticated user identity (cached on `Deps`), errors on auth failure
 - [x] `gh velocity quality bus-factor` shows per-directory knowledge risk
 - [x] Bus factor uses single `git log --numstat` invocation (verify with `--debug`)
 - [x] Bus factor completes in <5s for repos with <10,000 commits
 - [x] Bus factor validates `--since` through `dateutil.Parse()` before passing to git
 - [x] Bus factor checks `deps.HasLocalRepo`, errors clearly when unavailable
-- [ ] Privacy: contributor emails only in JSON output, names only in pretty/markdown
-- [ ] All three output formats work for both commands
+- [x] Privacy: contributor emails only in JSON output, names only in pretty/markdown
+- [x] All three output formats work for both commands
 
 ---
 
@@ -543,11 +543,11 @@ Default sort: age descending (oldest first) — preserves current behavior.
 
 ##### Phase 3 Acceptance Criteria
 
-- [ ] `status wip` shows "Last Activity" column and staleness signal
-- [ ] Staleness levels are ACTIVE/AGING/STALE with correct thresholds
+- [x] `status wip` shows "Last Activity" column and staleness signal
+- [x] Staleness levels are ACTIVE/AGING/STALE with correct thresholds
 - [ ] Pretty format uses lipgloss colored text for levels
-- [ ] All three output formats include staleness data
-- [ ] `ProjectItem` URL is resolved and appears in WIP output
+- [x] All three output formats include staleness data
+- [x] `ProjectItem` URL is resolved and appears in WIP output
 
 ---
 

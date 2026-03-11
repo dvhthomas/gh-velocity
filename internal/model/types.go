@@ -163,12 +163,23 @@ type ProjectItem struct {
 	Number      int    // 0 for drafts
 	Title       string
 	Repo        string     // "owner/repo" from content.repository.nameWithOwner
+	URL         string     // content URL (issue or PR URL)
 	Status      string     // current board status
 	StatusAt    *time.Time // when status was last set (updatedAt on field value)
 	CreatedAt   time.Time
+	UpdatedAt   time.Time // last activity timestamp from GitHub
 	Labels      []string
 	IssueType   string // GitHub Issue Type; empty for PRs and DraftIssues
 }
+
+// StalenessLevel classifies how recently an item had activity.
+type StalenessLevel string
+
+const (
+	StalenessActive StalenessLevel = "ACTIVE" // activity within 3 days
+	StalenessAging  StalenessLevel = "AGING"  // 3-7 days since activity
+	StalenessStale  StalenessLevel = "STALE"  // >7 days since activity
+)
 
 // WIPItem represents an in-progress work item for display.
 type WIPItem struct {
@@ -180,7 +191,8 @@ type WIPItem struct {
 	Kind      string // "Issue", "PullRequest", "DraftIssue"
 	URL       string
 	Labels    []string
-	UpdatedAt time.Time // last activity timestamp, for staleness detection
+	UpdatedAt time.Time      // last activity timestamp, for staleness detection
+	Staleness StalenessLevel // computed from UpdatedAt
 }
 
 // StatsResult holds all dashboard sections for output.
