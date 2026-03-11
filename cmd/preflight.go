@@ -126,9 +126,7 @@ type PreflightResult struct {
 	Categories       map[string][]string `json:"categories,omitempty"`
 	ActiveLabels     []string            `json:"active_labels"`
 	BacklogLabels    []string            `json:"backlog_labels"`
-	ProjectID        string              `json:"project_id,omitempty"`
 	ProjectURL       string              `json:"project_url,omitempty"`
-	StatusFieldID    string              `json:"status_field_id,omitempty"`
 	StatusOptions    []string            `json:"status_options,omitempty"`
 	Strategy         string              `json:"strategy"`
 	HasProject       bool                `json:"has_project"`
@@ -186,9 +184,7 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 			for _, f := range project.Fields {
 				if strings.EqualFold(f.Name, "Status") && len(f.Options) > 0 {
 					result.HasProject = true
-					result.ProjectID = project.ID
 					result.ProjectURL = project.URL
-					result.StatusFieldID = f.ID
 					for _, o := range f.Options {
 						result.StatusOptions = append(result.StatusOptions, o.Name)
 					}
@@ -280,10 +276,7 @@ func checkPostingReadiness(ctx context.Context, client *gh.Client) *PostingReadi
 		pr.DiscussionsEnabled = enabled
 	}
 
-	// Best-effort check: can we list comments? (proves at least read access)
-	// We use issue #1 as a probe — if it doesn't exist, we get 404 (not 403).
-	// A 403 means no access at all.
-	pr.HasIssuesWrite = true // optimistic; we can't truly verify write without writing
+	pr.HasIssuesWrite = true // optimistic; can't verify write access without writing
 	return pr
 }
 
@@ -311,18 +304,15 @@ func classifyLabels(result *PreflightResult, labels []string) {
 		lower := strings.ToLower(label)
 
 		// Quality categories: first match wins
-		matched := false
 		for _, cat := range categoryOrder {
 			if matchesWordAny(lower, categoryPatterns[cat]) {
 				if result.Categories == nil {
 					result.Categories = make(map[string][]string)
 				}
 				result.Categories[cat] = append(result.Categories[cat], label)
-				matched = true
 				break
 			}
 		}
-		_ = matched
 
 		// Status labels: independent of categories
 		if matchesWordAny(lower, statusPatterns["active"]) {
@@ -405,6 +395,12 @@ func renderPreflightConfig(r *PreflightResult) string {
 	for _, hint := range r.Hints {
 		b.WriteString(fmt.Sprintf("# %s\n", hint))
 	}
+	b.WriteString("\n")
+
+	// Scope
+	b.WriteString("# Scope: which issues/PRs to analyze\n")
+	b.WriteString("scope:\n")
+	b.WriteString(fmt.Sprintf("  query: \"repo:%s\"\n", r.Repo))
 	b.WriteString("\n")
 
 	// Quality categories
