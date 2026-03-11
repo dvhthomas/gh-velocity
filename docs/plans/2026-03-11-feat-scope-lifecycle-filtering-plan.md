@@ -101,16 +101,27 @@ Two execution paths per stage:
 - **`query` only** (no `project_status`): run through REST Search API. The stage's query is appended to scope.
 - **`project_status` set** (with or without `query`): run through GraphQL project items `items(query:)`. If `query` is also provided, both are used together — the REST query filters items, and `project_status` filters within the project board.
 
-Default lifecycle (when not configured):
+Default lifecycle (when not configured) — sensible GitHub-isms that work for any repo:
 ```go
 func defaultLifecycle() LifecycleConfig {
     return LifecycleConfig{
-        Done: LifecycleStage{Query: "is:closed"},
+        Backlog:    LifecycleStage{Query: "is:open"},
+        InProgress: LifecycleStage{Query: "is:open"},
+        InReview:   LifecycleStage{Query: "is:open"},
+        Done:       LifecycleStage{Query: "is:closed"},
+        // Released: no default — tag-based discovery, no query needed
     }
 }
 ```
 
-Sensible defaults so zero-config usage still works. Users override stages as needed — a repo using project boards would configure `project_status` arrays, while a label-only repo might only need `query`.
+With just these defaults and auto-injected `repo:`, a zero-config user gets:
+- **lead-time**: `repo:owner/repo is:issue is:closed closed:start..end` — works
+- **cycle-time**: `repo:owner/repo is:issue is:closed closed:start..end` (issue strategy default) — works
+- **throughput**: issues `repo:owner/repo is:issue is:closed closed:start..end` + PRs `repo:owner/repo is:pr is:merged merged:start..end` — works
+- **WIP**: `repo:owner/repo is:issue is:open` (minus backlog/done negation, which are no-ops without project_status) — works
+- **release**: tag-based discovery, scope only — works
+
+Users add specificity as needed: project boards get `project_status` arrays, label-workflow repos customize queries (e.g., `done.query: "is:closed reason:completed"`). The defaults are the floor, not the ceiling.
 
 - [ ] Update `Config` struct — remove `Statuses`, `Fields`, add `Scope`, update `Project`, add `Lifecycle`
 - [ ] Update `defaults()` — new default lifecycle
