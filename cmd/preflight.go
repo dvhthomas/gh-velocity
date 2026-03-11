@@ -168,6 +168,25 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 		Strategy: "issue", // default
 	}
 
+	// 0. Verify repo exists and normalize casing.
+	canonOwner, canonRepo, exists, err := client.CanonicalRepo(ctx)
+	if err != nil {
+		return nil, &model.AppError{
+			Code:    model.ErrNotFound,
+			Message: fmt.Sprintf("could not access repository %s/%s: %v", owner, repo, err),
+		}
+	}
+	if !exists {
+		return nil, &model.AppError{
+			Code:    model.ErrNotFound,
+			Message: fmt.Sprintf("repository %s/%s not found — check the owner and name (case-sensitive)", owner, repo),
+		}
+	}
+	// Use canonical casing for consistent scope queries.
+	owner = canonOwner
+	repo = canonRepo
+	result.Repo = owner + "/" + repo
+
 	// 1. Fetch labels from repo
 	labels, err := client.ListLabels(ctx)
 	if err != nil {
@@ -416,7 +435,10 @@ func renderPreflightConfig(r *PreflightResult) string {
 	b.WriteString(fmt.Sprintf("# Date: %s\n", time.Now().UTC().Format(time.DateOnly)))
 	b.WriteString("#\n")
 	for _, hint := range r.Hints {
-		b.WriteString(fmt.Sprintf("# %s\n", hint))
+		// Hints may contain newlines from error messages; comment each line.
+		for line := range strings.SplitSeq(hint, "\n") {
+			b.WriteString(fmt.Sprintf("# %s\n", line))
+		}
 	}
 	b.WriteString("\n")
 

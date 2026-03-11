@@ -42,6 +42,26 @@ func (c *Client) Owner() string { return c.owner }
 // Repo returns the repository name.
 func (c *Client) Repo() string { return c.repo }
 
+// CanonicalRepo checks whether the configured repository is accessible and
+// returns the canonical owner/name (correct casing). Returns empty strings
+// and false if the repo is not found.
+func (c *Client) CanonicalRepo(ctx context.Context) (owner, name string, ok bool, err error) {
+	var repo struct {
+		Owner struct {
+			Login string `json:"login"`
+		} `json:"owner"`
+		Name string `json:"name"`
+	}
+	if err := c.rest.DoWithContext(ctx, "GET", fmt.Sprintf("repos/%s/%s", c.owner, c.repo), nil, &repo); err != nil {
+		// go-gh returns *api.HTTPError for 404
+		if strings.Contains(err.Error(), "404") {
+			return "", "", false, nil
+		}
+		return "", "", false, err
+	}
+	return repo.Owner.Login, repo.Name, true, nil
+}
+
 // TokenScopes returns the OAuth scopes granted to the current token.
 // Uses GET /user and reads the X-OAuth-Scopes response header.
 // Fine-grained PATs may return an empty list (they don't use OAuth scopes).
