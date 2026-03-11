@@ -15,6 +15,7 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/gitdata"
 	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/scope"
 	"github.com/cli/go-gh/v2/pkg/repository"
 	"github.com/cli/go-gh/v2/pkg/term"
 	"github.com/spf13/cobra"
@@ -34,10 +35,11 @@ type Deps struct {
 	DryRun       bool // true unless GH_VELOCITY_POST_LIVE=true — protects against accidental mutations
 	Owner        string
 	Repo         string
-	HasLocalRepo bool // true when a local git checkout is available
-	IsTTY        bool // true when stdout is a terminal
-	TermWidth    int  // terminal width in columns (0 = unknown)
-	Debug        bool // true when --debug is set
+	Scope        string // merged config + flag scope (GitHub search query fragment)
+	HasLocalRepo bool   // true when a local git checkout is available
+	IsTTY        bool   // true when stdout is a terminal
+	TermWidth    int    // terminal width in columns (0 = unknown)
+	Debug        bool   // true when --debug is set
 }
 
 // DepsFromContext extracts Deps from the command context.
@@ -90,6 +92,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 		formatFlag  string
 		repoFlag    string
 		configFlag  string
+		scopeFlag   string
 		postFlag    bool
 		newPostFlag bool
 		debugFlag   bool
@@ -175,6 +178,13 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				termWidth = w
 			}
 
+			// Resolve scope: merge config scope + --scope flag.
+			// Auto-inject repo: when no scope is configured.
+			resolvedScope := scope.MergeScope(cfg.Scope.Query, scopeFlag)
+			if resolvedScope == "" {
+				resolvedScope = fmt.Sprintf("repo:%s/%s", owner, repo)
+			}
+
 			// Dry-run is the default for --post. Mutations only happen when
 			// GH_VELOCITY_POST_LIVE=true is explicitly set. This prevents
 			// tests, agents, and accidental runs from mutating GitHub state.
@@ -185,6 +195,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				log.Debug("local repo:   %v", hasLocal)
 				log.Debug("config:       %s", configPath)
 				log.Debug("format:       %s", formatFlag)
+				log.Debug("scope:        %s", resolvedScope)
 				log.Debug("strategy:     %s", cfg.CycleTime.Strategy)
 				if cfg.Project.URL != "" {
 					log.Debug("project.url:  %s", cfg.Project.URL)
@@ -206,6 +217,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				DryRun:       dryRun,
 				Owner:        owner,
 				Repo:         repo,
+				Scope:        resolvedScope,
 				HasLocalRepo: hasLocal,
 				IsTTY:        isTTY,
 				TermWidth:    termWidth,
@@ -222,6 +234,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 	root.PersistentFlags().StringVar(&configFlag, "config", "", "Path to config file (default: .gh-velocity.yml)")
 	root.PersistentFlags().BoolVar(&postFlag, "post", false, "Post output to GitHub (dry-run by default; set GH_VELOCITY_POST_LIVE=true for live)")
 	root.PersistentFlags().BoolVar(&newPostFlag, "new-post", false, "Force a new post (skip idempotent update; implies --post)")
+	root.PersistentFlags().StringVar(&scopeFlag, "scope", "", "Additional GitHub search qualifier(s) ANDed with config scope")
 	root.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Print diagnostic info to stderr")
 
 	root.AddCommand(NewVersionCmd(version, buildTime))

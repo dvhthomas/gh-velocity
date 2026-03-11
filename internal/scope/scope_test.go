@@ -89,13 +89,6 @@ func TestQuery_URL(t *testing.T) {
 	}
 }
 
-func TestQuery_String(t *testing.T) {
-	q := Query{Scope: "repo:test", Type: "is:issue"}
-	if q.String() != q.Build() {
-		t.Error("String() should equal Build()")
-	}
-}
-
 func TestQuery_Verbose(t *testing.T) {
 	q := Query{
 		Scope:     "repo:myorg/myrepo",

@@ -22,14 +22,14 @@ import (
 // NewReleaseCmd returns the release command.
 func NewReleaseCmd() *cobra.Command {
 	var sinceFlag string
-	var scopeFlag bool
+	var discoverFlag bool
 
 	cmd := &cobra.Command{
 		Use:   "release <tag>",
 		Short: "Release velocity and quality metrics",
 		Long: `Compute per-issue lead time, cycle time, release lag, and quality metrics for a release.
 
-Use --scope to show the scope diagnostic view: which issues and PRs each
+Use --discover to show the discovery diagnostic view: which issues and PRs each
 linking strategy discovered for the release.`,
 		Example: `  # Release metrics with auto-detected previous tag
   gh velocity quality release v2.65.0
@@ -37,8 +37,8 @@ linking strategy discovered for the release.`,
   # Explicit previous tag
   gh velocity quality release v2.65.0 --since v2.64.0
 
-  # Scope diagnostic: what did each strategy find?
-  gh velocity quality release v2.65.0 --scope
+  # Discover diagnostic: what did each strategy find?
+  gh velocity quality release v2.65.0 --discover
 
   # Remote repo, JSON output
   gh velocity quality release v2.65.0 -R cli/cli -f json`,
@@ -81,8 +81,8 @@ linking strategy discovered for the release.`,
 				return err
 			}
 
-			// --scope: output scope diagnostic view and return
-			if scopeFlag {
+			// --discover: output scope diagnostic view and return
+			if discoverFlag {
 				for _, warning := range warnings {
 					log.Warn("%s", warning)
 				}
@@ -137,7 +137,7 @@ linking strategy discovered for the release.`,
 	}
 
 	cmd.Flags().StringVar(&sinceFlag, "since", "", "Override previous tag for commit range (tag name)")
-	cmd.Flags().BoolVar(&scopeFlag, "scope", false, "Show scope diagnostic: what issues/PRs each strategy discovered")
+	cmd.Flags().BoolVar(&discoverFlag, "discover", false, "Show discovery diagnostic: what issues/PRs each strategy discovered")
 	return cmd
 }
 
@@ -210,6 +210,7 @@ func gatherReleaseData(ctx context.Context, source gitdata.Source, client *gh.Cl
 		Commits:           commits,
 		Release:           release,
 		Client:            client,
+		Scope:             deps.Scope,
 		CommitRefPatterns: deps.Config.CommitRef.Patterns,
 	})
 	warnings = append(warnings, stratWarnings...)

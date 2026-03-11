@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // Query holds the components of a search query.
@@ -35,11 +36,6 @@ func (q Query) URL() string {
 	return "https://github.com/issues?q=" + url.QueryEscape(query)
 }
 
-// String returns the full assembled query (alias for Build).
-func (q Query) String() string {
-	return q.Build()
-}
-
 // Verbose returns a multi-line diagnostic string for --debug output.
 func (q Query) Verbose() string {
 	var sb strings.Builder
@@ -57,6 +53,24 @@ func (q Query) Verbose() string {
 		fmt.Fprintf(&sb, "[url]       %s\n", u)
 	}
 	return sb.String()
+}
+
+// ClosedIssueQuery returns a Query for issues closed in the given date range.
+func ClosedIssueQuery(scopeStr string, since, until time.Time) Query {
+	return Query{
+		Scope:     scopeStr,
+		Type:      "is:issue",
+		Lifecycle: fmt.Sprintf("is:closed closed:%s..%s", since.UTC().Format(time.RFC3339), until.UTC().Format(time.RFC3339)),
+	}
+}
+
+// MergedPRQuery returns a Query for PRs merged in the given date range.
+func MergedPRQuery(scopeStr string, since, until time.Time) Query {
+	return Query{
+		Scope:     scopeStr,
+		Type:      "is:pr",
+		Lifecycle: fmt.Sprintf("is:merged merged:%s..%s", since.UTC().Format(time.RFC3339), until.UTC().Format(time.RFC3339)),
+	}
 }
 
 // MergeScope combines config scope and flag scope with AND semantics.

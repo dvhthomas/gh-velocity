@@ -6,6 +6,7 @@ import (
 
 	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/scope"
 )
 
 // PRLink discovers issues via PR → linked issue references.
@@ -30,7 +31,8 @@ func (s *PRLink) Discover(ctx context.Context, input DiscoverInput) ([]model.Dis
 		return nil, fmt.Errorf("pr-link strategy requires tag dates")
 	}
 
-	prs, err := input.Client.SearchMergedPRs(ctx, input.PrevTagDate, input.TagDate)
+	q := scope.MergedPRQuery(input.Scope, input.PrevTagDate, input.TagDate)
+	prs, err := input.Client.SearchPRs(ctx, q.Build())
 	if err != nil {
 		return nil, fmt.Errorf("search merged PRs: %w", err)
 	}

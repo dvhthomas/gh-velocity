@@ -13,6 +13,7 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/bitsbyme/gh-velocity/internal/posting"
+	"github.com/bitsbyme/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
 )
 
@@ -225,7 +226,11 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		return err
 	}
 
-	issues, err := client.SearchClosedIssues(ctx, since, until)
+	issueQuery := scope.ClosedIssueQuery(deps.Scope, since, until)
+	if deps.Debug {
+		log.Debug("cycle-time issue query:\n%s", issueQuery.Verbose())
+	}
+	issues, err := client.SearchIssues(ctx, issueQuery.Build())
 	if err != nil {
 		return err
 	}
@@ -235,7 +240,11 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	// For PR strategy, bulk-fetch closing PRs to avoid N+1 API calls.
 	closingPRs := make(map[int]*model.PR)
 	if deps.Config.CycleTime.Strategy == "pr" {
-		mergedPRs, prErr := client.SearchMergedPRs(ctx, since, until)
+		prQuery := scope.MergedPRQuery(deps.Scope, since, until)
+		if deps.Debug {
+			log.Debug("cycle-time PR query:\n%s", prQuery.Verbose())
+		}
+		mergedPRs, prErr := client.SearchPRs(ctx, prQuery.Build())
 		if prErr != nil {
 			log.Warn("could not search merged PRs: %v", prErr)
 		} else {
