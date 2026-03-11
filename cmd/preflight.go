@@ -61,6 +61,12 @@ each choice. Use --write to save it directly.`,
 				return err
 			}
 
+			// Detect auto-detection from git remote.
+			repoAutoDetected := isRepoAutoDetected(repoFlag)
+			if repoAutoDetected {
+				log.Notice("Using repo %s/%s from git remote (use --repo to override)", owner, repo)
+			}
+
 			client, err := gh.NewClient(owner, repo)
 			if err != nil {
 				return err
@@ -88,6 +94,12 @@ each choice. Use --write to save it directly.`,
 			result, err := runPreflight(ctx, client, owner, repo, projectNumber)
 			if err != nil {
 				return err
+			}
+
+			if repoAutoDetected {
+				result.RepoAutoDetected = true
+				result.Hints = append(result.Hints,
+					fmt.Sprintf("Repo %s auto-detected from git remote. Use -R owner/repo to target a different repository.", result.Repo))
 			}
 
 			if formatFlag == "json" {
@@ -153,6 +165,7 @@ type PreflightResult struct {
 	MatchEvidence    []CategoryEvidence  `json:"match_evidence,omitempty"`
 	PostingReadiness *PostingReadiness   `json:"posting_readiness,omitempty"`
 	Verification     *VerificationResult `json:"verification,omitempty"`
+	RepoAutoDetected bool                `json:"repo_auto_detected"`
 	Hints            []string            `json:"hints"`
 }
 

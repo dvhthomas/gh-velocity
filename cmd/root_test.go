@@ -128,6 +128,30 @@ func TestNewPostFlag_ImpliesPost(t *testing.T) {
 	}
 }
 
+func TestIsRepoAutoDetected(t *testing.T) {
+	tests := []struct {
+		name     string
+		repoFlag string
+		ghRepo   string
+		want     bool
+	}{
+		{"no flag no env", "", "", true},
+		{"flag set", "owner/repo", "", false},
+		{"env set", "", "owner/repo", false},
+		{"both set", "owner/repo", "other/repo", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("GH_REPO", tt.ghRepo)
+			got := isRepoAutoDetected(tt.repoFlag)
+			if got != tt.want {
+				t.Errorf("isRepoAutoDetected(%q) = %v, want %v (GH_REPO=%q)", tt.repoFlag, got, tt.want, tt.ghRepo)
+			}
+		})
+	}
+}
+
 // newTestRoot creates a minimal root command with the format flag set.
 func newTestRoot(format string) *cobra.Command {
 	cmd := &cobra.Command{
