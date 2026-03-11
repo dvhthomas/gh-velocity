@@ -201,6 +201,12 @@ show "$out"
 out=$($BINARY status --help 2>&1)
 show "$out"
 [[ "$out" == *"wip"* ]] && pass "status help shows wip" || fail "status help shows wip"
+[[ "$out" == *"my-week"* ]] && pass "status help shows my-week" || fail "status help shows my-week"
+[[ "$out" == *"reviews"* ]] && pass "status help shows reviews" || fail "status help shows reviews"
+
+out=$($BINARY risk --help 2>&1)
+show "$out"
+[[ "$out" == *"bus-factor"* ]] && pass "risk help shows bus-factor" || fail "risk help shows bus-factor"
 
 # ── flow throughput ───────────────────────────────────────────────
 echo ""
@@ -218,6 +224,38 @@ echo "$out" | jq -e '.issues_closed' >/dev/null 2>&1 && pass "flow throughput js
 out=$($BINARY flow throughput --since 7d -R cli/cli -f markdown 2>/dev/null)
 show "$out"
 [[ "$out" == *"## Throughput:"* ]] && pass "flow throughput markdown" || fail "flow throughput markdown"
+
+# ── risk bus-factor ───────────────────────────────────────────────
+echo ""
+echo "risk bus-factor (local repo)"
+
+out=$($BINARY risk bus-factor 2>&1)
+show "$out"
+[[ "$out" == *"Knowledge Risk"* ]] && pass "risk bus-factor pretty" || fail "risk bus-factor pretty"
+
+out=$($BINARY risk bus-factor -f json 2>/dev/null)
+echo "$out" | jq '.paths | length' 2>/dev/null | sed 's/^/    paths: /'
+echo "$out" | jq -e '.paths' >/dev/null 2>&1 && pass "risk bus-factor json" || fail "risk bus-factor json"
+
+out=$($BINARY risk bus-factor -f markdown 2>/dev/null)
+show "$out"
+[[ "$out" == *"## Knowledge Risk"* ]] && pass "risk bus-factor markdown" || fail "risk bus-factor markdown"
+
+# ── status reviews ───────────────────────────────────────────────
+echo ""
+echo "status reviews (dvhthomas/gh-velocity)"
+
+out=$($BINARY status reviews -R dvhthomas/gh-velocity 2>&1)
+show "$out"
+[[ "$out" == *"Review Queue"* ]] && pass "status reviews pretty" || fail "status reviews pretty"
+
+out=$($BINARY status reviews -R dvhthomas/gh-velocity -f json 2>/dev/null)
+echo "$out" | jq '.count' 2>/dev/null | sed 's/^/    count: /'
+echo "$out" | jq -e '.count >= 0' >/dev/null 2>&1 && pass "status reviews json" || fail "status reviews json"
+
+out=$($BINARY status reviews -R dvhthomas/gh-velocity -f markdown 2>/dev/null)
+show "$out"
+[[ "$out" == *"## Review Queue"* ]] && pass "status reviews markdown" || fail "status reviews markdown"
 
 # ── debug flag ────────────────────────────────────────────────────
 echo ""
@@ -308,7 +346,7 @@ echo "$out" | jq -e '.verification.config_parses' >/dev/null 2>&1 && pass "prefl
 
 out=$($BINARY config preflight -R cli/cli 2>&1)
 show "$out"
-[[ "$out" == *"Posting readiness"* ]] && pass "preflight pretty shows posting section" || fail "preflight pretty shows posting section"
+[[ "$out" == *"Discussions"* ]] && pass "preflight pretty shows discussions" || fail "preflight pretty shows discussions"
 
 # ── CI logging format ────────────────────────────────────────────
 echo ""

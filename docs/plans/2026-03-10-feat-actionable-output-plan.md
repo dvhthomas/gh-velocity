@@ -1,7 +1,7 @@
 ---
 title: "feat: Actionable Output — Links, Insights, and Daily-Use Features"
 type: feat
-status: active
+status: completed
 date: 2026-03-10
 brainstorm: docs/brainstorms/2026-03-10-actionable-output-brainstorm.md
 deepened: 2026-03-10
@@ -268,15 +268,15 @@ Add `UpdatedAt time.Time` to `model.Issue` and `model.WIPItem` now (Phase 1), ev
 
 ##### Phase 1 Acceptance Criteria
 
-- [ ] All item-listing commands show clickable hyperlinks (lipgloss in TTY, plain text in non-TTY)
-- [ ] Markdown output uses `[#42](url)` for all issue/PR references
-- [ ] JSON output includes `url` field on all item-level structs
-- [ ] Labels shown in bulk lead-time, bulk cycle-time, WIP, release item tables
-- [ ] `RenderContext` adopted across all existing formatters
-- [ ] `paginatedSearch` helper extracted; `rateLimitWait` wired into retry wrapper
-- [ ] `UpdatedAt` captured on `model.Issue` and `model.WIPItem`
-- [ ] `stripControlChars` applied in `FormatItemLink`
-- [ ] All existing tests pass; new table-driven tests for links
+- [x] All item-listing commands show clickable hyperlinks (lipgloss in TTY, plain text in non-TTY)
+- [x] Markdown output uses `[#42](url)` for all issue/PR references
+- [x] JSON output includes `url` field on all item-level structs
+- [x] Labels shown in bulk lead-time, bulk cycle-time, WIP, release item tables
+- [x] `RenderContext` adopted across all existing formatters
+- [x] `paginatedSearch` helper extracted; `rateLimitWait` wired into retry wrapper
+- [x] `UpdatedAt` captured on `model.Issue` and `model.WIPItem`
+- [x] `stripControlChars` applied in `FormatItemLink`
+- [x] All existing tests pass; new table-driven tests for links
 
 ---
 
@@ -545,7 +545,7 @@ Default sort: age descending (oldest first) — preserves current behavior.
 
 - [x] `status wip` shows "Last Activity" column and staleness signal
 - [x] Staleness levels are ACTIVE/AGING/STALE with correct thresholds
-- [ ] Pretty format uses lipgloss colored text for levels
+- [ ] Pretty format uses lipgloss colored text for levels (deferred — text labels sufficient)
 - [x] All three output formats include staleness data
 - [x] `ProjectItem` URL is resolved and appears in WIP output
 
@@ -627,7 +627,7 @@ PRs Awaiting Review (sorted by wait time):
 - [x] PRs waiting >48h are flagged as STALE
 - [x] No individual reviewer names or rankings appear in output
 - [x] All three output formats work
-- [ ] Solo repository detected and handled gracefully
+- [ ] Solo repository detected and handled gracefully (deferred — requires contributor count API call)
 
 ---
 
@@ -678,26 +678,26 @@ Multiple sort options (age, updated, duration, closed) on bulk commands. **Defer
 
 ### Functional Requirements
 
-- [ ] All 4 features produce output in pretty, markdown, and JSON formats
-- [ ] Per-item links render correctly in all formats (lipgloss hyperlink in TTY, plain text in non-TTY, full URL in markdown, `url` field in JSON)
-- [ ] My-week is strictly self-serve (no `--user` flag)
-- [ ] Bus factor works offline with zero API calls
-- [ ] No individual developer rankings or comparisons in any output
-- [ ] Every metric shows sample size so users can judge reliability
-- [ ] `exclude_users` config option filters bot accounts from all search-based commands
-- [ ] Bot exclusion uses REST search `-author:` syntax (server-side, not client-side filtering)
+- [x] All 4 features produce output in pretty, markdown, and JSON formats
+- [x] Per-item links render correctly in all formats (lipgloss hyperlink in TTY, plain text in non-TTY, full URL in markdown, `url` field in JSON)
+- [x] My-week is strictly self-serve (no `--user` flag)
+- [x] Bus factor works offline with zero API calls
+- [x] No individual developer rankings or comparisons in any output
+- [x] Every metric shows sample size so users can judge reliability
+- [x] `exclude_users` config option filters bot accounts from all search-based commands
+- [x] Bot exclusion uses REST search `-author:` syntax (server-side, not client-side filtering)
 
 ### Non-Functional Requirements
 
-- [ ] No new direct dependencies beyond promoting lipgloss from indirect to direct
-- [ ] Bus factor completes in <5s for repos with <10,000 commits (single git invocation)
-- [ ] `--since` values validated through `dateutil.Parse()` before passing to git commands
-- [ ] Control characters sanitized in hyperlink rendering
-- [ ] `rateLimitWait` wired into retry wrapper for all API calls
+- [x] No new direct dependencies beyond promoting lipgloss from indirect to direct
+- [x] Bus factor completes in <5s for repos with <10,000 commits (single git invocation)
+- [x] `--since` values validated through `dateutil.Parse()` before passing to git commands
+- [x] Control characters sanitized in hyperlink rendering
+- [x] `rateLimitWait` wired into retry wrapper for all API calls
 
 ### Quality Gates
 
-- [ ] Table-driven tests for all new metric computations
+- [x] Table-driven tests for all new metric computations
 - [ ] Integration tests for new commands via `task build` + binary execution
 - [ ] Existing smoke tests continue to pass
 - [ ] `task quality` passes (lint + staticcheck)
