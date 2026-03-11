@@ -1,7 +1,7 @@
 ---
 title: "feat: GitHub Actions integration and --post flag"
 type: feat
-status: active
+status: completed
 date: 2026-03-10
 issue: https://github.com/dvhthomas/gh-velocity/issues/11
 brainstorm: docs/brainstorms/2026-03-10-github-actions-and-posting-brainstorm.md

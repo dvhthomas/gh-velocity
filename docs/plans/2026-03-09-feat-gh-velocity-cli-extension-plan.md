@@ -1,7 +1,7 @@
 ---
 title: "feat: gh velocity CLI extension"
 type: feat
-status: active
+status: completed
 date: 2026-03-09
 brainstorm: docs/brainstorms/2026-03-09-gh-velocity-brainstorm.md
 deepened: 2026-03-09
