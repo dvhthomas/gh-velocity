@@ -95,6 +95,12 @@ Remove from `knownTopLevelKeys`: `"statuses"`, `"fields"`. Add: `"scope"`, `"lif
 
 Remove validation: `projectIDPattern` (PVT_*), `statusFieldIDPattern` (PVTSSF_*). Add: `project.url` must be a valid GitHub project URL when set. `project.status_field` required when any lifecycle stage uses `project_status`.
 
+**How lifecycle works**: Commands know *which stage* to use (e.g., lead-time uses `done`, WIP uses the negation of backlog/done/released). The user defines *what each stage means* — the query qualifiers and/or project board statuses. Commands never hardcode lifecycle qualifiers like `is:closed`; they always read from config.
+
+Two execution paths per stage:
+- **`query` only** (no `project_status`): run through REST Search API. The stage's query is appended to scope.
+- **`project_status` set** (with or without `query`): run through GraphQL project items `items(query:)`. If `query` is also provided, both are used together — the REST query filters items, and `project_status` filters within the project board.
+
 Default lifecycle (when not configured):
 ```go
 func defaultLifecycle() LifecycleConfig {
@@ -104,7 +110,7 @@ func defaultLifecycle() LifecycleConfig {
 }
 ```
 
-Minimal defaults — users configure what they need. Only `done` has a default because every metric needs a "completed" concept.
+Sensible defaults so zero-config usage still works. Users override stages as needed — a repo using project boards would configure `project_status` arrays, while a label-only repo might only need `query`.
 
 - [ ] Update `Config` struct — remove `Statuses`, `Fields`, add `Scope`, update `Project`, add `Lifecycle`
 - [ ] Update `defaults()` — new default lifecycle
@@ -213,6 +219,7 @@ func (c *Client) searchPaginated(ctx context.Context, query string) ([]searchIss
 - [ ] Create `SearchPRs()` — uses `searchPaginated()`, converts to `model.PR`
 - [ ] Deprecate `SearchClosedIssues`, `SearchOpenIssuesWithLabels`, `SearchMergedPRs` (keep as thin wrappers initially, remove in follow-up)
 - [ ] Add `--verbose` page count reporting to search functions
+- [ ] `Client` struct: `SearchIssues`/`SearchPRs` do NOT use `c.owner`/`c.repo` — the query is pre-assembled. `Client` still needs owner/repo for non-search API calls (GetIssue, GetPR, tags, releases, etc.), so `NewClient(owner, repo)` signature stays.
 
 **Tests**: Mock-based tests for pagination. Query passthrough (no modification).
 
@@ -259,19 +266,24 @@ deps.Scope = scope.MergeScope(cfg.Scope.Query, scopeFlag)
 
 Bulk mode currently calls `client.SearchClosedIssues(ctx, since, until)`.
 
-Replace with:
+Replace with lifecycle-config-driven query assembly:
 
 ```go
+// Lead time uses the "done" lifecycle stage — user configures what "done" means.
+doneStage := deps.Config.Lifecycle.Done
 q := scope.Query{
     Scope:     deps.Scope,
     Type:      "is:issue",
-    Lifecycle: fmt.Sprintf("is:closed closed:%s..%s", sinceStr, untilStr),
+    Lifecycle: doneStage.Query + " " + fmt.Sprintf("closed:%s..%s", sinceStr, untilStr),
 }
 if deps.Debug {
     fmt.Fprint(os.Stderr, q.Verbose())
 }
 issues, err := client.SearchIssues(ctx, q.Build())
+// If doneStage.ProjectStatus is set, also filter via project board
 ```
+
+The command knows it needs the "done" stage and appends the date range. The user's lifecycle config provides the qualifiers (e.g., `is:closed` or `is:closed reason:completed`).
 
 - [ ] Refactor `runLeadTimeBulk` to use `scope.Query` + `SearchIssues`
 - [ ] Add verbose query output when `--debug`
@@ -360,7 +372,7 @@ excludeStatuses = append(excludeStatuses, cfg.Lifecycle.Done.ProjectStatus...)
 // Build: -status:"Done" -status:"Shipped" -status:"Backlog"
 ```
 
-For REST-only path (no project board), WIP is `is:open` with the scope applied. The lifecycle stages that exclude items (backlog, done, released) are already excluded by `is:open` + `is:issue` (closed issues are done, released is tag-based). If backlog labels are configured in the scope negation, use `-label:"backlog"`.
+For REST-only path (no project board), WIP builds a query from scope + `is:open`. Done/released items are already excluded by `is:open`. For backlog exclusion without a project board, the user can put negation qualifiers in their `lifecycle.backlog.query` (e.g., `is:open -label:"backlog" -label:"icebox"`). WIP's query becomes: scope + `is:open` + negate(backlog.query). If backlog has no query configured, WIP is simply scope + `is:open`.
 
 - [ ] Implement WIP as negation of backlog/done/released lifecycle stages
 - [ ] Project-board path: negate project statuses via GraphQL `items(query:)`
@@ -424,13 +436,34 @@ For project-board strategy, also show the project filter URL:
 
 ### Phase 5: Update preflight
 
-**Goal**: Preflight validates scope queries and generates the new config format.
+**Goal**: Preflight generates the new config format and validates scope queries against the API.
 
-- [ ] Update `renderPreflightConfig` to emit new config format (`scope:`, `project:`, `lifecycle:`)
-- [ ] Add scope validation: run config scope + each lifecycle stage against API, report counts
-- [ ] Print full query for each lifecycle stage so users can verify in browser
-- [ ] Update preflight JSON to include new config shape
-- [ ] Remove old config fields from preflight output
+#### 5a. Config generation
+
+Preflight auto-detects repo characteristics and generates the new config shape:
+
+- `scope.query`: always `repo:owner/repo` (user narrows from there)
+- `project`: detect project boards, emit `url` and `status_field`
+- `lifecycle`: if project board found, populate `project_status` arrays from actual board column names. If no project, emit `done.query: "is:closed"` default only.
+- `quality`: existing categories/label detection (already working from harden-preflight)
+
+- [ ] Update `renderPreflightConfig` to emit `scope:`, `project:` (URL format), `lifecycle:` (with project_status from detected board columns)
+- [ ] Remove old config fields (`statuses:`, `fields:`, `project.id`, `project.status_field_id`)
+- [ ] Round-trip validate generated config through `config.Parse()` (already established pattern)
+
+#### 5b. Scope validation
+
+After generating config, validate scope queries against the API:
+
+- Run scope + each lifecycle stage query with `per_page=1` to check for API errors and get total counts
+- Print the full composed query for each stage so users can paste into github.com/issues
+- Report result counts per stage (e.g., "done: 38 issues, in-progress: 12 issues")
+- Warn if any stage returns 0 results (possible misconfiguration)
+
+- [ ] Add scope validation: run config scope + each lifecycle stage against API
+- [ ] Print full query per lifecycle stage with result count
+- [ ] Warn on zero-result stages
+- [ ] Update preflight JSON to include `scope_validation` with per-stage counts and queries
 
 ### Phase 6: Update smoke tests and documentation
 
@@ -465,13 +498,11 @@ The existing pagination logic (100/page, max 10 pages, 1000 result cap) is prese
 
 `ResolveProject()` makes a GraphQL call to resolve URL → node ID. This should be cached per command execution (not per query) since the project doesn't change during a run. Store resolved IDs on `Deps` after first resolution.
 
-### No `repo:` auto-injection
+### `repo:` auto-injection
 
-When scope.query is empty and no `--scope` flag is provided, **and** `--repo` or GH_REPO is set, we should NOT auto-inject `repo:`. The `--repo` flag sets `deps.Owner`/`deps.Repo` which the old search functions used directly. With scope-based queries, the user's scope must include `repo:` explicitly.
+**Decision**: When `scope.query` is empty (no config or blank) and no `--scope` flag is provided, auto-inject `repo:owner/repo` into scope from `--repo` / GH_REPO / git remote. This preserves zero-config usage — `gh velocity flow lead-time --since 30d` continues to work without a config file.
 
-However, for backward compatibility during transition, if scope is empty and the command has `deps.Owner`/`deps.Repo`, we auto-inject `repo:owner/repo` into the scope. This prevents breaking existing usage where no config file exists. Add a deprecation warning.
-
-**Decision**: Auto-inject `repo:owner/repo` into scope when scope is empty and owner/repo is resolved. This is the pragmatic default. Users who want org-wide metrics explicitly set scope without `repo:`.
+Users who want org-wide metrics set `scope.query` to something that doesn't include `repo:` (e.g., `org:myorg label:"bug"`). Once scope is explicitly configured, no auto-injection occurs.
 
 ### Duplicate qualifier conflict detection
 
