@@ -1,0 +1,31 @@
+# gh-velocity configuration
+# Repo: dvhthomas/gh-velocity
+#
+# Uses issue strategy (created → closed) for CI compatibility.
+# Project-board strategy requires PAT scopes not available to GITHUB_TOKEN.
+
+scope:
+  query: "repo:dvhthomas/gh-velocity"
+
+quality:
+  categories:
+    - name: feature
+      match:
+        - "title:/^feat[\\(: ]/i"
+    - name: chore
+      match:
+        - "title:/^refactor[\\(: ]/i"
+    - name: docs
+      match:
+        - "title:/^docs?[\\(: ]/i"
+  hotfix_window_hours: 72
+
+commit_ref:
+  patterns: ["closes"]
+
+cycle_time:
+  strategy: issue
+
+lifecycle:
+  done:
+    query: "is:closed"

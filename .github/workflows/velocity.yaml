@@ -1,0 +1,46 @@
+name: Velocity Report
+
+on:
+  schedule:
+    # Weekly on Monday at 08:00 UTC
+    - cron: "0 8 * * 1"
+  workflow_dispatch: # Allow manual runs
+
+permissions:
+  contents: read
+  discussions: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build -o gh-velocity .
+
+      - name: Post velocity report to Discussions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_VELOCITY_POST_LIVE: "true"
+        run: |
+          ./gh-velocity report --since 7d --new-post --repo dvhthomas/gh-velocity
+
+      - name: Open issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --repo dvhthomas/gh-velocity \
+            --title "Velocity report failed ($(date -u +%Y-%m-%d))" \
+            --body "The weekly velocity report workflow failed.
+
+          **Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Please investigate and fix the issue." \
+            --label bug
