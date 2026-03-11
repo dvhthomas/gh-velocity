@@ -89,7 +89,8 @@ func runBusFactor(cmd *cobra.Command, sinceStr string) error {
 		return &model.AppError{Code: model.ErrNotGitRepo, Message: "git log failed: " + err.Error()}
 	}
 
-	result := metrics.ComputeBusFactor(paths, since, busFactorDepth)
+	result := metrics.ComputeBusFactor(paths, since, busFactorDepth, busFactorMinCommits)
+	result.Repository = deps.Owner + "/" + deps.Repo
 
 	w := cmd.OutOrStdout()
 	rc := deps.RenderCtx(w)

@@ -14,7 +14,8 @@ import (
 func WriteBusFactorPretty(rc RenderContext, result metrics.BusFactorResult) error {
 	w := rc.Writer
 	days := int(math.Round(time.Since(result.Since).Hours() / 24))
-	fmt.Fprintf(w, "Knowledge Risk Report (last %d days, depth %d)\n\n", days, result.Depth)
+	fmt.Fprintf(w, "Knowledge Risk Report: %s (last %d days, depth %d, min-commits %d)\n\n",
+		result.Repository, days, result.Depth, result.MinCommits)
 
 	if len(result.Paths) == 0 {
 		fmt.Fprintln(w, "  No paths with enough commit activity.")
@@ -32,34 +33,20 @@ func WriteBusFactorPretty(rc RenderContext, result metrics.BusFactorResult) erro
 	return nil
 }
 
-// WriteBusFactorMarkdown writes bus factor results as markdown.
+// WriteBusFactorMarkdown writes bus factor results as markdown using an
+// embedded template. Includes an HTML comment with command metadata for
+// reproducibility and idempotent posting.
 func WriteBusFactorMarkdown(rc RenderContext, result metrics.BusFactorResult) error {
-	w := rc.Writer
-	days := int(math.Round(time.Since(result.Since).Hours() / 24))
-	fmt.Fprintf(w, "## Knowledge Risk Report (last %d days, depth %d)\n\n", days, result.Depth)
-
-	if len(result.Paths) == 0 {
-		fmt.Fprintln(w, "_No paths with enough commit activity._")
-		return nil
-	}
-
-	fmt.Fprintln(w, "| Risk | Path | Contributors | Primary | Commits |")
-	fmt.Fprintln(w, "| --- | --- | --- | --- | --- |")
-	for _, p := range result.Paths {
-		primary := formatPrimary(p)
-		fmt.Fprintf(w, "| %s | %s | %d | %s | %d |\n",
-			string(p.Risk), p.Path, p.ContributorCount, primary, p.TotalCommits)
-	}
-
-	fmt.Fprintf(w, "\n%s\n", formatRiskSummary(result))
-	return nil
+	return renderBusFactorMarkdown(rc.Writer, result)
 }
 
 type jsonBusFactorOutput struct {
-	Since string           `json:"since"`
-	Depth int              `json:"depth"`
-	Paths []jsonPathRisk   `json:"paths"`
-	Summary jsonRiskSummary `json:"summary"`
+	Repository string           `json:"repository"`
+	Since      string           `json:"since"`
+	Depth      int              `json:"depth"`
+	MinCommits int              `json:"min_commits"`
+	Paths      []jsonPathRisk   `json:"paths"`
+	Summary    jsonRiskSummary  `json:"summary"`
 }
 
 type jsonPathRisk struct {
@@ -102,9 +89,11 @@ func WriteBusFactorJSON(w io.Writer, result metrics.BusFactorResult) error {
 	}
 
 	out := jsonBusFactorOutput{
-		Since: result.Since.UTC().Format(time.RFC3339),
-		Depth: result.Depth,
-		Paths: paths,
+		Repository: result.Repository,
+		Since:      result.Since.UTC().Format(time.RFC3339),
+		Depth:      result.Depth,
+		MinCommits: result.MinCommits,
+		Paths:      paths,
 		Summary: jsonRiskSummary{
 			High:   high,
 			Medium: med,

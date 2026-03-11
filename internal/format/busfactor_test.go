@@ -13,8 +13,10 @@ import (
 
 func testBusFactorResult() metrics.BusFactorResult {
 	return metrics.BusFactorResult{
-		Since: time.Now().Add(-90 * 24 * time.Hour),
-		Depth: 2,
+		Repository: "acme/widgets",
+		Since:      time.Now().Add(-90 * 24 * time.Hour),
+		Depth:      2,
+		MinCommits: 5,
 		Paths: []metrics.PathRisk{
 			{
 				Path:             "internal/strategy/",
@@ -55,7 +57,8 @@ func TestWriteBusFactorPretty(t *testing.T) {
 
 	out := buf.String()
 	for _, want := range []string{
-		"Knowledge Risk Report",
+		"Knowledge Risk Report: acme/widgets",
+		"min-commits 5",
 		"HIGH",
 		"MEDIUM",
 		"LOW",
@@ -82,11 +85,14 @@ func TestWriteBusFactorMarkdown(t *testing.T) {
 
 	out := buf.String()
 	for _, want := range []string{
-		"## Knowledge Risk Report",
+		"<!-- gh-velocity:bus-factor repo=acme/widgets",
+		"## Knowledge Risk Report: acme/widgets",
+		"depth=2",
+		"min-commits=5",
 		"| Risk | Path |",
-		"| HIGH |",
-		"| MEDIUM |",
-		"| LOW |",
+		"| **HIGH** | `internal/strategy/`",
+		"| **MEDIUM** |",
+		"| **LOW** |",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("markdown output missing %q\ngot:\n%s", want, out)
@@ -110,8 +116,14 @@ func TestWriteBusFactorJSON(t *testing.T) {
 	if len(out.Paths) != 3 {
 		t.Errorf("expected 3 paths, got %d", len(out.Paths))
 	}
+	if out.Repository != "acme/widgets" {
+		t.Errorf("repository = %q, want acme/widgets", out.Repository)
+	}
 	if out.Depth != 2 {
 		t.Errorf("depth = %d, want 2", out.Depth)
+	}
+	if out.MinCommits != 5 {
+		t.Errorf("min_commits = %d, want 5", out.MinCommits)
 	}
 	if out.Summary.High != 1 {
 		t.Errorf("summary.high = %d, want 1", out.Summary.High)

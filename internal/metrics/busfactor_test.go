@@ -47,7 +47,7 @@ func TestComputeBusFactor(t *testing.T) {
 		},
 	}
 
-	result := ComputeBusFactor(paths, since, 2)
+	result := ComputeBusFactor(paths, since, 2, 5)
 
 	if len(result.Paths) != 4 {
 		t.Fatalf("expected 4 paths, got %d", len(result.Paths))
@@ -87,7 +87,7 @@ func TestComputeBusFactor(t *testing.T) {
 
 func TestComputeBusFactor_Empty(t *testing.T) {
 	since := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	result := ComputeBusFactor(nil, since, 2)
+	result := ComputeBusFactor(nil, since, 2, 5)
 	if len(result.Paths) != 0 {
 		t.Errorf("expected 0 paths, got %d", len(result.Paths))
 	}

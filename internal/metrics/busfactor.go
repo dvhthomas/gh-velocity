@@ -27,15 +27,18 @@ type PathRisk struct {
 }
 
 // BusFactorResult holds the complete bus factor analysis.
+// BusFactorResult holds the complete bus factor analysis.
 type BusFactorResult struct {
-	Paths []PathRisk
-	Since time.Time
-	Depth int
+	Repository  string // "owner/repo"
+	Paths       []PathRisk
+	Since       time.Time
+	Depth       int
+	MinCommits  int
 }
 
 // ComputeBusFactor computes bus factor risk from contributor data.
 // Paths are sorted: HIGH first, then MEDIUM, then LOW, then by path name.
-func ComputeBusFactor(paths []git.PathContributors, since time.Time, depth int) BusFactorResult {
+func ComputeBusFactor(paths []git.PathContributors, since time.Time, depth, minCommits int) BusFactorResult {
 	var risks []PathRisk
 	for _, p := range paths {
 		// Sort contributors by commit count descending.
@@ -70,9 +73,10 @@ func ComputeBusFactor(paths []git.PathContributors, since time.Time, depth int) 
 	})
 
 	return BusFactorResult{
-		Paths: risks,
-		Since: since,
-		Depth: depth,
+		Paths:      risks,
+		Since:      since,
+		Depth:      depth,
+		MinCommits: minCommits,
 	}
 }
 
