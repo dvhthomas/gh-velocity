@@ -1,7 +1,7 @@
 ---
 title: "feat: Harden config preflight with round-trip validation and dry-run verification"
 type: feat
-status: active
+status: completed
 date: 2026-03-11
 ---
 
@@ -25,18 +25,18 @@ Users run `gh velocity config preflight --write` and trust the output. Today tha
 
 **Goal**: Enable round-trip validation without temp files. Fix the confirmed bug.
 
-- [ ] **`internal/config/config.go`**: Extract parse+validate logic from `Load()` into `Parse(data []byte) (*Config, error)`
+- [x] **`internal/config/config.go`**: Extract parse+validate logic from `Load()` into `Parse(data []byte) (*Config, error)`
   - `Load()` becomes: read file → `Parse(data)`
   - `Parse()` does: unmarshal raw map (unknown keys) → unmarshal typed struct → `validate()` → `resolveCategories()`
   - Accept an optional `WarnFunc` override or temporarily suppress warnings during internal round-trip calls
-- [ ] **`internal/config/config_test.go`**: Add tests for `Parse()` — same table-driven patterns as existing `Load()` tests
-- [ ] **`cmd/preflight.go`**: Move the `posting:` information to YAML comments instead of a config block
+- [x] **`internal/config/config_test.go`**: Add tests for `Parse()` — same table-driven patterns as existing `Load()` tests
+- [x] **`cmd/preflight.go`**: Move the `posting:` information to YAML comments instead of a config block
   ```yaml
   # Posting readiness:
   #   discussions: enabled
   #   issues: accessible
   ```
-- [ ] **`cmd/preflight.go`**: After `renderPreflightConfig()`, round-trip validate:
+- [x] **`cmd/preflight.go`**: After `renderPreflightConfig()`, round-trip validate:
   ```go
   yaml := renderPreflightConfig(result)
   if _, err := config.Parse([]byte(yaml)); err != nil {
@@ -50,14 +50,14 @@ Users run `gh velocity config preflight --write` and trust the output. Today tha
 
 **Goal**: Eliminate false positives while catching real labels.
 
-- [ ] **`cmd/preflight.go`**: Replace `matchesAny` with `matchesWord` that uses word-boundary logic
+- [x] **`cmd/preflight.go`**: Replace `matchesAny` with `matchesWord` that uses word-boundary logic
   ```go
   // matchesWord returns true if pattern appears in label at a word boundary.
   // Word boundaries: start/end of string, hyphen, space, underscore, slash, colon.
   // "bug" matches "bug", "bug-report", "type:bug" but NOT "debugging".
   func matchesWord(label, pattern string) bool
   ```
-- [ ] **Expand pattern sets** with commonly-used GitHub label names:
+- [x] **Expand pattern sets** with commonly-used GitHub label names:
   ```go
   bugPatterns     := []string{"bug", "defect", "regression", "crash"}
   featurePatterns := []string{"enhancement", "feature", "improvement"}
@@ -75,13 +75,13 @@ Users run `gh velocity config preflight --write` and trust the output. Today tha
   - Add "chore" category patterns — very common in OSS repos
   - Add "docs" category patterns
   - Defer test/ci/security/performance categories — uncommon as labels, can add later if needed
-- [ ] **Replace typed label fields on `PreflightResult`** with a categories map:
+- [x] **Replace typed label fields on `PreflightResult`** with a categories map:
   ```go
   // Replace BugLabels, FeatureLabels with:
   Categories map[string][]string `json:"categories"` // e.g. {"bug": ["bug", "defect"], "feature": ["enhancement"]}
   ```
   Keep `ActiveLabels` and `BacklogLabels` — these are status signals, not quality categories.
-- [ ] **Generate modern `categories` format** in `renderPreflightConfig` instead of legacy `bug_labels`/`feature_labels`:
+- [x] **Generate modern `categories` format** in `renderPreflightConfig` instead of legacy `bug_labels`/`feature_labels`:
   ```yaml
   quality:
     categories:
@@ -93,7 +93,7 @@ Users run `gh velocity config preflight --write` and trust the output. Today tha
         match: ["label:chore", "label:maintenance"]
   ```
   This skips the legacy-to-categories auto-generation hop and gives users the richer matcher syntax from the start. Only emit categories that have at least one matched label.
-- [ ] **First-match-wins for category assignment**: if a label like "bug-fix" matches both bug and chore, assign to the first matching category only. Add a YAML comment noting the ambiguity for labels that matched multiple patterns.
+- [x] **First-match-wins for category assignment**: if a label like "bug-fix" matches both bug and chore, assign to the first matching category only. Add a YAML comment noting the ambiguity for labels that matched multiple patterns.
 
 **Tests**: Table-driven tests for `matchesWord`:
 
@@ -117,11 +117,11 @@ Users run `gh velocity config preflight --write` and trust the output. Today tha
 
 The dry-run does NOT re-run `report`. Instead it validates the generated config can produce a working pipeline:
 
-- [ ] **Parse the generated YAML** through `config.Parse()` (already done in Phase 1)
-- [ ] **Construct a `classify.NewClassifier(cfg.Quality.Categories)`** to verify all matchers compile and are valid
-- [ ] **Validate strategy prerequisites**: if `cycle_time.strategy: project-board`, verify `project.id` and `status_field_id` are present. If `strategy: pr`, verify API access worked (preflight already fetched PRs).
-- [ ] **Cross-reference detected labels against actual repo labels**: check that every label in `bug_labels`/`feature_labels`/categories actually exists in the repo's label set (preflight already fetched these). If a suggested label doesn't exist on the repo, warn.
-- [ ] **Produce a verification summary** (added to hints):
+- [x] **Parse the generated YAML** through `config.Parse()` (already done in Phase 1)
+- [x] **Construct a `classify.NewClassifier(cfg.Quality.Categories)`** to verify all matchers compile and are valid
+- [x] **Validate strategy prerequisites**: if `cycle_time.strategy: project-board`, verify `project.id` and `status_field_id` are present. If `strategy: pr`, verify API access worked (preflight already fetched PRs).
+- [x] **Cross-reference detected labels against actual repo labels**: check that every label in `bug_labels`/`feature_labels`/categories actually exists in the repo's label set (preflight already fetched these). If a suggested label doesn't exist on the repo, warn.
+- [x] **Produce a verification summary** (added to hints):
   ```
   Config verification:
     ✓ YAML parses cleanly
@@ -129,7 +129,7 @@ The dry-run does NOT re-run `report`. Instead it validates the generated config 
     ✓ Cycle time strategy: issue (no project board required)
     ✗ Label "regression" in bug category not found on repo — will never match
   ```
-- [ ] **Add verification to `PreflightResult` JSON**:
+- [x] **Add verification to `PreflightResult` JSON**:
   ```go
   type PreflightResult struct {
       // ... existing fields ...
@@ -157,15 +157,15 @@ The dry-run does NOT re-run `report`. Instead it validates the generated config 
 
 ## Acceptance Criteria
 
-- [ ] `renderPreflightConfig()` output round-trips through `config.Parse()` without errors or warnings
-- [ ] `matchesWord("debugging", "bug")` returns false
-- [ ] `matchesWord("bug-report", "bug")` returns true
-- [ ] Preflight generates modern `categories` format with `label:` matchers
-- [ ] Preflight JSON includes `verification` field showing parse and matcher validation
-- [ ] Missing repo labels produce a warning in verification output
+- [x] `renderPreflightConfig()` output round-trips through `config.Parse()` without errors or warnings
+- [x] `matchesWord("debugging", "bug")` returns false
+- [x] `matchesWord("bug-report", "bug")` returns true
+- [x] Preflight generates modern `categories` format with `label:` matchers
+- [x] Preflight JSON includes `verification` field showing parse and matcher validation
+- [x] Missing repo labels produce a warning in verification output
 - [ ] `--write` followed by `report --since 30d` works with no config warnings
-- [ ] Zero false positives from the documented test cases (debugging, defeat, proactive, translator, networking)
-- [ ] `task quality` passes (all tests, lint, staticcheck, smoke tests)
+- [x] Zero false positives from the documented test cases (debugging, defeat, proactive, translator, networking)
+- [x] `task quality` passes (all tests, lint, staticcheck, smoke tests)
 
 ## Dependencies & Risks
 
