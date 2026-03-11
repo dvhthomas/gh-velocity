@@ -250,22 +250,22 @@ Extend config preflight to check posting prerequisites.
   - Scope checks are **best-effort** (fine-grained PATs don't expose scopes via headers)
   - Add hints for each check result
 - [x] **Update `renderPreflightConfig`** to show posting readiness in pretty output
-- [ ] **Update smoke tests** to verify preflight JSON includes `posting_readiness`
+- [x] **Update smoke tests** to verify preflight JSON includes `posting_readiness`
 
 **Tests**: `go test ./cmd/...` + smoke tests
 
 #### Phase 6: Documentation and smoke tests
 
-- [ ] **Update README.md**: Add CI workflow example, document `--post` and `--new-post` flags
+- [x] **Update README.md**: Add CI workflow example, document `--post` and `--new-post` flags
 - [ ] **Update `docs/guide.md`**: Add posting configuration section, permissions reference
-- [ ] **Expand smoke tests** in `scripts/smoke-test.sh`:
+- [x] **Expand smoke tests** in `scripts/smoke-test.sh`:
   - `--post --help` shows flag in help text
   - `--new-post --help` shows flag in help text
   - `--post` without config shows clear error for bulk commands
   - `--post` with single issue (can't easily test posting in smoke tests — test the error path)
   - Preflight JSON includes `posting_readiness` fields
   - CI logging format (set `GITHUB_ACTIONS=true`, check for `::notice::` in stderr)
-- [ ] **Add example workflow file**: `docs/examples/velocity-report.yml`
+- [x] **Add example workflow file**: `docs/examples/velocity-report.yml`
 
 ## Acceptance Criteria
 
