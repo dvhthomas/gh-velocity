@@ -1,0 +1,9 @@
+## Lead Time: {{.Repository}} ({{date .Since}} – {{date .Until}} UTC)
+
+| Issue | Title | Labels | Created (UTC) | Closed (UTC) | Lead Time |
+| ---: | --- | --- | --- | --- | --- |
+{{- range .Items}}
+| {{.Link}} | {{.Title}} | {{.Labels}} | {{.Created}} | {{.Closed}} | {{.LeadTime}} |
+{{- end}}
+
+**Summary:** {{.Summary}}

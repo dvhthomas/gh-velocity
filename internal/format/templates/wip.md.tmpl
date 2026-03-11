@@ -1,0 +1,9 @@
+## Work in Progress: {{.Repository}}
+
+| # | Title | Labels | Status | Age | Kind |
+| ---: | --- | --- | --- | --- | --- |
+{{- range .Items}}
+| {{.Link}} | {{.Title}} | {{.Labels}} | {{.Status}} | {{.Age}} | {{.Kind}} |
+{{- end}}
+
+**Count:** {{.Count}}

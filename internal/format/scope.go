@@ -184,47 +184,7 @@ func WriteScopeJSON(w io.Writer, repo string, result *model.ScopeResult) error {
 	return enc.Encode(out)
 }
 
-// WriteScopeMarkdown writes scope results as markdown.
+// WriteScopeMarkdown writes scope results as markdown using an embedded template.
 func WriteScopeMarkdown(w io.Writer, result *model.ScopeResult) error {
-	var b strings.Builder
-
-	b.WriteString(fmt.Sprintf("## Scope: %s", result.Tag))
-	if result.PreviousTag != "" {
-		b.WriteString(fmt.Sprintf(" (since %s)", result.PreviousTag))
-	}
-	b.WriteString("\n\n")
-
-	for _, sr := range result.Strategies {
-		b.WriteString(fmt.Sprintf("### %s (%d items)\n\n", sr.Name, len(sr.Items)))
-		if len(sr.Items) == 0 {
-			b.WriteString("_(none)_\n\n")
-			continue
-		}
-		b.WriteString("| # | Title | PR |\n")
-		b.WriteString("|---|-------|----|\n")
-		for _, item := range sr.Items {
-			num := 0
-			title := ""
-			prRef := ""
-			if item.Issue != nil {
-				num = item.Issue.Number
-				title = item.Issue.Title
-			}
-			if item.PR != nil {
-				if item.Issue == nil {
-					num = item.PR.Number
-					title = item.PR.Title
-				}
-				prRef = fmt.Sprintf("#%d", item.PR.Number)
-			}
-			b.WriteString(fmt.Sprintf("| #%d | %s | %s |\n", num, title, prRef))
-		}
-		b.WriteString("\n")
-	}
-
-	issueCount, prCount := countMergedTypes(result.Merged)
-	b.WriteString(fmt.Sprintf("**Merged:** %d unique items (%d issues, %d PRs)\n", len(result.Merged), issueCount, prCount))
-
-	_, err := io.WriteString(w, b.String())
-	return err
+	return renderScopeMarkdown(w, result)
 }

@@ -34,16 +34,9 @@ func WriteThroughputJSON(w io.Writer, r model.ThroughputResult) error {
 	return enc.Encode(out)
 }
 
-// WriteThroughputMarkdown writes throughput as markdown.
+// WriteThroughputMarkdown writes throughput as markdown using an embedded template.
 func WriteThroughputMarkdown(w io.Writer, r model.ThroughputResult) error {
-	fmt.Fprintf(w, "## Throughput: %s (%s – %s UTC)\n\n",
-		r.Repository, r.Since.UTC().Format(time.DateOnly), r.Until.UTC().Format(time.DateOnly))
-	fmt.Fprintf(w, "| Metric | Count |\n")
-	fmt.Fprintf(w, "| --- | --- |\n")
-	fmt.Fprintf(w, "| Issues closed | %d |\n", r.IssuesClosed)
-	fmt.Fprintf(w, "| PRs merged | %d |\n", r.PRsMerged)
-	fmt.Fprintf(w, "| Total | %d |\n", r.IssuesClosed+r.PRsMerged)
-	return nil
+	return renderThroughputMarkdown(w, r)
 }
 
 // WriteThroughputPretty writes throughput as formatted text.

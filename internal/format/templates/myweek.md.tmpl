@@ -1,0 +1,75 @@
+## My Week — {{.Login}}
+
+**{{.Repo}}** | {{date .Since}} to {{date .Until}}
+{{- if .Insights}}
+
+### Insights
+{{range .Insights}}
+- {{.}}
+{{- end}}
+{{- end}}
+
+### What I shipped
+
+**Issues Closed ({{len .IssuesClosed}})**
+{{if .IssuesClosed}}
+{{- range .IssuesClosed}}
+- {{.Link}} {{.Title}}{{.Date}}
+{{- end}}
+{{- else}}
+_None_
+{{- end}}
+
+**PRs Merged ({{len .PRsMerged}})**
+{{if .PRsMerged}}
+{{- range .PRsMerged}}
+- {{.Link}} {{.Title}}{{.Date}}
+{{- end}}
+{{- else}}
+_None_
+{{- end}}
+
+**PRs Reviewed ({{len .PRsReviewed}})**
+{{if .PRsReviewed}}
+{{- range .PRsReviewed}}
+- {{.Link}} {{.Title}}
+{{- end}}
+{{- else}}
+_None_
+{{- end}}
+{{- if .Releases}}
+
+**Releases ({{len .Releases}})**
+{{range .Releases}}
+- {{.Link}} ({{.Date}})
+{{- end}}
+{{- end}}
+
+### What's ahead
+
+**Open Issues ({{len .IssuesOpen}})**
+{{if .IssuesOpen}}
+{{- range .IssuesOpen}}
+- {{.Link}} {{.Title}}{{.Status}}
+{{- end}}
+{{- else}}
+_None_
+{{- end}}
+
+**Open PRs ({{len .PRsOpen}})**
+{{if .PRsOpen}}
+{{- range .PRsOpen}}
+- {{.Link}} {{.Title}}{{.Status}}
+{{- end}}
+{{- else}}
+_None_
+{{- end}}
+{{- if .ReviewQueue}}
+
+### Review queue
+
+**Awaiting Your Review ({{len .ReviewQueue}})**
+{{range .ReviewQueue}}
+- {{.Link}} {{.Title}} — @{{.Author}} *{{.Age}}*
+{{- end}}
+{{- end}}

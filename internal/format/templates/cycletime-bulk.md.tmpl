@@ -1,0 +1,9 @@
+## Cycle Time: {{.Repository}} ({{date .Since}} – {{date .Until}} UTC) [{{.Strategy}}]
+
+| Issue | Title | Labels | Started (UTC) | Closed (UTC) | Cycle Time |
+| ---: | --- | --- | --- | --- | --- |
+{{- range .Items}}
+| {{.Link}} | {{.Title}} | {{.Labels}} | {{.Started}} | {{.Closed}} | {{.CycleTime}} |
+{{- end}}
+
+**Summary:** {{.Summary}}

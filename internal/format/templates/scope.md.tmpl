@@ -1,0 +1,14 @@
+## Scope: {{.Tag}}{{if .PreviousTag}} (since {{.PreviousTag}}){{end}}
+{{range .Strategies}}
+### {{.Name}} ({{.Count}} items)
+{{if not .Items}}
+_(none)_
+{{else}}
+| # | Title | PR |
+|---|-------|----|
+{{- range .Items}}
+| #{{.Number}} | {{.Title}} | {{.PRRef}} |
+{{- end}}
+{{end}}
+{{- end}}
+**Merged:** {{.MergedCount}} unique items ({{.IssueCount}} issues, {{.PRCount}} PRs)

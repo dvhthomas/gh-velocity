@@ -56,29 +56,9 @@ func WriteWIPJSON(w io.Writer, repo string, items []model.WIPItem) error {
 
 // --- Markdown ---
 
-// WriteWIPMarkdown writes WIP items as a markdown table.
+// WriteWIPMarkdown writes WIP items as a markdown table using an embedded template.
 func WriteWIPMarkdown(rc RenderContext, repo string, items []model.WIPItem) error {
-	sorted := sortWIPByAgeDesc(items)
-
-	fmt.Fprintf(rc.Writer, "## Work in Progress: %s\n\n", repo)
-	fmt.Fprintf(rc.Writer, "| # | Title | Labels | Status | Age | Kind |\n")
-	fmt.Fprintf(rc.Writer, "| ---: | --- | --- | --- | --- | --- |\n")
-	for _, item := range sorted {
-		num := ""
-		if item.Number > 0 {
-			num = FormatItemLink(item.Number, item.URL, rc)
-		}
-		fmt.Fprintf(rc.Writer, "| %s | %s | %s | %s | %s | %s |\n",
-			num,
-			sanitizeMarkdown(item.Title),
-			FormatLabels(item.Labels),
-			item.Status,
-			FormatDuration(item.Age),
-			item.Kind,
-		)
-	}
-	fmt.Fprintf(rc.Writer, "\n**Count:** %d\n", len(items))
-	return nil
+	return renderWIPMarkdown(rc.Writer, rc, repo, items)
 }
 
 // --- Pretty ---

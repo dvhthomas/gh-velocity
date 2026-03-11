@@ -81,41 +81,9 @@ func WriteReportJSON(w io.Writer, r model.StatsResult) error {
 
 // --- Markdown ---
 
-// WriteReportMarkdown writes dashboard metrics as markdown.
+// WriteReportMarkdown writes dashboard metrics as markdown using an embedded template.
 func WriteReportMarkdown(rc RenderContext, r model.StatsResult) error {
-	w := rc.Writer
-	fmt.Fprintf(w, "## Report: %s (%s – %s UTC)\n\n",
-		r.Repository, r.Since.UTC().Format(time.DateOnly), r.Until.UTC().Format(time.DateOnly))
-
-	fmt.Fprintf(w, "| Metric | Value |\n")
-	fmt.Fprintf(w, "| --- | --- |\n")
-
-	if r.LeadTime != nil {
-		fmt.Fprintf(w, "| Lead Time | %s |\n", formatStatsSummary(*r.LeadTime))
-	}
-	if r.CycleTime != nil {
-		fmt.Fprintf(w, "| Cycle Time | %s |\n", formatStatsSummary(*r.CycleTime))
-	}
-	if r.Throughput != nil {
-		fmt.Fprintf(w, "| Throughput | %d issues closed, %d PRs merged |\n",
-			r.Throughput.IssuesClosed, r.Throughput.PRsMerged)
-	}
-	if r.WIPCount != nil {
-		fmt.Fprintf(w, "| WIP | %d items in progress |\n", *r.WIPCount)
-	}
-	if r.Quality != nil {
-		fmt.Fprintf(w, "| Quality | %d bugs / %d issues (%.0f%% defect rate) |\n",
-			r.Quality.BugCount, r.Quality.TotalIssues, r.Quality.DefectRate*100)
-	}
-
-	if len(r.Warnings) > 0 {
-		fmt.Fprintf(w, "\n> [!WARNING]\n")
-		for _, msg := range r.Warnings {
-			fmt.Fprintf(w, "> %s\n", msg)
-		}
-	}
-
-	return nil
+	return renderReportMarkdown(rc.Writer, r)
 }
 
 // --- Pretty ---
