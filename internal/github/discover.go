@@ -10,6 +10,7 @@ type DiscoveredProject struct {
 	ID     string            `json:"id"` // PVT_... node ID
 	Title  string            `json:"title"`
 	Number int               `json:"number"`
+	URL    string            `json:"url"` // e.g. https://github.com/users/foo/projects/1
 	Fields []DiscoveredField `json:"fields"`
 }
 
@@ -39,6 +40,7 @@ type discoverProjectNode struct {
 	ID     string `json:"id"`
 	Title  string `json:"title"`
 	Number int    `json:"number"`
+	URL    string `json:"url"`
 	Fields struct {
 		Nodes []discoverFieldNode `json:"nodes"`
 	} `json:"fields"`
@@ -61,6 +63,7 @@ func (c *Client) DiscoverProjects(ctx context.Context) ([]DiscoveredProject, err
 					id
 					title
 					number
+					url
 					fields(first: 30) {
 						nodes {
 							... on ProjectV2SingleSelectField {
@@ -105,6 +108,7 @@ func (c *Client) DiscoverProjects(ctx context.Context) ([]DiscoveredProject, err
 			ID:     p.ID,
 			Title:  p.Title,
 			Number: p.Number,
+			URL:    p.URL,
 		}
 		for _, f := range p.Fields.Nodes {
 			field := DiscoveredField{
@@ -132,6 +136,7 @@ func (c *Client) DiscoverProjectByNumber(ctx context.Context, number int) (*Disc
 				id
 				title
 				number
+				url
 				fields(first: 30) {
 					nodes {
 						... on ProjectV2SingleSelectField {
@@ -183,6 +188,7 @@ func (c *Client) DiscoverProjectByNumber(ctx context.Context, number int) (*Disc
 		ID:     p.ID,
 		Title:  p.Title,
 		Number: p.Number,
+		URL:    p.URL,
 	}
 	for _, f := range p.Fields.Nodes {
 		field := DiscoveredField{

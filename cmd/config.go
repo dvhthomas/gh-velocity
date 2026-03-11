@@ -59,15 +59,13 @@ func newConfigShowCmd() *cobra.Command {
 			// Pretty-print as key-value pairs.
 			w := cmd.OutOrStdout()
 			fmt.Fprintf(w, "workflow:                    %s\n", cfg.Workflow)
-			fmt.Fprintf(w, "project.id:                  %s\n", cfg.Project.ID)
-			fmt.Fprintf(w, "project.status_field_id:     %s\n", cfg.Project.StatusFieldID)
-			fmt.Fprintf(w, "statuses.backlog:            %s\n", cfg.Statuses.Backlog)
-			fmt.Fprintf(w, "statuses.ready:              %s\n", cfg.Statuses.Ready)
-			fmt.Fprintf(w, "statuses.in_progress:        %s\n", cfg.Statuses.InProgress)
-			fmt.Fprintf(w, "statuses.in_review:          %s\n", cfg.Statuses.InReview)
-			fmt.Fprintf(w, "statuses.done:               %s\n", cfg.Statuses.Done)
-			fmt.Fprintf(w, "fields.start_date:           %s\n", cfg.Fields.StartDate)
-			fmt.Fprintf(w, "fields.target_date:          %s\n", cfg.Fields.TargetDate)
+			fmt.Fprintf(w, "scope.query:                 %s\n", cfg.Scope.Query)
+			fmt.Fprintf(w, "project.url:                 %s\n", cfg.Project.URL)
+			fmt.Fprintf(w, "project.status_field:        %s\n", cfg.Project.StatusField)
+			fmt.Fprintf(w, "lifecycle.backlog.query:      %s\n", cfg.Lifecycle.Backlog.Query)
+			fmt.Fprintf(w, "lifecycle.in-progress.query:  %s\n", cfg.Lifecycle.InProgress.Query)
+			fmt.Fprintf(w, "lifecycle.in-review.query:    %s\n", cfg.Lifecycle.InReview.Query)
+			fmt.Fprintf(w, "lifecycle.done.query:         %s\n", cfg.Lifecycle.Done.Query)
 			fmt.Fprintf(w, "quality.bug_labels:          %v\n", cfg.Quality.BugLabels)
 			fmt.Fprintf(w, "quality.feature_labels:      %v\n", cfg.Quality.FeatureLabels)
 			fmt.Fprintf(w, "quality.hotfix_window_hours:  %g\n", cfg.Quality.HotfixWindowHours)
@@ -112,6 +110,11 @@ func newConfigValidateCmd() *cobra.Command {
 const defaultConfigTemplate = `# gh-velocity configuration
 # See: https://github.com/dvhthomas/gh-velocity/blob/main/docs/guide.md
 
+# Scope: which issues/PRs to analyze (GitHub search query syntax).
+# Build your query at github.com/issues, paste it here.
+# scope:
+#   query: 'repo:myorg/myrepo label:"bug"'
+
 # Issue classification labels
 quality:
   bug_labels: ["bug"]
@@ -128,16 +131,21 @@ commit_ref:
 # cycle_time:
 #   strategy: issue
 
-# Cycle time status signals (uncomment to enable)
-# Option A: GitHub Projects v2 board
+# GitHub Projects v2 board (uncomment to enable)
 # project:
-#   id: "PVT_kwDOAbc123"
-#   status_field_id: "PVTSSF_kwDOAbc123"
+#   url: "https://github.com/users/yourname/projects/1"
+#   status_field: "Status"
 
-# Option B: Label-based status (common in OSS)
-# statuses:
-#   active_labels: ["in-progress", "wip"]     # labels = work started
-#   backlog_labels: ["backlog", "icebox"]      # labels = work not started
+# Lifecycle stages: define what each workflow stage means.
+# Defaults: backlog/in-progress/in-review = is:open, done = is:closed.
+# Override with query (REST search) and/or project_status (GraphQL).
+# lifecycle:
+#   done:
+#     query: "is:closed reason:completed"
+#     project_status: ["Done", "Shipped"]
+#   backlog:
+#     query: "is:open"
+#     project_status: ["Backlog", "Triage"]
 `
 
 func newConfigCreateCmd() *cobra.Command {
@@ -245,8 +253,8 @@ needed for .gh-velocity.yml configuration.`,
 					if strings.EqualFold(f.Name, "Status") && len(f.Options) > 0 {
 						fmt.Fprintf(w, "\n  Config snippet for .gh-velocity.yml:\n")
 						fmt.Fprintf(w, "    project:\n")
-						fmt.Fprintf(w, "      id: %q\n", p.ID)
-						fmt.Fprintf(w, "      status_field_id: %q\n", f.ID)
+						fmt.Fprintf(w, "      url: %q  # internal id: %s\n", p.URL, p.ID)
+						fmt.Fprintf(w, "      status_field: %q  # internal id: %s\n", f.Name, f.ID)
 						break
 					}
 				}

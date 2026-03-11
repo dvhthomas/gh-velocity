@@ -35,8 +35,8 @@ quality:
   feature_labels: ["feature"]
   hotfix_window_hours: 48
 project:
-  id: "PVT_abc123"
-  status_field_id: "PVTSSF_def456"
+  url: "https://github.com/users/testuser/projects/1"
+  status_field: "Status"
 `
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -56,8 +56,11 @@ project:
 	if cfg.Quality.HotfixWindowHours != 48 {
 		t.Errorf("expected hotfix_window_hours 48, got %v", cfg.Quality.HotfixWindowHours)
 	}
-	if cfg.Project.ID != "PVT_abc123" {
-		t.Errorf("expected project.id 'PVT_abc123', got %q", cfg.Project.ID)
+	if cfg.Project.URL != "https://github.com/users/testuser/projects/1" {
+		t.Errorf("expected project.url, got %q", cfg.Project.URL)
+	}
+	if cfg.Project.StatusField != "Status" {
+		t.Errorf("expected project.status_field 'Status', got %q", cfg.Project.StatusField)
 	}
 }
 
@@ -271,8 +274,8 @@ quality:
   feature_labels: ["feature"]
   hotfix_window_hours: 48
 project:
-  id: "PVT_abc123"
-  status_field_id: "PVTSSF_def456"
+  url: "https://github.com/users/testuser/projects/1"
+  status_field: "Status"
 `)
 	// Suppress warnings.
 	origWarn := WarnFunc
@@ -368,34 +371,29 @@ func TestLoad_Validation(t *testing.T) {
 			wantErr: "",
 		},
 		{
-			name:    "project.id valid",
-			yaml:    "project:\n  id: PVT_abc123XYZ",
+			name:    "project.url valid user",
+			yaml:    "project:\n  url: https://github.com/users/testuser/projects/1",
 			wantErr: "",
 		},
 		{
-			name:    "project.id invalid prefix",
-			yaml:    "project:\n  id: INVALID_abc123",
-			wantErr: "project.id must match",
-		},
-		{
-			name:    "project.id with special chars",
-			yaml:    "project:\n  id: PVT_abc-123",
-			wantErr: "project.id must match",
-		},
-		{
-			name:    "project.id empty is OK",
-			yaml:    "project:\n  id: \"\"",
+			name:    "project.url valid org",
+			yaml:    "project:\n  url: https://github.com/orgs/myorg/projects/42",
 			wantErr: "",
 		},
 		{
-			name:    "status_field_id valid",
-			yaml:    "project:\n  status_field_id: PVTSSF_abc123",
-			wantErr: "",
+			name:    "project.url invalid host",
+			yaml:    "project:\n  url: https://gitlab.com/users/test/projects/1",
+			wantErr: "project.url must be a github.com URL",
 		},
 		{
-			name:    "status_field_id invalid",
-			yaml:    "project:\n  status_field_id: BAD_abc123",
-			wantErr: "project.status_field_id must match",
+			name:    "project.url invalid path",
+			yaml:    "project:\n  url: https://github.com/owner/repo",
+			wantErr: "project.url must be",
+		},
+		{
+			name:    "project.url empty is OK",
+			yaml:    "project:\n  url: \"\"",
+			wantErr: "",
 		},
 		{
 			name:    "category_id valid",
@@ -424,13 +422,13 @@ func TestLoad_Validation(t *testing.T) {
 		},
 		{
 			name:    "cycle_time.strategy project-board with project",
-			yaml:    "cycle_time:\n  strategy: project-board\nproject:\n  id: PVT_abc123\n  status_field_id: PVTSSF_def456",
+			yaml:    "cycle_time:\n  strategy: project-board\nproject:\n  url: https://github.com/users/test/projects/1",
 			wantErr: "",
 		},
 		{
 			name:    "cycle_time.strategy project-board without project",
 			yaml:    "cycle_time:\n  strategy: project-board",
-			wantErr: "requires project.id",
+			wantErr: "requires project.url",
 		},
 		{
 			name:    "cycle_time.strategy invalid",
@@ -458,11 +456,38 @@ func TestLoad_Validation(t *testing.T) {
 			wantErr: "workflow must be",
 		},
 		{
+			name:    "lifecycle with project_status requires status_field",
+			yaml:    "project:\n  url: https://github.com/users/test/projects/1\nlifecycle:\n  done:\n    project_status: [\"Done\"]",
+			wantErr: "project.status_field is required",
+		},
+		{
+			name:    "lifecycle with project_status requires project url",
+			yaml:    "project:\n  status_field: Status\nlifecycle:\n  done:\n    project_status: [\"Done\"]",
+			wantErr: "project.url is required",
+		},
+		{
+			name: "lifecycle with project_status valid",
+			yaml: `project:
+  url: https://github.com/users/test/projects/1
+  status_field: Status
+lifecycle:
+  done:
+    project_status: ["Done", "Shipped"]
+  backlog:
+    project_status: ["Backlog"]`,
+			wantErr: "",
+		},
+		{
+			name:    "scope valid",
+			yaml:    "scope:\n  query: 'repo:myorg/myrepo label:bug'",
+			wantErr: "",
+		},
+		{
 			name: "full valid config",
 			yaml: `workflow: local
 project:
-  id: PVT_kwDOTest
-  status_field_id: PVTSSF_lADOTest
+  url: https://github.com/users/testuser/projects/1
+  status_field: Status
 quality:
   hotfix_window_hours: 48
 discussions:

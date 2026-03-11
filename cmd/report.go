@@ -79,6 +79,8 @@ unavailable.`,
 
 			repo := deps.Owner + "/" + deps.Repo
 			cfg := deps.Config
+			// TODO(PR C): resolve cfg.Project.URL → IDs for ProjectID/StatusFieldID.
+			// TODO(PR D): wire lifecycle stages into dashboard WIP detection.
 			result := metrics.ComputeDashboard(ctx, client, metrics.DashboardInput{
 				Repo:              repo,
 				Since:             since,
@@ -86,12 +88,6 @@ unavailable.`,
 				Now:               now,
 				CycleTimeStrategy: buildCycleTimeStrategy(deps, client),
 				CycleTimeLabel:    cfg.CycleTime.Strategy,
-				ProjectID:         cfg.Project.ID,
-				StatusFieldID:     cfg.Project.StatusFieldID,
-				BacklogStatus:     cfg.Statuses.Backlog,
-				DoneStatus:        cfg.Statuses.Done,
-				ActiveLabels:      cfg.Statuses.ActiveLabels,
-				BacklogLabels:     cfg.Statuses.BacklogLabels,
 				BugLabels:         cfg.Quality.BugLabels,
 			})
 

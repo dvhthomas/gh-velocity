@@ -11,7 +11,6 @@ import (
 
 	"github.com/bitsbyme/gh-velocity/internal/classify"
 	"github.com/bitsbyme/gh-velocity/internal/config"
-	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
@@ -128,6 +127,7 @@ type PreflightResult struct {
 	ActiveLabels     []string            `json:"active_labels"`
 	BacklogLabels    []string            `json:"backlog_labels"`
 	ProjectID        string              `json:"project_id,omitempty"`
+	ProjectURL       string              `json:"project_url,omitempty"`
 	StatusFieldID    string              `json:"status_field_id,omitempty"`
 	StatusOptions    []string            `json:"status_options,omitempty"`
 	Strategy         string              `json:"strategy"`
@@ -187,6 +187,7 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 				if strings.EqualFold(f.Name, "Status") && len(f.Options) > 0 {
 					result.HasProject = true
 					result.ProjectID = project.ID
+					result.ProjectURL = project.URL
 					result.StatusFieldID = f.ID
 					for _, o := range f.Options {
 						result.StatusOptions = append(result.StatusOptions, o.Name)
@@ -456,27 +457,17 @@ func renderPreflightConfig(r *PreflightResult) string {
 	b.WriteString("\n")
 
 	// Project board config (if detected)
-	if r.HasProject {
+	if r.HasProject && r.ProjectURL != "" {
 		b.WriteString("# Projects v2 board (auto-detected)\n")
 		b.WriteString("project:\n")
-		b.WriteString(fmt.Sprintf("  id: %q\n", r.ProjectID))
-		b.WriteString(fmt.Sprintf("  status_field_id: %q\n", r.StatusFieldID))
+		b.WriteString(fmt.Sprintf("  url: %q\n", r.ProjectURL))
+		b.WriteString(fmt.Sprintf("  status_field: %q\n", "Status"))
 		b.WriteString("\n")
 
-		// Try to map status options to statuses
-		b.WriteString("# Board column mapping\n")
-		b.WriteString("statuses:\n")
-		writeStatusMapping(&b, r.StatusOptions)
-		b.WriteString("\n")
-	} else if len(r.ActiveLabels) > 0 || len(r.BacklogLabels) > 0 {
-		b.WriteString("# Label-based status tracking (no project board detected)\n")
-		b.WriteString("statuses:\n")
-		if len(r.ActiveLabels) > 0 {
-			b.WriteString(fmt.Sprintf("  active_labels: %s\n", format.FormatStringSlice(r.ActiveLabels)))
-		}
-		if len(r.BacklogLabels) > 0 {
-			b.WriteString(fmt.Sprintf("  backlog_labels: %s\n", format.FormatStringSlice(r.BacklogLabels)))
-		}
+		// Map status options to lifecycle stages
+		b.WriteString("# Lifecycle stages mapped from board columns\n")
+		b.WriteString("lifecycle:\n")
+		writeLifecycleMapping(&b, r.StatusOptions)
 		b.WriteString("\n")
 	}
 
@@ -511,32 +502,28 @@ func renderPreflightConfig(r *PreflightResult) string {
 	return b.String()
 }
 
-// writeStatusMapping tries to map project board status options to config fields.
-func writeStatusMapping(b *strings.Builder, options []string) {
+// writeLifecycleMapping maps project board status options to lifecycle stages.
+func writeLifecycleMapping(b *strings.Builder, options []string) {
 	backlog := findStatus(options, "backlog", "to do", "todo", "triage", "new")
-	ready := findStatus(options, "ready", "planned", "up next")
 	inProgress := findStatus(options, "in progress", "doing", "active", "working")
 	inReview := findStatus(options, "in review", "review", "pending review")
 	done := findStatus(options, "done", "closed", "complete", "completed", "shipped")
 
 	if backlog != "" {
-		b.WriteString(fmt.Sprintf("  backlog: %q\n", backlog))
-	}
-	if ready != "" {
-		b.WriteString(fmt.Sprintf("  ready: %q\n", ready))
+		b.WriteString(fmt.Sprintf("  backlog:\n    project_status: [%q]\n", backlog))
 	}
 	if inProgress != "" {
-		b.WriteString(fmt.Sprintf("  in_progress: %q\n", inProgress))
+		b.WriteString(fmt.Sprintf("  in-progress:\n    project_status: [%q]\n", inProgress))
 	}
 	if inReview != "" {
-		b.WriteString(fmt.Sprintf("  in_review: %q\n", inReview))
+		b.WriteString(fmt.Sprintf("  in-review:\n    project_status: [%q]\n", inReview))
 	}
 	if done != "" {
-		b.WriteString(fmt.Sprintf("  done: %q\n", done))
+		b.WriteString(fmt.Sprintf("  done:\n    project_status: [%q]\n", done))
 	}
 
 	// Show unmapped options as comments
-	mapped := map[string]bool{backlog: true, ready: true, inProgress: true, inReview: true, done: true}
+	mapped := map[string]bool{backlog: true, inProgress: true, inReview: true, done: true}
 	for _, o := range options {
 		if !mapped[o] && o != "" {
 			b.WriteString(fmt.Sprintf("  # unmapped: %q\n", o))
@@ -585,8 +572,8 @@ func verifyConfig(result *PreflightResult, repoLabels []string) *VerificationRes
 	vr.CategoryCount = len(cfg.Quality.Categories)
 
 	// 3. Validate strategy prerequisites
-	if cfg.CycleTime.Strategy == "project-board" && cfg.Project.ID == "" {
-		vr.Warnings = append(vr.Warnings, "strategy \"project-board\" requires project.id to be set")
+	if cfg.CycleTime.Strategy == "project-board" && cfg.Project.URL == "" {
+		vr.Warnings = append(vr.Warnings, "strategy \"project-board\" requires project.url to be set")
 	}
 
 	// 4. Cross-reference category labels against repo labels

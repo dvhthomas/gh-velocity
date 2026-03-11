@@ -23,8 +23,6 @@ const (
 	MaxHotfixWindowHours     = 8760      // 1 year in hours
 )
 
-var categoryIDPattern = fmt.Sprintf("^DIC_[a-zA-Z0-9]+$")
-
 // WarnFunc is called for non-fatal warnings (e.g., unknown config keys).
 // Defaults to log.Warn.
 var WarnFunc = func(format string, args ...any) {
