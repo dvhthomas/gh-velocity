@@ -63,12 +63,12 @@ func TestHandleError_JSONFormat_EmitsEnvelope(t *testing.T) {
 	}
 
 	// Verify the JSON structure is correct
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		t.Fatalf("json.Unmarshal failed: %v", err)
 	}
 
-	errObj, ok := parsed["error"].(map[string]interface{})
+	errObj, ok := parsed["error"].(map[string]any)
 	if !ok {
 		t.Fatal("expected 'error' key in JSON envelope")
 	}

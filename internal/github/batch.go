@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"strings"
 
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
@@ -17,10 +19,7 @@ func (c *Client) FetchIssues(ctx context.Context, numbers []int) (map[int]*model
 	fetchErrors := make(map[int]error)
 
 	for i := 0; i < len(numbers); i += batchSize {
-		end := i + batchSize
-		if end > len(numbers) {
-			end = len(numbers)
-		}
+		end := min(i+batchSize, len(numbers))
 		batch := numbers[i:end]
 
 		batchIssues, err := c.fetchIssuesBatch(ctx, batch)
@@ -31,9 +30,7 @@ func (c *Client) FetchIssues(ctx context.Context, numbers []int) (map[int]*model
 			}
 			continue
 		}
-		for num, issue := range batchIssues {
-			issues[num] = issue
-		}
+		maps.Copy(issues, batchIssues)
 	}
 
 	return issues, fetchErrors
@@ -42,9 +39,9 @@ func (c *Client) FetchIssues(ctx context.Context, numbers []int) (map[int]*model
 // fetchIssuesBatch fetches a single batch of issues via GraphQL aliases.
 func (c *Client) fetchIssuesBatch(ctx context.Context, numbers []int) (map[int]*model.Issue, error) {
 	// Build aliased query fragments — one alias per issue number.
-	queryFragments := ""
+	var queryFragments strings.Builder
 	for _, num := range numbers {
-		queryFragments += fmt.Sprintf(`
+		queryFragments.WriteString(fmt.Sprintf(`
     issue%d: issue(number: %d) {
       number
       title
@@ -55,15 +52,15 @@ func (c *Client) fetchIssuesBatch(ctx context.Context, numbers []int) (map[int]*
       labels(first: 20) {
         nodes { name }
       }
-    }`, num, num)
+    }`, num, num))
 	}
 
 	query := fmt.Sprintf(`query($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {%s
   }
-}`, queryFragments)
+}`, queryFragments.String())
 
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"owner": c.owner,
 		"name":  c.repo,
 	}

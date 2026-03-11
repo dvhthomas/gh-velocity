@@ -22,7 +22,7 @@ func (c *Client) repoID(ctx context.Context) (string, error) {
 	query := `query($owner: String!, $repo: String!) {
 		repository(owner: $owner, name: $repo) { id }
 	}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"owner": c.owner,
 		"repo":  c.repo,
 	}
@@ -75,7 +75,7 @@ func (c *Client) SearchDiscussions(ctx context.Context, categoryID string, limit
 			}
 		}
 	}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"owner":      c.owner,
 		"repo":       c.repo,
 		"categoryID": categoryID,
@@ -115,7 +115,7 @@ func (c *Client) CreateDiscussion(ctx context.Context, categoryID, title, body s
 			}
 		}
 	}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"repoID":     repoID,
 		"categoryID": categoryID,
 		"title":      title,
@@ -145,7 +145,7 @@ func (c *Client) UpdateDiscussion(ctx context.Context, discussionID, body string
 			discussion { id }
 		}
 	}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id":   discussionID,
 		"body": body,
 	}

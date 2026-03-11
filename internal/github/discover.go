@@ -89,7 +89,7 @@ func (c *Client) DiscoverProjects(ctx context.Context) ([]DiscoveredProject, err
 		}
 	}`
 
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"owner": c.owner,
 		"repo":  c.repo,
 	}
@@ -159,7 +159,7 @@ func (c *Client) DiscoverProjectByNumber(ctx context.Context, number int) (*Disc
 		}
 	}`
 
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"owner":  c.owner,
 		"repo":   c.repo,
 		"number": number,
