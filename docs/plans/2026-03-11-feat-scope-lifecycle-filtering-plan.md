@@ -458,9 +458,9 @@ Preflight auto-detects repo characteristics and generates the new config shape:
 - `lifecycle`: if project board found, populate `project_status` arrays from actual board column names. If no project, emit `done.query: "is:closed"` default only.
 - `quality`: existing categories/label detection (already working from harden-preflight)
 
-- [ ] Update `renderPreflightConfig` to emit `scope:`, `project:` (URL format), `lifecycle:` (with project_status from detected board columns)
-- [ ] Remove old config fields (`statuses:`, `fields:`, `project.id`, `project.status_field_id`)
-- [ ] Round-trip validate generated config through `config.Parse()` (already established pattern)
+- [x] Update `renderPreflightConfig` to emit `scope:`, `project:` (URL format), `lifecycle:` (with project_status from detected board columns)
+- [x] Remove old config fields (`statuses:`, `fields:`, `project.id`, `project.status_field_id`)
+- [x] Round-trip validate generated config through `config.Parse()` (already established pattern)
 
 #### 5b. Scope validation
 
@@ -478,9 +478,9 @@ After generating config, validate scope queries against the API:
 
 ### Phase 6: Update smoke tests and documentation
 
-- [ ] Update `scripts/smoke-test.sh` for new config format
-- [ ] Update help text in all commands to reference `--scope`
-- [ ] Update `--debug` output in all commands
+- [x] Update `scripts/smoke-test.sh` for new config format
+- [x] Update help text in all commands to reference `--scope`
+- [x] Update `--debug` output in all commands
 
 ## Technical Considerations
 

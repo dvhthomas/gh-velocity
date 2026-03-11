@@ -126,9 +126,7 @@ type PreflightResult struct {
 	Categories       map[string][]string `json:"categories,omitempty"`
 	ActiveLabels     []string            `json:"active_labels"`
 	BacklogLabels    []string            `json:"backlog_labels"`
-	ProjectID        string              `json:"project_id,omitempty"`
 	ProjectURL       string              `json:"project_url,omitempty"`
-	StatusFieldID    string              `json:"status_field_id,omitempty"`
 	StatusOptions    []string            `json:"status_options,omitempty"`
 	Strategy         string              `json:"strategy"`
 	HasProject       bool                `json:"has_project"`
@@ -186,9 +184,7 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 			for _, f := range project.Fields {
 				if strings.EqualFold(f.Name, "Status") && len(f.Options) > 0 {
 					result.HasProject = true
-					result.ProjectID = project.ID
 					result.ProjectURL = project.URL
-					result.StatusFieldID = f.ID
 					for _, o := range f.Options {
 						result.StatusOptions = append(result.StatusOptions, o.Name)
 					}
@@ -405,6 +401,12 @@ func renderPreflightConfig(r *PreflightResult) string {
 	for _, hint := range r.Hints {
 		b.WriteString(fmt.Sprintf("# %s\n", hint))
 	}
+	b.WriteString("\n")
+
+	// Scope
+	b.WriteString("# Scope: which issues/PRs to analyze\n")
+	b.WriteString("scope:\n")
+	b.WriteString(fmt.Sprintf("  query: \"repo:%s\"\n", r.Repo))
 	b.WriteString("\n")
 
 	// Quality categories

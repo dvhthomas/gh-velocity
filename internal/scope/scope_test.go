@@ -3,6 +3,7 @@ package scope
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestQuery_Build(t *testing.T) {
@@ -121,6 +122,30 @@ func TestQuery_Verbose(t *testing.T) {
 	}
 	if strings.Contains(pv, "[type]") {
 		t.Error("Verbose() should omit empty [type]")
+	}
+}
+
+func TestClosedIssueQuery(t *testing.T) {
+	since := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	until := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+	q := ClosedIssueQuery("repo:myorg/myrepo", since, until)
+
+	got := q.Build()
+	want := "repo:myorg/myrepo is:issue is:closed closed:2026-01-01T00:00:00Z..2026-02-01T00:00:00Z"
+	if got != want {
+		t.Errorf("ClosedIssueQuery().Build() = %q, want %q", got, want)
+	}
+}
+
+func TestMergedPRQuery(t *testing.T) {
+	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	until := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+	q := MergedPRQuery("repo:myorg/myrepo label:bug", since, until)
+
+	got := q.Build()
+	want := "repo:myorg/myrepo label:bug is:pr is:merged merged:2026-03-01T00:00:00Z..2026-03-15T00:00:00Z"
+	if got != want {
+		t.Errorf("MergedPRQuery().Build() = %q, want %q", got, want)
 	}
 }
 
