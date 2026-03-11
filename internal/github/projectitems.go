@@ -40,6 +40,9 @@ type projectContent struct {
 			Name string `json:"name"`
 		} `json:"nodes"`
 	} `json:"labels,omitempty"`
+	IssueType *struct {
+		Name string `json:"name"`
+	} `json:"issueType,omitempty"`
 }
 
 type projectFieldValues struct {
@@ -67,6 +70,7 @@ const projectItemsQuery = `query($projectId: ID!, $cursor: String) {
               number title state createdAt
               repository { nameWithOwner }
               labels(first: 20) { nodes { name } }
+              issueType { name }
             }
             ... on PullRequest {
               number title state createdAt
@@ -127,6 +131,10 @@ func (c *Client) ListProjectItems(ctx context.Context, projectID, statusFieldID 
 				for _, l := range node.Content.Labels.Nodes {
 					item.Labels = append(item.Labels, l.Name)
 				}
+			}
+
+			if node.Content.IssueType != nil {
+				item.IssueType = node.Content.IssueType.Name
 			}
 
 			// Find the status field value.

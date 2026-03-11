@@ -64,6 +64,9 @@ type gqlIssueNode struct {
 			Name string `json:"name"`
 		} `json:"nodes"`
 	} `json:"labels"`
+	IssueType *struct {
+		Name string `json:"name"`
+	} `json:"issueType"`
 }
 
 // FetchPRLinkedIssues fetches linked issues for multiple PRs in batched GraphQL queries.
@@ -107,6 +110,7 @@ func (c *Client) fetchPRLinkedIssuesBatch(ctx context.Context, prNumbers []int) 
           labels(first: 20) {
             nodes { name }
           }
+          issueType { name }
         }
       }
     }`, num, num))
@@ -149,7 +153,7 @@ func (c *Client) fetchPRLinkedIssuesBatch(ctx context.Context, prNumbers []int) 
 			for i, l := range issueNode.Labels.Nodes {
 				labels[i] = l.Name
 			}
-			issues = append(issues, model.Issue{
+			issue := model.Issue{
 				Number:    issueNode.Number,
 				Title:     issueNode.Title,
 				State:     issueNode.State,
@@ -157,7 +161,11 @@ func (c *Client) fetchPRLinkedIssuesBatch(ctx context.Context, prNumbers []int) 
 				CreatedAt: issueNode.CreatedAt,
 				ClosedAt:  issueNode.ClosedAt,
 				URL:       issueNode.URL,
-			})
+			}
+			if issueNode.IssueType != nil {
+				issue.IssueType = issueNode.IssueType.Name
+			}
+			issues = append(issues, issue)
 		}
 		result[num] = issues
 	}

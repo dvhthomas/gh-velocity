@@ -107,7 +107,7 @@ func BuildReleaseMetrics(ctx context.Context, input ReleaseInput) (model.Release
 	for i, im := range issueMetrics {
 		ci := classify.Input{
 			Labels:    im.Issue.Labels,
-			IssueType: "", // TODO: populate when Issue model gains IssueType
+			IssueType: im.Issue.IssueType,
 			Title:     im.Issue.Title,
 		}
 		result := input.Classifier.Classify(ci)

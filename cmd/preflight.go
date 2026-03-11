@@ -16,6 +16,7 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 )
 
 func newConfigPreflightCmd() *cobra.Command {
@@ -162,6 +163,7 @@ type PreflightResult struct {
 	RecentIssues     int                 `json:"recent_issues_closed"`
 	RecentPRs        int                 `json:"recent_prs_merged"`
 	AllLabels        []labelCount        `json:"labels"`
+	DiscoveredTypes  []string            `json:"discovered_types,omitempty"`
 	MatchEvidence    []CategoryEvidence  `json:"match_evidence,omitempty"`
 	PostingReadiness *PostingReadiness   `json:"posting_readiness,omitempty"`
 	Verification     *VerificationResult `json:"verification,omitempty"`
@@ -241,15 +243,18 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 	}
 
 	// 2. Discover project board (if --project specified)
+	var projectID, statusFieldID string
 	if projectNumber > 0 {
 		project, projErr := client.DiscoverProjectByNumber(ctx, projectNumber)
 		if projErr != nil {
 			result.Hints = append(result.Hints, fmt.Sprintf("Could not fetch project #%d: %v", projectNumber, projErr))
 		} else {
+			projectID = project.ID
 			for _, f := range project.Fields {
 				if strings.EqualFold(f.Name, "Status") && len(f.Options) > 0 {
 					result.HasProject = true
 					result.ProjectURL = project.URL
+					statusFieldID = f.ID
 					for _, o := range f.Options {
 						result.StatusOptions = append(result.StatusOptions, o.Name)
 					}
@@ -302,8 +307,73 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 		result.Hints = append(result.Hints, "No recent activity found in the last 30 days — metrics may be empty initially")
 	}
 
+	// 5a. Discover issue types (concurrent when both paths available)
+	var repoTypes, projectTypes []string
+
+	g, gCtx := errgroup.WithContext(ctx)
+	g.SetLimit(5)
+
+	// Path 1: Repo-level issue types (always runs — -R is always resolved)
+	g.Go(func() error {
+		types, typesErr := client.ListIssueTypes(gCtx)
+		if typesErr != nil {
+			result.Hints = append(result.Hints, fmt.Sprintf("Could not fetch repo issue types: %v", typesErr))
+			return nil
+		}
+		repoTypes = types
+		return nil
+	})
+
+	// Path 2: Project item issue types (when project discovered)
+	if projectID != "" {
+		g.Go(func() error {
+			items, itemsErr := client.ListProjectItems(gCtx, projectID, statusFieldID)
+			if itemsErr != nil {
+				result.Hints = append(result.Hints, fmt.Sprintf("Could not fetch project items for type discovery: %v", itemsErr))
+				return nil
+			}
+			seen := make(map[string]bool)
+			for _, item := range items {
+				if item.IssueType != "" && !seen[item.IssueType] {
+					seen[item.IssueType] = true
+					projectTypes = append(projectTypes, item.IssueType)
+				}
+			}
+			return nil
+		})
+	}
+
+	_ = g.Wait()
+
+	// Merge and deduplicate discovered types.
+	typeSeen := make(map[string]bool)
+	for _, t := range append(repoTypes, projectTypes...) {
+		if !typeSeen[t] {
+			typeSeen[t] = true
+			result.DiscoveredTypes = append(result.DiscoveredTypes, t)
+		}
+	}
+
+	if len(result.DiscoveredTypes) > 0 {
+		result.Hints = append(result.Hints, fmt.Sprintf("Discovered issue types: %v", result.DiscoveredTypes))
+	}
+
+	// Report unmapped types.
+	mappedTypes := make(map[string]bool)
+	for _, patterns := range typePatterns {
+		for _, p := range patterns {
+			mappedTypes[p] = true
+		}
+	}
+	for _, t := range result.DiscoveredTypes {
+		if !mappedTypes[t] {
+			result.Hints = append(result.Hints,
+				fmt.Sprintf("Discovered issue type %q with no category mapping — add type:%s to a category if desired", t, t))
+		}
+	}
+
 	// 5b. Collect match evidence: run each matcher against recent items
-	result.MatchEvidence = collectMatchEvidence(result.Categories, issues, prs)
+	result.MatchEvidence = collectMatchEvidence(result.Categories, result.DiscoveredTypes, issues, prs)
 
 	// 6. Check posting readiness (best-effort)
 	pr := checkPostingReadiness(ctx, client)
@@ -396,6 +466,7 @@ var ignorePrefixes = []string{
 // Each label is assigned to the first matching category only (first-match-wins).
 func classifyLabels(result *PreflightResult, labels []string) {
 	// Category order determines priority for first-match-wins.
+	// Includes "docs" for label discovery even though it's not a baseline output category.
 	categoryOrder := []string{"bug", "feature", "chore", "docs"}
 
 	for _, label := range labels {
@@ -476,9 +547,10 @@ func isWordBoundary(c byte) bool {
 
 // classifyItem is a unified representation of an issue or PR for matcher probing.
 type classifyItem struct {
-	number int
-	title  string
-	labels []string
+	number    int
+	title     string
+	labels    []string
+	issueType string // GitHub Issue Type; empty for REST-sourced or PR items
 }
 
 // titleProbes maps category names to title regex patterns to try when labels find nothing.
@@ -488,6 +560,14 @@ var titleProbes = map[string][]string{
 	"feature": {`title:/^feat[\(: ]/i`, `title:/^feature[\(: ]/i`, `title:/^add[\(: ]/i`},
 	"chore":   {`title:/^chore[\(: ]/i`, `title:/^refactor[\(: ]/i`, `title:/^ci[\(: ]/i`, `title:/^build[\(: ]/i`},
 	"docs":    {`title:/^docs?[\(: ]/i`},
+}
+
+// typePatterns maps quality categories to GitHub Issue Type names.
+// Used to generate type: probe jobs from discovered issue types.
+var typePatterns = map[string][]string{
+	"bug":     {"Bug", "Defect"},
+	"feature": {"Feature", "Enhancement"},
+	"chore":   {"Task", "Chore", "Maintenance"},
 }
 
 // probeJob describes a single matcher probe to run concurrently.
@@ -506,10 +586,10 @@ type probeResult struct {
 // collectMatchEvidence probes every matcher idea against recent items in parallel.
 // For each category it tests all detected label matchers AND all title probes,
 // then sorts by hit count so the best matchers surface first.
-func collectMatchEvidence(categories map[string][]string, issues []model.Issue, prs []model.PR) []CategoryEvidence {
+func collectMatchEvidence(categories map[string][]string, discoveredTypes []string, issues []model.Issue, prs []model.PR) []CategoryEvidence {
 	var items []classifyItem
 	for _, iss := range issues {
-		items = append(items, classifyItem{number: iss.Number, title: iss.Title, labels: iss.Labels})
+		items = append(items, classifyItem{number: iss.Number, title: iss.Title, labels: iss.Labels, issueType: iss.IssueType})
 	}
 	for _, pr := range prs {
 		items = append(items, classifyItem{number: pr.Number, title: pr.Title, labels: pr.Labels})
@@ -520,14 +600,26 @@ func collectMatchEvidence(categories map[string][]string, issues []model.Issue, 
 	}
 
 	// Build all probe jobs.
-	categoryOrder := []string{"bug", "feature", "chore", "docs"}
+	categoryOrder := []string{"bug", "feature", "chore"}
 	var jobs []probeJob
 	for _, cat := range categoryOrder {
+		// Label matchers from detected labels.
 		if labels, ok := categories[cat]; ok {
 			for _, label := range labels {
 				jobs = append(jobs, probeJob{category: cat, matcher: "label:" + label})
 			}
 		}
+		// Type matchers from discovered issue types (peers with labels, not suggested).
+		if patterns, ok := typePatterns[cat]; ok {
+			for _, typeName := range discoveredTypes {
+				for _, pattern := range patterns {
+					if typeName == pattern {
+						jobs = append(jobs, probeJob{category: cat, matcher: "type:" + typeName})
+					}
+				}
+			}
+		}
+		// Title probes as fallbacks.
 		for _, probe := range titleProbes[cat] {
 			jobs = append(jobs, probeJob{category: cat, matcher: probe, suggested: true})
 		}
@@ -576,8 +668,9 @@ func probeMatcher(matcherStr string, items []classifyItem) MatcherEvidence {
 	}
 	for _, item := range items {
 		input := classify.Input{
-			Labels: item.labels,
-			Title:  item.title,
+			Labels:    item.labels,
+			IssueType: item.issueType,
+			Title:     item.title,
 		}
 		if m.Matches(input) {
 			me.Count++
@@ -658,7 +751,7 @@ func renderPreflightConfig(r *PreflightResult) string {
 		evidenceByCategory[ce.Category] = ce
 	}
 
-	categoryOrder := []string{"bug", "feature", "chore", "docs"}
+	categoryOrder := []string{"bug", "feature", "chore"}
 	type effectiveCategory struct {
 		name     string
 		matchers []MatcherEvidence
@@ -718,6 +811,9 @@ func renderPreflightConfig(r *PreflightResult) string {
 		b.WriteString("    - name: feature\n")
 		b.WriteString("      match:\n")
 		b.WriteString("        - \"label:enhancement\"\n")
+		b.WriteString("    - name: chore\n")
+		b.WriteString("      match:\n")
+		b.WriteString("        - \"label:chore\"\n")
 	}
 	b.WriteString("  hotfix_window_hours: 72\n")
 
@@ -925,6 +1021,25 @@ func verifyConfig(result *PreflightResult, repoLabels []string) *VerificationRes
 						vr.MissingLabels = append(vr.MissingLabels, value)
 						vr.Warnings = append(vr.Warnings,
 							fmt.Sprintf("label %q in %s category not found on repo — will never match", value, cat.Name))
+					}
+				}
+			}
+		}
+	}
+
+	// 5. Cross-reference type: matchers against discovered types
+	if len(result.DiscoveredTypes) > 0 {
+		typeSet := make(map[string]bool, len(result.DiscoveredTypes))
+		for _, t := range result.DiscoveredTypes {
+			typeSet[t] = true
+		}
+		for _, cat := range cfg.Quality.Categories {
+			for _, m := range cat.Matchers {
+				prefix, value, ok := strings.Cut(m, ":")
+				if ok && prefix == "type" {
+					if !typeSet[value] {
+						vr.Warnings = append(vr.Warnings,
+							fmt.Sprintf("issue type %q in %s category not found on repo — will never match", value, cat.Name))
 					}
 				}
 			}

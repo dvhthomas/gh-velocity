@@ -52,6 +52,7 @@ func (c *Client) fetchIssuesBatch(ctx context.Context, numbers []int) (map[int]*
       labels(first: 20) {
         nodes { name }
       }
+      issueType { name }
     }`, num, num))
 	}
 
@@ -89,7 +90,7 @@ func (c *Client) fetchIssuesBatch(ctx context.Context, numbers []int) (map[int]*
 		for i, l := range node.Labels.Nodes {
 			labels[i] = l.Name
 		}
-		result[num] = &model.Issue{
+		issue := &model.Issue{
 			Number:    node.Number,
 			Title:     node.Title,
 			State:     node.State,
@@ -98,6 +99,10 @@ func (c *Client) fetchIssuesBatch(ctx context.Context, numbers []int) (map[int]*
 			ClosedAt:  node.ClosedAt,
 			URL:       node.URL,
 		}
+		if node.IssueType != nil {
+			issue.IssueType = node.IssueType.Name
+		}
+		result[num] = issue
 	}
 
 	return result, nil
