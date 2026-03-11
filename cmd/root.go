@@ -13,6 +13,7 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/config"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	"github.com/bitsbyme/gh-velocity/internal/gitdata"
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/cli/go-gh/v2/pkg/repository"
 	"github.com/cli/go-gh/v2/pkg/term"
@@ -29,6 +30,8 @@ type Deps struct {
 	Config       *config.Config
 	Format       format.Format
 	Post         bool
+	NewPost      bool // --new-post: force a new post (skip idempotent update)
+	DryRun       bool // true unless GH_VELOCITY_POST_LIVE=true — protects against accidental mutations
 	Owner        string
 	Repo         string
 	HasLocalRepo bool // true when a local git checkout is available
@@ -84,11 +87,12 @@ func handleError(root *cobra.Command, err error) int {
 // NewRootCmd creates and returns the root command with all subcommands wired.
 func NewRootCmd(version, buildTime string) *cobra.Command {
 	var (
-		formatFlag string
-		repoFlag   string
-		configFlag string
-		postFlag   bool
-		debugFlag  bool
+		formatFlag  string
+		repoFlag    string
+		configFlag  string
+		postFlag    bool
+		newPostFlag bool
+		debugFlag   bool
 	)
 
 	root := &cobra.Command{
@@ -109,12 +113,14 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				return nil
 			}
 
-			// Reject --post until posting is implemented
-			if postFlag {
-				return &model.AppError{
-					Code:    model.ErrConfigInvalid,
-					Message: "--post is not yet implemented; default output is read-only",
-				}
+			// --new-post implies --post.
+			if newPostFlag {
+				postFlag = true
+			}
+
+			// --post coerces format to markdown unless user explicitly set -f.
+			if postFlag && !cmd.Flags().Changed("format") {
+				formatFlag = "markdown"
 			}
 
 			// Validate format
@@ -169,14 +175,26 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				termWidth = w
 			}
 
+			// Dry-run is the default for --post. Mutations only happen when
+			// GH_VELOCITY_POST_LIVE=true is explicitly set. This prevents
+			// tests, agents, and accidental runs from mutating GitHub state.
+			dryRun := postFlag && os.Getenv("GH_VELOCITY_POST_LIVE") != "true"
+
 			if debugFlag {
-				fmt.Fprintf(os.Stderr, "[debug] repo:         %s/%s\n", owner, repo)
-				fmt.Fprintf(os.Stderr, "[debug] local repo:   %v\n", hasLocal)
-				fmt.Fprintf(os.Stderr, "[debug] config:       %s\n", configPath)
-				fmt.Fprintf(os.Stderr, "[debug] format:       %s\n", formatFlag)
-				fmt.Fprintf(os.Stderr, "[debug] strategy:     %s\n", cfg.CycleTime.Strategy)
+				log.Debug("repo:         %s/%s", owner, repo)
+				log.Debug("local repo:   %v", hasLocal)
+				log.Debug("config:       %s", configPath)
+				log.Debug("format:       %s", formatFlag)
+				log.Debug("strategy:     %s", cfg.CycleTime.Strategy)
 				if cfg.Project.ID != "" {
-					fmt.Fprintf(os.Stderr, "[debug] project.id:   %s\n", cfg.Project.ID)
+					log.Debug("project.id:   %s", cfg.Project.ID)
+				}
+				if postFlag {
+					mode := "dry-run"
+					if !dryRun {
+						mode = "live"
+					}
+					log.Debug("post:         %s", mode)
 				}
 			}
 
@@ -184,6 +202,8 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				Config:       cfg,
 				Format:       f,
 				Post:         postFlag,
+				NewPost:      newPostFlag,
+				DryRun:       dryRun,
 				Owner:        owner,
 				Repo:         repo,
 				HasLocalRepo: hasLocal,
@@ -200,8 +220,8 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 	root.PersistentFlags().StringVarP(&formatFlag, "format", "f", "pretty", "Output format: json, pretty, markdown")
 	root.PersistentFlags().StringVarP(&repoFlag, "repo", "R", "", "Repository in owner/name format")
 	root.PersistentFlags().StringVar(&configFlag, "config", "", "Path to config file (default: .gh-velocity.yml)")
-	root.PersistentFlags().BoolVar(&postFlag, "post", false, "Post output to GitHub (coming soon)")
-	root.PersistentFlags().MarkHidden("post")
+	root.PersistentFlags().BoolVar(&postFlag, "post", false, "Post output to GitHub (dry-run by default; set GH_VELOCITY_POST_LIVE=true for live)")
+	root.PersistentFlags().BoolVar(&newPostFlag, "new-post", false, "Force a new post (skip idempotent update; implies --post)")
 	root.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Print diagnostic info to stderr")
 
 	root.AddCommand(NewVersionCmd(version, buildTime))

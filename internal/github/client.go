@@ -9,10 +9,11 @@ import (
 
 // Client wraps go-gh REST and GraphQL clients.
 type Client struct {
-	rest  *ghapi.RESTClient
-	gql   *ghapi.GraphQLClient
-	owner string
-	repo  string
+	rest       *ghapi.RESTClient
+	gql        *ghapi.GraphQLClient
+	owner      string
+	repo       string
+	repoNodeID string // cached GraphQL node ID, populated lazily by repoID()
 }
 
 // NewClient creates a Client for the given owner/repo.

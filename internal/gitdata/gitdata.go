@@ -10,6 +10,7 @@ import (
 
 	"github.com/bitsbyme/gh-velocity/internal/git"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -79,7 +80,7 @@ func (s *APISource) AllCommits(ctx context.Context, ref string) ([]model.Commit,
 }
 
 func (s *APISource) CommitsForIssue(ctx context.Context, issueNumber int, ref string) ([]model.Commit, error) {
-	fmt.Fprintf(os.Stderr, "warning: CommitsForIssue is not supported via the GitHub API; commit linking unavailable\n")
+	log.Warn("CommitsForIssue is not supported via the GitHub API; commit linking unavailable")
 	return nil, nil
 }
 

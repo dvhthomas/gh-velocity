@@ -87,6 +87,53 @@ gh velocity report -f json            # structured JSON (for CI/scripts)
 gh velocity report -f markdown        # paste into an issue or PR
 ```
 
+### Posting results to GitHub
+
+Use `--post` to write results back to GitHub as comments or Discussion posts:
+
+```bash
+# Post lead time as a comment on issue #42
+GH_VELOCITY_POST_LIVE=true gh velocity flow lead-time 42 --post
+
+# Post a 30-day report as a Discussion
+GH_VELOCITY_POST_LIVE=true gh velocity report --since 30d --post
+
+# Force a new comment (skip idempotent update)
+GH_VELOCITY_POST_LIVE=true gh velocity flow lead-time 42 --new-post
+```
+
+**Safety:** `--post` runs in **dry-run mode by default** — it prints what it would do but makes no mutations. Set `GH_VELOCITY_POST_LIVE=true` to enable live writes. This prevents tests, agents, and accidental runs from modifying GitHub state.
+
+| Command type | Post target |
+| --- | --- |
+| Single issue (`flow lead-time 42`) | Issue comment |
+| Single PR (`flow cycle-time --pr 5`) | PR comment |
+| Bulk (`report --since 30d`) | Discussion post |
+
+Discussion posting requires `discussions.category_id` in your config (find it with `config discover`).
+
+### CI / GitHub Actions
+
+gh-velocity detects `GITHUB_ACTIONS=true` and emits structured log annotations:
+
+```yaml
+# .github/workflows/velocity-report.yml
+name: Velocity Report
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Monday 9am UTC
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: gh extension install dvhthomas/gh-velocity
+      - run: gh velocity report --since 30d --post -f markdown
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_VELOCITY_POST_LIVE: 'true'
+```
+
 ### Common flags
 
 | Flag | Short | Description |
@@ -95,6 +142,8 @@ gh velocity report -f markdown        # paste into an issue or PR
 | `--repo` | `-R` | Target repo as `owner/name` |
 | `--since` | | Start of date window or previous tag |
 | `--until` | | End of date window (default: now) |
+| `--post` | | Post output to GitHub (dry-run by default) |
+| `--new-post` | | Force a new post, skip idempotent update (implies `--post`) |
 | `--debug` | | Print diagnostic info to stderr |
 
 ## What gets measured

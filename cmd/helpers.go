@@ -2,11 +2,10 @@ package cmd
 
 import (
 	"context"
-	"fmt"
-	"os"
 
 	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -46,7 +45,7 @@ func buildClosingPRMap(ctx context.Context, client *gh.Client, mergedPRs []model
 
 	linkedIssues, err := client.FetchPRLinkedIssues(ctx, prNumbers)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not fetch PR linked issues: %v\n", err)
+		log.Warn("could not fetch PR linked issues: %v", err)
 		return closingPRs
 	}
 

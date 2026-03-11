@@ -283,6 +283,38 @@ out=$($BINARY flow lead-time abc -R cli/cli -f json 2>&1 || true)
 show "$out"
 echo "$out" | jq -e '.error.code' >/dev/null 2>&1 && pass "json error envelope" || fail "json error envelope"
 
+# ── --post dry-run ────────────────────────────────────────────────
+echo ""
+echo "posting (dry-run by default)"
+
+out=$($BINARY flow lead-time 2 -R cli/cli --post 2>&1)
+show "$out"
+[[ "$out" == *"dry-run"* ]] && pass "post defaults to dry-run" || fail "post defaults to dry-run"
+
+out=$($BINARY flow lead-time 2 -R cli/cli --new-post 2>&1)
+show "$out"
+[[ "$out" == *"dry-run"* ]] && pass "new-post defaults to dry-run" || fail "new-post defaults to dry-run"
+
+# ── preflight posting readiness ──────────────────────────────────
+echo ""
+echo "preflight posting readiness"
+
+out=$($BINARY config preflight -R cli/cli -f json 2>/dev/null)
+echo "$out" | jq '.posting_readiness.discussions_enabled' 2>/dev/null | sed 's/^/    discussions: /'
+echo "$out" | jq -e '.posting_readiness' >/dev/null 2>&1 && pass "preflight json has posting_readiness" || fail "preflight json has posting_readiness"
+
+out=$($BINARY config preflight -R cli/cli 2>&1)
+show "$out"
+[[ "$out" == *"posting:"* ]] && pass "preflight pretty shows posting section" || fail "preflight pretty shows posting section"
+
+# ── CI logging format ────────────────────────────────────────────
+echo ""
+echo "CI logging format"
+
+out=$(GITHUB_ACTIONS=true $BINARY flow lead-time 2 -R cli/cli --post 2>&1)
+show "$out"
+[[ "$out" == *"::notice::"* ]] && pass "CI mode emits ::notice::" || fail "CI mode emits ::notice::"
+
 # ── old commands removed ──────────────────────────────────────────
 echo ""
 echo "old commands removed (clean break)"

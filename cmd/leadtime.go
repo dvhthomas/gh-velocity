@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
@@ -9,6 +10,7 @@ import (
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/spf13/cobra"
 )
 
@@ -90,10 +92,17 @@ func runLeadTimeSingle(cmd *cobra.Command, arg string) error {
 
 	lt := metrics.LeadTime(*issue)
 
-	w := cmd.OutOrStdout()
+	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+		Command: "lead-time",
+		Context: strconv.Itoa(issueNumber),
+		Target:  posting.IssueComment,
+		Number:  issueNumber,
+	})
 	switch deps.Format {
 	case format.JSON:
-		return format.WriteLeadTimeJSON(w, deps.Owner+"/"+deps.Repo, issueNumber, issue.Title, issue.State, lt, nil)
+		if err = format.WriteLeadTimeJSON(w, deps.Owner+"/"+deps.Repo, issueNumber, issue.Title, issue.State, lt, nil); err != nil {
+			return err
+		}
 	case format.Markdown:
 		fmt.Fprintf(w, "| Issue | Title | Created (UTC) | Lead Time |\n")
 		fmt.Fprintf(w, "| ---: | --- | --- | --- |\n")
@@ -104,7 +113,7 @@ func runLeadTimeSingle(cmd *cobra.Command, arg string) error {
 		fmt.Fprintf(w, "  Lead Time: %s\n", format.FormatMetric(lt))
 	}
 
-	return nil
+	return postFn()
 }
 
 // runLeadTimeBulk computes lead time for all issues closed in a date window.
@@ -161,13 +170,23 @@ func runLeadTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	stats := metrics.ComputeStats(durations)
 	repo := deps.Owner + "/" + deps.Repo
 
-	w := cmd.OutOrStdout()
+	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+		Command: "lead-time",
+		Context: dateutil.FormatContext(sinceStr, untilStr),
+		Target:  posting.DiscussionTarget,
+	})
+
+	var fmtErr error
 	switch deps.Format {
 	case format.JSON:
-		return format.WriteLeadTimeBulkJSON(w, repo, since, until, items, stats)
+		fmtErr = format.WriteLeadTimeBulkJSON(w, repo, since, until, items, stats)
 	case format.Markdown:
-		return format.WriteLeadTimeBulkMarkdown(w, repo, since, until, items, stats)
+		fmtErr = format.WriteLeadTimeBulkMarkdown(w, repo, since, until, items, stats)
 	default:
-		return format.WriteLeadTimeBulkPretty(w, deps.IsTTY, deps.TermWidth, repo, since, until, items, stats)
+		fmtErr = format.WriteLeadTimeBulkPretty(w, deps.IsTTY, deps.TermWidth, repo, since, until, items, stats)
 	}
+	if fmtErr != nil {
+		return fmtErr
+	}
+	return postFn()
 }

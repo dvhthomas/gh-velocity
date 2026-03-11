@@ -3,8 +3,8 @@ package strategy
 import (
 	"context"
 	"fmt"
-	"os"
 
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -40,7 +40,7 @@ func (s *PRLink) Discover(ctx context.Context, input DiscoverInput) ([]model.Dis
 	}
 
 	if len(prs) >= 1000 {
-		fmt.Fprintf(os.Stderr, "warning: pr-link: search returned 1000+ PRs (API limit), results may be incomplete\n")
+		log.Warn("pr-link: search returned 1000+ PRs (API limit), results may be incomplete")
 	}
 
 	// Collect PR numbers for batch GraphQL query.

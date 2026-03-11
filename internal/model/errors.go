@@ -13,6 +13,7 @@ const (
 	ErrRateLimited      = "RATE_LIMITED"
 	ErrNoTags           = "NO_TAGS"
 	ErrNotGitRepo       = "NOT_GIT_REPO"
+	ErrPostFailed       = "POST_FAILED"
 )
 
 // exitCodes maps error codes to process exit codes.

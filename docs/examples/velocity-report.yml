@@ -1,0 +1,38 @@
+# Post a weekly velocity report as a GitHub Discussion.
+#
+# Prerequisites:
+#   1. Install the extension: gh extension install dvhthomas/gh-velocity
+#   2. Enable Discussions in repo Settings → General → Features
+#   3. Create a Discussion category (e.g., "Reports")
+#   4. Add .gh-velocity.yml with discussions.category_id
+#      (find it with: gh velocity config discover -R owner/repo)
+#
+# The report updates in place each week (idempotent via HTML comment markers).
+# To always create a new Discussion, use --new-post instead of --post.
+
+name: Velocity Report
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday at 9am UTC
+  workflow_dispatch:       # Allow manual trigger
+
+permissions:
+  issues: write
+  discussions: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gh-velocity
+        run: gh extension install dvhthomas/gh-velocity
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post velocity report
+        run: gh velocity report --since 30d --post -f markdown
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_VELOCITY_POST_LIVE: 'true'

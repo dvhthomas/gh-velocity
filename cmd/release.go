@@ -10,8 +10,10 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	"github.com/bitsbyme/gh-velocity/internal/gitdata"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/bitsbyme/gh-velocity/internal/strategy"
 	"github.com/spf13/cobra"
 )
@@ -64,11 +66,11 @@ linking strategy discovered for the release.`,
 					return fmt.Errorf("get working directory: %w", wdErr)
 				}
 				if gitdata.IsShallowClone(wd) {
-					fmt.Fprintf(os.Stderr, "warning: shallow clone detected; commit history is incomplete. Use 'actions/checkout' with fetch-depth: 0 for accurate metrics.\n")
+					log.Warn("shallow clone detected; commit history is incomplete. Use 'actions/checkout' with fetch-depth: 0 for accurate metrics.")
 				}
 				source = gitdata.NewLocalSource(wd)
 			} else {
-				fmt.Fprintf(os.Stderr, "warning: Using API for git operations (no local checkout)\n")
+				log.Warn("Using API for git operations (no local checkout)")
 				source = gitdata.NewAPISource(client)
 			}
 
@@ -81,7 +83,7 @@ linking strategy discovered for the release.`,
 			// --scope: output scope diagnostic view and return
 			if scopeFlag {
 				for _, warning := range warnings {
-					fmt.Fprintf(os.Stderr, "warning: %s\n", warning)
+					log.Warn("%s", warning)
 				}
 				w := cmd.OutOrStdout()
 				switch deps.Format {
@@ -111,15 +113,25 @@ linking strategy discovered for the release.`,
 			warnings = append(warnings, metricWarnings...)
 
 			// Output
-			w := cmd.OutOrStdout()
+			w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+				Command: "release",
+				Context: tag,
+				Target:  posting.DiscussionTarget,
+			})
+
+			var fmtErr error
 			switch deps.Format {
 			case format.JSON:
-				return format.WriteReleaseJSON(w, deps.Owner+"/"+deps.Repo, rm, warnings)
+				fmtErr = format.WriteReleaseJSON(w, deps.Owner+"/"+deps.Repo, rm, warnings)
 			case format.Markdown:
-				return format.WriteReleaseMarkdown(w, rm, warnings)
+				fmtErr = format.WriteReleaseMarkdown(w, rm, warnings)
 			default:
-				return format.WriteReleasePretty(w, deps.IsTTY, deps.TermWidth, rm, warnings)
+				fmtErr = format.WriteReleasePretty(w, deps.IsTTY, deps.TermWidth, rm, warnings)
 			}
+			if fmtErr != nil {
+				return fmtErr
+			}
+			return postFn()
 		},
 	}
 

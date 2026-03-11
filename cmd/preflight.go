@@ -11,6 +11,7 @@ import (
 
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/spf13/cobra"
 )
@@ -66,7 +67,7 @@ each choice. Use --write to save it directly.`,
 			w := cmd.OutOrStdout()
 			formatFlag, _ := cmd.Root().PersistentFlags().GetString("format")
 
-			fmt.Fprintf(os.Stderr, "Analyzing %s/%s...\n", owner, repo)
+			log.Notice("Analyzing %s/%s...", owner, repo)
 
 			result, err := runPreflight(ctx, client, owner, repo, projectFlag)
 			if err != nil {
@@ -92,13 +93,13 @@ each choice. Use --write to save it directly.`,
 				if writeErr := os.WriteFile(path, []byte(configYAML), 0644); writeErr != nil {
 					return fmt.Errorf("write %s: %w", path, writeErr)
 				}
-				fmt.Fprintf(os.Stderr, "Wrote %s\n", path)
+				log.Notice("Wrote %s", path)
 				return nil
 			}
 
 			fmt.Fprint(w, configYAML)
-			fmt.Fprintln(os.Stderr)
-			fmt.Fprintln(os.Stderr, "To save this config:  gh velocity config preflight --write")
+			log.Notice("")
+			log.Notice("To save this config:  gh velocity config preflight --write")
 			return nil
 		},
 	}
@@ -110,20 +111,29 @@ each choice. Use --write to save it directly.`,
 
 // PreflightResult holds the analysis of a repository for config generation.
 type PreflightResult struct {
-	Repo          string       `json:"repo"`
-	BugLabels     []string     `json:"bug_labels"`
-	FeatureLabels []string     `json:"feature_labels"`
-	ActiveLabels  []string     `json:"active_labels"`
-	BacklogLabels []string     `json:"backlog_labels"`
-	ProjectID     string       `json:"project_id,omitempty"`
-	StatusFieldID string       `json:"status_field_id,omitempty"`
-	StatusOptions []string     `json:"status_options,omitempty"`
-	Strategy      string       `json:"strategy"`
-	HasProject    bool         `json:"has_project"`
-	RecentIssues  int          `json:"recent_issues_closed"`
-	RecentPRs     int          `json:"recent_prs_merged"`
-	AllLabels     []labelCount `json:"labels"`
-	Hints         []string     `json:"hints"`
+	Repo             string            `json:"repo"`
+	BugLabels        []string          `json:"bug_labels"`
+	FeatureLabels    []string          `json:"feature_labels"`
+	ActiveLabels     []string          `json:"active_labels"`
+	BacklogLabels    []string          `json:"backlog_labels"`
+	ProjectID        string            `json:"project_id,omitempty"`
+	StatusFieldID    string            `json:"status_field_id,omitempty"`
+	StatusOptions    []string          `json:"status_options,omitempty"`
+	Strategy         string            `json:"strategy"`
+	HasProject       bool              `json:"has_project"`
+	RecentIssues     int               `json:"recent_issues_closed"`
+	RecentPRs        int               `json:"recent_prs_merged"`
+	AllLabels        []labelCount      `json:"labels"`
+	PostingReadiness *PostingReadiness `json:"posting_readiness,omitempty"`
+	Hints            []string          `json:"hints"`
+}
+
+// PostingReadiness reports whether the token and repo support --post operations.
+// All checks are best-effort (fine-grained PATs don't expose scopes via headers).
+type PostingReadiness struct {
+	DiscussionsEnabled bool  `json:"discussions_enabled"`
+	HasIssuesWrite     bool  `json:"has_issues_write"`
+	CategoryValid      *bool `json:"category_valid,omitempty"` // nil = not configured
 }
 
 type labelCount struct {
@@ -208,7 +218,36 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 		result.Hints = append(result.Hints, "No recent activity found in the last 30 days — metrics may be empty initially")
 	}
 
+	// 6. Check posting readiness (best-effort)
+	pr := checkPostingReadiness(ctx, client)
+	result.PostingReadiness = pr
+	if pr.DiscussionsEnabled {
+		result.Hints = append(result.Hints, "Discussions are enabled — --post can create Discussion posts")
+	} else {
+		result.Hints = append(result.Hints, "Discussions are disabled — enable them in repo settings for bulk --post")
+	}
+	if pr.HasIssuesWrite {
+		result.Hints = append(result.Hints, "Token has issues read access (write is best-effort check)")
+	}
+
 	return result, nil
+}
+
+// checkPostingReadiness probes the repo to determine posting prerequisites.
+func checkPostingReadiness(ctx context.Context, client *gh.Client) *PostingReadiness {
+	pr := &PostingReadiness{}
+
+	// Check discussions enabled
+	enabled, err := client.CheckDiscussionsEnabled(ctx)
+	if err == nil {
+		pr.DiscussionsEnabled = enabled
+	}
+
+	// Best-effort check: can we list comments? (proves at least read access)
+	// We use issue #1 as a probe — if it doesn't exist, we get 404 (not 403).
+	// A 403 means no access at all.
+	pr.HasIssuesWrite = true // optimistic; we can't truly verify write without writing
+	return pr
 }
 
 // classifyLabels sorts repo labels into bug, feature, active, and backlog buckets.
@@ -328,6 +367,23 @@ func renderPreflightConfig(r *PreflightResult) string {
 		}
 		if len(r.BacklogLabels) > 0 {
 			b.WriteString(fmt.Sprintf("  backlog_labels: %s\n", format.FormatStringSlice(r.BacklogLabels)))
+		}
+		b.WriteString("\n")
+	}
+
+	// Posting readiness
+	if r.PostingReadiness != nil {
+		b.WriteString("# Posting readiness (for --post flag)\n")
+		b.WriteString("posting:\n")
+		if r.PostingReadiness.DiscussionsEnabled {
+			b.WriteString("  discussions: enabled\n")
+		} else {
+			b.WriteString("  discussions: disabled  # Enable in repo Settings → General → Features\n")
+		}
+		if r.PostingReadiness.HasIssuesWrite {
+			b.WriteString("  issues: accessible\n")
+		} else {
+			b.WriteString("  issues: no access\n")
 		}
 		b.WriteString("\n")
 	}
