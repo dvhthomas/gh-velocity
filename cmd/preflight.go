@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bitsbyme/gh-velocity/internal/classify"
+	"github.com/bitsbyme/gh-velocity/internal/config"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
@@ -82,6 +84,16 @@ each choice. Use --write to save it directly.`,
 
 			configYAML := renderPreflightConfig(result)
 
+			// Round-trip validate: the YAML we generate must parse cleanly.
+			// Suppress warnings during validation (defaults may overlap with categories).
+			origWarn := config.WarnFunc
+			config.WarnFunc = func(string, ...any) {} // suppress
+			_, parseErr := config.Parse([]byte(configYAML))
+			config.WarnFunc = origWarn
+			if parseErr != nil {
+				return fmt.Errorf("preflight generated invalid config (please report this): %w", parseErr)
+			}
+
 			if writeFlag {
 				path := ".gh-velocity.yml"
 				if _, statErr := os.Stat(path); statErr == nil {
@@ -111,21 +123,31 @@ each choice. Use --write to save it directly.`,
 
 // PreflightResult holds the analysis of a repository for config generation.
 type PreflightResult struct {
-	Repo             string            `json:"repo"`
-	BugLabels        []string          `json:"bug_labels"`
-	FeatureLabels    []string          `json:"feature_labels"`
-	ActiveLabels     []string          `json:"active_labels"`
-	BacklogLabels    []string          `json:"backlog_labels"`
-	ProjectID        string            `json:"project_id,omitempty"`
-	StatusFieldID    string            `json:"status_field_id,omitempty"`
-	StatusOptions    []string          `json:"status_options,omitempty"`
-	Strategy         string            `json:"strategy"`
-	HasProject       bool              `json:"has_project"`
-	RecentIssues     int               `json:"recent_issues_closed"`
-	RecentPRs        int               `json:"recent_prs_merged"`
-	AllLabels        []labelCount      `json:"labels"`
-	PostingReadiness *PostingReadiness `json:"posting_readiness,omitempty"`
-	Hints            []string          `json:"hints"`
+	Repo             string              `json:"repo"`
+	Categories       map[string][]string `json:"categories,omitempty"`
+	ActiveLabels     []string            `json:"active_labels"`
+	BacklogLabels    []string            `json:"backlog_labels"`
+	ProjectID        string              `json:"project_id,omitempty"`
+	StatusFieldID    string              `json:"status_field_id,omitempty"`
+	StatusOptions    []string            `json:"status_options,omitempty"`
+	Strategy         string              `json:"strategy"`
+	HasProject       bool                `json:"has_project"`
+	RecentIssues     int                 `json:"recent_issues_closed"`
+	RecentPRs        int                 `json:"recent_prs_merged"`
+	AllLabels        []labelCount        `json:"labels"`
+	PostingReadiness *PostingReadiness   `json:"posting_readiness,omitempty"`
+	Verification     *VerificationResult `json:"verification,omitempty"`
+	Hints            []string            `json:"hints"`
+}
+
+// VerificationResult validates the generated config is usable.
+type VerificationResult struct {
+	Valid         bool     `json:"valid"`
+	ConfigParses  bool     `json:"config_parses"`
+	MatchersValid bool     `json:"matchers_valid"`
+	CategoryCount int      `json:"category_count"`
+	MissingLabels []string `json:"missing_labels,omitempty"`
+	Warnings      []string `json:"warnings,omitempty"`
 }
 
 // PostingReadiness reports whether the token and repo support --post operations.
@@ -230,6 +252,20 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 		result.Hints = append(result.Hints, "Token has issues read access (write is best-effort check)")
 	}
 
+	// 7. Verify the generated config
+	result.Verification = verifyConfig(result, labels)
+	if v := result.Verification; v != nil {
+		if v.ConfigParses {
+			result.Hints = append(result.Hints, "Config verification: YAML parses cleanly")
+		}
+		if v.MatchersValid {
+			result.Hints = append(result.Hints, fmt.Sprintf("Config verification: %d categories defined, all matchers valid", v.CategoryCount))
+		}
+		for _, ml := range v.MissingLabels {
+			result.Hints = append(result.Hints, fmt.Sprintf("Config verification: label %q not found on repo — will never match", ml))
+		}
+	}
+
 	return result, nil
 }
 
@@ -250,37 +286,89 @@ func checkPostingReadiness(ctx context.Context, client *gh.Client) *PostingReadi
 	return pr
 }
 
-// classifyLabels sorts repo labels into bug, feature, active, and backlog buckets.
+// categoryPatterns maps quality category names to the patterns used for word-boundary matching.
+var categoryPatterns = map[string][]string{
+	"bug":     {"bug", "defect", "regression", "crash"},
+	"feature": {"enhancement", "feature", "improvement"},
+	"chore":   {"chore", "maintenance", "housekeeping", "cleanup", "tech-debt", "refactor"},
+	"docs":    {"documentation", "docs"},
+}
+
+// statusPatterns maps status buckets to their matching patterns.
+var statusPatterns = map[string][]string{
+	"active":  {"in-progress", "in progress", "wip"},
+	"backlog": {"backlog", "icebox", "deferred", "wishlist"},
+}
+
+// classifyLabels sorts repo labels into quality categories and status buckets.
+// Each label is assigned to the first matching category only (first-match-wins).
 func classifyLabels(result *PreflightResult, labels []string) {
-	bugPatterns := []string{"bug", "defect", "regression", "error", "crash"}
-	featurePatterns := []string{"enhancement", "feature", "feat", "improvement"}
-	activePatterns := []string{"in-progress", "in progress", "wip", "working", "active", "doing"}
-	backlogPatterns := []string{"backlog", "icebox", "deferred", "later", "someday", "wishlist"}
+	// Category order determines priority for first-match-wins.
+	categoryOrder := []string{"bug", "feature", "chore", "docs"}
 
 	for _, label := range labels {
 		lower := strings.ToLower(label)
-		if matchesAny(lower, bugPatterns) {
-			result.BugLabels = append(result.BugLabels, label)
+
+		// Quality categories: first match wins
+		matched := false
+		for _, cat := range categoryOrder {
+			if matchesWordAny(lower, categoryPatterns[cat]) {
+				if result.Categories == nil {
+					result.Categories = make(map[string][]string)
+				}
+				result.Categories[cat] = append(result.Categories[cat], label)
+				matched = true
+				break
+			}
 		}
-		if matchesAny(lower, featurePatterns) {
-			result.FeatureLabels = append(result.FeatureLabels, label)
-		}
-		if matchesAny(lower, activePatterns) {
+		_ = matched
+
+		// Status labels: independent of categories
+		if matchesWordAny(lower, statusPatterns["active"]) {
 			result.ActiveLabels = append(result.ActiveLabels, label)
 		}
-		if matchesAny(lower, backlogPatterns) {
+		if matchesWordAny(lower, statusPatterns["backlog"]) {
 			result.BacklogLabels = append(result.BacklogLabels, label)
 		}
 	}
 }
 
-func matchesAny(label string, patterns []string) bool {
+// matchesWordAny returns true if any pattern matches label at a word boundary.
+func matchesWordAny(label string, patterns []string) bool {
 	for _, p := range patterns {
-		if strings.Contains(label, p) {
+		if matchesWord(label, p) {
 			return true
 		}
 	}
 	return false
+}
+
+// matchesWord returns true if pattern appears in label at a word boundary.
+// Word boundaries: start/end of string, hyphen, space, underscore, slash, colon.
+// "bug" matches "bug", "bug-report", "type:bug" but NOT "debugging".
+func matchesWord(label, pattern string) bool {
+	idx := strings.Index(label, pattern)
+	if idx < 0 {
+		return false
+	}
+	// Check left boundary
+	if idx > 0 {
+		if !isWordBoundary(label[idx-1]) {
+			return false
+		}
+	}
+	// Check right boundary
+	end := idx + len(pattern)
+	if end < len(label) {
+		if !isWordBoundary(label[end]) {
+			return false
+		}
+	}
+	return true
+}
+
+func isWordBoundary(c byte) bool {
+	return c == '-' || c == ' ' || c == '_' || c == '/' || c == ':'
 }
 
 // countLabelUsage counts how often each label appears on recent closed issues.
@@ -318,18 +406,39 @@ func renderPreflightConfig(r *PreflightResult) string {
 	}
 	b.WriteString("\n")
 
-	// Quality labels
-	b.WriteString("# Issue classification labels\n")
+	// Quality categories
+	b.WriteString("# Issue classification\n")
 	b.WriteString("quality:\n")
-	if len(r.BugLabels) > 0 {
-		b.WriteString(fmt.Sprintf("  bug_labels: %s\n", format.FormatStringSlice(r.BugLabels)))
-	} else {
-		b.WriteString("  bug_labels: [\"bug\"]\n")
+	categoryOrder := []string{"bug", "feature", "chore", "docs"}
+	hasCategories := false
+	for _, cat := range categoryOrder {
+		if labels, ok := r.Categories[cat]; ok && len(labels) > 0 {
+			hasCategories = true
+			break
+		}
 	}
-	if len(r.FeatureLabels) > 0 {
-		b.WriteString(fmt.Sprintf("  feature_labels: %s\n", format.FormatStringSlice(r.FeatureLabels)))
+	if hasCategories {
+		b.WriteString("  categories:\n")
+		for _, cat := range categoryOrder {
+			labels, ok := r.Categories[cat]
+			if !ok || len(labels) == 0 {
+				continue
+			}
+			b.WriteString(fmt.Sprintf("    - name: %s\n", cat))
+			b.WriteString("      match:\n")
+			for _, l := range labels {
+				b.WriteString(fmt.Sprintf("        - \"label:%s\"\n", l))
+			}
+		}
 	} else {
-		b.WriteString("  feature_labels: [\"enhancement\"]\n")
+		// Sensible defaults when no labels were detected
+		b.WriteString("  categories:\n")
+		b.WriteString("    - name: bug\n")
+		b.WriteString("      match:\n")
+		b.WriteString("        - \"label:bug\"\n")
+		b.WriteString("    - name: feature\n")
+		b.WriteString("      match:\n")
+		b.WriteString("        - \"label:enhancement\"\n")
 	}
 	b.WriteString("  hotfix_window_hours: 72\n")
 	b.WriteString("\n")
@@ -371,19 +480,18 @@ func renderPreflightConfig(r *PreflightResult) string {
 		b.WriteString("\n")
 	}
 
-	// Posting readiness
+	// Posting readiness (as comments — not a valid config key)
 	if r.PostingReadiness != nil {
-		b.WriteString("# Posting readiness (for --post flag)\n")
-		b.WriteString("posting:\n")
+		b.WriteString("# Posting readiness (for --post flag):\n")
 		if r.PostingReadiness.DiscussionsEnabled {
-			b.WriteString("  discussions: enabled\n")
+			b.WriteString("#   discussions: enabled\n")
 		} else {
-			b.WriteString("  discussions: disabled  # Enable in repo Settings → General → Features\n")
+			b.WriteString("#   discussions: disabled — enable in repo Settings → General → Features\n")
 		}
 		if r.PostingReadiness.HasIssuesWrite {
-			b.WriteString("  issues: accessible\n")
+			b.WriteString("#   issues: accessible\n")
 		} else {
-			b.WriteString("  issues: no access\n")
+			b.WriteString("#   issues: no access\n")
 		}
 		b.WriteString("\n")
 	}
@@ -446,4 +554,61 @@ func findStatus(options []string, patterns ...string) string {
 		}
 	}
 	return ""
+}
+
+// verifyConfig validates the generated config by parsing it, constructing a
+// classifier, and cross-referencing category labels against the repo's actual labels.
+func verifyConfig(result *PreflightResult, repoLabels []string) *VerificationResult {
+	vr := &VerificationResult{}
+
+	// 1. Parse the generated YAML
+	configYAML := renderPreflightConfig(result)
+	origWarn := config.WarnFunc
+	config.WarnFunc = func(format string, args ...any) {
+		vr.Warnings = append(vr.Warnings, fmt.Sprintf(format, args...))
+	}
+	cfg, parseErr := config.Parse([]byte(configYAML))
+	config.WarnFunc = origWarn
+
+	vr.ConfigParses = parseErr == nil
+	if parseErr != nil {
+		vr.Warnings = append(vr.Warnings, fmt.Sprintf("config parse error: %v", parseErr))
+		return vr
+	}
+
+	// 2. Validate matchers compile via classifier
+	_, classifyErr := classify.NewClassifier(cfg.Quality.Categories)
+	vr.MatchersValid = classifyErr == nil
+	if classifyErr != nil {
+		vr.Warnings = append(vr.Warnings, fmt.Sprintf("invalid matchers: %v", classifyErr))
+	}
+	vr.CategoryCount = len(cfg.Quality.Categories)
+
+	// 3. Validate strategy prerequisites
+	if cfg.CycleTime.Strategy == "project-board" && cfg.Project.ID == "" {
+		vr.Warnings = append(vr.Warnings, "strategy \"project-board\" requires project.id to be set")
+	}
+
+	// 4. Cross-reference category labels against repo labels
+	if len(repoLabels) > 0 {
+		repoLabelSet := make(map[string]bool, len(repoLabels))
+		for _, l := range repoLabels {
+			repoLabelSet[strings.ToLower(l)] = true
+		}
+		for _, cat := range cfg.Quality.Categories {
+			for _, m := range cat.Matchers {
+				prefix, value, ok := strings.Cut(m, ":")
+				if ok && prefix == "label" {
+					if !repoLabelSet[strings.ToLower(value)] {
+						vr.MissingLabels = append(vr.MissingLabels, value)
+						vr.Warnings = append(vr.Warnings,
+							fmt.Sprintf("label %q in %s category not found on repo — will never match", value, cat.Name))
+					}
+				}
+			}
+		}
+	}
+
+	vr.Valid = vr.ConfigParses && vr.MatchersValid && len(vr.MissingLabels) == 0
+	return vr
 }

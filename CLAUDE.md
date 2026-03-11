@@ -7,7 +7,7 @@ A Go-based GitHub CLI extension for velocity and quality metrics.
 ```bash
 task build       # Build the binary
 task test        # Run all tests
-task quality     # Lint + staticcheck
+task quality     # Lint + staticcheck and integration tests
 task test:coverage  # Tests with coverage report
 ```
 
@@ -34,6 +34,20 @@ task test:coverage  # Tests with coverage report
 - **GraphQL variables only** — never use `fmt.Sprintf` to build GraphQL queries. Always use the `variables` map in `client.Do(query, variables, &result)`. User/config values (`project.id`, `status_field_id`, etc.) must only enter queries as GraphQL variables.
 - **Sequential `cmds`** in Taskfile, not parallel `deps` (prevents race conditions).
 - **Integration tests** run against the built binary (`task build`), not `go run`.
+
+## Workflow
+
+- Use /workflows:* skills and use GitHub issues, PRs, and the [project board](https://github.com/users/dvhthomas/projects/1).
+  - Only use the `gh` CLI for GitHub interactions: ask for it to be installed and configured before use.
+- Always create--or use an existing--GitHub issue for each feature or bug fix as soon as brainstorming is completed. Put it in the "Backlog" column and link to any relevant /docs/brainstorms.
+  - Do not assign the issue to anyone yet.
+- Always move the issue to "Ready" once planning is complete, and link to the draft PR and any relevant /docs/plans.
+  - Assign the issue to the active `gh` session user.
+- Always create a draft PR once work has begun--shift the issue to "In Progress". Run /workflows:review to trigger automated checks for pushing to a remote branch.
+  - Assign the PR to the active `gh` session user by default.
+- Always mark the PR as ready for review when it's done, and shift the issue to "Ready for Review".
+  - Humans will perform reviews and shift to Done unless you are explicitly instruced to review and mark Done.
+- Done - mark the issue as Done and closed once the PR is merged. Clean up old branches.
 
 ## Dependencies
 

@@ -119,16 +119,24 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("config: read %s: %w", path, err)
 	}
 
+	return Parse(data)
+}
+
+// Parse parses and validates a YAML config from raw bytes.
+// This enables round-trip validation without temp files.
+func Parse(data []byte) (*Config, error) {
+	cfg := defaults()
+
 	// Parse into raw map first for unknown key detection.
 	var raw map[string]any
 	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("config: parse %s: %w", path, err)
+		return nil, fmt.Errorf("config: parse: %w", err)
 	}
 	warnUnknownKeysFromMap(raw)
 
 	// Parse into typed struct.
 	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return nil, fmt.Errorf("config: parse %s: %w", path, err)
+		return nil, fmt.Errorf("config: parse: %w", err)
 	}
 
 	if err := validate(cfg); err != nil {

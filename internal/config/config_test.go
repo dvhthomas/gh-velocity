@@ -263,6 +263,69 @@ nested:
 	}
 }
 
+func TestParse_ValidConfig(t *testing.T) {
+	data := []byte(`
+workflow: local
+quality:
+  bug_labels: ["bug", "defect"]
+  feature_labels: ["feature"]
+  hotfix_window_hours: 48
+project:
+  id: "PVT_abc123"
+  status_field_id: "PVTSSF_def456"
+`)
+	// Suppress warnings.
+	origWarn := WarnFunc
+	WarnFunc = func(string, ...any) {}
+	defer func() { WarnFunc = origWarn }()
+
+	cfg, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Workflow != "local" {
+		t.Errorf("expected workflow 'local', got %q", cfg.Workflow)
+	}
+	if len(cfg.Quality.BugLabels) != 2 {
+		t.Errorf("expected 2 bug labels, got %d", len(cfg.Quality.BugLabels))
+	}
+}
+
+func TestParse_InvalidYAML(t *testing.T) {
+	_, err := Parse([]byte(`workflow: [invalid yaml`))
+	if err == nil {
+		t.Fatal("expected error for invalid YAML")
+	}
+}
+
+func TestParse_UnknownKeysWarning(t *testing.T) {
+	data := []byte(`
+workflow: pr
+posting:
+  discussions: enabled
+`)
+	var warnings []string
+	origWarn := WarnFunc
+	WarnFunc = func(format string, args ...any) {
+		warnings = append(warnings, fmt.Sprintf(format, args...))
+	}
+	defer func() { WarnFunc = origWarn }()
+
+	_, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	found := false
+	for _, w := range warnings {
+		if strings.Contains(w, "posting") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected warning about unknown key 'posting'")
+	}
+}
+
 func TestLoad_Validation(t *testing.T) {
 	tests := []struct {
 		name    string
