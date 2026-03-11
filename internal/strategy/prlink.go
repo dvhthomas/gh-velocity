@@ -31,13 +31,7 @@ func (s *PRLink) Discover(ctx context.Context, input DiscoverInput) ([]model.Dis
 		return nil, fmt.Errorf("pr-link strategy requires tag dates")
 	}
 
-	startStr := input.PrevTagDate.UTC().Format("2006-01-02T15:04:05Z")
-	endStr := input.TagDate.UTC().Format("2006-01-02T15:04:05Z")
-	q := scope.Query{
-		Scope:     input.Scope,
-		Type:      "is:pr",
-		Lifecycle: fmt.Sprintf("is:merged merged:%s..%s", startStr, endStr),
-	}
+	q := scope.MergedPRQuery(input.Scope, input.PrevTagDate, input.TagDate)
 	prs, err := input.Client.SearchPRs(ctx, q.Build())
 	if err != nil {
 		return nil, fmt.Errorf("search merged PRs: %w", err)

@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
@@ -73,18 +72,8 @@ Default window is the last 30 days.`,
 				return err
 			}
 
-			sinceStr2 := since.UTC().Format("2006-01-02T15:04:05Z")
-			untilStr2 := until.UTC().Format("2006-01-02T15:04:05Z")
-			issueQuery := scope.Query{
-				Scope:     deps.Scope,
-				Type:      "is:issue",
-				Lifecycle: fmt.Sprintf("is:closed closed:%s..%s", sinceStr2, untilStr2),
-			}
-			prQuery := scope.Query{
-				Scope:     deps.Scope,
-				Type:      "is:pr",
-				Lifecycle: fmt.Sprintf("is:merged merged:%s..%s", sinceStr2, untilStr2),
-			}
+			issueQuery := scope.ClosedIssueQuery(deps.Scope, since, until)
+			prQuery := scope.MergedPRQuery(deps.Scope, since, until)
 			if deps.Debug {
 				log.Debug("throughput issue query:\n%s", issueQuery.Verbose())
 				log.Debug("throughput PR query:\n%s", prQuery.Verbose())

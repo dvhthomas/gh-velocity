@@ -29,7 +29,7 @@ func NewReleaseCmd() *cobra.Command {
 		Short: "Release velocity and quality metrics",
 		Long: `Compute per-issue lead time, cycle time, release lag, and quality metrics for a release.
 
-Use --discover to show the scope diagnostic view: which issues and PRs each
+Use --discover to show the discovery diagnostic view: which issues and PRs each
 linking strategy discovered for the release.`,
 		Example: `  # Release metrics with auto-detected previous tag
   gh velocity quality release v2.65.0
@@ -137,7 +137,7 @@ linking strategy discovered for the release.`,
 	}
 
 	cmd.Flags().StringVar(&sinceFlag, "since", "", "Override previous tag for commit range (tag name)")
-	cmd.Flags().BoolVar(&discoverFlag, "discover", false, "Show discover diagnostic: what issues/PRs each strategy discovered")
+	cmd.Flags().BoolVar(&discoverFlag, "discover", false, "Show discovery diagnostic: what issues/PRs each strategy discovered")
 	return cmd
 }
 
