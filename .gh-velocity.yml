@@ -26,6 +26,9 @@ commit_ref:
 cycle_time:
   strategy: issue
 
+discussions:
+  category_id: "DIC_kwDORiulCM4C4CrY"  # General
+
 lifecycle:
   done:
     query: "is:closed"

@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   discussions: write
+  issues: write
 
 jobs:
   report:
