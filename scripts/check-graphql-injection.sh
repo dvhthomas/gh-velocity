@@ -5,9 +5,12 @@
 
 set -euo pipefail
 
+# Resolve repo root so this script works from worktrees and subdirectories.
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
 pattern='fmt\.Sprintf\s*\(\s*`[^`]*(query|mutation)'
 
-if grep -rPn "$pattern" --include='*.go' . 2>/dev/null; then
+if grep -rPn "$pattern" --include='*.go' "$REPO_ROOT" 2>/dev/null; then
   echo "ERROR: Found fmt.Sprintf building GraphQL queries."
   echo "Use the variables map in client.Do(query, variables, &result) instead."
   exit 1

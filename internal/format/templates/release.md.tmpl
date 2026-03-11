@@ -1,0 +1,40 @@
+## Release {{.Tag}}
+{{- if .PreviousTag}}
+
+**Previous:** {{.PreviousTag}} | **Cadence:** {{.Cadence}}
+{{- if .IsHotfix}} | **Hotfix**{{end}}
+{{- end}}
+
+### Composition
+
+| Category | Count | Ratio |
+| --- | ---: | ---: |
+{{- range .Categories}}
+| {{.Name}} | {{.Count}} | {{.Ratio}} |
+{{- end}}
+| **Total** | **{{.TotalIssues}}** | |
+{{- if .Issues}}
+
+### Issues
+
+| # | Title | Labels | Lead Time | Cycle Time | Release Lag | Commits | |
+| ---: | --- | --- | --- | --- | --- | ---: | --- |
+{{- range .Issues}}
+| {{.Link}} | {{.Title}} | {{.Labels}} | {{.LeadTime}} | {{.CycleTime}} | {{.RelLag}} | {{.Commits}} | {{.Flag}} |
+{{- end}}
+{{- end}}
+
+### Aggregates
+
+| Metric | Mean | Median | Std Dev | P90 | P95 | Outliers |
+| --- | --- | --- | --- | --- | --- | ---: |
+| Lead Time {{.LeadTime}} |
+| Cycle Time {{.CycleTime}} |
+| Release Lag {{.ReleaseLag}} |
+{{- if .Warnings}}
+
+### Warnings
+{{range .Warnings}}
+- {{.}}
+{{- end}}
+{{- end}}

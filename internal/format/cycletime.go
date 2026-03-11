@@ -7,16 +7,9 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
-// WriteCycleTimeMarkdown writes a single cycle-time result as a markdown table.
+// WriteCycleTimeMarkdown writes a single cycle-time result as a markdown table using an embedded template.
 func WriteCycleTimeMarkdown(rc RenderContext, kind string, number int, title, itemURL string, ct model.Metric) error {
-	fmt.Fprintf(rc.Writer, "| %s | Title | Started (UTC) | Cycle Time |\n", kind)
-	fmt.Fprintf(rc.Writer, "| ---: | --- | --- | --- |\n")
-	startedStr := "N/A"
-	if ct.Start != nil {
-		startedStr = ct.Start.Time.UTC().Format(time.DateOnly)
-	}
-	fmt.Fprintf(rc.Writer, "| %s | %s | %s | %s |\n", FormatItemLink(number, itemURL, rc), sanitizeMarkdown(title), startedStr, FormatMetric(ct))
-	return nil
+	return renderCycleTimeMarkdown(rc.Writer, rc, kind, number, title, itemURL, ct)
 }
 
 // WriteCycleTimePretty writes a single cycle-time result as formatted text.

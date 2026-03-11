@@ -144,6 +144,13 @@ func (c *Client) SearchClosedIssues(ctx context.Context, since, until time.Time)
 	return c.SearchIssues(ctx, query)
 }
 
+// SearchOpenPRsAwaitingReview finds open PRs with pending review requests.
+// Uses review:required search qualifier to find PRs needing reviews.
+func (c *Client) SearchOpenPRsAwaitingReview(ctx context.Context) ([]model.PR, error) {
+	query := fmt.Sprintf("repo:%s/%s is:pr is:open review:required", c.owner, c.repo)
+	return c.SearchPRs(ctx, query)
+}
+
 // SearchOpenIssuesWithLabels finds open issues with the given labels.
 // Deprecated: Use SearchIssues with a pre-assembled query from scope.Query.Build().
 func (c *Client) SearchOpenIssuesWithLabels(ctx context.Context, labels []string) ([]model.Issue, error) {

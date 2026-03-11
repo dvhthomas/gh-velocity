@@ -3,6 +3,10 @@
 # Requires: gh auth, `task install` run first.
 set -euo pipefail
 
+# Resolve repo root so this script works from worktrees and subdirectories.
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
 PASS=0
 FAIL=0
 ERRORS=""

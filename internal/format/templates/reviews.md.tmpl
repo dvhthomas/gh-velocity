@@ -1,0 +1,13 @@
+## Review Queue: {{.Repository}}
+{{if eq .Count 0}}
+No PRs currently awaiting review.
+{{- else}}
+
+| # | Title | Age | Signal |
+| ---: | --- | --- | --- |
+{{- range .Items}}
+| {{.Link}} | {{.Title}} | {{.Age}} | {{.Signal}} |
+{{- end}}
+
+**{{.Count}} PRs awaiting review**{{if gt .StaleCount 0}} ({{.StaleCount}} stale >48h){{end}}
+{{- end}}

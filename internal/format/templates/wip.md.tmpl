@@ -1,0 +1,9 @@
+## Work in Progress: {{.Repository}}
+
+| # | Title | Status | Age | Last Activity | Signal |
+| ---: | --- | --- | --- | --- | --- |
+{{- range .Items}}
+| {{.Link}} | {{.Title}} | {{.Status}} | {{.Age}} | {{.LastActivity}} | {{.Staleness}} |
+{{- end}}
+
+**Count:** {{.Count}}

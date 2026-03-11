@@ -30,8 +30,10 @@ type projectContent struct {
 	Typename   string     `json:"__typename"`
 	Number     int        `json:"number,omitempty"`
 	Title      string     `json:"title,omitempty"`
+	URL        string     `json:"url,omitempty"`
 	State      string     `json:"state,omitempty"`
 	CreatedAt  *time.Time `json:"createdAt,omitempty"`
+	UpdatedAt  *time.Time `json:"updatedAt,omitempty"`
 	Repository *struct {
 		NameWithOwner string `json:"nameWithOwner"`
 	} `json:"repository,omitempty"`
@@ -67,13 +69,13 @@ const projectItemsQuery = `query($projectId: ID!, $cursor: String) {
           content {
             __typename
             ... on Issue {
-              number title state createdAt
+              number title url state createdAt updatedAt
               repository { nameWithOwner }
               labels(first: 20) { nodes { name } }
               issueType { name }
             }
             ... on PullRequest {
-              number title state createdAt
+              number title url state createdAt updatedAt
               repository { nameWithOwner }
             }
             ... on DraftIssue { title createdAt }
@@ -117,10 +119,15 @@ func (c *Client) ListProjectItems(ctx context.Context, projectID, statusFieldID 
 				ContentType: node.Content.Typename,
 				Number:      node.Content.Number,
 				Title:       node.Content.Title,
+				URL:         node.Content.URL,
 			}
 
 			if node.Content.CreatedAt != nil {
 				item.CreatedAt = node.Content.CreatedAt.UTC()
+			}
+
+			if node.Content.UpdatedAt != nil {
+				item.UpdatedAt = node.Content.UpdatedAt.UTC()
 			}
 
 			if node.Content.Repository != nil {

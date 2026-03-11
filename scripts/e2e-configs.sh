@@ -3,7 +3,9 @@
 # Requires: gh auth (valid GitHub token), built ./gh-velocity binary.
 set -euo pipefail
 
-BINARY="./gh-velocity"
+# Resolve repo root so this script works from worktrees and subdirectories.
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+BINARY="${REPO_ROOT}/gh-velocity"
 PASS=0
 FAIL=0
 ERRORS=""
@@ -22,11 +24,11 @@ echo "================"
 
 # Each entry: config_file repo tag since_tag
 configs=(
-  "docs/examples/cli-cli.yml|cli/cli|v2.87.3|v2.87.2"
-  "docs/examples/kubernetes-kubernetes.yml|kubernetes/kubernetes|v1.35.2|v1.34.5"
-  "docs/examples/hashicorp-terraform.yml|hashicorp/terraform|v1.14.6|v1.14.5"
-  "docs/examples/astral-sh-uv.yml|astral-sh/uv|0.10.9|0.10.8"
-  "docs/examples/facebook-react.yml|facebook/react|v19.2.4|v19.1.5"
+  "${REPO_ROOT}/docs/examples/cli-cli.yml|cli/cli|v2.87.3|v2.87.2"
+  "${REPO_ROOT}/docs/examples/kubernetes-kubernetes.yml|kubernetes/kubernetes|v1.35.2|v1.34.5"
+  "${REPO_ROOT}/docs/examples/hashicorp-terraform.yml|hashicorp/terraform|v1.14.6|v1.14.5"
+  "${REPO_ROOT}/docs/examples/astral-sh-uv.yml|astral-sh/uv|0.10.9|0.10.8"
+  "${REPO_ROOT}/docs/examples/facebook-react.yml|facebook/react|v19.2.4|v19.1.5"
 )
 
 for entry in "${configs[@]}"; do

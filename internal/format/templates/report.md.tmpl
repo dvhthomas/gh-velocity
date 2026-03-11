@@ -1,0 +1,26 @@
+## Report: {{.Repository}} ({{date .Since}} – {{date .Until}} UTC)
+
+| Metric | Value |
+| --- | --- |
+{{- if .LeadTime}}
+| Lead Time | {{.LeadTime}} |
+{{- end}}
+{{- if .CycleTime}}
+| Cycle Time | {{.CycleTime}} |
+{{- end}}
+{{- if .Throughput}}
+| Throughput | {{.Throughput}} |
+{{- end}}
+{{- if .WIP}}
+| WIP | {{.WIP}} |
+{{- end}}
+{{- if .Quality}}
+| Quality | {{.Quality}} |
+{{- end}}
+{{- if .Warnings}}
+
+> [!WARNING]
+{{- range .Warnings}}
+> {{.}}
+{{- end}}
+{{- end}}
