@@ -127,21 +127,20 @@ each choice. Use --write to save it directly.`,
 
 // PreflightResult holds the analysis of a repository for config generation.
 type PreflightResult struct {
-	Repo             string            `json:"repo"`
-	BugLabels        []string          `json:"bug_labels"`
-	FeatureLabels    []string          `json:"feature_labels"`
-	ActiveLabels     []string          `json:"active_labels"`
-	BacklogLabels    []string          `json:"backlog_labels"`
-	ProjectID        string            `json:"project_id,omitempty"`
-	StatusFieldID    string            `json:"status_field_id,omitempty"`
-	StatusOptions    []string          `json:"status_options,omitempty"`
-	Strategy         string            `json:"strategy"`
-	HasProject       bool              `json:"has_project"`
-	RecentIssues     int               `json:"recent_issues_closed"`
-	RecentPRs        int               `json:"recent_prs_merged"`
-	AllLabels        []labelCount      `json:"labels"`
-	PostingReadiness *PostingReadiness `json:"posting_readiness,omitempty"`
-	Hints            []string          `json:"hints"`
+	Repo             string              `json:"repo"`
+	Categories       map[string][]string `json:"categories,omitempty"`
+	ActiveLabels     []string            `json:"active_labels"`
+	BacklogLabels    []string            `json:"backlog_labels"`
+	ProjectID        string              `json:"project_id,omitempty"`
+	StatusFieldID    string              `json:"status_field_id,omitempty"`
+	StatusOptions    []string            `json:"status_options,omitempty"`
+	Strategy         string              `json:"strategy"`
+	HasProject       bool                `json:"has_project"`
+	RecentIssues     int                 `json:"recent_issues_closed"`
+	RecentPRs        int                 `json:"recent_prs_merged"`
+	AllLabels        []labelCount        `json:"labels"`
+	PostingReadiness *PostingReadiness   `json:"posting_readiness,omitempty"`
+	Hints            []string            `json:"hints"`
 }
 
 // PostingReadiness reports whether the token and repo support --post operations.
@@ -266,37 +265,89 @@ func checkPostingReadiness(ctx context.Context, client *gh.Client) *PostingReadi
 	return pr
 }
 
-// classifyLabels sorts repo labels into bug, feature, active, and backlog buckets.
+// categoryPatterns maps quality category names to the patterns used for word-boundary matching.
+var categoryPatterns = map[string][]string{
+	"bug":     {"bug", "defect", "regression", "crash"},
+	"feature": {"enhancement", "feature", "improvement"},
+	"chore":   {"chore", "maintenance", "housekeeping", "cleanup", "tech-debt", "refactor"},
+	"docs":    {"documentation", "docs"},
+}
+
+// statusPatterns maps status buckets to their matching patterns.
+var statusPatterns = map[string][]string{
+	"active":  {"in-progress", "in progress", "wip"},
+	"backlog": {"backlog", "icebox", "deferred", "wishlist"},
+}
+
+// classifyLabels sorts repo labels into quality categories and status buckets.
+// Each label is assigned to the first matching category only (first-match-wins).
 func classifyLabels(result *PreflightResult, labels []string) {
-	bugPatterns := []string{"bug", "defect", "regression", "error", "crash"}
-	featurePatterns := []string{"enhancement", "feature", "feat", "improvement"}
-	activePatterns := []string{"in-progress", "in progress", "wip", "working", "active", "doing"}
-	backlogPatterns := []string{"backlog", "icebox", "deferred", "later", "someday", "wishlist"}
+	// Category order determines priority for first-match-wins.
+	categoryOrder := []string{"bug", "feature", "chore", "docs"}
 
 	for _, label := range labels {
 		lower := strings.ToLower(label)
-		if matchesAny(lower, bugPatterns) {
-			result.BugLabels = append(result.BugLabels, label)
+
+		// Quality categories: first match wins
+		matched := false
+		for _, cat := range categoryOrder {
+			if matchesWordAny(lower, categoryPatterns[cat]) {
+				if result.Categories == nil {
+					result.Categories = make(map[string][]string)
+				}
+				result.Categories[cat] = append(result.Categories[cat], label)
+				matched = true
+				break
+			}
 		}
-		if matchesAny(lower, featurePatterns) {
-			result.FeatureLabels = append(result.FeatureLabels, label)
-		}
-		if matchesAny(lower, activePatterns) {
+		_ = matched
+
+		// Status labels: independent of categories
+		if matchesWordAny(lower, statusPatterns["active"]) {
 			result.ActiveLabels = append(result.ActiveLabels, label)
 		}
-		if matchesAny(lower, backlogPatterns) {
+		if matchesWordAny(lower, statusPatterns["backlog"]) {
 			result.BacklogLabels = append(result.BacklogLabels, label)
 		}
 	}
 }
 
-func matchesAny(label string, patterns []string) bool {
+// matchesWordAny returns true if any pattern matches label at a word boundary.
+func matchesWordAny(label string, patterns []string) bool {
 	for _, p := range patterns {
-		if strings.Contains(label, p) {
+		if matchesWord(label, p) {
 			return true
 		}
 	}
 	return false
+}
+
+// matchesWord returns true if pattern appears in label at a word boundary.
+// Word boundaries: start/end of string, hyphen, space, underscore, slash, colon.
+// "bug" matches "bug", "bug-report", "type:bug" but NOT "debugging".
+func matchesWord(label, pattern string) bool {
+	idx := strings.Index(label, pattern)
+	if idx < 0 {
+		return false
+	}
+	// Check left boundary
+	if idx > 0 {
+		if !isWordBoundary(label[idx-1]) {
+			return false
+		}
+	}
+	// Check right boundary
+	end := idx + len(pattern)
+	if end < len(label) {
+		if !isWordBoundary(label[end]) {
+			return false
+		}
+	}
+	return true
+}
+
+func isWordBoundary(c byte) bool {
+	return c == '-' || c == ' ' || c == '_' || c == '/' || c == ':'
 }
 
 // countLabelUsage counts how often each label appears on recent closed issues.
@@ -334,18 +385,39 @@ func renderPreflightConfig(r *PreflightResult) string {
 	}
 	b.WriteString("\n")
 
-	// Quality labels
-	b.WriteString("# Issue classification labels\n")
+	// Quality categories
+	b.WriteString("# Issue classification\n")
 	b.WriteString("quality:\n")
-	if len(r.BugLabels) > 0 {
-		b.WriteString(fmt.Sprintf("  bug_labels: %s\n", format.FormatStringSlice(r.BugLabels)))
-	} else {
-		b.WriteString("  bug_labels: [\"bug\"]\n")
+	categoryOrder := []string{"bug", "feature", "chore", "docs"}
+	hasCategories := false
+	for _, cat := range categoryOrder {
+		if labels, ok := r.Categories[cat]; ok && len(labels) > 0 {
+			hasCategories = true
+			break
+		}
 	}
-	if len(r.FeatureLabels) > 0 {
-		b.WriteString(fmt.Sprintf("  feature_labels: %s\n", format.FormatStringSlice(r.FeatureLabels)))
+	if hasCategories {
+		b.WriteString("  categories:\n")
+		for _, cat := range categoryOrder {
+			labels, ok := r.Categories[cat]
+			if !ok || len(labels) == 0 {
+				continue
+			}
+			b.WriteString(fmt.Sprintf("    - name: %s\n", cat))
+			b.WriteString("      match:\n")
+			for _, l := range labels {
+				b.WriteString(fmt.Sprintf("        - \"label:%s\"\n", l))
+			}
+		}
 	} else {
-		b.WriteString("  feature_labels: [\"enhancement\"]\n")
+		// Sensible defaults when no labels were detected
+		b.WriteString("  categories:\n")
+		b.WriteString("    - name: bug\n")
+		b.WriteString("      match:\n")
+		b.WriteString("        - \"label:bug\"\n")
+		b.WriteString("    - name: feature\n")
+		b.WriteString("      match:\n")
+		b.WriteString("        - \"label:enhancement\"\n")
 	}
 	b.WriteString("  hotfix_window_hours: 72\n")
 	b.WriteString("\n")
