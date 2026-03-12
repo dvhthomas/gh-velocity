@@ -163,7 +163,7 @@ func TestRenderPreflightConfig_RoundTrips(t *testing.T) {
 			name: "minimal",
 			result: &PreflightResult{
 				Repo:     "owner/repo",
-				Strategy: "issue",
+				Strategy: model.StrategyIssue,
 				Categories: map[string][]string{
 					"bug":     {"bug", "defect"},
 					"feature": {"enhancement"},
@@ -175,7 +175,7 @@ func TestRenderPreflightConfig_RoundTrips(t *testing.T) {
 			name: "labels with colons",
 			result: &PreflightResult{
 				Repo:     "facebook/react",
-				Strategy: "pr",
+				Strategy: model.StrategyPR,
 				Categories: map[string][]string{
 					"bug":     {"Type: Bug", "Type: Regression"},
 					"feature": {"Type: Enhancement", "Type: Feature Request"},
@@ -186,7 +186,7 @@ func TestRenderPreflightConfig_RoundTrips(t *testing.T) {
 			name: "backlog labels with spaces",
 			result: &PreflightResult{
 				Repo:     "facebook/react",
-				Strategy: "pr",
+				Strategy: model.StrategyPR,
 				Categories: map[string][]string{
 					"bug": {"bug"},
 				},
@@ -197,7 +197,7 @@ func TestRenderPreflightConfig_RoundTrips(t *testing.T) {
 			name: "backlog labels simple",
 			result: &PreflightResult{
 				Repo:     "owner/repo",
-				Strategy: "issue",
+				Strategy: model.StrategyIssue,
 				Categories: map[string][]string{
 					"bug": {"bug"},
 				},
@@ -222,14 +222,14 @@ func TestRenderPreflightConfig_RoundTrips(t *testing.T) {
 			name: "no categories detected",
 			result: &PreflightResult{
 				Repo:     "owner/repo",
-				Strategy: "issue",
+				Strategy: model.StrategyIssue,
 			},
 		},
 		{
 			name: "labels with special characters",
 			result: &PreflightResult{
 				Repo:     "owner/repo",
-				Strategy: "pr",
+				Strategy: model.StrategyPR,
 				Categories: map[string][]string{
 					"bug":     {"kind/bug", "priority:critical-bug"},
 					"feature": {"kind/feature", "kind/api-change"},
@@ -241,7 +241,7 @@ func TestRenderPreflightConfig_RoundTrips(t *testing.T) {
 			name: "hints with newlines",
 			result: &PreflightResult{
 				Repo:     "owner/repo",
-				Strategy: "issue",
+				Strategy: model.StrategyIssue,
 				Hints:    []string{"line one\nline two", "normal hint"},
 			},
 		},
@@ -249,7 +249,7 @@ func TestRenderPreflightConfig_RoundTrips(t *testing.T) {
 			name: "with match evidence",
 			result: &PreflightResult{
 				Repo:     "owner/repo",
-				Strategy: "pr",
+				Strategy: model.StrategyPR,
 				Categories: map[string][]string{
 					"bug":     {"bug"},
 					"feature": {"enhancement"},
@@ -297,7 +297,7 @@ func TestRenderPreflightConfig_RoundTrips(t *testing.T) {
 func TestVerifyConfig_ValidConfig(t *testing.T) {
 	result := &PreflightResult{
 		Repo:     "owner/repo",
-		Strategy: "issue",
+		Strategy: model.StrategyIssue,
 		Categories: map[string][]string{
 			"bug":     {"bug"},
 			"feature": {"enhancement"},
@@ -327,7 +327,7 @@ func TestVerifyConfig_ValidConfig(t *testing.T) {
 func TestVerifyConfig_MissingLabel(t *testing.T) {
 	result := &PreflightResult{
 		Repo:     "owner/repo",
-		Strategy: "issue",
+		Strategy: model.StrategyIssue,
 		Categories: map[string][]string{
 			"bug": {"bug", "regression"},
 		},
@@ -348,7 +348,7 @@ func TestVerifyConfig_MissingLabel(t *testing.T) {
 func TestVerifyConfig_NoRepoLabels(t *testing.T) {
 	result := &PreflightResult{
 		Repo:     "owner/repo",
-		Strategy: "issue",
+		Strategy: model.StrategyIssue,
 	}
 
 	// When no repo labels are available, skip cross-reference.
@@ -640,7 +640,7 @@ func TestRenderPreflightConfig_BaselineCategories(t *testing.T) {
 	// When no evidence or labels detected, baseline should include bug, feature, chore.
 	result := &PreflightResult{
 		Repo:     "owner/repo",
-		Strategy: "issue",
+		Strategy: model.StrategyIssue,
 	}
 
 	yamlStr := renderPreflightConfig(result)
@@ -675,7 +675,7 @@ func TestTypePatterns(t *testing.T) {
 func TestVerifyConfig_IssueStrategyNoLifecycle(t *testing.T) {
 	result := &PreflightResult{
 		Repo:     "owner/repo",
-		Strategy: "issue",
+		Strategy: model.StrategyIssue,
 	}
 
 	vr := verifyConfig(result, nil)

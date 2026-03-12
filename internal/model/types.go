@@ -17,6 +17,12 @@ const (
 	SignalReleasePublished = "release-published"
 )
 
+// Cycle time strategy identifiers.
+const (
+	StrategyIssue = "issue"
+	StrategyPR    = "pr"
+)
+
 // Event represents a point in time during an issue or PR's lifecycle.
 type Event struct {
 	Time   time.Time
@@ -202,7 +208,7 @@ type StatsResult struct {
 	Until             time.Time
 	LeadTime          *Stats
 	CycleTime         *Stats
-	CycleTimeStrategy string // "issue" or "pr"
+	CycleTimeStrategy string // StrategyIssue or StrategyPR
 	Throughput        *StatsThroughput
 	WIPCount          *int
 	Quality           *StatsQuality

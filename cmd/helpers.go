@@ -6,6 +6,7 @@ import (
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
+	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
 // buildCycleTimeStrategy creates the appropriate CycleTimeStrategy based on config.
@@ -14,9 +15,9 @@ import (
 func buildCycleTimeStrategy(ctx context.Context, deps *Deps, client *gh.Client) metrics.CycleTimeStrategy {
 	cfg := deps.Config
 	switch cfg.CycleTime.Strategy {
-	case "pr":
+	case model.StrategyPR:
 		return &metrics.PRStrategy{}
-	default: // "issue" (also handles deprecated "project-board")
+	default: // model.StrategyIssue (also handles deprecated "project-board")
 		strat := &metrics.IssueStrategy{}
 		// Resolve project board IDs if lifecycle in-progress uses project_status.
 		if len(cfg.Lifecycle.InProgress.ProjectStatus) > 0 && cfg.Project.URL != "" {

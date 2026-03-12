@@ -15,7 +15,7 @@ func TestIssuePipelineProcessData(t *testing.T) {
 
 	p := &IssuePipeline{
 		Strategy:    &metrics.PRStrategy{},
-		StrategyStr: "pr",
+		StrategyStr: model.StrategyPR,
 		Issue: &model.Issue{
 			Number:    42,
 			Title:     "Fix bug",
@@ -51,7 +51,7 @@ func TestIssuePipelineProcessData_NoProject(t *testing.T) {
 
 	p := &IssuePipeline{
 		Strategy:    &metrics.IssueStrategy{}, // no client/project
-		StrategyStr: "issue",
+		StrategyStr: model.StrategyIssue,
 		Issue: &model.Issue{
 			Number:    42,
 			Title:     "Fix bug",
@@ -77,7 +77,7 @@ func TestIssuePipelineProcessData_WarnsOnNA_IssueStrategy(t *testing.T) {
 
 	p := &IssuePipeline{
 		Strategy:    &metrics.IssueStrategy{},
-		StrategyStr: "issue",
+		StrategyStr: model.StrategyIssue,
 		Issue: &model.Issue{
 			Number: 42, Title: "Fix bug", State: "closed",
 			CreatedAt: created, ClosedAt: &closed,
@@ -100,7 +100,7 @@ func TestIssuePipelineProcessData_WarnsOnNA_PRStrategyNoPR(t *testing.T) {
 
 	p := &IssuePipeline{
 		Strategy:    &metrics.PRStrategy{},
-		StrategyStr: "pr",
+		StrategyStr: model.StrategyPR,
 		Issue: &model.Issue{
 			Number: 42, Title: "Fix bug", State: "closed",
 			CreatedAt: created, ClosedAt: &closed,
@@ -128,7 +128,7 @@ func TestBulkPipelineProcessData_WarnsOnAllNA(t *testing.T) {
 		Since:       now.Add(-30 * 24 * time.Hour),
 		Until:       now,
 		Strategy:    &metrics.IssueStrategy{}, // no project = all N/A
-		StrategyStr: "issue",
+		StrategyStr: model.StrategyIssue,
 		issues: []model.Issue{
 			{Number: 1, CreatedAt: now.Add(-72 * time.Hour), ClosedAt: &closed},
 			{Number: 2, CreatedAt: now.Add(-96 * time.Hour), ClosedAt: &closed},
@@ -198,7 +198,7 @@ func TestBulkPipelineProcessData(t *testing.T) {
 		Since:       now.Add(-30 * 24 * time.Hour),
 		Until:       now,
 		Strategy:    &metrics.PRStrategy{},
-		StrategyStr: "pr",
+		StrategyStr: model.StrategyPR,
 		issues: []model.Issue{
 			{
 				Number:    1,

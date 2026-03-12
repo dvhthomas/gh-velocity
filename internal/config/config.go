@@ -76,7 +76,7 @@ type LifecycleConfig struct {
 // CycleTimeConfig controls how cycle time is measured.
 type CycleTimeConfig struct {
 	// Strategy selects the cycle-time measurement approach.
-	// Values: "issue" (default), "pr".
+	// Values: model.StrategyIssue (default), model.StrategyPR.
 	Strategy string `yaml:"strategy" json:"strategy"`
 }
 
@@ -151,7 +151,7 @@ func defaults() *Config {
 	return &Config{
 		Workflow: DefaultWorkflow,
 		CycleTime: CycleTimeConfig{
-			Strategy: "issue",
+			Strategy: model.StrategyIssue,
 		},
 		Lifecycle: LifecycleConfig{
 			Backlog:    LifecycleStage{Query: "is:open"},
@@ -236,14 +236,14 @@ func validate(cfg *Config) error {
 
 	// cycle_time.strategy: must be a known value.
 	switch cfg.CycleTime.Strategy {
-	case "issue", "pr":
+	case model.StrategyIssue, model.StrategyPR:
 		// valid
 	case "project-board":
 		// Deprecated: treat as "issue" with a warning.
-		WarnFunc("config: cycle_time.strategy %q is deprecated, using %q instead (project board detection is now built into the issue strategy via lifecycle config)", "project-board", "issue")
-		cfg.CycleTime.Strategy = "issue"
+		WarnFunc("config: cycle_time.strategy %q is deprecated, using %q instead (project board detection is now built into the issue strategy via lifecycle config)", "project-board", model.StrategyIssue)
+		cfg.CycleTime.Strategy = model.StrategyIssue
 	default:
-		return fmt.Errorf("config: cycle_time.strategy must be \"issue\" or \"pr\", got %q", cfg.CycleTime.Strategy)
+		return fmt.Errorf("config: cycle_time.strategy must be %q or %q, got %q", model.StrategyIssue, model.StrategyPR, cfg.CycleTime.Strategy)
 	}
 
 	// commit_ref.patterns: validate values.

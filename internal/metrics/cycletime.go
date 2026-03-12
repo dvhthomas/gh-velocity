@@ -35,7 +35,7 @@ type IssueStrategy struct {
 	BacklogStatus []string // from lifecycle.backlog.project_status
 }
 
-func (s *IssueStrategy) Name() string { return "issue" }
+func (s *IssueStrategy) Name() string { return model.StrategyIssue }
 
 func (s *IssueStrategy) Compute(ctx context.Context, input CycleTimeInput) model.Metric {
 	if input.Issue == nil {
@@ -72,7 +72,7 @@ func (s *IssueStrategy) Compute(ctx context.Context, input CycleTimeInput) model
 // PRStrategy measures cycle time as PR created → PR merged.
 type PRStrategy struct{}
 
-func (s *PRStrategy) Name() string { return "pr" }
+func (s *PRStrategy) Name() string { return model.StrategyPR }
 
 func (s *PRStrategy) Compute(_ context.Context, input CycleTimeInput) model.Metric {
 	if input.PR == nil {

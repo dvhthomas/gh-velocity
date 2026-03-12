@@ -67,7 +67,7 @@ func TestWriteReportPretty_CycleTimeNA_IssueStrategy(t *testing.T) {
 		Repository:        "owner/repo",
 		Since:             time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
 		Until:             time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC),
-		CycleTimeStrategy: "issue",
+		CycleTimeStrategy: model.StrategyIssue,
 	}
 	if err := WriteReportPretty(rc, r); err != nil {
 		t.Fatal(err)
@@ -88,7 +88,7 @@ func TestWriteReportPretty_CycleTimeNA_PRStrategy(t *testing.T) {
 		Repository:        "owner/repo",
 		Since:             time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
 		Until:             time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC),
-		CycleTimeStrategy: "pr",
+		CycleTimeStrategy: model.StrategyPR,
 	}
 	if err := WriteReportPretty(rc, r); err != nil {
 		t.Fatal(err)

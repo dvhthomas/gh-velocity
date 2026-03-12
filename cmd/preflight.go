@@ -216,7 +216,7 @@ type labelCount struct {
 func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, projectNumber int) (*PreflightResult, error) {
 	result := &PreflightResult{
 		Repo:     owner + "/" + repo,
-		Strategy: "issue", // default
+		Strategy: model.StrategyIssue, // default
 	}
 
 	// 0. Verify repo exists and normalize casing.
@@ -262,7 +262,7 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 					for _, o := range f.Options {
 						result.StatusOptions = append(result.StatusOptions, o.Name)
 					}
-					result.Strategy = "issue"
+					result.Strategy = model.StrategyIssue
 					result.Hints = append(result.Hints, fmt.Sprintf("Using project board: %s (#%d) — issue strategy will use lifecycle config for cycle time", project.Title, project.Number))
 					break
 				}
@@ -294,13 +294,13 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 
 	// 4. Infer strategy
 	if result.HasProject {
-		result.Strategy = "issue"
+		result.Strategy = model.StrategyIssue
 		result.Hints = append(result.Hints, "Project board detected — issue strategy uses board status to detect work started")
 	} else if result.RecentPRs > 0 {
-		result.Strategy = "pr"
+		result.Strategy = model.StrategyPR
 		result.Hints = append(result.Hints, "No project board — using PR strategy (PR created → merged) for cycle time")
 	} else {
-		result.Strategy = "issue"
+		result.Strategy = model.StrategyIssue
 		result.Hints = append(result.Hints, "No project board and no recent PRs — cycle time will be unavailable. Add a project board with: preflight --project-url <url>")
 	}
 
@@ -1001,7 +1001,7 @@ func verifyConfig(result *PreflightResult, repoLabels []string) *VerificationRes
 	vr.CategoryCount = len(cfg.Quality.Categories)
 
 	// 3. Validate strategy prerequisites
-	if cfg.CycleTime.Strategy == "issue" && len(cfg.Lifecycle.InProgress.ProjectStatus) == 0 {
+	if cfg.CycleTime.Strategy == model.StrategyIssue && len(cfg.Lifecycle.InProgress.ProjectStatus) == 0 {
 		vr.Warnings = append(vr.Warnings, "issue strategy has no lifecycle.in-progress.project_status — cycle time will be unavailable; configure lifecycle.in-progress for cycle time metrics")
 	}
 

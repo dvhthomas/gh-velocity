@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
 func TestLoad_MissingFile(t *testing.T) {
@@ -19,8 +21,8 @@ func TestLoad_MissingFile(t *testing.T) {
 	if cfg.Quality.HotfixWindowHours != DefaultHotfixWindowHours {
 		t.Errorf("expected default hotfix window %v, got %v", DefaultHotfixWindowHours, cfg.Quality.HotfixWindowHours)
 	}
-	if cfg.CycleTime.Strategy != "issue" {
-		t.Errorf("expected default cycle_time.strategy %q, got %q", "issue", cfg.CycleTime.Strategy)
+	if cfg.CycleTime.Strategy != model.StrategyIssue {
+		t.Errorf("expected default cycle_time.strategy %q, got %q", model.StrategyIssue, cfg.CycleTime.Strategy)
 	}
 }
 

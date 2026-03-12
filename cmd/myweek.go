@@ -260,7 +260,7 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 // Returns nil when the strategy has no signal (e.g., no project configured).
 func computeMyWeekCycleTime(ctx context.Context, strat metrics.CycleTimeStrategy, r model.MyWeekResult) []time.Duration {
 	switch strat.Name() {
-	case "pr":
+	case model.StrategyPR:
 		// PR strategy: PR created → merged for merged PRs
 		var durations []time.Duration
 		for _, pr := range r.PRsMerged {

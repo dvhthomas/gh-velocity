@@ -246,7 +246,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 
 	// For PR strategy, bulk-fetch closing PRs to avoid N+1 API calls.
 	closingPRs := make(map[int]*model.PR)
-	if deps.Config.CycleTime.Strategy == "pr" {
+	if deps.Config.CycleTime.Strategy == model.StrategyPR {
 		prQuery := scope.MergedPRQuery(deps.Scope, since, until)
 		prQuery.ExcludeUsers = deps.ExcludeUsers
 		if deps.Debug {
