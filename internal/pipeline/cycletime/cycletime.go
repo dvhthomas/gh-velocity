@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	ct "github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
@@ -27,7 +26,7 @@ type IssuePipeline struct {
 	Owner       string
 	Repo        string
 	IssueNumber int
-	Strategy    ct.Strategy
+	Strategy    metrics.CycleTimeStrategy
 	StrategyStr string // "issue", "pr", "project-board" for display
 
 	// GatherData output
@@ -62,7 +61,7 @@ func (p *IssuePipeline) GatherData(ctx context.Context) error {
 
 // ProcessData computes cycle time using the configured strategy.
 func (p *IssuePipeline) ProcessData() error {
-	input := ct.Input{Issue: p.Issue, PR: p.PR}
+	input := metrics.CycleTimeInput{Issue: p.Issue, PR: p.PR}
 	p.CycleTime = p.Strategy.Compute(context.Background(), input)
 	return nil
 }
@@ -116,8 +115,8 @@ func (p *PRPipeline) GatherData(ctx context.Context) error {
 
 // ProcessData computes cycle time for the PR (created -> merged).
 func (p *PRPipeline) ProcessData() error {
-	strat := &ct.PRStrategy{}
-	p.CycleTime = strat.Compute(context.Background(), ct.Input{PR: p.PR})
+	strat := &metrics.PRStrategy{}
+	p.CycleTime = strat.Compute(context.Background(), metrics.CycleTimeInput{PR: p.PR})
 	return nil
 }
 
@@ -142,7 +141,7 @@ type BulkPipeline struct {
 	Repo        string
 	Since       time.Time
 	Until       time.Time
-	Strategy    ct.Strategy
+	Strategy    metrics.CycleTimeStrategy
 	StrategyStr string
 	SearchQuery string
 	SearchURL   string
@@ -171,7 +170,7 @@ func (p *BulkPipeline) ProcessData() error {
 	var durations []time.Duration
 
 	for _, issue := range p.issues {
-		input := ct.Input{Issue: &issue}
+		input := metrics.CycleTimeInput{Issue: &issue}
 		if p.ClosingPRs != nil {
 			if pr, ok := p.ClosingPRs[issue.Number]; ok {
 				input.PR = pr

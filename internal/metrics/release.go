@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/classify"
-	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -22,7 +21,7 @@ type ReleaseInput struct {
 	FetchErrors       map[int]error        // issues that failed to fetch
 	Classifier        *classify.Classifier
 	HotfixWindowHours float64
-	CycleTimeStrategy cycletime.Strategy // nil falls back to commit-based default
+	CycleTimeStrategy CycleTimeStrategy // nil falls back to commit-based default
 }
 
 // BuildReleaseMetrics computes all release metrics from the provided input.
@@ -68,7 +67,7 @@ func BuildReleaseMetrics(ctx context.Context, input ReleaseInput) (model.Release
 		// Cycle time: computed by the configured strategy.
 		// Commits enrich output but do not determine start/end signals.
 		if input.CycleTimeStrategy != nil {
-			ctInput := cycletime.Input{
+			ctInput := CycleTimeInput{
 				Issue:   issue,
 				Commits: issueCommitList,
 			}

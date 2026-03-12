@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/classify"
-	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -123,7 +122,7 @@ func TestBuildReleaseMetrics_LeadTimeAndCycleTime(t *testing.T) {
 		Issues:            issues,
 		FetchErrors:       map[int]error{},
 		Classifier:        testClassifier(t, []string{"bug"}, []string{"enhancement"}),
-		CycleTimeStrategy: &cycletime.IssueStrategy{},
+		CycleTimeStrategy: &IssueStrategy{},
 	}
 
 	rm, _, err := BuildReleaseMetrics(context.Background(), input)

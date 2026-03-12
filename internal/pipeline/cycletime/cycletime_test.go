@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	ct "github.com/bitsbyme/gh-velocity/internal/cycletime"
+	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -13,7 +13,7 @@ func TestIssuePipelineProcessData(t *testing.T) {
 	closed := time.Date(2026, 1, 3, 12, 0, 0, 0, time.UTC)
 
 	p := &IssuePipeline{
-		Strategy:    &ct.IssueStrategy{},
+		Strategy:    &metrics.IssueStrategy{},
 		StrategyStr: "issue",
 		Issue: &model.Issue{
 			Number:    42,
@@ -76,7 +76,7 @@ func TestBulkPipelineProcessData(t *testing.T) {
 		Repo:        "repo",
 		Since:       now.Add(-30 * 24 * time.Hour),
 		Until:       now,
-		Strategy:    &ct.IssueStrategy{},
+		Strategy:    &metrics.IssueStrategy{},
 		StrategyStr: "issue",
 		issues: []model.Issue{
 			{
