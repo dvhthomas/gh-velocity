@@ -10,19 +10,27 @@ import (
 	ghapi "github.com/cli/go-gh/v2/pkg/api"
 )
 
-func init() {
-	// GH_VELOCITY_TOKEN provides a PAT with 'project' scope for Projects v2
-	// access. GITHUB_TOKEN (the default in CI) cannot access projects.
-	// go-gh reads GH_TOKEN for auth, so we promote GH_VELOCITY_TOKEN early.
-	if t := os.Getenv("GH_VELOCITY_TOKEN"); t != "" {
-		os.Setenv("GH_TOKEN", t)
+// projectGQL returns a GraphQL client for project board queries.
+// If GH_VELOCITY_TOKEN is set, it creates a dedicated client using that token
+// (GITHUB_TOKEN cannot access Projects v2). Otherwise returns nil and callers
+// fall back to the default client.
+func projectGQL() *ghapi.GraphQLClient {
+	token := os.Getenv("GH_VELOCITY_TOKEN")
+	if token == "" {
+		return nil
 	}
+	gql, err := ghapi.NewGraphQLClient(ghapi.ClientOptions{AuthToken: token})
+	if err != nil {
+		return nil
+	}
+	return gql
 }
 
 // Client wraps go-gh REST and GraphQL clients.
 type Client struct {
 	rest       *ghapi.RESTClient
 	gql        *ghapi.GraphQLClient
+	projGQL    *ghapi.GraphQLClient // separate client for project queries (GH_VELOCITY_TOKEN)
 	owner      string
 	repo       string
 	repoNodeID string // cached GraphQL node ID, populated lazily by repoID()
@@ -39,11 +47,21 @@ func NewClient(owner, repo string) (*Client, error) {
 		return nil, fmt.Errorf("github: create GraphQL client: %w", err)
 	}
 	return &Client{
-		rest:  rest,
-		gql:   gql,
-		owner: owner,
-		repo:  repo,
+		rest:    rest,
+		gql:     gql,
+		projGQL: projectGQL(),
+		owner:   owner,
+		repo:    repo,
 	}, nil
+}
+
+// projectClient returns the project-specific GraphQL client if available,
+// otherwise the default client.
+func (c *Client) projectClient() *ghapi.GraphQLClient {
+	if c.projGQL != nil {
+		return c.projGQL
+	}
+	return c.gql
 }
 
 // Owner returns the repository owner.

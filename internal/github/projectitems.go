@@ -110,7 +110,7 @@ func (c *Client) ListProjectItems(ctx context.Context, projectID, statusFieldID 
 		}
 
 		var resp projectItemsResponse
-		if err := c.gql.DoWithContext(ctx, projectItemsQuery, variables, &resp); err != nil {
+		if err := c.projectClient().DoWithContext(ctx, projectItemsQuery, variables, &resp); err != nil {
 			return nil, fmt.Errorf("list project items: %w", err)
 		}
 

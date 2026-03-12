@@ -172,7 +172,7 @@ func (c *Client) GetProjectStatus(ctx context.Context, issueNumber int, projectI
 	}
 
 	var resp projectStatusResponse
-	if err := c.gql.DoWithContext(ctx, query, variables, &resp); err != nil {
+	if err := c.projectClient().DoWithContext(ctx, query, variables, &resp); err != nil {
 		return nil, fmt.Errorf("get project status for issue #%d: %w", issueNumber, err)
 	}
 

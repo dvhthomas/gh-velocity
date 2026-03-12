@@ -98,7 +98,7 @@ func (c *Client) DiscoverProjects(ctx context.Context) ([]DiscoveredProject, err
 	}
 
 	var resp discoverResponse
-	if err := c.gql.DoWithContext(ctx, query, variables, &resp); err != nil {
+	if err := c.projectClient().DoWithContext(ctx, query, variables, &resp); err != nil {
 		return nil, fmt.Errorf("discover projects for %s/%s: %w", c.owner, c.repo, err)
 	}
 
@@ -175,7 +175,7 @@ func (c *Client) DiscoverProjectByNumber(ctx context.Context, number int) (*Disc
 			ProjectV2 *discoverProjectNode `json:"projectV2"`
 		} `json:"repository"`
 	}
-	if err := c.gql.DoWithContext(ctx, query, variables, &resp); err != nil {
+	if err := c.projectClient().DoWithContext(ctx, query, variables, &resp); err != nil {
 		return nil, fmt.Errorf("discover project #%d for %s/%s: %w\n  hint: set GH_VELOCITY_TOKEN to a PAT with 'project' scope (see docs/guide.md#token-permissions)", number, c.owner, c.repo, err)
 	}
 
