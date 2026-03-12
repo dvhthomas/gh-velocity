@@ -6,11 +6,23 @@ A GitHub CLI extension that measures how fast your team ships.
 
 ## Install
 
-```
+```bash
+# Install the latest stable release
 gh extension install dvhthomas/gh-velocity
+
+# Pin to a specific release
+gh extension install dvhthomas/gh-velocity --pin v0.0.2
+
+# Upgrade to the latest stable release
+gh extension upgrade velocity
+
+# Check installed version
+gh velocity version
 ```
 
 Requires [GitHub CLI](https://cli.github.com/) 2.0+.
+
+**Note:** `gh extension install` and `gh extension upgrade` only use stable releases (not pre-releases like `v0.0.2-rc.1`). To install a pre-release, pin it explicitly with `--pin`.
 
 ## Quick start
 

@@ -211,7 +211,11 @@ You need at least `repo` scope for private repositories. For public repos, no sp
 ### Install the extension
 
 ```bash
+# Latest stable release
 gh extension install dvhthomas/gh-velocity
+
+# Or pin a specific version
+gh extension install dvhthomas/gh-velocity --pin v0.0.2
 ```
 
 Verify:
@@ -219,6 +223,14 @@ Verify:
 ```bash
 gh velocity version
 ```
+
+To upgrade later:
+
+```bash
+gh extension upgrade velocity
+```
+
+`gh extension upgrade` installs the latest stable release. Pre-releases (e.g., `v0.0.2-rc.1`) must be pinned explicitly with `--pin`.
 
 ### First queries
 
