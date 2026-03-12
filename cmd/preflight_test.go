@@ -672,6 +672,80 @@ func TestTypePatterns(t *testing.T) {
 	}
 }
 
+func TestRenderPreflightConfig_LabelMatchersIncludedWithZeroHits(t *testing.T) {
+	// When labels are detected but have 0 recent hits, they should still
+	// appear in the output alongside title probes that had hits.
+	result := &PreflightResult{
+		Repo:     "owner/repo",
+		Strategy: model.StrategyIssue,
+		Categories: map[string][]string{
+			"bug":     {"bug"},
+			"feature": {"enhancement"},
+		},
+		MatchEvidence: []CategoryEvidence{
+			{
+				Category: "bug",
+				Matchers: []MatcherEvidence{
+					{Matcher: "label:bug", Count: 0},                                                    // label detected but 0 hits
+					{Matcher: `title:/^fix[\(: ]/i`, Count: 3, Example: "#1 fix: crash", Suggested: true}, // title probe with hits
+				},
+			},
+			{
+				Category: "feature",
+				Matchers: []MatcherEvidence{
+					{Matcher: "label:enhancement", Count: 0},                                               // label detected but 0 hits
+					{Matcher: `title:/^feat[\(: ]/i`, Count: 2, Example: "#2 feat: dark mode", Suggested: true}, // title probe with hits
+				},
+			},
+		},
+	}
+
+	yamlStr := renderPreflightConfig(result)
+
+	// Both label matchers and title probes should be present.
+	if !strings.Contains(yamlStr, `"label:bug"`) {
+		t.Errorf("expected label:bug in output even with 0 hits, got:\n%s", yamlStr)
+	}
+	if !strings.Contains(yamlStr, `title:/^fix`) {
+		t.Errorf("expected title probe for bug in output, got:\n%s", yamlStr)
+	}
+	if !strings.Contains(yamlStr, `"label:enhancement"`) {
+		t.Errorf("expected label:enhancement in output even with 0 hits, got:\n%s", yamlStr)
+	}
+	if !strings.Contains(yamlStr, `title:/^feat`) {
+		t.Errorf("expected title probe for feature in output, got:\n%s", yamlStr)
+	}
+}
+
+func TestWriteLifecycleMapping_ReadyMapsToBacklog(t *testing.T) {
+	var b strings.Builder
+	writeLifecycleMapping(&b, []string{"Backlog", "Ready", "In progress", "In review", "Done"})
+	output := b.String()
+
+	// "Ready" should be mapped to backlog alongside "Backlog".
+	if !strings.Contains(output, `"Backlog"`) {
+		t.Error("expected Backlog in lifecycle mapping")
+	}
+	// "Ready" should NOT appear as unmapped.
+	if strings.Contains(output, `# unmapped: "Ready"`) {
+		t.Errorf("Ready should be mapped to backlog, not unmapped:\n%s", output)
+	}
+}
+
+func TestWriteLifecycleMapping_ReadyAloneAsBacklog(t *testing.T) {
+	// When "Ready" is the only backlog-like column.
+	var b strings.Builder
+	writeLifecycleMapping(&b, []string{"Ready", "In progress", "Done"})
+	output := b.String()
+
+	if !strings.Contains(output, "backlog:") {
+		t.Errorf("expected backlog stage from Ready, got:\n%s", output)
+	}
+	if !strings.Contains(output, `"Ready"`) {
+		t.Errorf("expected Ready mapped to backlog, got:\n%s", output)
+	}
+}
+
 func TestVerifyConfig_IssueStrategyNoLifecycle(t *testing.T) {
 	result := &PreflightResult{
 		Repo:     "owner/repo",

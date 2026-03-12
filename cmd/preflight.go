@@ -771,23 +771,40 @@ func renderPreflightConfig(r *PreflightResult) string {
 
 		// Separate label matchers from title probes.
 		var labelHits, titleHits []MatcherEvidence
+		hasTitleSignal := false
 		for _, me := range ce.Matchers {
-			if me.Count == 0 {
-				continue
-			}
 			if me.Suggested {
+				if me.Count > 0 {
+					hasTitleSignal = true
+				}
 				titleHits = append(titleHits, me)
-			} else {
+			} else if me.Count > 0 {
 				labelHits = append(labelHits, me)
 			}
 		}
+		// Only include title probes when at least one in the category had signal.
+		// This keeps all conventional-commit prefixes for the category together.
+		if !hasTitleSignal {
+			titleHits = nil
+		}
 
-		// Prefer label matchers when they have signal.
-		// Only use title matchers when labels found nothing.
-		if len(labelHits) > 0 {
-			cats = append(cats, effectiveCategory{name: cat, matchers: labelHits})
-		} else if len(titleHits) > 0 {
-			cats = append(cats, effectiveCategory{name: cat, matchers: titleHits})
+		// Always include detected label matchers from classifyLabels,
+		// even if they had 0 recent hits. Labels are the canonical
+		// classification mechanism; title probes supplement them.
+		if len(labelHits) == 0 {
+			if labels, ok := r.Categories[cat]; ok {
+				for _, l := range labels {
+					labelHits = append(labelHits, MatcherEvidence{Matcher: "label:" + l})
+				}
+			}
+		}
+
+		// Combine: label matchers first, then title probes as fallbacks.
+		var combined []MatcherEvidence
+		combined = append(combined, labelHits...)
+		combined = append(combined, titleHits...)
+		if len(combined) > 0 {
+			cats = append(cats, effectiveCategory{name: cat, matchers: combined})
 		}
 	}
 
@@ -829,12 +846,10 @@ func renderPreflightConfig(r *PreflightResult) string {
 	b.WriteString(fmt.Sprintf("  strategy: %s\n", r.Strategy))
 	b.WriteString("\n")
 
-	// Exclude users
+	// Exclude users — common bots enabled by default (no-op if absent from the repo).
 	b.WriteString("# Exclude bot accounts from metrics.\n")
-	b.WriteString("# These are filtered via -author: qualifiers in search queries.\n")
-	b.WriteString("# exclude_users:\n")
-	b.WriteString("#   - \"dependabot[bot]\"\n")
-	b.WriteString("#   - \"renovate[bot]\"\n")
+	b.WriteString("exclude_users:\n")
+	b.WriteString("  - \"dependabot[bot]\"\n")
 	b.WriteString("\n")
 
 	// Project board config (if detected)
@@ -871,6 +886,13 @@ func renderPreflightConfig(r *PreflightResult) string {
 	} else {
 		b.WriteString("# No lifecycle stages detected. Add a project board for cycle time metrics:\n")
 		b.WriteString("#   gh velocity config preflight --project-url <url> --write\n")
+		b.WriteString("\n")
+	}
+
+	// Discussions section: emit when detected.
+	if r.PostingReadiness != nil && r.PostingReadiness.DiscussionsEnabled {
+		b.WriteString("discussions:\n")
+		b.WriteString("  category: General\n")
 		b.WriteString("\n")
 	}
 
@@ -933,26 +955,33 @@ func printPreflightDiagnostics(r *PreflightResult) {
 
 // writeLifecycleMapping maps project board status options to lifecycle stages.
 func writeLifecycleMapping(b *strings.Builder, options []string) {
-	backlog := findStatus(options, "backlog", "to do", "todo", "triage", "new")
-	inProgress := findStatus(options, "in progress", "doing", "active", "working")
-	inReview := findStatus(options, "in review", "review", "pending review")
-	done := findStatus(options, "done", "closed", "complete", "completed", "shipped")
+	backlog := findStatuses(options, "backlog", "to do", "todo", "triage", "new", "ready")
+	inProgress := findStatuses(options, "in progress", "doing", "active", "working")
+	inReview := findStatuses(options, "in review", "review", "pending review")
+	done := findStatuses(options, "done", "closed", "complete", "completed", "shipped")
 
-	if backlog != "" {
-		b.WriteString(fmt.Sprintf("  backlog:\n    project_status: [%q]\n", backlog))
+	writeStage := func(name string, statuses []string) {
+		if len(statuses) == 0 {
+			return
+		}
+		quoted := make([]string, len(statuses))
+		for i, s := range statuses {
+			quoted[i] = fmt.Sprintf("%q", s)
+		}
+		b.WriteString(fmt.Sprintf("  %s:\n    project_status: [%s]\n", name, strings.Join(quoted, ", ")))
 	}
-	if inProgress != "" {
-		b.WriteString(fmt.Sprintf("  in-progress:\n    project_status: [%q]\n", inProgress))
-	}
-	if inReview != "" {
-		b.WriteString(fmt.Sprintf("  in-review:\n    project_status: [%q]\n", inReview))
-	}
-	if done != "" {
-		b.WriteString(fmt.Sprintf("  done:\n    project_status: [%q]\n", done))
-	}
+	writeStage("backlog", backlog)
+	writeStage("in-progress", inProgress)
+	writeStage("in-review", inReview)
+	writeStage("done", done)
 
-	// Show unmapped options as comments
-	mapped := map[string]bool{backlog: true, inProgress: true, inReview: true, done: true}
+	// Show unmapped options as comments.
+	mapped := make(map[string]bool)
+	for _, group := range [][]string{backlog, inProgress, inReview, done} {
+		for _, s := range group {
+			mapped[s] = true
+		}
+	}
 	for _, o := range options {
 		if !mapped[o] && o != "" {
 			b.WriteString(fmt.Sprintf("  # unmapped: %q\n", o))
@@ -960,16 +989,19 @@ func writeLifecycleMapping(b *strings.Builder, options []string) {
 	}
 }
 
-func findStatus(options []string, patterns ...string) string {
+// findStatuses returns all options that match any of the patterns.
+func findStatuses(options []string, patterns ...string) []string {
+	var result []string
 	for _, o := range options {
 		lower := strings.ToLower(o)
 		for _, p := range patterns {
 			if strings.Contains(lower, p) {
-				return o
+				result = append(result, o)
+				break
 			}
 		}
 	}
-	return ""
+	return result
 }
 
 // verifyConfig validates the generated config by parsing it, constructing a
