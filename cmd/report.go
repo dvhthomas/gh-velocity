@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/bitsbyme/gh-velocity/internal/classify"
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
@@ -230,9 +231,9 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 		}
 	}
 
-	// Quality: defect rate from bug labels (reuses lead time's closed issues)
-	if leadOK && len(cfg.Quality.BugLabels) > 0 {
-		result.Quality = computeQuality(leadPipeline.Items, cfg.Quality.BugLabels)
+	// Quality: defect rate from categories (reuses lead time's closed issues)
+	if leadOK && len(cfg.Quality.Categories) > 0 {
+		result.Quality = computeQuality(leadPipeline.Items, cfg.Quality.Categories)
 	}
 
 	// TODO(PR C): WIP from project board or active_labels config
@@ -259,22 +260,25 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 	return postFn()
 }
 
-// computeQuality computes defect rate from closed issues with bug labels.
-func computeQuality(items []leadtime.BulkItem, bugLabels []string) *model.StatsQuality {
+// computeQuality computes defect rate from closed issues using the classifier.
+// Issues classified as "bug" are counted as defects.
+func computeQuality(items []leadtime.BulkItem, categories []model.CategoryConfig) *model.StatsQuality {
 	if len(items) == 0 {
 		return nil
 	}
-	bugSet := make(map[string]bool, len(bugLabels))
-	for _, l := range bugLabels {
-		bugSet[l] = true
+	classifier, err := classify.NewClassifier(categories)
+	if err != nil {
+		return nil
 	}
 	bugCount := 0
 	for _, item := range items {
-		for _, l := range item.Issue.Labels {
-			if bugSet[l] {
-				bugCount++
-				break
-			}
+		result := classifier.Classify(classify.Input{
+			Labels:    item.Issue.Labels,
+			IssueType: item.Issue.IssueType,
+			Title:     item.Issue.Title,
+		})
+		if result.Category == "bug" {
+			bugCount++
 		}
 	}
 	defectRate := float64(bugCount) / float64(len(items))

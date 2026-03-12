@@ -31,8 +31,14 @@ func TestLoad_ValidConfig(t *testing.T) {
 	content := `
 workflow: local
 quality:
-  bug_labels: ["bug", "defect"]
-  feature_labels: ["feature"]
+  categories:
+    - name: bug
+      match:
+        - "label:bug"
+        - "label:defect"
+    - name: feature
+      match:
+        - "label:feature"
   hotfix_window_hours: 48
 project:
   url: "https://github.com/users/testuser/projects/1"
@@ -50,8 +56,11 @@ project:
 	if cfg.Workflow != "local" {
 		t.Errorf("expected workflow 'local', got %q", cfg.Workflow)
 	}
-	if len(cfg.Quality.BugLabels) != 2 {
-		t.Errorf("expected 2 bug labels, got %d", len(cfg.Quality.BugLabels))
+	if len(cfg.Quality.Categories) != 2 {
+		t.Errorf("expected 2 categories, got %d", len(cfg.Quality.Categories))
+	}
+	if cfg.Quality.Categories[0].Name != "bug" || len(cfg.Quality.Categories[0].Matchers) != 2 {
+		t.Errorf("expected bug category with 2 matchers, got %+v", cfg.Quality.Categories[0])
 	}
 	if cfg.Quality.HotfixWindowHours != 48 {
 		t.Errorf("expected hotfix_window_hours 48, got %v", cfg.Quality.HotfixWindowHours)
@@ -151,7 +160,10 @@ func TestLoad_PartialConfig(t *testing.T) {
 	path := filepath.Join(dir, ".gh-velocity.yml")
 
 	content := `quality:
-  bug_labels: ["bug"]
+  categories:
+    - name: bug
+      match:
+        - "label:bug"
 `
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -168,18 +180,13 @@ func TestLoad_PartialConfig(t *testing.T) {
 	}
 }
 
-func TestLoad_DefaultCategoriesFromLabels(t *testing.T) {
+func TestLoad_DefaultCategories(t *testing.T) {
 	cfg, err := Load("/nonexistent/.gh-velocity.yml")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// Default config has bug_labels: ["bug"], feature_labels: ["enhancement"]
-	// These should be auto-generated as categories.
-	if len(cfg.Quality.Categories) == 0 {
-		t.Fatal("expected auto-generated categories")
-	}
 	if len(cfg.Quality.Categories) != 2 {
-		t.Fatalf("expected 2 categories, got %d", len(cfg.Quality.Categories))
+		t.Fatalf("expected 2 default categories, got %d", len(cfg.Quality.Categories))
 	}
 	bug := cfg.Quality.Categories[0]
 	if bug.Name != "bug" || len(bug.Matchers) != 1 || bug.Matchers[0] != "label:bug" {
@@ -266,79 +273,20 @@ nested:
 	}
 }
 
-func TestParse_CategoriesWithDefaultLabelsNoWarning(t *testing.T) {
-	// Categories + default bug_labels/feature_labels should NOT warn.
-	data := []byte(`quality:
-  categories:
-    - name: bug
-      match:
-        - label:bug
-`)
-	var warnings []string
-	origWarn := WarnFunc
-	WarnFunc = func(format string, args ...any) {
-		warnings = append(warnings, fmt.Sprintf(format, args...))
-	}
-	defer func() { WarnFunc = origWarn }()
-
-	_, err := Parse(data)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	for _, w := range warnings {
-		if strings.Contains(w, "takes precedence") {
-			t.Error("should not warn about precedence when legacy labels are only defaults")
-		}
-	}
-}
-
-func TestParse_CategoriesWithExplicitLegacyLabelsWarns(t *testing.T) {
-	// Categories + explicit non-default bug_labels SHOULD warn.
-	data := []byte(`quality:
-  bug_labels: ["crash", "regression"]
-  categories:
-    - name: bug
-      match:
-        - label:bug
-`)
-	var warnings []string
-	origWarn := WarnFunc
-	WarnFunc = func(format string, args ...any) {
-		warnings = append(warnings, fmt.Sprintf(format, args...))
-	}
-	defer func() { WarnFunc = origWarn }()
-
-	_, err := Parse(data)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	found := false
-	for _, w := range warnings {
-		if strings.Contains(w, "takes precedence") {
-			found = true
-		}
-	}
-	if !found {
-		t.Error("expected precedence warning when explicit legacy labels and categories coexist")
-	}
-}
-
 func TestParse_ValidConfig(t *testing.T) {
 	data := []byte(`
 workflow: local
 quality:
-  bug_labels: ["bug", "defect"]
-  feature_labels: ["feature"]
+  categories:
+    - name: bug
+      match:
+        - "label:bug"
+        - "label:defect"
   hotfix_window_hours: 48
 project:
   url: "https://github.com/users/testuser/projects/1"
   status_field: "Status"
 `)
-	// Suppress warnings.
-	origWarn := WarnFunc
-	WarnFunc = func(string, ...any) {}
-	defer func() { WarnFunc = origWarn }()
-
 	cfg, err := Parse(data)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -346,8 +294,8 @@ project:
 	if cfg.Workflow != "local" {
 		t.Errorf("expected workflow 'local', got %q", cfg.Workflow)
 	}
-	if len(cfg.Quality.BugLabels) != 2 {
-		t.Errorf("expected 2 bug labels, got %d", len(cfg.Quality.BugLabels))
+	if len(cfg.Quality.Categories) != 1 || cfg.Quality.Categories[0].Name != "bug" {
+		t.Errorf("expected 1 bug category, got %+v", cfg.Quality.Categories)
 	}
 }
 

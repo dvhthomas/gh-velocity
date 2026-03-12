@@ -331,11 +331,16 @@ Create `.gh-velocity.yml` in your repository root. Every field is optional. The 
 
 ```yaml
 quality:
-  bug_labels: ["bug"]
-  feature_labels: ["enhancement"]
+  categories:
+    - name: bug
+      match:
+        - "label:bug"
+    - name: feature
+      match:
+        - "label:enhancement"
 ```
 
-This is equivalent to the defaults. You only need a config file if you want to change something.
+This is equivalent to the defaults. You only need a config file if you want to change something. Run `gh velocity config preflight -R owner/repo` to generate a config tailored to your repo.
 
 ### Full config
 
@@ -344,10 +349,27 @@ This is equivalent to the defaults. You only need a config file if you want to c
 # "local" means direct commits to main (solo projects, scripts).
 workflow: pr
 
-# Issue classification labels
+# Scope: which issues/PRs to analyze (GitHub search query syntax).
+scope:
+  query: "repo:myorg/myrepo"
+
+# Issue/PR classification — first matching category wins; unmatched = "other".
+# Matchers: label:<name>, type:<name>, title:/<regex>/i
 quality:
-  bug_labels: ["bug", "defect", "regression"]
-  feature_labels: ["enhancement", "feature", "new"]
+  categories:
+    - name: bug
+      match:
+        - "label:bug"
+        - "label:defect"
+        - "type:Bug"
+    - name: feature
+      match:
+        - "label:enhancement"
+        - "type:Feature"
+    - name: chore
+      match:
+        - "label:tech-debt"
+        - "title:/^chore[\\(: ]/i"
   hotfix_window_hours: 48        # releases within 48h of previous = hotfix
 
 # Commit message scanning
@@ -355,21 +377,28 @@ commit_ref:
   patterns: ["closes"]           # default: only closing keywords
   # patterns: ["closes", "refs"]   # also match bare #N references
 
-# GitHub Projects v2 — enables status-change cycle time signal
-project:
-  id: "PVT_kwDOAbc123"
-  status_field_id: "PVTSSF_kwDOAbc123"
+# Cycle time strategy: "issue" (default), "pr", or "project-board"
+cycle_time:
+  strategy: issue
 
-# Status tracking (Projects v2 board values + label-based alternatives)
-statuses:
-  backlog: "Backlog"
-  ready: "Ready"
-  in_progress: "In progress"
-  in_review: "In review"
-  done: "Done"
-  # Label-based status (alternative to Projects v2, common in OSS)
-  active_labels: ["in-progress", "wip"]    # labels that mean "work started"
-  backlog_labels: ["backlog", "icebox"]    # labels that suppress cycle time
+# GitHub Projects v2 — enables project-board cycle time strategy and WIP
+project:
+  url: "https://github.com/users/yourname/projects/1"
+  status_field: "Status"
+
+# Lifecycle stages: define what each workflow stage means.
+lifecycle:
+  done:
+    query: "is:closed reason:completed"
+    project_status: ["Done", "Shipped"]
+  backlog:
+    query: "is:open"
+    project_status: ["Backlog", "Triage"]
+
+# Exclude bot accounts from metrics.
+exclude_users:
+  - "dependabot[bot]"
+  - "renovate[bot]"
 
 # GitHub Discussions integration (for --post on bulk commands)
 discussions:
@@ -378,7 +407,7 @@ discussions:
 
 ### Configuration details
 
-**`quality.bug_labels`** and **`quality.feature_labels`**: Arrays of label names. Matching is exact and case-sensitive. An issue is classified as "bug" if any of its labels appear in `bug_labels`. If no labels match either list, the issue is classified as "other." When more than 50% of issues are "other," the tool warns about low label coverage.
+**`quality.categories`**: Ordered list of classification categories. Each category has a `name` and a list of `match` rules. The first matching category wins; unmatched issues are classified as "other." When more than 50% of issues are "other," the tool warns about low classification coverage. Matcher types: `label:<name>` (exact label match), `type:<name>` (GitHub Issue Type), `title:/<regex>/i` (title regex, case-insensitive).
 
 **`quality.hotfix_window_hours`**: A release is flagged as a hotfix if it was published within this many hours of the previous release. Default is 72 (3 days). Maximum is 8760 (1 year). Set this lower if your team has a fast release cadence.
 
@@ -387,11 +416,9 @@ discussions:
 - `["closes"]` (default): Only matches closing keywords — `fixes #N`, `closes #N`, `resolves #N` and their variations. This is conservative and avoids false positives from comments like "see #42" or "step #1".
 - `["closes", "refs"]`: Also matches bare `#N` references. Use this if your team writes commits like "implement #42" without closing keywords. Be aware that this can match false positives like "update step #1."
 
-**`statuses.active_labels`**: An array of issue label names that signal "work has started." When one of these labels is added to an issue, that event becomes a cycle time start signal. This is an alternative to Projects v2 for repos that track workflow status using labels. Common in open source. Matching is exact and case-sensitive.
+**`project.url`**: GitHub Projects v2 URL (e.g., `https://github.com/users/yourname/projects/1`). Enables the `project-board` cycle time strategy and the `wip` command. Find your project URL by navigating to your project board in GitHub.
 
-**`statuses.backlog_labels`**: An array of issue label names that signal "work has NOT started" (or was cancelled/deferred). If an issue currently has any of these labels, cycle time is suppressed — even if other signals exist (assignment, PR). This handles the case where someone was assigned, tried to work, but then the issue was deprioritized. Example: `["backlog", "icebox", "deferred", "wontfix"]`.
-
-**`project.id`** and **`project.status_field_id`**: GitHub Projects v2 node IDs. When set, the tool checks whether the issue has moved out of the configured backlog status on the project board. This is the highest-priority cycle time signal. You can find these IDs in the project's URL and GraphQL API.
+**`project.status_field`**: The visible name of the status field on your project board (usually "Status"). Required when lifecycle stages use `project_status`. Run `gh velocity config discover` to find available fields and options.
 
 **Unknown keys** in the config file produce warnings to stderr but do not cause errors. This lets you add comments or future fields without breaking the tool.
 
@@ -789,7 +816,7 @@ Both the current and previous tags need dates for pr-link to search for merged P
 
 ### "Low label coverage: N/M issues have no bug/feature labels"
 
-More than half the issues lack the labels configured for bug/feature classification. Either label your issues or customize `quality.bug_labels` and `quality.feature_labels` in your config.
+More than half the issues lack the labels configured for classification. Either label your issues or customize `quality.categories` in your config. Run `gh velocity config preflight` to discover available labels and generate matching categories.
 
 ### "shallow clone detected; commit history is incomplete"
 
