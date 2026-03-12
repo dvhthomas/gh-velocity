@@ -1,5 +1,5 @@
 ## Cycle Time: {{.Repository}} ({{date .Since}} – {{date .Until}} UTC) [{{.Strategy}}]
-
+{{if .Items}}
 | Issue | Title | Labels | Started (UTC) | Closed (UTC) | Cycle Time |
 | ---: | --- | --- | --- | --- | --- |
 {{- range .Items}}
@@ -7,3 +7,9 @@
 {{- end}}
 
 **Summary:** {{.Summary}}
+{{- else}}
+_No issues closed in this period._
+{{- if .SearchURL}}
+[Verify]({{.SearchURL}})
+{{- end}}
+{{- end}}

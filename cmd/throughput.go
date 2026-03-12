@@ -93,6 +93,8 @@ Default window is the last 30 days.`,
 				tp.PRsMerged = len(prs)
 			}
 
+			searchURL := issueQuery.URL()
+
 			w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
 				Command: "throughput",
 				Context: dateutil.FormatContext(sinceFlag, untilFlag),
@@ -102,11 +104,11 @@ Default window is the last 30 days.`,
 			var fmtErr error
 			switch deps.Format {
 			case format.JSON:
-				fmtErr = format.WriteThroughputJSON(w, tp)
+				fmtErr = format.WriteThroughputJSON(w, tp, searchURL)
 			case format.Markdown:
-				fmtErr = format.WriteThroughputMarkdown(w, tp)
+				fmtErr = format.WriteThroughputMarkdown(w, tp, searchURL)
 			default:
-				fmtErr = format.WriteThroughputPretty(w, tp)
+				fmtErr = format.WriteThroughputPretty(w, tp, searchURL)
 			}
 			if fmtErr != nil {
 				return fmtErr

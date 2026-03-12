@@ -5,3 +5,7 @@
 | Issues closed | {{.Issues}} |
 | PRs merged | {{.PRs}} |
 | Total | {{.Total}} |
+{{- if and (eq .Total 0) .SearchURL}}
+
+_No activity in this period._ [Verify]({{.SearchURL}})
+{{- end}}

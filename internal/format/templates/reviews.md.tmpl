@@ -1,6 +1,9 @@
 ## Review Queue: {{.Repository}}
 {{if eq .Count 0}}
 No PRs currently awaiting review.
+{{- if .SearchURL}}
+[Verify]({{.SearchURL}})
+{{- end}}
 {{- else}}
 
 | # | Title | Age | Signal |

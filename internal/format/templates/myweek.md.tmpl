@@ -18,6 +18,9 @@
 {{- end}}
 {{- else}}
 _None_
+{{- if .IssuesClosedURL}}
+[Verify]({{.IssuesClosedURL}})
+{{- end}}
 {{- end}}
 
 **PRs Merged ({{len .PRsMerged}})**
@@ -27,6 +30,9 @@ _None_
 {{- end}}
 {{- else}}
 _None_
+{{- if .PRsMergedURL}}
+[Verify]({{.PRsMergedURL}})
+{{- end}}
 {{- end}}
 
 **PRs Reviewed ({{len .PRsReviewed}})**
@@ -36,6 +42,9 @@ _None_
 {{- end}}
 {{- else}}
 _None_
+{{- if .PRsReviewedURL}}
+[Verify]({{.PRsReviewedURL}})
+{{- end}}
 {{- end}}
 {{- if .Releases}}
 

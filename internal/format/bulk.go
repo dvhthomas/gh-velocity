@@ -21,6 +21,7 @@ type BulkLeadTimeItem struct {
 type jsonBulkLeadTimeOutput struct {
 	Repository string             `json:"repository"`
 	Window     jsonWindow         `json:"window"`
+	SearchURL  string             `json:"search_url"`
 	Items      []jsonBulkLeadItem `json:"items"`
 	Stats      JSONStats          `json:"stats"`
 	Capped     bool               `json:"capped,omitempty"`
@@ -40,16 +41,17 @@ type jsonBulkLeadItem struct {
 }
 
 // WriteLeadTimeBulkJSON writes bulk lead-time results as JSON.
-func WriteLeadTimeBulkJSON(w io.Writer, repo string, since, until time.Time, items []BulkLeadTimeItem, stats model.Stats) error {
+func WriteLeadTimeBulkJSON(w io.Writer, repo string, since, until time.Time, items []BulkLeadTimeItem, stats model.Stats, searchURL string) error {
 	out := jsonBulkLeadTimeOutput{
 		Repository: repo,
 		Window: jsonWindow{
 			Since: since.UTC().Format(time.RFC3339),
 			Until: until.UTC().Format(time.RFC3339),
 		},
-		Items:  make([]jsonBulkLeadItem, 0, len(items)),
-		Stats:  statsToJSON(stats),
-		Capped: len(items) >= 1000,
+		SearchURL: searchURL,
+		Items:     make([]jsonBulkLeadItem, 0, len(items)),
+		Stats:     statsToJSON(stats),
+		Capped:    len(items) >= 1000,
 	}
 
 	for _, item := range items {
@@ -70,18 +72,26 @@ func WriteLeadTimeBulkJSON(w io.Writer, repo string, since, until time.Time, ite
 // --- Markdown ---
 
 // WriteLeadTimeBulkMarkdown writes bulk lead-time results as a markdown table using an embedded template.
-func WriteLeadTimeBulkMarkdown(rc RenderContext, repo string, since, until time.Time, items []BulkLeadTimeItem, stats model.Stats) error {
-	return renderLeadTimeBulkMarkdown(rc.Writer, rc, repo, since, until, items, stats)
+func WriteLeadTimeBulkMarkdown(rc RenderContext, repo string, since, until time.Time, items []BulkLeadTimeItem, stats model.Stats, searchURL string) error {
+	return renderLeadTimeBulkMarkdown(rc.Writer, rc, repo, since, until, items, stats, searchURL)
 }
 
 // --- Pretty ---
 
 // WriteLeadTimeBulkPretty writes bulk lead-time results as a formatted table.
-func WriteLeadTimeBulkPretty(rc RenderContext, repo string, since, until time.Time, items []BulkLeadTimeItem, stats model.Stats) error {
+func WriteLeadTimeBulkPretty(rc RenderContext, repo string, since, until time.Time, items []BulkLeadTimeItem, stats model.Stats, searchURL string) error {
 	sorted := sortByCloseDateDesc(items)
 
 	fmt.Fprintf(rc.Writer, "Lead Time: %s (%s – %s UTC)\n\n",
 		repo, since.UTC().Format(time.DateOnly), until.UTC().Format(time.DateOnly))
+
+	if len(sorted) == 0 {
+		fmt.Fprintln(rc.Writer, "  No issues closed in this period.")
+		if searchURL != "" {
+			fmt.Fprintf(rc.Writer, "  Verify: %s\n", searchURL)
+		}
+		return nil
+	}
 
 	tp := NewTable(rc.Writer, rc.IsTTY, rc.Width)
 	tp.AddHeader([]string{"#", "Title", "Labels", "Created", "Closed", "Lead Time"})
@@ -121,6 +131,7 @@ type BulkCycleTimeItem struct {
 type jsonBulkCycleTimeOutput struct {
 	Repository string              `json:"repository"`
 	Window     jsonWindow          `json:"window"`
+	SearchURL  string              `json:"search_url"`
 	Strategy   string              `json:"strategy"`
 	Items      []jsonBulkCycleItem `json:"items"`
 	Stats      JSONStats           `json:"stats"`
@@ -136,17 +147,18 @@ type jsonBulkCycleItem struct {
 }
 
 // WriteCycleTimeBulkJSON writes bulk cycle-time results as JSON.
-func WriteCycleTimeBulkJSON(w io.Writer, repo string, since, until time.Time, strategy string, items []BulkCycleTimeItem, stats model.Stats) error {
+func WriteCycleTimeBulkJSON(w io.Writer, repo string, since, until time.Time, strategy string, items []BulkCycleTimeItem, stats model.Stats, searchURL string) error {
 	out := jsonBulkCycleTimeOutput{
 		Repository: repo,
 		Window: jsonWindow{
 			Since: since.UTC().Format(time.RFC3339),
 			Until: until.UTC().Format(time.RFC3339),
 		},
-		Strategy: strategy,
-		Items:    make([]jsonBulkCycleItem, 0, len(items)),
-		Stats:    statsToJSON(stats),
-		Capped:   len(items) >= 1000,
+		SearchURL: searchURL,
+		Strategy:  strategy,
+		Items:     make([]jsonBulkCycleItem, 0, len(items)),
+		Stats:     statsToJSON(stats),
+		Capped:    len(items) >= 1000,
 	}
 
 	for _, item := range items {
@@ -167,18 +179,26 @@ func WriteCycleTimeBulkJSON(w io.Writer, repo string, since, until time.Time, st
 // --- Cycle Time Markdown ---
 
 // WriteCycleTimeBulkMarkdown writes bulk cycle-time results as a markdown table using an embedded template.
-func WriteCycleTimeBulkMarkdown(rc RenderContext, repo string, since, until time.Time, strategy string, items []BulkCycleTimeItem, stats model.Stats) error {
-	return renderCycleTimeBulkMarkdown(rc.Writer, rc, repo, since, until, strategy, items, stats)
+func WriteCycleTimeBulkMarkdown(rc RenderContext, repo string, since, until time.Time, strategy string, items []BulkCycleTimeItem, stats model.Stats, searchURL string) error {
+	return renderCycleTimeBulkMarkdown(rc.Writer, rc, repo, since, until, strategy, items, stats, searchURL)
 }
 
 // --- Cycle Time Pretty ---
 
 // WriteCycleTimeBulkPretty writes bulk cycle-time results as a formatted table.
-func WriteCycleTimeBulkPretty(rc RenderContext, repo string, since, until time.Time, strategy string, items []BulkCycleTimeItem, stats model.Stats) error {
+func WriteCycleTimeBulkPretty(rc RenderContext, repo string, since, until time.Time, strategy string, items []BulkCycleTimeItem, stats model.Stats, searchURL string) error {
 	sorted := sortCycleByCloseDateDesc(items)
 
 	fmt.Fprintf(rc.Writer, "Cycle Time: %s (%s – %s UTC) [%s]\n\n",
 		repo, since.UTC().Format(time.DateOnly), until.UTC().Format(time.DateOnly), strategy)
+
+	if len(sorted) == 0 {
+		fmt.Fprintln(rc.Writer, "  No issues closed in this period.")
+		if searchURL != "" {
+			fmt.Fprintf(rc.Writer, "  Verify: %s\n", searchURL)
+		}
+		return nil
+	}
 
 	tp := NewTable(rc.Writer, rc.IsTTY, rc.Width)
 	tp.AddHeader([]string{"#", "Title", "Labels", "Started", "Closed", "Cycle Time"})

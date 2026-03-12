@@ -12,10 +12,11 @@ import (
 // --- JSON ---
 
 type jsonReviewsOutput struct {
-	Repository     string           `json:"repository"`
-	Items          []jsonReviewItem `json:"items"`
-	Count          int              `json:"count"`
-	StaleCount     int              `json:"stale_count"`
+	Repository string           `json:"repository"`
+	SearchURL  string           `json:"search_url"`
+	Items      []jsonReviewItem `json:"items"`
+	Count      int              `json:"count"`
+	StaleCount int              `json:"stale_count"`
 }
 
 type jsonReviewItem struct {
@@ -28,7 +29,7 @@ type jsonReviewItem struct {
 }
 
 // WriteReviewsJSON writes review pressure results as JSON.
-func WriteReviewsJSON(w io.Writer, result model.ReviewPressureResult) error {
+func WriteReviewsJSON(w io.Writer, result model.ReviewPressureResult, searchURL string) error {
 	staleCount := 0
 	items := make([]jsonReviewItem, 0, len(result.AwaitingReview))
 	for _, pr := range result.AwaitingReview {
@@ -46,6 +47,7 @@ func WriteReviewsJSON(w io.Writer, result model.ReviewPressureResult) error {
 	}
 	out := jsonReviewsOutput{
 		Repository: result.Repository,
+		SearchURL:  searchURL,
 		Items:      items,
 		Count:      len(result.AwaitingReview),
 		StaleCount: staleCount,
@@ -58,20 +60,23 @@ func WriteReviewsJSON(w io.Writer, result model.ReviewPressureResult) error {
 // --- Markdown ---
 
 // WriteReviewsMarkdown writes review pressure results as markdown using an embedded template.
-func WriteReviewsMarkdown(rc RenderContext, result model.ReviewPressureResult) error {
-	return renderReviewsMarkdown(rc.Writer, rc, result)
+func WriteReviewsMarkdown(rc RenderContext, result model.ReviewPressureResult, searchURL string) error {
+	return renderReviewsMarkdown(rc.Writer, rc, result, searchURL)
 }
 
 // --- Pretty ---
 
 // WriteReviewsPretty writes review pressure results as a formatted table.
-func WriteReviewsPretty(rc RenderContext, result model.ReviewPressureResult) error {
+func WriteReviewsPretty(rc RenderContext, result model.ReviewPressureResult, searchURL string) error {
 	sorted := sortReviewsByAgeDesc(result.AwaitingReview)
 
 	fmt.Fprintf(rc.Writer, "Review Queue: %s\n\n", result.Repository)
 
 	if len(sorted) == 0 {
 		fmt.Fprintln(rc.Writer, "No PRs currently awaiting review.")
+		if searchURL != "" {
+			fmt.Fprintf(rc.Writer, "  Verify: %s\n", searchURL)
+		}
 		return nil
 	}
 

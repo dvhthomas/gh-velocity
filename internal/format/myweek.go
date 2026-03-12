@@ -129,8 +129,15 @@ func joinWith(parts []string, sep string) string {
 	return parts[0] + sep + parts[1]
 }
 
+// MyWeekSearchURLs holds verify URLs for each lookback section.
+type MyWeekSearchURLs struct {
+	IssuesClosed string
+	PRsMerged    string
+	PRsReviewed  string
+}
+
 // WriteMyWeekPretty writes a my-week summary as formatted text.
-func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult) error {
+func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, urls MyWeekSearchURLs) error {
 	w := rc.Writer
 	fmt.Fprintf(w, "My Week — %s (%s)\n", r.Login, r.Repo)
 	fmt.Fprintf(w, "  %s to %s\n", r.Since.Format(time.DateOnly), r.Until.Format(time.DateOnly))
@@ -145,37 +152,53 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult) error {
 
 	// Lookback
 	hasLookback := len(r.IssuesClosed) > 0 || len(r.PRsMerged) > 0 || len(r.PRsReviewed) > 0
+	fmt.Fprintf(w, "\n── What I shipped ──────────────────────────\n")
+
+	if len(r.IssuesClosed) > 0 {
+		fmt.Fprintf(w, "\nIssues Closed: %d\n", len(r.IssuesClosed))
+		for _, iss := range r.IssuesClosed {
+			dateStr := ""
+			if iss.ClosedAt != nil {
+				dateStr = iss.ClosedAt.Format(time.DateOnly) + "  "
+			}
+			fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(iss.Number, iss.URL, rc), dateStr, iss.Title)
+		}
+	} else {
+		fmt.Fprintf(w, "\nIssues Closed: 0\n")
+		if urls.IssuesClosed != "" {
+			fmt.Fprintf(w, "  Verify: %s\n", urls.IssuesClosed)
+		}
+	}
+
+	if len(r.PRsMerged) > 0 {
+		fmt.Fprintf(w, "\nPRs Merged: %d\n", len(r.PRsMerged))
+		for _, pr := range r.PRsMerged {
+			dateStr := ""
+			if pr.MergedAt != nil {
+				dateStr = pr.MergedAt.Format(time.DateOnly) + "  "
+			}
+			fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), dateStr, pr.Title)
+		}
+	} else {
+		fmt.Fprintf(w, "\nPRs Merged: 0\n")
+		if urls.PRsMerged != "" {
+			fmt.Fprintf(w, "  Verify: %s\n", urls.PRsMerged)
+		}
+	}
+
+	if len(r.PRsReviewed) > 0 {
+		fmt.Fprintf(w, "\nPRs Reviewed: %d\n", len(r.PRsReviewed))
+		for _, pr := range r.PRsReviewed {
+			fmt.Fprintf(w, "  %s  %s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title)
+		}
+	} else {
+		fmt.Fprintf(w, "\nPRs Reviewed: 0\n")
+		if urls.PRsReviewed != "" {
+			fmt.Fprintf(w, "  Verify: %s\n", urls.PRsReviewed)
+		}
+	}
+
 	if hasLookback {
-		fmt.Fprintf(w, "\n── What I shipped ──────────────────────────\n")
-
-		if len(r.IssuesClosed) > 0 {
-			fmt.Fprintf(w, "\nIssues Closed: %d\n", len(r.IssuesClosed))
-			for _, iss := range r.IssuesClosed {
-				dateStr := ""
-				if iss.ClosedAt != nil {
-					dateStr = iss.ClosedAt.Format(time.DateOnly) + "  "
-				}
-				fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(iss.Number, iss.URL, rc), dateStr, iss.Title)
-			}
-		}
-
-		if len(r.PRsMerged) > 0 {
-			fmt.Fprintf(w, "\nPRs Merged: %d\n", len(r.PRsMerged))
-			for _, pr := range r.PRsMerged {
-				dateStr := ""
-				if pr.MergedAt != nil {
-					dateStr = pr.MergedAt.Format(time.DateOnly) + "  "
-				}
-				fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), dateStr, pr.Title)
-			}
-		}
-
-		if len(r.PRsReviewed) > 0 {
-			fmt.Fprintf(w, "\nPRs Reviewed: %d\n", len(r.PRsReviewed))
-			for _, pr := range r.PRsReviewed {
-				fmt.Fprintf(w, "  %s  %s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title)
-			}
-		}
 
 		if len(r.Releases) > 0 {
 			fmt.Fprintf(w, "\nReleases: %d\n", len(r.Releases))
@@ -239,8 +262,8 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult) error {
 }
 
 // WriteMyWeekMarkdown writes a my-week summary as markdown using an embedded template.
-func WriteMyWeekMarkdown(rc RenderContext, r model.MyWeekResult) error {
-	return renderMyWeekMarkdown(rc.Writer, rc, r)
+func WriteMyWeekMarkdown(rc RenderContext, r model.MyWeekResult, urls MyWeekSearchURLs) error {
+	return renderMyWeekMarkdown(rc.Writer, rc, r, urls)
 }
 
 // jsonMyWeekResult is the JSON serialization of MyWeekResult.
@@ -256,10 +279,17 @@ type jsonMyWeekResult struct {
 }
 
 type jsonMyWeekLookback struct {
-	IssuesClosed []jsonMyWeekItem    `json:"issues_closed"`
-	PRsMerged    []jsonMyWeekItem    `json:"prs_merged"`
-	Releases     []jsonMyWeekRelease `json:"releases,omitempty"`
-	PRsReviewed  []jsonMyWeekItem `json:"prs_reviewed"`
+	IssuesClosed []jsonMyWeekItem       `json:"issues_closed"`
+	PRsMerged    []jsonMyWeekItem       `json:"prs_merged"`
+	Releases     []jsonMyWeekRelease    `json:"releases,omitempty"`
+	PRsReviewed  []jsonMyWeekItem       `json:"prs_reviewed"`
+	SearchURLs   jsonMyWeekSearchURLs   `json:"search_urls"`
+}
+
+type jsonMyWeekSearchURLs struct {
+	IssuesClosed string `json:"issues_closed"`
+	PRsMerged    string `json:"prs_merged"`
+	PRsReviewed  string `json:"prs_reviewed"`
 }
 
 type jsonMyWeekAhead struct {
@@ -323,7 +353,7 @@ type jsonMyWeekRelease struct {
 }
 
 // WriteMyWeekJSON writes a my-week summary as JSON.
-func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult) error {
+func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, urls MyWeekSearchURLs) error {
 	ins := model.ComputeInsights(r)
 	jsonIns := jsonMyWeekInsights{
 		Lines:               buildInsightLines(r),
@@ -355,6 +385,13 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult) error {
 			IssuesOpen:   len(r.IssuesOpen),
 			PRsOpen:      len(r.PRsOpen),
 		},
+	}
+
+	// Lookback search URLs
+	out.Lookback.SearchURLs = jsonMyWeekSearchURLs{
+		IssuesClosed: urls.IssuesClosed,
+		PRsMerged:    urls.PRsMerged,
+		PRsReviewed:  urls.PRsReviewed,
 	}
 
 	// Lookback

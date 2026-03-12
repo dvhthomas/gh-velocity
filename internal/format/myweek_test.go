@@ -120,7 +120,7 @@ func testMyWeekResult() model.MyWeekResult {
 func TestWriteMyWeekPretty(t *testing.T) {
 	var buf bytes.Buffer
 	rc := RenderContext{Writer: &buf, Format: Pretty}
-	if err := WriteMyWeekPretty(rc, testMyWeekResult()); err != nil {
+	if err := WriteMyWeekPretty(rc, testMyWeekResult(), MyWeekSearchURLs{}); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -169,21 +169,58 @@ func TestWriteMyWeekPretty_Empty(t *testing.T) {
 		Since: testSince,
 		Until: testNow,
 	}
-	if err := WriteMyWeekPretty(rc, r); err != nil {
+	if err := WriteMyWeekPretty(rc, r, MyWeekSearchURLs{}); err != nil {
 		t.Fatal(err)
 	}
-	if !contains(buf.String(), "No activity") {
+	out := buf.String()
+	if !contains(out, "No activity") {
 		t.Error("expected 'No activity' for empty result")
 	}
-	if contains(buf.String(), "What I shipped") {
-		t.Error("should not show 'What I shipped' when empty")
+	// Lookback sections always show with 0 counts.
+	if !contains(out, "Issues Closed: 0") {
+		t.Error("expected 'Issues Closed: 0' for empty result")
+	}
+	if !contains(out, "PRs Merged: 0") {
+		t.Error("expected 'PRs Merged: 0' for empty result")
+	}
+	if !contains(out, "PRs Reviewed: 0") {
+		t.Error("expected 'PRs Reviewed: 0' for empty result")
+	}
+}
+
+func TestWriteMyWeekPretty_EmptyWithVerifyURLs(t *testing.T) {
+	var buf bytes.Buffer
+	rc := RenderContext{Writer: &buf, Format: Pretty}
+	r := model.MyWeekResult{
+		Login: "testuser",
+		Repo:  "owner/repo",
+		Since: testSince,
+		Until: testNow,
+	}
+	urls := MyWeekSearchURLs{
+		IssuesClosed: "https://github.com/search?q=issues",
+		PRsMerged:    "https://github.com/search?q=prs",
+		PRsReviewed:  "https://github.com/search?q=reviews",
+	}
+	if err := WriteMyWeekPretty(rc, r, urls); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !contains(out, "Verify: https://github.com/search?q=issues") {
+		t.Error("expected verify URL for issues closed")
+	}
+	if !contains(out, "Verify: https://github.com/search?q=prs") {
+		t.Error("expected verify URL for PRs merged")
+	}
+	if !contains(out, "Verify: https://github.com/search?q=reviews") {
+		t.Error("expected verify URL for PRs reviewed")
 	}
 }
 
 func TestWriteMyWeekMarkdown(t *testing.T) {
 	var buf bytes.Buffer
 	rc := RenderContext{Writer: &buf, Format: Markdown}
-	if err := WriteMyWeekMarkdown(rc, testMyWeekResult()); err != nil {
+	if err := WriteMyWeekMarkdown(rc, testMyWeekResult(), MyWeekSearchURLs{}); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -225,7 +262,7 @@ func TestWriteMyWeekMarkdown_Empty(t *testing.T) {
 	var buf bytes.Buffer
 	rc := RenderContext{Writer: &buf, Format: Markdown}
 	r := model.MyWeekResult{Login: "u", Repo: "o/r", Since: testSince, Until: testNow}
-	if err := WriteMyWeekMarkdown(rc, r); err != nil {
+	if err := WriteMyWeekMarkdown(rc, r, MyWeekSearchURLs{}); err != nil {
 		t.Fatal(err)
 	}
 	if !contains(buf.String(), "_None_") {
@@ -235,7 +272,7 @@ func TestWriteMyWeekMarkdown_Empty(t *testing.T) {
 
 func TestWriteMyWeekJSON(t *testing.T) {
 	var buf bytes.Buffer
-	if err := WriteMyWeekJSON(&buf, testMyWeekResult()); err != nil {
+	if err := WriteMyWeekJSON(&buf, testMyWeekResult(), MyWeekSearchURLs{}); err != nil {
 		t.Fatal(err)
 	}
 

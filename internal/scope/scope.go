@@ -34,7 +34,7 @@ func (q Query) URL() string {
 	if query == "" {
 		return ""
 	}
-	return "https://github.com/issues?q=" + url.QueryEscape(query)
+	return "https://github.com/search?q=" + url.QueryEscape(query)
 }
 
 // Verbose returns a multi-line diagnostic string for --debug output.
@@ -154,6 +154,17 @@ func ReviewRequestedQuery(scopeStr, login string) Query {
 		Type:      "is:pr",
 		Lifecycle: fmt.Sprintf("is:open review-requested:%s", login),
 	}
+}
+
+// OpenPRsAwaitingReviewSearchURL returns a clickable GitHub search URL for
+// open PRs awaiting review in the given repository.
+func OpenPRsAwaitingReviewSearchURL(owner, repo string) string {
+	q := Query{
+		Scope:     fmt.Sprintf("repo:%s/%s", owner, repo),
+		Type:      "is:pr",
+		Lifecycle: "is:open review:required",
+	}
+	return q.URL()
 }
 
 // MergeScope combines config scope and flag scope with AND semantics.
