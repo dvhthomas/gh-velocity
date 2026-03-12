@@ -48,6 +48,7 @@ exclude_users:
   - "dependabot[bot]"
 
 # Projects v2 board (auto-detected)
+# CI/Actions: GITHUB_TOKEN cannot access projects. Use a PAT with 'project' scope.
 project:
   url: "https://github.com/users/dvhthomas/projects/1"
   status_field: "Status"
@@ -63,6 +64,8 @@ lifecycle:
   done:
     project_status: ["Done"]
 
+# Post bulk reports (--post) as Discussion posts.
+# CI/Actions: requires 'discussions: write' in workflow permissions.
 discussions:
   category: General
 

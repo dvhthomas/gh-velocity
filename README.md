@@ -139,6 +139,12 @@ name: Velocity Report
 on:
   schedule:
     - cron: '0 9 * * 1'  # Monday 9am UTC
+
+permissions:
+  contents: read
+  issues: write         # post comments on issues/PRs
+  discussions: write    # post bulk reports as Discussions
+
 jobs:
   report:
     runs-on: ubuntu-latest
@@ -147,7 +153,9 @@ jobs:
       - run: gh extension install dvhthomas/gh-velocity
       - run: gh velocity report --since 30d --post -f markdown
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITHUB_TOKEN cannot access Projects v2 boards.
+          # For cycle time / WIP, use a PAT with 'project' scope.
+          GH_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN || secrets.GITHUB_TOKEN }}
           GH_VELOCITY_POST_LIVE: 'true'
 ```
 

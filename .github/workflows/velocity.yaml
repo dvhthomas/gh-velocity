@@ -27,7 +27,10 @@ jobs:
 
       - name: Post velocity report to Discussions
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITHUB_TOKEN cannot access Projects v2 boards. Use a PAT with
+          # 'project' scope (stored as GH_VELOCITY_TOKEN) for cycle time
+          # and WIP metrics. Falls back to GITHUB_TOKEN if no PAT is set.
+          GH_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN != '' && secrets.GH_VELOCITY_TOKEN || secrets.GITHUB_TOKEN }}
           GH_VELOCITY_POST_LIVE: "true"
         run: |
           ./gh-velocity report --since 7d --new-post --debug --repo dvhthomas/gh-velocity

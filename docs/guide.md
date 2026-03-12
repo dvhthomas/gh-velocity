@@ -577,6 +577,21 @@ The JSON output includes every field an agent needs: seconds-based durations, ra
 
 ## CI integration
 
+### Token permissions
+
+`GITHUB_TOKEN` works for most commands but **cannot access Projects v2 boards**. If your config uses `project.url` (for cycle time and WIP), you need a classic PAT or fine-grained token with the `project` scope:
+
+1. Create a PAT at [github.com/settings/tokens](https://github.com/settings/tokens) with `project` (read) scope.
+2. Add it as a repository secret named `GH_VELOCITY_TOKEN`.
+3. Reference it in your workflow:
+
+```yaml
+env:
+  GH_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
+```
+
+Without a project-scoped token, commands that need the project board (cycle time with issue strategy, WIP) will warn and skip that data — the rest of the report still works.
+
 ### GitHub Actions: release metrics comment
 
 Post a metrics report on every release:

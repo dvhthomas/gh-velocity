@@ -855,6 +855,7 @@ func renderPreflightConfig(r *PreflightResult) string {
 	// Project board config (if detected)
 	if r.HasProject && r.ProjectURL != "" {
 		b.WriteString("# Projects v2 board (auto-detected)\n")
+		b.WriteString("# CI/Actions: GITHUB_TOKEN cannot access projects. Use a PAT with 'project' scope.\n")
 		b.WriteString("project:\n")
 		b.WriteString(fmt.Sprintf("  url: %q\n", r.ProjectURL))
 		b.WriteString(fmt.Sprintf("  status_field: %q\n", "Status"))
@@ -891,6 +892,8 @@ func renderPreflightConfig(r *PreflightResult) string {
 
 	// Discussions section: emit when detected.
 	if r.PostingReadiness != nil && r.PostingReadiness.DiscussionsEnabled {
+		b.WriteString("# Post bulk reports (--post) as Discussion posts.\n")
+		b.WriteString("# CI/Actions: requires 'discussions: write' in workflow permissions.\n")
 		b.WriteString("discussions:\n")
 		b.WriteString("  category: General\n")
 		b.WriteString("\n")

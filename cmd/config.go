@@ -139,6 +139,7 @@ commit_ref:
 #   strategy: issue
 
 # GitHub Projects v2 board (uncomment to enable)
+# CI/Actions: GITHUB_TOKEN cannot access projects. Use a PAT with 'project' scope.
 # project:
 #   url: "https://github.com/users/yourname/projects/1"
 #   status_field: "Status"
@@ -159,6 +160,12 @@ commit_ref:
 # exclude_users:
 #   - "dependabot[bot]"
 #   - "renovate[bot]"
+
+# Post results to GitHub (--post flag).
+# CI/Actions: requires 'issues: write' for issue/PR comments,
+# 'discussions: write' for bulk reports.
+# discussions:
+#   category: General
 `
 
 func newConfigCreateCmd() *cobra.Command {
