@@ -46,15 +46,9 @@ Use `$REPO` with `--repo "$REPO"` on all `gh issue` and `gh pr` commands.
 
 ### Discover the project board
 
-The project board URL is defined in AGENTS.md (look for a `[project board]` link). Parse owner and project number from it:
+The project board URL is in AGENTS.md (look for a `[project board]` link). The URL format is `https://github.com/users/{BOARD_OWNER}/projects/{BOARD_NUMBER}`. Read the URL and extract the owner and number directly — no shell parsing needed.
 
-```bash
-# Example URL: https://github.com/users/dvhthomas/projects/1
-# Extract owner and project number from the URL in AGENTS.md
-BOARD_URL=$(grep -oP 'https://github.com/users/[^/]+/projects/\d+' AGENTS.md)
-BOARD_OWNER=$(echo "$BOARD_URL" | grep -oP 'users/\K[^/]+')
-BOARD_NUMBER=$(echo "$BOARD_URL" | grep -oP 'projects/\K\d+')
-```
+For example, `https://github.com/users/dvhthomas/projects/1` gives `BOARD_OWNER=dvhthomas` and `BOARD_NUMBER=1`.
 
 ### Resolve board IDs from human-readable names
 
@@ -87,6 +81,31 @@ gh project item-edit \
   --field-id "$FIELD_ID" \
   --single-select-option-id "$OPTION_ID"
 ```
+
+### Sub-issues
+
+For large features with multiple phases, create a parent issue and link child issues as sub-issues using the REST API:
+
+```bash
+# Get the child issue's internal ID
+CHILD_ID=$(gh api repos/{owner}/{repo}/issues/{CHILD_NUMBER} --jq '.id')
+
+# Add it as a sub-issue of the parent
+gh api repos/{owner}/{repo}/issues/{PARENT_NUMBER}/sub_issues \
+  -X POST \
+  -F sub_issue_id="$CHILD_ID"
+```
+
+Note: `-F` (not `-f`) is required so the ID is sent as an integer.
+
+To verify sub-issues are linked:
+
+```bash
+gh api repos/{owner}/{repo}/issues/{PARENT_NUMBER}/sub_issues \
+  --jq '.[] | "#\(.number): \(.title)"'
+```
+
+Each sub-issue should also be added to the project board individually so it has its own status column tracking.
 
 ## Board Statuses
 
@@ -189,16 +208,26 @@ gh issue comment <NUMBER> --repo "$REPO" \
 
 ### Phase 4: Work Begins → In Progress
 
-When code is being written (by `/ce:work` or manually), create a draft PR and transition:
+When code is being written (by `/ce:work` or manually), create a draft PR and transition.
+
+**Use a worktree** (required by project hard rules in AGENTS.md):
 
 ```bash
-# 1. Create feature branch (if not already on one)
-git checkout -b <branch-name>
+# 1. Create worktree with feature branch from main
+git worktree add ../<repo>-<feature> -b <branch-name> main
 
-# 2. Push the branch
+# 2. Work in the worktree directory
+cd ../<repo>-<feature>
+```
+
+**Create an opening commit and draft PR.** GitHub requires at least one commit to create a PR:
+
+```bash
+# 3. Create an empty opening commit and push
+git commit --allow-empty -m "<type>: begin <description>"
 git push -u origin <branch-name>
 
-# 3. Create draft PR
+# 4. Create draft PR
 CURRENT_USER=$(gh api user --jq '.login')
 gh pr create --draft \
   --title "<type>: <description>" \
@@ -213,7 +242,7 @@ gh pr create --draft \
 - [ ] \`task quality\`
 "
 
-# 4. Move issue to In progress (resolve IDs — see above)
+# 5. Move issue to In progress (resolve IDs — see above)
 #    Use STATUS_NAME = "In progress"
 ```
 
