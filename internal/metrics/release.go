@@ -87,7 +87,7 @@ func BuildReleaseMetrics(ctx context.Context, input ReleaseInput) (model.Release
 				Time:   *issue.ClosedAt,
 				Signal: model.SignalIssueClosed,
 			}
-			im.ReleaseLag = NewMetric(closedEvent, releaseEnd)
+			im.ReleaseLag = model.NewMetric(closedEvent, releaseEnd)
 			if im.ReleaseLag.Duration != nil {
 				releaseLags = append(releaseLags, *im.ReleaseLag.Duration)
 			}
