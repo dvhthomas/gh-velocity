@@ -180,25 +180,20 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 			if configFlag != "" {
 				configPath = configFlag
 			}
+			// Config is required for all non-config commands.
+			if _, statErr := os.Stat(configPath); os.IsNotExist(statErr) {
+				return &model.AppError{
+					Code:    model.ErrConfigInvalid,
+					Message: fmt.Sprintf("no config found (%s)\n\n  To generate a starter config:  gh velocity config create\n  To auto-detect your setup:    gh velocity config preflight -R owner/repo --write", configPath),
+				}
+			}
 			var cfg *config.Config
 			cfg, err = config.Load(configPath)
 			if err != nil {
-				if configFlag != "" {
-					// Explicit --config must exist and be valid.
-					return &model.AppError{
-						Code:    model.ErrConfigInvalid,
-						Message: fmt.Sprintf("%v\n\n  To generate a starter config:  gh velocity config create\n  To auto-detect your setup:    gh velocity config preflight", err),
-					}
+				return &model.AppError{
+					Code:    model.ErrConfigInvalid,
+					Message: fmt.Sprintf("%v\n\n  To generate a starter config:  gh velocity config create\n  To auto-detect your setup:    gh velocity config preflight -R owner/repo --write", err),
 				}
-				if hasLocal {
-					return &model.AppError{
-						Code:    model.ErrConfigInvalid,
-						Message: fmt.Sprintf("%v\n\n  To generate a starter config:  gh velocity config create\n  To auto-detect your setup:    gh velocity config preflight", err),
-					}
-				}
-				// Config file not found is fine when running without
-				// a local repo — use defaults.
-				cfg = config.Defaults()
 			}
 
 			// Detect terminal capabilities for pretty output.
@@ -210,11 +205,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 			}
 
 			// Resolve scope: merge config scope + --scope flag.
-			// Auto-inject repo: when no scope is configured.
 			resolvedScope := scope.MergeScope(cfg.Scope.Query, scopeFlag)
-			if resolvedScope == "" {
-				resolvedScope = fmt.Sprintf("repo:%s/%s", owner, repo)
-			}
 
 			// Dry-run is the default for --post. Mutations only happen when
 			// GH_VELOCITY_POST_LIVE=true is explicitly set. This prevents

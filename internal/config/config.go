@@ -146,8 +146,8 @@ func Parse(data []byte) (*Config, error) {
 	return cfg, nil
 }
 
-// Defaults returns a Config with default values. Exported for use when
-// no config file is available (e.g., running with --repo outside a git checkout).
+// Defaults returns a Config with default values. Used by config subcommands
+// and test fixtures. Non-config commands require a config file.
 func Defaults() *Config {
 	cfg := defaults()
 	resolveCategories(cfg)
