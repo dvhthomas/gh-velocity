@@ -5,8 +5,9 @@ import (
 
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/metric"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/pipeline"
+	"github.com/bitsbyme/gh-velocity/internal/pipeline/busfactor"
 	"github.com/spf13/cobra"
 )
 
@@ -80,15 +81,14 @@ func runBusFactor(cmd *cobra.Command, sinceStr string) error {
 		log.Debug("bus-factor: since=%s depth=%d min-commits=%d", since.Format("2006-01-02"), busFactorDepth, busFactorMinCommits)
 	}
 
-	p := &metric.BusFactorPipeline{
+	p := &busfactor.Pipeline{
 		Repository: deps.Owner + "/" + deps.Repo,
 		WorkDir:    wd,
 		Since:      since,
 		Depth:      busFactorDepth,
 		MinCommits: busFactorMinCommits,
-		Format:     deps.Format,
 	}
 
 	rc := deps.RenderCtx(cmd.OutOrStdout())
-	return metric.RunPipeline(ctx, p, rc)
+	return pipeline.RunPipeline(ctx, p, rc)
 }

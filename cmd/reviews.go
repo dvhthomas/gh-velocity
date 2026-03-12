@@ -2,8 +2,9 @@ package cmd
 
 import (
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/metric"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/pipeline"
+	"github.com/bitsbyme/gh-velocity/internal/pipeline/reviews"
 	"github.com/spf13/cobra"
 )
 
@@ -49,7 +50,7 @@ func runReviews(cmd *cobra.Command) error {
 		return err
 	}
 
-	p := &metric.ReviewsPipeline{
+	p := &reviews.Pipeline{
 		Client: client,
 		Owner:  deps.Owner,
 		Repo:   deps.Repo,
@@ -57,5 +58,5 @@ func runReviews(cmd *cobra.Command) error {
 	}
 
 	rc := deps.RenderCtx(cmd.OutOrStdout())
-	return metric.RunPipeline(ctx, p, rc)
+	return pipeline.RunPipeline(ctx, p, rc)
 }

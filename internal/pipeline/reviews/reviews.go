@@ -1,4 +1,6 @@
-package metric
+// Package reviews implements the review-pressure metric pipeline.
+// It shows open PRs awaiting code review and flags stale ones.
+package reviews
 
 import (
 	"context"
@@ -10,12 +12,12 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/scope"
 )
 
-// ReviewStaleThreshold is the duration after which a PR awaiting review
+// StaleThreshold is the duration after which a PR awaiting review
 // is considered stale.
-const ReviewStaleThreshold = 48 * time.Hour
+const StaleThreshold = 48 * time.Hour
 
-// ReviewsPipeline implements Pipeline for the reviews command.
-type ReviewsPipeline struct {
+// Pipeline implements pipeline.Pipeline for the reviews command.
+type Pipeline struct {
 	// Constructor params
 	Client *gh.Client
 	Owner  string
@@ -31,7 +33,7 @@ type ReviewsPipeline struct {
 }
 
 // GatherData fetches open PRs awaiting review.
-func (p *ReviewsPipeline) GatherData(ctx context.Context) error {
+func (p *Pipeline) GatherData(ctx context.Context) error {
 	prs, err := p.Client.SearchOpenPRsAwaitingReview(ctx)
 	if err != nil {
 		return &model.AppError{
@@ -44,7 +46,7 @@ func (p *ReviewsPipeline) GatherData(ctx context.Context) error {
 }
 
 // ProcessData computes review age and staleness.
-func (p *ReviewsPipeline) ProcessData() error {
+func (p *Pipeline) ProcessData() error {
 	p.Result = model.ReviewPressureResult{
 		Repository: p.Owner + "/" + p.Repo,
 	}
@@ -56,7 +58,7 @@ func (p *ReviewsPipeline) ProcessData() error {
 			Title:   pr.Title,
 			URL:     pr.URL,
 			Age:     age,
-			IsStale: age > ReviewStaleThreshold,
+			IsStale: age > StaleThreshold,
 		})
 	}
 
@@ -65,13 +67,13 @@ func (p *ReviewsPipeline) ProcessData() error {
 }
 
 // Render writes the review results in the requested format.
-func (p *ReviewsPipeline) Render(rc format.RenderContext) error {
+func (p *Pipeline) Render(rc format.RenderContext) error {
 	switch rc.Format {
 	case format.JSON:
-		return format.WriteReviewsJSON(rc.Writer, p.Result, p.SearchURL)
+		return WriteJSON(rc.Writer, p.Result, p.SearchURL)
 	case format.Markdown:
-		return format.WriteReviewsMarkdown(rc, p.Result, p.SearchURL)
+		return WriteMarkdown(rc, p.Result, p.SearchURL)
 	default:
-		return format.WriteReviewsPretty(rc, p.Result, p.SearchURL)
+		return WritePretty(rc, p.Result, p.SearchURL)
 	}
 }

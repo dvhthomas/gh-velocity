@@ -6,8 +6,8 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/metric"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/pipeline/leadtime"
 	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/bitsbyme/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
@@ -84,7 +84,7 @@ func runLeadTimeSingle(cmd *cobra.Command, arg string) error {
 		return err
 	}
 
-	p := &metric.LeadTimeSinglePipeline{
+	p := &leadtime.SinglePipeline{
 		Client:      client,
 		Owner:       deps.Owner,
 		Repo:        deps.Repo,
@@ -151,7 +151,7 @@ func runLeadTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		log.Debug("lead-time query:\n%s", q.Verbose())
 	}
 
-	p := &metric.LeadTimeBulkPipeline{
+	p := &leadtime.BulkPipeline{
 		Client:      client,
 		Owner:       deps.Owner,
 		Repo:        deps.Repo,

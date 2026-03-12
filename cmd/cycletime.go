@@ -6,9 +6,9 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/metric"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/pipeline/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/bitsbyme/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
@@ -117,7 +117,7 @@ func runCycleTimePR(cmd *cobra.Command, prNumber int) error {
 		return err
 	}
 
-	p := &metric.CycleTimePRPipeline{
+	p := &cycletime.PRPipeline{
 		Client:   client,
 		Owner:    deps.Owner,
 		Repo:     deps.Repo,
@@ -166,7 +166,7 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 
 	strat := buildCycleTimeStrategy(deps, client)
 
-	p := &metric.CycleTimeIssuePipeline{
+	p := &cycletime.IssuePipeline{
 		Client:      client,
 		Owner:       deps.Owner,
 		Repo:        deps.Repo,
@@ -257,7 +257,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		}
 	}
 
-	p := &metric.CycleTimeBulkPipeline{
+	p := &cycletime.BulkPipeline{
 		Client:      client,
 		Owner:       deps.Owner,
 		Repo:        deps.Repo,

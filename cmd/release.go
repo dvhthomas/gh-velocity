@@ -12,9 +12,9 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/gitdata"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/metric"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/pipeline/release"
 	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/bitsbyme/gh-velocity/internal/strategy"
 	"github.com/spf13/cobra"
@@ -107,7 +107,7 @@ linking strategy discovered for the release.`,
 			input.HotfixWindowHours = deps.Config.Quality.HotfixWindowHours
 			input.CycleTimeStrategy = buildCycleTimeStrategy(deps, client)
 
-			p := &metric.ReleasePipeline{
+			p := &release.Pipeline{
 				Owner:    deps.Owner,
 				Repo:     deps.Repo,
 				Input:    input,

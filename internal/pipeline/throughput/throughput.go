@@ -1,4 +1,6 @@
-package metric
+// Package throughput implements the throughput metric pipeline.
+// It counts issues closed and PRs merged in a date window.
+package throughput
 
 import (
 	"context"
@@ -9,8 +11,8 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
-// ThroughputPipeline implements Pipeline for the throughput command.
-type ThroughputPipeline struct {
+// Pipeline implements pipeline.Pipeline for the throughput command.
+type Pipeline struct {
 	// Constructor params
 	Client     *gh.Client
 	Owner      string
@@ -30,7 +32,7 @@ type ThroughputPipeline struct {
 }
 
 // GatherData fetches issue and PR counts from GitHub search.
-func (p *ThroughputPipeline) GatherData(ctx context.Context) error {
+func (p *Pipeline) GatherData(ctx context.Context) error {
 	issues, issueErr := p.Client.SearchIssues(ctx, p.IssueQuery)
 	prs, prErr := p.Client.SearchPRs(ctx, p.PRQuery)
 
@@ -49,7 +51,7 @@ func (p *ThroughputPipeline) GatherData(ctx context.Context) error {
 }
 
 // ProcessData builds the throughput result.
-func (p *ThroughputPipeline) ProcessData() error {
+func (p *Pipeline) ProcessData() error {
 	p.Result = model.ThroughputResult{
 		Repository:   p.Owner + "/" + p.Repo,
 		Since:        p.Since,
@@ -61,13 +63,13 @@ func (p *ThroughputPipeline) ProcessData() error {
 }
 
 // Render writes the throughput result in the requested format.
-func (p *ThroughputPipeline) Render(rc format.RenderContext) error {
+func (p *Pipeline) Render(rc format.RenderContext) error {
 	switch rc.Format {
 	case format.JSON:
-		return format.WriteThroughputJSON(rc.Writer, p.Result, p.SearchURL)
+		return WriteJSON(rc.Writer, p.Result, p.SearchURL)
 	case format.Markdown:
-		return format.WriteThroughputMarkdown(rc.Writer, p.Result, p.SearchURL)
+		return WriteMarkdown(rc.Writer, p.Result, p.SearchURL)
 	default:
-		return format.WriteThroughputPretty(rc.Writer, p.Result, p.SearchURL)
+		return WritePretty(rc.Writer, p.Result, p.SearchURL)
 	}
 }

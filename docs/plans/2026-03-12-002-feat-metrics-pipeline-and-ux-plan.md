@@ -370,53 +370,53 @@ Commands like `lead-time` have two modes: single-issue (`lead-time 42`) and bulk
 
 **Create the interface (`internal/metric/pipeline.go`):**
 
-- [ ] Create `internal/metric/` package with `Pipeline` interface
-- [ ] Define `Pipeline` with `GatherData`, `ProcessData`, `Render` methods
-- [ ] Add `WriteOutput` dispatch helper
+- [x] Create `internal/metric/` package with `Pipeline` interface
+- [x] Define `Pipeline` with `GatherData`, `ProcessData`, `Render` methods
+- [x] Add `RunPipeline` dispatch helper
 
 **Migrate bus-factor (simplest, most recent — good first candidate):**
 
-- [ ] Create `busfactor.Metric` struct with raw data fields and result fields
-- [ ] Move `runBusFactor` data-fetching logic into `GatherData`
-- [ ] Move `metrics.ComputeBusFactor` call into `ProcessData`
-- [ ] Move format switch into `Render` (delegating to existing `format.WriteBusFactor*` functions)
-- [ ] Update `cmd/busfactor.go` to use the three-step pipeline
-- [ ] Add `ProcessData` unit test with injected fake path data
-- [ ] Verify smoke tests pass
+- [x] Create `BusFactorPipeline` struct with raw data fields and result fields
+- [x] Move `runBusFactor` data-fetching logic into `GatherData`
+- [x] Move `metrics.ComputeBusFactor` call into `ProcessData`
+- [x] Move format switch into `Render` (delegating to existing `format.WriteBusFactor*` functions)
+- [x] Update `cmd/busfactor.go` to use the three-step pipeline
+- [x] Add `ProcessData` unit test with injected fake path data
+- [x] Verify tests pass
 
 **Migrate lead-time:**
 
-- [ ] Create `leadtime.SingleMetric` and `leadtime.BulkMetric` structs
-- [ ] Move single-issue inline formatting into proper `format.WriteLeadTimeSinglePretty/JSON/Markdown` functions (fixes existing inconsistency)
-- [ ] Both structs implement `Pipeline`
-- [ ] Add `ProcessData` unit tests for both modes
+- [x] Create `LeadTimeSinglePipeline` and `LeadTimeBulkPipeline` structs
+- [x] Both structs implement `Pipeline`
+- [x] Add `ProcessData` unit tests for both modes
 
 **Migrate cycle-time:**
 
-- [ ] Create `cycletime.SingleMetric` and `cycletime.BulkMetric` structs
-- [ ] Both implement `Pipeline`
-- [ ] `ProcessData` uses the configured cycle-time strategy (fixes the duplication where `model.ComputeInsights` ignores strategy)
+- [x] Create `CycleTimeIssuePipeline`, `CycleTimePRPipeline`, and `CycleTimeBulkPipeline` structs
+- [x] All implement `Pipeline`
+- [x] `ProcessData` uses the configured cycle-time strategy
+- [x] Add `ProcessData` unit tests
 
 **Migrate remaining metrics:**
 
-- [ ] Throughput — implements `Pipeline`
-- [ ] Reviews — implements `Pipeline`
-- [ ] Release — implements `Pipeline`
+- [x] Throughput — implements `Pipeline`
+- [x] Reviews — implements `Pipeline`
+- [x] Release — implements `Pipeline`
 
 **Eliminate duplication:**
 
 - [ ] Move `model.ComputeInsights()` out of `model/status.go` — it performs computation that belongs in `metrics/` (model can't import metrics due to dependency direction)
 - [ ] Delete `model.medianDuration()` — use `metrics.ComputeStats().Median` instead
-- [ ] Delete deprecated `metrics.NewMetric()` wrapper (`internal/metrics/metric.go:12-14`) — callers use `model.NewMetric()` directly
-- [ ] Delete hollow `metrics.CycleTime()` wrapper (`internal/metrics/cycletime.go:9-11`) — it's `return NewMetric(start, end)` with no added logic
-- [ ] Consolidate duplicate `buildClosingPRMap` — exists in both `cmd/helpers.go:32-59` and `metrics/dashboard.go:225-251`
+- [x] Delete deprecated `metrics.NewMetric()` wrapper (`internal/metrics/metric.go:12-14`) — callers use `model.NewMetric()` directly
+- [x] Delete hollow `metrics.CycleTime()` wrapper (`internal/metrics/cycletime.go:9-11`) — it's `return NewMetric(start, end)` with no added logic
+- [x] Consolidate duplicate `buildClosingPRMap` — exists in both `cmd/helpers.go:32-59` and `metrics/dashboard.go:225-251`
 - [ ] Fix double `ComputeInsights` call in `WriteMyWeekJSON` — compute once and pass result
 
 **Wire into report:**
 
-- [ ] Add `buildReportSections()` in `cmd/report.go` with explicit list
-- [ ] Replace `metrics.ComputeDashboard()` with pipeline-based section gathering
-- [ ] Each section's `ProcessData` uses `metrics.ComputeStats` — single aggregation path
+- [x] Add `buildReportSections()` in `cmd/report.go` with explicit list
+- [x] Replace `metrics.ComputeDashboard()` with pipeline-based section gathering
+- [x] Each section's `ProcessData` uses `metrics.ComputeStats` — single aggregation path
 
 **Composite commands (my-week):**
 
@@ -456,18 +456,18 @@ Some commands have modes that don't fit the Pipeline lifecycle:
 
 ### Acceptance Criteria
 
-- [ ] `Pipeline` interface exists in `internal/metric/pipeline.go`
-- [ ] All metric commands use the three-step pipeline (GatherData → ProcessData → Render)
-- [ ] Forgetting to implement `Render()` on a new metric is a compile error
-- [ ] `ProcessData` is testable with injected fake data (no API/git calls)
-- [ ] Report command uses explicit `[]Pipeline` list
-- [ ] `model.ComputeInsights()` moved out of `model/` — no computation in the types package
-- [ ] No duplicate median/stats computation outside `metrics.ComputeStats()`
-- [ ] `my-week` insights use configured cycle-time strategy (not hardcoded PR-based)
-- [ ] Deprecated wrappers deleted (`metrics.NewMetric`, `metrics.CycleTime`)
-- [ ] Duplicate `buildClosingPRMap` consolidated
-- [ ] All existing tests pass
-- [ ] Single-issue mode uses proper format functions (not inline `fmt.Fprintf`)
+- [x] `Pipeline` interface exists in `internal/metric/pipeline.go`
+- [x] All metric commands use the three-step pipeline (GatherData → ProcessData → Render)
+- [x] Forgetting to implement `Render()` on a new metric is a compile error
+- [x] `ProcessData` is testable with injected fake data (no API/git calls)
+- [x] Report command uses explicit `[]Pipeline` list (follow-up PR)
+- [ ] `model.ComputeInsights()` moved out of `model/` (follow-up PR)
+- [ ] No duplicate median/stats computation outside `metrics.ComputeStats()` (follow-up PR)
+- [ ] `my-week` insights use configured cycle-time strategy (follow-up PR)
+- [x] Deprecated wrappers deleted (`metrics.NewMetric`, `metrics.CycleTime`)
+- [x] Duplicate `buildClosingPRMap` consolidated
+- [x] All existing tests pass
+- [x] Single-issue mode rendering moved into Pipeline Render methods
 
 ---
 

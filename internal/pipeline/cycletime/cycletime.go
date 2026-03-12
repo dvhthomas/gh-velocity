@@ -1,25 +1,33 @@
-package metric
+// Package cycletime implements the cycle-time metric pipeline.
+// Cycle time measures how long an issue or PR was actively worked on.
+package cycletime
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/cycletime"
+	ct "github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
-// CycleTimeIssuePipeline implements Pipeline for single-issue cycle-time.
-type CycleTimeIssuePipeline struct {
+// BulkItem holds a single issue's cycle time result for bulk output.
+type BulkItem struct {
+	Issue  model.Issue
+	Metric model.Metric
+}
+
+// IssuePipeline implements pipeline.Pipeline for single-issue cycle-time.
+type IssuePipeline struct {
 	// Constructor params
 	Client      *gh.Client
 	Owner       string
 	Repo        string
 	IssueNumber int
-	Strategy    cycletime.Strategy
+	Strategy    ct.Strategy
 	StrategyStr string // "issue", "pr", "project-board" for display
 
 	// GatherData output
@@ -32,7 +40,7 @@ type CycleTimeIssuePipeline struct {
 }
 
 // GatherData fetches the issue and optionally its closing PR.
-func (p *CycleTimeIssuePipeline) GatherData(ctx context.Context) error {
+func (p *IssuePipeline) GatherData(ctx context.Context) error {
 	issue, err := p.Client.GetIssue(ctx, p.IssueNumber)
 	if err != nil {
 		return err
@@ -53,27 +61,27 @@ func (p *CycleTimeIssuePipeline) GatherData(ctx context.Context) error {
 }
 
 // ProcessData computes cycle time using the configured strategy.
-func (p *CycleTimeIssuePipeline) ProcessData() error {
-	input := cycletime.Input{Issue: p.Issue, PR: p.PR}
+func (p *IssuePipeline) ProcessData() error {
+	input := ct.Input{Issue: p.Issue, PR: p.PR}
 	p.CycleTime = p.Strategy.Compute(context.Background(), input)
 	return nil
 }
 
 // Render writes the single-issue cycle time in the requested format.
-func (p *CycleTimeIssuePipeline) Render(rc format.RenderContext) error {
+func (p *IssuePipeline) Render(rc format.RenderContext) error {
 	repo := p.Owner + "/" + p.Repo
 	switch rc.Format {
 	case format.JSON:
-		return format.WriteCycleTimeJSON(rc.Writer, repo, p.IssueNumber, p.Issue.Title, p.Issue.State, p.Issue.URL, p.Issue.Labels, p.CycleTime, p.Warnings)
+		return WriteIssueJSON(rc.Writer, repo, p.IssueNumber, p.Issue.Title, p.Issue.State, p.Issue.URL, p.Issue.Labels, p.CycleTime, p.Warnings)
 	case format.Markdown:
-		return format.WriteCycleTimeMarkdown(rc, "Issue", p.IssueNumber, p.Issue.Title, p.Issue.URL, p.CycleTime)
+		return WriteMarkdown(rc, "Issue", p.IssueNumber, p.Issue.Title, p.Issue.URL, p.CycleTime)
 	default:
-		return format.WriteCycleTimePretty(rc, "Issue", p.IssueNumber, p.Issue.Title, p.Issue.URL, p.StrategyStr, p.CycleTime)
+		return WritePretty(rc, "Issue", p.IssueNumber, p.Issue.Title, p.Issue.URL, p.StrategyStr, p.CycleTime)
 	}
 }
 
-// CycleTimePRPipeline implements Pipeline for single-PR cycle-time.
-type CycleTimePRPipeline struct {
+// PRPipeline implements pipeline.Pipeline for single-PR cycle-time.
+type PRPipeline struct {
 	// Constructor params
 	Client   *gh.Client
 	Owner    string
@@ -89,7 +97,7 @@ type CycleTimePRPipeline struct {
 }
 
 // GatherData fetches the PR from GitHub.
-func (p *CycleTimePRPipeline) GatherData(ctx context.Context) error {
+func (p *PRPipeline) GatherData(ctx context.Context) error {
 	pr, err := p.Client.GetPR(ctx, p.PRNumber)
 	if err != nil {
 		return err
@@ -106,35 +114,35 @@ func (p *CycleTimePRPipeline) GatherData(ctx context.Context) error {
 	return nil
 }
 
-// ProcessData computes cycle time for the PR (created → merged).
-func (p *CycleTimePRPipeline) ProcessData() error {
-	strat := &cycletime.PRStrategy{}
-	p.CycleTime = strat.Compute(context.Background(), cycletime.Input{PR: p.PR})
+// ProcessData computes cycle time for the PR (created -> merged).
+func (p *PRPipeline) ProcessData() error {
+	strat := &ct.PRStrategy{}
+	p.CycleTime = strat.Compute(context.Background(), ct.Input{PR: p.PR})
 	return nil
 }
 
 // Render writes the single-PR cycle time in the requested format.
-func (p *CycleTimePRPipeline) Render(rc format.RenderContext) error {
+func (p *PRPipeline) Render(rc format.RenderContext) error {
 	repo := p.Owner + "/" + p.Repo
 	switch rc.Format {
 	case format.JSON:
-		return format.WriteCycleTimePRJSON(rc.Writer, repo, p.PRNumber, p.PR.Title, p.PR.State, p.PR.URL, p.PR.Labels, p.CycleTime, p.Warnings)
+		return WritePRJSON(rc.Writer, repo, p.PRNumber, p.PR.Title, p.PR.State, p.PR.URL, p.PR.Labels, p.CycleTime, p.Warnings)
 	case format.Markdown:
-		return format.WriteCycleTimeMarkdown(rc, "PR", p.PRNumber, p.PR.Title, p.PR.URL, p.CycleTime)
+		return WriteMarkdown(rc, "PR", p.PRNumber, p.PR.Title, p.PR.URL, p.CycleTime)
 	default:
-		return format.WriteCycleTimePretty(rc, "PR", p.PRNumber, p.PR.Title, p.PR.URL, "pr", p.CycleTime)
+		return WritePretty(rc, "PR", p.PRNumber, p.PR.Title, p.PR.URL, "pr", p.CycleTime)
 	}
 }
 
-// CycleTimeBulkPipeline implements Pipeline for bulk cycle-time queries.
-type CycleTimeBulkPipeline struct {
+// BulkPipeline implements pipeline.Pipeline for bulk cycle-time queries.
+type BulkPipeline struct {
 	// Constructor params
 	Client      *gh.Client
 	Owner       string
 	Repo        string
 	Since       time.Time
 	Until       time.Time
-	Strategy    cycletime.Strategy
+	Strategy    ct.Strategy
 	StrategyStr string
 	SearchQuery string
 	SearchURL   string
@@ -144,12 +152,12 @@ type CycleTimeBulkPipeline struct {
 	issues []model.Issue
 
 	// ProcessData output
-	Items []format.BulkCycleTimeItem
+	Items []BulkItem
 	Stats model.Stats
 }
 
 // GatherData fetches issues from GitHub search.
-func (p *CycleTimeBulkPipeline) GatherData(ctx context.Context) error {
+func (p *BulkPipeline) GatherData(ctx context.Context) error {
 	issues, err := p.Client.SearchIssues(ctx, p.SearchQuery)
 	if err != nil {
 		return err
@@ -159,21 +167,21 @@ func (p *CycleTimeBulkPipeline) GatherData(ctx context.Context) error {
 }
 
 // ProcessData computes per-issue cycle times and aggregate stats.
-func (p *CycleTimeBulkPipeline) ProcessData() error {
+func (p *BulkPipeline) ProcessData() error {
 	var durations []time.Duration
 
 	for _, issue := range p.issues {
-		input := cycletime.Input{Issue: &issue}
+		input := ct.Input{Issue: &issue}
 		if p.ClosingPRs != nil {
 			if pr, ok := p.ClosingPRs[issue.Number]; ok {
 				input.PR = pr
 			}
 		}
 
-		ct := p.Strategy.Compute(context.Background(), input)
-		p.Items = append(p.Items, format.BulkCycleTimeItem{Issue: issue, Metric: ct})
-		if ct.Duration != nil {
-			durations = append(durations, *ct.Duration)
+		m := p.Strategy.Compute(context.Background(), input)
+		p.Items = append(p.Items, BulkItem{Issue: issue, Metric: m})
+		if m.Duration != nil {
+			durations = append(durations, *m.Duration)
 		}
 	}
 
@@ -182,14 +190,14 @@ func (p *CycleTimeBulkPipeline) ProcessData() error {
 }
 
 // Render writes the bulk cycle time results in the requested format.
-func (p *CycleTimeBulkPipeline) Render(rc format.RenderContext) error {
+func (p *BulkPipeline) Render(rc format.RenderContext) error {
 	repo := p.Owner + "/" + p.Repo
 	switch rc.Format {
 	case format.JSON:
-		return format.WriteCycleTimeBulkJSON(rc.Writer, repo, p.Since, p.Until, p.StrategyStr, p.Items, p.Stats, p.SearchURL)
+		return WriteBulkJSON(rc.Writer, repo, p.Since, p.Until, p.StrategyStr, p.Items, p.Stats, p.SearchURL)
 	case format.Markdown:
-		return format.WriteCycleTimeBulkMarkdown(rc, repo, p.Since, p.Until, p.StrategyStr, p.Items, p.Stats, p.SearchURL)
+		return WriteBulkMarkdown(rc, repo, p.Since, p.Until, p.StrategyStr, p.Items, p.Stats, p.SearchURL)
 	default:
-		return format.WriteCycleTimeBulkPretty(rc, repo, p.Since, p.Until, p.StrategyStr, p.Items, p.Stats, p.SearchURL)
+		return WriteBulkPretty(rc, repo, p.Since, p.Until, p.StrategyStr, p.Items, p.Stats, p.SearchURL)
 	}
 }

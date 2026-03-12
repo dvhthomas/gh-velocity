@@ -1,4 +1,6 @@
-package metric
+// Package release implements the release metric pipeline.
+// Release metrics include per-issue lead time, cycle time, release lag, and quality.
+package release
 
 import (
 	"context"
@@ -8,11 +10,11 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
-// ReleasePipeline implements Pipeline for the release command.
+// Pipeline implements pipeline.Pipeline for the release command.
 // GatherData is a no-op because release data gathering is complex and
 // stays in the cmd layer (gatherReleaseData). The Pipeline receives
 // the pre-built ReleaseInput and computes/renders from there.
-type ReleasePipeline struct {
+type Pipeline struct {
 	// Constructor params (populated by cmd layer after gatherReleaseData)
 	Owner    string
 	Repo     string
@@ -24,12 +26,12 @@ type ReleasePipeline struct {
 }
 
 // GatherData is a no-op — release data gathering is handled by the cmd layer.
-func (p *ReleasePipeline) GatherData(_ context.Context) error {
+func (p *Pipeline) GatherData(_ context.Context) error {
 	return nil
 }
 
 // ProcessData computes release metrics from the pre-built input.
-func (p *ReleasePipeline) ProcessData() error {
+func (p *Pipeline) ProcessData() error {
 	rm, metricWarnings, err := metrics.BuildReleaseMetrics(context.Background(), p.Input)
 	if err != nil {
 		return err
@@ -40,14 +42,14 @@ func (p *ReleasePipeline) ProcessData() error {
 }
 
 // Render writes the release metrics in the requested format.
-func (p *ReleasePipeline) Render(rc format.RenderContext) error {
+func (p *Pipeline) Render(rc format.RenderContext) error {
 	repo := p.Owner + "/" + p.Repo
 	switch rc.Format {
 	case format.JSON:
-		return format.WriteReleaseJSON(rc.Writer, repo, p.Result, p.Warnings)
+		return WriteJSON(rc.Writer, repo, p.Result, p.Warnings)
 	case format.Markdown:
-		return format.WriteReleaseMarkdown(rc, p.Result, p.Warnings)
+		return WriteMarkdown(rc, p.Result, p.Warnings)
 	default:
-		return format.WriteReleasePretty(rc, p.Result, p.Warnings)
+		return WritePretty(rc, p.Result, p.Warnings)
 	}
 }

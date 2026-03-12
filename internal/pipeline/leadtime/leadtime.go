@@ -1,4 +1,6 @@
-package metric
+// Package leadtime implements the lead-time metric pipeline.
+// Lead time measures elapsed time from issue creation to close.
+package leadtime
 
 import (
 	"context"
@@ -11,8 +13,20 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
-// LeadTimeSinglePipeline implements Pipeline for single-issue lead-time.
-type LeadTimeSinglePipeline struct {
+// Compute calculates the lead time for an issue: created → closed.
+// Returns a Metric with nil Duration if the issue is still open.
+func Compute(issue model.Issue) model.Metric {
+	return metrics.LeadTime(issue)
+}
+
+// BulkItem holds a single issue's lead time result for bulk output.
+type BulkItem struct {
+	Issue  model.Issue
+	Metric model.Metric
+}
+
+// SinglePipeline implements pipeline.Pipeline for single-issue lead-time.
+type SinglePipeline struct {
 	// Constructor params
 	Client      *gh.Client
 	Owner       string
@@ -27,7 +41,7 @@ type LeadTimeSinglePipeline struct {
 }
 
 // GatherData fetches the issue from GitHub.
-func (p *LeadTimeSinglePipeline) GatherData(ctx context.Context) error {
+func (p *SinglePipeline) GatherData(ctx context.Context) error {
 	issue, err := p.Client.GetIssue(ctx, p.IssueNumber)
 	if err != nil {
 		return err
@@ -37,17 +51,17 @@ func (p *LeadTimeSinglePipeline) GatherData(ctx context.Context) error {
 }
 
 // ProcessData computes lead time from the fetched issue.
-func (p *LeadTimeSinglePipeline) ProcessData() error {
-	p.LeadTime = metrics.LeadTime(*p.Issue)
+func (p *SinglePipeline) ProcessData() error {
+	p.LeadTime = Compute(*p.Issue)
 	return nil
 }
 
 // Render writes the single-issue lead time in the requested format.
-func (p *LeadTimeSinglePipeline) Render(rc format.RenderContext) error {
+func (p *SinglePipeline) Render(rc format.RenderContext) error {
 	repo := p.Owner + "/" + p.Repo
 	switch rc.Format {
 	case format.JSON:
-		return format.WriteLeadTimeJSON(rc.Writer, repo, p.IssueNumber, p.Issue.Title, p.Issue.State, p.Issue.URL, p.Issue.Labels, p.LeadTime, nil)
+		return WriteSingleJSON(rc.Writer, repo, p.IssueNumber, p.Issue.Title, p.Issue.State, p.Issue.URL, p.Issue.Labels, p.LeadTime, nil)
 	case format.Markdown:
 		fmt.Fprintf(rc.Writer, "| Issue | Title | Created (UTC) | Lead Time |\n")
 		fmt.Fprintf(rc.Writer, "| ---: | --- | --- | --- |\n")
@@ -67,8 +81,8 @@ func (p *LeadTimeSinglePipeline) Render(rc format.RenderContext) error {
 	}
 }
 
-// LeadTimeBulkPipeline implements Pipeline for bulk lead-time queries.
-type LeadTimeBulkPipeline struct {
+// BulkPipeline implements pipeline.Pipeline for bulk lead-time queries.
+type BulkPipeline struct {
 	// Constructor params
 	Client       *gh.Client
 	Owner        string
@@ -84,12 +98,12 @@ type LeadTimeBulkPipeline struct {
 	issues []model.Issue
 
 	// ProcessData output
-	Items []format.BulkLeadTimeItem
+	Items []BulkItem
 	Stats model.Stats
 }
 
 // GatherData fetches issues from GitHub search.
-func (p *LeadTimeBulkPipeline) GatherData(ctx context.Context) error {
+func (p *BulkPipeline) GatherData(ctx context.Context) error {
 	issues, err := p.Client.SearchIssues(ctx, p.SearchQuery)
 	if err != nil {
 		return err
@@ -99,12 +113,12 @@ func (p *LeadTimeBulkPipeline) GatherData(ctx context.Context) error {
 }
 
 // ProcessData computes per-issue lead times and aggregate stats.
-func (p *LeadTimeBulkPipeline) ProcessData() error {
+func (p *BulkPipeline) ProcessData() error {
 	var durations []time.Duration
 
 	for _, issue := range p.issues {
-		lt := metrics.LeadTime(issue)
-		p.Items = append(p.Items, format.BulkLeadTimeItem{Issue: issue, Metric: lt})
+		lt := Compute(issue)
+		p.Items = append(p.Items, BulkItem{Issue: issue, Metric: lt})
 		if lt.Duration != nil {
 			durations = append(durations, *lt.Duration)
 		}
@@ -115,14 +129,14 @@ func (p *LeadTimeBulkPipeline) ProcessData() error {
 }
 
 // Render writes the bulk lead time results in the requested format.
-func (p *LeadTimeBulkPipeline) Render(rc format.RenderContext) error {
+func (p *BulkPipeline) Render(rc format.RenderContext) error {
 	repo := p.Owner + "/" + p.Repo
 	switch rc.Format {
 	case format.JSON:
-		return format.WriteLeadTimeBulkJSON(rc.Writer, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL)
+		return WriteBulkJSON(rc.Writer, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL)
 	case format.Markdown:
-		return format.WriteLeadTimeBulkMarkdown(rc, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL)
+		return WriteBulkMarkdown(rc, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL)
 	default:
-		return format.WriteLeadTimeBulkPretty(rc, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL)
+		return WriteBulkPretty(rc, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL)
 	}
 }

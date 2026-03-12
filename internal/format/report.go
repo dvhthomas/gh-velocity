@@ -13,7 +13,7 @@ import (
 
 type jsonStatsOutput struct {
 	Repository        string            `json:"repository"`
-	Window            jsonWindow        `json:"window"`
+	Window            JSONWindow        `json:"window"`
 	LeadTime          *JSONStats        `json:"lead_time,omitempty"`
 	CycleTime         *JSONStats        `json:"cycle_time,omitempty"`
 	CycleTimeStrategy string            `json:"cycle_time_strategy,omitempty"`
@@ -42,17 +42,17 @@ type jsonStatsQuality struct {
 func WriteReportJSON(w io.Writer, r model.StatsResult) error {
 	out := jsonStatsOutput{
 		Repository: r.Repository,
-		Window: jsonWindow{
+		Window: JSONWindow{
 			Since: r.Since.UTC().Format(time.RFC3339),
 			Until: r.Until.UTC().Format(time.RFC3339),
 		},
 	}
 	if r.LeadTime != nil {
-		s := statsToJSON(*r.LeadTime)
+		s := StatsToJSON(*r.LeadTime)
 		out.LeadTime = &s
 	}
 	if r.CycleTime != nil {
-		s := statsToJSON(*r.CycleTime)
+		s := StatsToJSON(*r.CycleTime)
 		out.CycleTime = &s
 		out.CycleTimeStrategy = r.CycleTimeStrategy
 	}
@@ -95,10 +95,10 @@ func WriteReportPretty(rc RenderContext, r model.StatsResult) error {
 		r.Repository, r.Since.UTC().Format(time.DateOnly), r.Until.UTC().Format(time.DateOnly))
 
 	if r.LeadTime != nil {
-		fmt.Fprintf(w, "  Lead Time:   %s\n", formatStatsSummary(*r.LeadTime))
+		fmt.Fprintf(w, "  Lead Time:   %s\n", FormatStatsSummary(*r.LeadTime))
 	}
 	if r.CycleTime != nil {
-		fmt.Fprintf(w, "  Cycle Time:  %s\n", formatStatsSummary(*r.CycleTime))
+		fmt.Fprintf(w, "  Cycle Time:  %s\n", FormatStatsSummary(*r.CycleTime))
 	}
 	if r.Throughput != nil {
 		fmt.Fprintf(w, "  Throughput:  %d issues closed, %d PRs merged\n",
@@ -115,8 +115,8 @@ func WriteReportPretty(rc RenderContext, r model.StatsResult) error {
 	return nil
 }
 
-// formatStatsSummary returns a compact stats summary like "median 3.2d, mean 5.1d, P90 8.1d (n=14, 2 outliers)".
-func formatStatsSummary(s model.Stats) string {
+// FormatStatsSummary returns a compact stats summary like "median 3.2d, mean 5.1d, P90 8.1d (n=14, 2 outliers)".
+func FormatStatsSummary(s model.Stats) string {
 	if s.Count == 0 {
 		return "no data"
 	}

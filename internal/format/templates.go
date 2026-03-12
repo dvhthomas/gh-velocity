@@ -4,12 +4,10 @@ import (
 	"embed"
 	"fmt"
 	"io"
-	"math"
 	"strings"
 	"text/template"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -34,14 +32,8 @@ var funcMap = template.FuncMap{
 	"durationPtr": FormatDurationPtr,
 	"metricDuration": FormatMetricDuration,
 	"metric": FormatMetric,
-	"sanitize": sanitizeMarkdown,
+	"sanitize": SanitizeMarkdown,
 	"labels":   FormatLabels,
-	"primary": func(p metrics.PathRisk) string {
-		if p.ContributorCount >= 3 && p.PrimaryPct <= 70 {
-			return "distributed"
-		}
-		return fmt.Sprintf("%s (%.0f%%)", p.Primary.Name, p.PrimaryPct)
-	},
 	"itemLink": func(number int, url string) string {
 		if url == "" {
 			return fmt.Sprintf("#%d", number)
@@ -50,9 +42,9 @@ var funcMap = template.FuncMap{
 	},
 	"releaseLink": func(name, url string) string {
 		if url == "" {
-			return sanitizeMarkdown(name)
+			return SanitizeMarkdown(name)
 		}
-		return fmt.Sprintf("[%s](%s)", sanitizeMarkdown(name), stripControlChars(url))
+		return fmt.Sprintf("[%s](%s)", SanitizeMarkdown(name), stripControlChars(url))
 	},
 	"pct": func(f float64) string {
 		return fmt.Sprintf("%.0f%%", f*100)
@@ -67,65 +59,14 @@ func mustParseTemplate(name string) *template.Template {
 	)
 }
 
-// ============================================================
-// Bus Factor
-// ============================================================
-
-var busFactorMarkdownTmpl = mustParseTemplate("busfactor.md.tmpl")
-
-type busFactorTemplateData struct {
-	Repository  string
-	Since       time.Time
-	Depth       int
-	MinCommits  int
-	Days        int
-	Paths       []metrics.PathRisk
-	SummaryLine string
-}
-
-func renderBusFactorMarkdown(w io.Writer, result metrics.BusFactorResult) error {
-	days := int(math.Round(time.Since(result.Since).Hours() / 24))
-	high, med, low := countRisks(result)
-
-	data := busFactorTemplateData{
-		Repository:  result.Repository,
-		Since:       result.Since,
-		Depth:       result.Depth,
-		MinCommits:  result.MinCommits,
-		Days:        days,
-		Paths:       result.Paths,
-		SummaryLine: fmt.Sprintf("%d HIGH risk, %d MEDIUM risk, %d LOW risk areas", high, med, low),
+// TemplateFuncMap returns a copy of the shared template function map.
+// Per-metric packages extend this with metric-specific functions.
+func TemplateFuncMap() template.FuncMap {
+	fm := make(template.FuncMap, len(funcMap))
+	for k, v := range funcMap {
+		fm[k] = v
 	}
-
-	return busFactorMarkdownTmpl.Execute(w, data)
-}
-
-// ============================================================
-// Throughput
-// ============================================================
-
-var throughputMarkdownTmpl = mustParseTemplate("throughput.md.tmpl")
-
-type throughputTemplateData struct {
-	Repository string
-	Since      time.Time
-	Until      time.Time
-	Issues     int
-	PRs        int
-	Total      int
-	SearchURL  string
-}
-
-func renderThroughputMarkdown(w io.Writer, r model.ThroughputResult, searchURL string) error {
-	return throughputMarkdownTmpl.Execute(w, throughputTemplateData{
-		Repository: r.Repository,
-		Since:      r.Since,
-		Until:      r.Until,
-		Issues:     r.IssuesClosed,
-		PRs:        r.PRsMerged,
-		Total:      r.IssuesClosed + r.PRsMerged,
-		SearchURL:  searchURL,
-	})
+	return fm
 }
 
 // ============================================================
@@ -153,10 +94,10 @@ func renderReportMarkdown(w io.Writer, r model.StatsResult) error {
 		Until:      r.Until,
 	}
 	if r.LeadTime != nil {
-		data.LeadTime = formatStatsSummary(*r.LeadTime)
+		data.LeadTime = FormatStatsSummary(*r.LeadTime)
 	}
 	if r.CycleTime != nil {
-		data.CycleTime = formatStatsSummary(*r.CycleTime)
+		data.CycleTime = FormatStatsSummary(*r.CycleTime)
 	}
 	if r.Throughput != nil {
 		data.Throughput = fmt.Sprintf("%d issues closed, %d PRs merged",
@@ -171,206 +112,6 @@ func renderReportMarkdown(w io.Writer, r model.StatsResult) error {
 	}
 	data.Warnings = r.Warnings
 	return reportMarkdownTmpl.Execute(w, data)
-}
-
-// ============================================================
-// Release
-// ============================================================
-
-var releaseMarkdownTmpl = mustParseTemplate("release.md.tmpl")
-
-type releaseTemplateData struct {
-	Tag         string
-	PreviousTag string
-	Cadence     string
-	IsHotfix    bool
-	Categories  []releaseCategoryRow
-	TotalIssues int
-	Issues      []releaseIssueRow
-	LeadTime    string
-	CycleTime   string
-	ReleaseLag  string
-	Warnings    []string
-}
-
-type releaseCategoryRow struct {
-	Name  string
-	Count int
-	Ratio string
-}
-
-type releaseIssueRow struct {
-	Link      string
-	Title     string
-	Labels    string
-	LeadTime  string
-	CycleTime string
-	RelLag    string
-	Commits   int
-	Flag      string
-}
-
-func renderReleaseMarkdown(w io.Writer, rc RenderContext, rm model.ReleaseMetrics, warnings []string) error {
-	data := releaseTemplateData{
-		Tag:         rm.Tag,
-		PreviousTag: rm.PreviousTag,
-		Cadence:     FormatDurationPtr(rm.Cadence),
-		IsHotfix:    rm.IsHotfix,
-		TotalIssues: rm.TotalIssues,
-	}
-	for _, name := range rm.CategoryNames {
-		label := strings.ToUpper(name[:1]) + name[1:]
-		data.Categories = append(data.Categories, releaseCategoryRow{
-			Name:  label,
-			Count: rm.CategoryCounts[name],
-			Ratio: fmt.Sprintf("%.0f%%", rm.CategoryRatios[name]*100),
-		})
-	}
-	for _, im := range rm.Issues {
-		flag := ""
-		if im.LeadTimeOutlier || im.CycleTimeOutlier {
-			flag = "OUTLIER"
-		}
-		data.Issues = append(data.Issues, releaseIssueRow{
-			Link:      FormatItemLink(im.Issue.Number, im.Issue.URL, rc),
-			Title:     sanitizeMarkdown(im.Issue.Title),
-			Labels:    FormatLabels(im.Issue.Labels),
-			LeadTime:  FormatDurationPtr(im.LeadTime.Duration),
-			CycleTime: FormatDurationPtr(im.CycleTime.Duration),
-			RelLag:    FormatDurationPtr(im.ReleaseLag.Duration),
-			Commits:   im.CommitCount,
-			Flag:      flag,
-		})
-	}
-	data.LeadTime = formatStatsRow(rm.LeadTimeStats)
-	data.CycleTime = formatStatsRow(rm.CycleTimeStats)
-	data.ReleaseLag = formatStatsRow(rm.ReleaseLagStats)
-	data.Warnings = warnings
-	return releaseMarkdownTmpl.Execute(w, data)
-}
-
-func formatStatsRow(s model.Stats) string {
-	sd, p90, p95, outliers := "--", "--", "--", "--"
-	if s.StdDev != nil {
-		sd = FormatDuration(*s.StdDev)
-	}
-	if s.P90 != nil {
-		p90 = FormatDuration(*s.P90)
-	}
-	if s.P95 != nil {
-		p95 = FormatDuration(*s.P95)
-	}
-	if s.OutlierCutoff != nil {
-		outliers = fmt.Sprintf("%d", s.OutlierCount)
-	}
-	return fmt.Sprintf("| %s | %s | %s | %s | %s | %s |",
-		FormatDurationPtr(s.Mean), FormatDurationPtr(s.Median), sd, p90, p95, outliers)
-}
-
-// ============================================================
-// Lead Time Bulk
-// ============================================================
-
-var leadtimeBulkMarkdownTmpl = mustParseTemplate("leadtime-bulk.md.tmpl")
-
-type leadtimeBulkTemplateData struct {
-	Repository string
-	Since      time.Time
-	Until      time.Time
-	Items      []leadtimeItemRow
-	Summary    string
-	SearchURL  string
-}
-
-type leadtimeItemRow struct {
-	Link     string
-	Title    string
-	Labels   string
-	Created  string
-	Closed   string
-	LeadTime string
-}
-
-func renderLeadTimeBulkMarkdown(w io.Writer, rc RenderContext, repo string, since, until time.Time, items []BulkLeadTimeItem, stats model.Stats, searchURL string) error {
-	sorted := sortByCloseDateDesc(items)
-	data := leadtimeBulkTemplateData{
-		Repository: repo,
-		Since:      since,
-		Until:      until,
-		Summary:    formatStatsSummary(stats),
-		SearchURL:  searchURL,
-	}
-	for _, item := range sorted {
-		closedStr := "N/A"
-		if item.Issue.ClosedAt != nil {
-			closedStr = item.Issue.ClosedAt.UTC().Format(time.DateOnly)
-		}
-		data.Items = append(data.Items, leadtimeItemRow{
-			Link:     FormatItemLink(item.Issue.Number, item.Issue.URL, rc),
-			Title:    sanitizeMarkdown(item.Issue.Title),
-			Labels:   FormatLabels(item.Issue.Labels),
-			Created:  item.Issue.CreatedAt.UTC().Format(time.DateOnly),
-			Closed:   closedStr,
-			LeadTime: FormatMetricDuration(item.Metric),
-		})
-	}
-	return leadtimeBulkMarkdownTmpl.Execute(w, data)
-}
-
-// ============================================================
-// Cycle Time Bulk
-// ============================================================
-
-var cycletimeBulkMarkdownTmpl = mustParseTemplate("cycletime-bulk.md.tmpl")
-
-type cycletimeBulkTemplateData struct {
-	Repository string
-	Since      time.Time
-	Until      time.Time
-	Strategy   string
-	Items      []cycletimeItemRow
-	Summary    string
-	SearchURL  string
-}
-
-type cycletimeItemRow struct {
-	Link      string
-	Title     string
-	Labels    string
-	Started   string
-	Closed    string
-	CycleTime string
-}
-
-func renderCycleTimeBulkMarkdown(w io.Writer, rc RenderContext, repo string, since, until time.Time, strategy string, items []BulkCycleTimeItem, stats model.Stats, searchURL string) error {
-	sorted := sortCycleByCloseDateDesc(items)
-	data := cycletimeBulkTemplateData{
-		Repository: repo,
-		Since:      since,
-		Until:      until,
-		Strategy:   strategy,
-		Summary:    formatStatsSummary(stats),
-		SearchURL:  searchURL,
-	}
-	for _, item := range sorted {
-		startedStr := "N/A"
-		if item.Metric.Start != nil {
-			startedStr = item.Metric.Start.Time.UTC().Format(time.DateOnly)
-		}
-		closedStr := "N/A"
-		if item.Issue.ClosedAt != nil {
-			closedStr = item.Issue.ClosedAt.UTC().Format(time.DateOnly)
-		}
-		data.Items = append(data.Items, cycletimeItemRow{
-			Link:      FormatItemLink(item.Issue.Number, item.Issue.URL, rc),
-			Title:     sanitizeMarkdown(item.Issue.Title),
-			Labels:    FormatLabels(item.Issue.Labels),
-			Started:   startedStr,
-			Closed:    closedStr,
-			CycleTime: FormatMetricDuration(item.Metric),
-		})
-	}
-	return cycletimeBulkMarkdownTmpl.Execute(w, data)
 }
 
 // ============================================================
@@ -409,7 +150,7 @@ func renderWIPMarkdown(w io.Writer, rc RenderContext, repo string, items []model
 		}
 		data.Items = append(data.Items, wipItemRow{
 			Link:         link,
-			Title:        sanitizeMarkdown(item.Title),
+			Title:        SanitizeMarkdown(item.Title),
 			Labels:       FormatLabels(item.Labels),
 			Status:       item.Status,
 			Age:          FormatDuration(item.Age),
@@ -477,34 +218,6 @@ func renderScopeMarkdown(w io.Writer, result *model.ScopeResult) error {
 		data.Strategies = append(data.Strategies, row)
 	}
 	return scopeMarkdownTmpl.Execute(w, data)
-}
-
-// ============================================================
-// Single Cycle Time
-// ============================================================
-
-var cycletimeMarkdownTmpl = mustParseTemplate("cycletime.md.tmpl")
-
-type cycletimeTemplateData struct {
-	Kind      string
-	Link      string
-	Title     string
-	Started   string
-	CycleTime string
-}
-
-func renderCycleTimeMarkdown(w io.Writer, rc RenderContext, kind string, number int, title, itemURL string, ct model.Metric) error {
-	startedStr := "N/A"
-	if ct.Start != nil {
-		startedStr = ct.Start.Time.UTC().Format(time.DateOnly)
-	}
-	return cycletimeMarkdownTmpl.Execute(w, cycletimeTemplateData{
-		Kind:      kind,
-		Link:      FormatItemLink(number, itemURL, rc),
-		Title:     sanitizeMarkdown(title),
-		Started:   startedStr,
-		CycleTime: FormatMetric(ct),
-	})
 }
 
 // ============================================================
@@ -578,7 +291,7 @@ func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult, u
 		}
 		data.IssuesClosed = append(data.IssuesClosed, myweekItemRow{
 			Link:  FormatItemLink(iss.Number, iss.URL, rc),
-			Title: sanitizeMarkdown(iss.Title),
+			Title: SanitizeMarkdown(iss.Title),
 			Date:  dateStr,
 		})
 	}
@@ -591,7 +304,7 @@ func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult, u
 		}
 		data.PRsMerged = append(data.PRsMerged, myweekItemRow{
 			Link:  FormatItemLink(pr.Number, pr.URL, rc),
-			Title: sanitizeMarkdown(pr.Title),
+			Title: SanitizeMarkdown(pr.Title),
 			Date:  dateStr,
 		})
 	}
@@ -600,7 +313,7 @@ func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult, u
 	for _, pr := range r.PRsReviewed {
 		data.PRsReviewed = append(data.PRsReviewed, myweekItemRow{
 			Link:  FormatItemLink(pr.Number, pr.URL, rc),
-			Title: sanitizeMarkdown(pr.Title),
+			Title: SanitizeMarkdown(pr.Title),
 		})
 	}
 
@@ -614,9 +327,9 @@ func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult, u
 		if name == "" {
 			name = rel.TagName
 		}
-		link := sanitizeMarkdown(name)
+		link := SanitizeMarkdown(name)
 		if rel.URL != "" {
-			link = fmt.Sprintf("[%s](%s)", sanitizeMarkdown(name), rel.URL)
+			link = fmt.Sprintf("[%s](%s)", SanitizeMarkdown(name), rel.URL)
 		}
 		data.Releases = append(data.Releases, myweekReleaseRow{
 			Link: link,
@@ -629,7 +342,7 @@ func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult, u
 		s := model.IssueStatus(iss, r.Since, r.Until)
 		data.IssuesOpen = append(data.IssuesOpen, myweekAnnotatedRow{
 			Link:   FormatItemLink(iss.Number, iss.URL, rc),
-			Title:  sanitizeMarkdown(iss.Title),
+			Title:  SanitizeMarkdown(iss.Title),
 			Status: formatStatusMarkdown(s),
 		})
 	}
@@ -640,7 +353,7 @@ func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult, u
 		s := model.PRStatus(pr, nr, r.Since, r.Until)
 		data.PRsOpen = append(data.PRsOpen, myweekAnnotatedRow{
 			Link:   FormatItemLink(pr.Number, pr.URL, rc),
-			Title:  sanitizeMarkdown(pr.Title),
+			Title:  SanitizeMarkdown(pr.Title),
 			Status: formatStatusMarkdown(s),
 		})
 	}
@@ -654,7 +367,7 @@ func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult, u
 		}
 		data.ReviewQueue = append(data.ReviewQueue, myweekReviewRow{
 			Link:   FormatItemLink(pr.Number, pr.URL, rc),
-			Title:  sanitizeMarkdown(pr.Title),
+			Title:  SanitizeMarkdown(pr.Title),
 			Author: author,
 			Age:    formatAge(age),
 		})
@@ -663,46 +376,3 @@ func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult, u
 	return myweekMarkdownTmpl.Execute(w, data)
 }
 
-// ============================================================
-// Reviews (Review Pressure)
-// ============================================================
-
-var reviewsMarkdownTmpl = mustParseTemplate("reviews.md.tmpl")
-
-type reviewsTemplateData struct {
-	Repository string
-	SearchURL  string
-	Items      []reviewItemRow
-	Count      int
-	StaleCount int
-}
-
-type reviewItemRow struct {
-	Link   string
-	Title  string
-	Age    string
-	Signal string
-}
-
-func renderReviewsMarkdown(w io.Writer, rc RenderContext, result model.ReviewPressureResult, searchURL string) error {
-	sorted := sortReviewsByAgeDesc(result.AwaitingReview)
-	data := reviewsTemplateData{
-		Repository: result.Repository,
-		SearchURL:  searchURL,
-		Count:      len(sorted),
-	}
-	for _, pr := range sorted {
-		signal := ""
-		if pr.IsStale {
-			signal = "STALE"
-			data.StaleCount++
-		}
-		data.Items = append(data.Items, reviewItemRow{
-			Link:   FormatItemLink(pr.Number, pr.URL, rc),
-			Title:  sanitizeMarkdown(pr.Title),
-			Age:    FormatDuration(pr.Age),
-			Signal: signal,
-		})
-	}
-	return reviewsMarkdownTmpl.Execute(w, data)
-}

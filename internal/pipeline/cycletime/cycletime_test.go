@@ -1,19 +1,19 @@
-package metric
+package cycletime
 
 import (
 	"testing"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/cycletime"
+	ct "github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
-func TestCycleTimeIssuePipelineProcessData(t *testing.T) {
+func TestIssuePipelineProcessData(t *testing.T) {
 	created := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	closed := time.Date(2026, 1, 3, 12, 0, 0, 0, time.UTC)
 
-	p := &CycleTimeIssuePipeline{
-		Strategy:    &cycletime.IssueStrategy{},
+	p := &IssuePipeline{
+		Strategy:    &ct.IssueStrategy{},
 		StrategyStr: "issue",
 		Issue: &model.Issue{
 			Number:    42,
@@ -38,11 +38,11 @@ func TestCycleTimeIssuePipelineProcessData(t *testing.T) {
 	}
 }
 
-func TestCycleTimePRPipelineProcessData(t *testing.T) {
+func TestPRPipelineProcessData(t *testing.T) {
 	created := time.Date(2026, 1, 5, 10, 0, 0, 0, time.UTC)
 	merged := time.Date(2026, 1, 6, 14, 0, 0, 0, time.UTC)
 
-	p := &CycleTimePRPipeline{
+	p := &PRPipeline{
 		PR: &model.PR{
 			Number:    99,
 			Title:     "Add feature",
@@ -66,17 +66,17 @@ func TestCycleTimePRPipelineProcessData(t *testing.T) {
 	}
 }
 
-func TestCycleTimeBulkPipelineProcessData(t *testing.T) {
+func TestBulkPipelineProcessData(t *testing.T) {
 	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	closed1 := now.Add(-24 * time.Hour)
 	closed2 := now.Add(-48 * time.Hour)
 
-	p := &CycleTimeBulkPipeline{
+	p := &BulkPipeline{
 		Owner:       "org",
 		Repo:        "repo",
 		Since:       now.Add(-30 * 24 * time.Hour),
 		Until:       now,
-		Strategy:    &cycletime.IssueStrategy{},
+		Strategy:    &ct.IssueStrategy{},
 		StrategyStr: "issue",
 		issues: []model.Issue{
 			{

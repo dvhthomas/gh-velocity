@@ -1,7 +1,11 @@
-// Package metric defines the Pipeline interface that every metric command implements.
+// Package pipeline defines the Pipeline interface that every metric command implements.
 // The three-phase lifecycle (GatherData → ProcessData → Render) provides compile-time
 // safety: forget to implement Render and it won't compile.
-package metric
+//
+// Each subcommand has its own subdirectory (e.g., pipeline/busfactor/) containing
+// its Pipeline implementation, computation logic, and format functions.
+// To add a new metric: create a new subdirectory, implement Pipeline, wire in cmd/.
+package pipeline
 
 import (
 	"context"

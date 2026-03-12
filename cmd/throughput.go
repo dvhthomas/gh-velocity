@@ -4,8 +4,8 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/metric"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/pipeline/throughput"
 	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/bitsbyme/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
@@ -79,7 +79,7 @@ Default window is the last 30 days.`,
 				log.Debug("throughput PR query:\n%s", prQuery.Verbose())
 			}
 
-			p := &metric.ThroughputPipeline{
+			p := &throughput.Pipeline{
 				Client:     client,
 				Owner:      deps.Owner,
 				Repo:       deps.Repo,
