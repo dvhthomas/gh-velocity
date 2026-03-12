@@ -222,11 +222,13 @@ gh velocity version
 
 ### First queries
 
+All metric commands require a config file. When targeting a remote repo with `-R`, use `--config` to point at an example config (see `docs/examples/`). From inside your own repo with `.gh-velocity.yml` present, the config is loaded automatically.
+
 Start with a public repo to see what the output looks like:
 
 ```bash
 # Release report for the GitHub CLI itself
-gh velocity release v2.67.0 -R cli/cli
+gh velocity quality release v2.67.0 -R cli/cli
 ```
 
 This takes 10-30 seconds depending on the number of issues. You will see:
@@ -239,7 +241,7 @@ This takes 10-30 seconds depending on the number of issues. You will see:
 Try the same report in JSON to see the full data:
 
 ```bash
-gh velocity release v2.67.0 -R cli/cli -f json | jq '.aggregates.lead_time'
+gh velocity quality release v2.67.0 -R cli/cli -f json | jq '.aggregates.lead_time'
 ```
 
 ```json
@@ -258,7 +260,7 @@ gh velocity release v2.67.0 -R cli/cli -f json | jq '.aggregates.lead_time'
 See which strategy found each issue:
 
 ```bash
-gh velocity scope v2.67.0 -R cli/cli
+gh velocity quality release v2.67.0 -R cli/cli --discover
 ```
 
 This shows what `pr-link`, `commit-ref`, and `changelog` each discovered, and the merged result. Use this to understand how well the strategies cover your workflow.
@@ -269,7 +271,7 @@ From inside a local checkout, you can omit `-R`:
 
 ```bash
 cd your-repo
-gh velocity release v1.0.0
+gh velocity quality release v1.0.0
 ```
 
 When run from inside a repo, the tool uses local git for tag listing and commit history. This is faster and enables cycle-time computation.
@@ -280,7 +282,7 @@ When run from inside a repo, the tool uses local git for tag listing and commit 
 
 ```bash
 # Works without cloning — uses PR creation date, assignment, or project status
-gh velocity cycle-time 42 -R cli/cli
+gh velocity flow cycle-time 42 -R cli/cli
 ```
 
 If you run from inside a local checkout, the tool also counts commits referencing the issue and can use the earliest commit as a fallback start signal.
@@ -288,7 +290,7 @@ If you run from inside a local checkout, the tool also counts commits referencin
 ```bash
 # From inside a clone — enriched with commit count and fallback signal
 cd cli
-gh velocity cycle-time 42
+gh velocity flow cycle-time 42
 ```
 
 To enable project board-based cycle time (issue strategy), add project and lifecycle configuration:
@@ -318,7 +320,7 @@ The tool detects shallow clones and warns you.
 
 ## Configuration reference
 
-Create `.gh-velocity.yml` in your repository root. Every field is optional. The tool uses sensible defaults when no config file exists (which is the case when using `-R` against a remote repo).
+A `.gh-velocity.yml` file is required for all metric commands. Create one in your repository root, or use `--config` to point to an alternate path. Every field within the config is optional — the tool uses sensible defaults for anything you omit.
 
 ### Minimal config
 
@@ -440,7 +442,7 @@ gh velocity config show -f json
 
 ## Linking strategies in depth
 
-The `release` and `scope` commands need to determine which issues belong to a release. This is harder than it sounds — different teams use different workflows, and no single method works everywhere. `gh-velocity` uses three strategies and merges the results.
+The `quality release` and `quality release --discover` commands need to determine which issues belong to a release. This is harder than it sounds — different teams use different workflows, and no single method works everywhere. `gh-velocity` uses three strategies and merges the results.
 
 ### pr-link
 
@@ -489,10 +491,10 @@ Results from all three strategies are combined using priority-based deduplicatio
 
 When the same issue number appears in multiple strategies, the highest-priority version wins. This means pr-link's rich data (PR reference, full issue metadata) is preferred over commit-ref's issue-number-only data.
 
-The `scope` command shows this merge in action:
+The `--discover` flag shows this merge in action:
 
 ```bash
-gh velocity scope v1.2.0
+gh velocity quality release v1.2.0 --discover
 ```
 
 The output lists what each strategy found and marks items that appear in multiple strategies with "(also: commit-ref)" annotations.
@@ -507,7 +509,7 @@ An agent that reviews releases:
 
 ```bash
 # Get the full release report as JSON
-REPORT=$(gh velocity release v1.2.0 -R owner/repo -f json)
+REPORT=$(gh velocity quality release v1.2.0 -R owner/repo -f json)
 
 # Feed to an agent for analysis
 echo "$REPORT" | your-agent analyze-release
@@ -517,15 +519,15 @@ Extracting specific data with jq:
 
 ```bash
 # Which issues are outliers?
-gh velocity release v1.2.0 -f json | \
+gh velocity quality release v1.2.0 -f json | \
   jq '[.issues[] | select(.lead_time_outlier) | {number, title, lead_time_seconds}]'
 
 # What percentage are bugs?
-gh velocity release v1.2.0 -f json | \
+gh velocity quality release v1.2.0 -f json | \
   jq '.composition | "\(.bug_count)/\(.total_issues) bugs (\(.bug_ratio * 100 | round)%)"'
 
 # P95 lead time in days
-gh velocity release v1.2.0 -f json | \
+gh velocity quality release v1.2.0 -f json | \
   jq '.aggregates.lead_time.p95_seconds / 86400 | round | "\(.) days"'
 ```
 
@@ -535,11 +537,11 @@ The markdown format is designed for pasting into issues, PRs, or discussions:
 
 ```bash
 # Generate a release summary and post it as an issue comment
-gh velocity release v1.2.0 -f markdown | \
+gh velocity quality release v1.2.0 -f markdown | \
   gh issue comment 100 --body-file -
 
 # Or create a new issue with the report
-gh velocity release v1.2.0 -f markdown | \
+gh velocity quality release v1.2.0 -f markdown | \
   gh issue create --title "Release v1.2.0 metrics" --body-file -
 ```
 
@@ -552,9 +554,9 @@ You have access to `gh velocity`. Use it to analyze our last 3 releases
 and identify trends in lead time and bug ratio.
 
 Commands available:
-  gh velocity release <tag> -f json
-  gh velocity scope <tag> -f json
-  gh velocity lead-time <issue> -f json
+  gh velocity quality release<tag> -f json
+  gh velocity quality release <tag> --discover -f json
+  gh velocity flow lead-time<issue> -f json
 
 Our recent tags: v2.5.0, v2.4.0, v2.3.0
 ```
@@ -593,7 +595,7 @@ jobs:
 
       - name: Generate report
         run: |
-          gh velocity release ${{ github.event.release.tag_name }} -f markdown > report.md
+          gh velocity quality release${{ github.event.release.tag_name }} -f markdown > report.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -638,13 +640,14 @@ jobs:
         run: |
           # Parse PR body for "Fixes #N" or "Closes #N"
           ISSUE=$(echo "${{ github.event.pull_request.body }}" | \
-            grep -oP '(?:fixes|closes|resolves)\s+#\K\d+' -i | head -1)
+            grep -oiE '(fixes|closes|resolves)\s+#[0-9]+' | \
+            grep -oE '[0-9]+' | head -1)
           echo "number=$ISSUE" >> "$GITHUB_OUTPUT"
 
       - name: Report lead time
         if: steps.issue.outputs.number != ''
         run: |
-          gh velocity lead-time ${{ steps.issue.outputs.number }} -f markdown | \
+          gh velocity flow lead-time ${{ steps.issue.outputs.number }} -f markdown | \
             gh pr comment ${{ github.event.pull_request.number }} --body-file -
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -677,8 +680,8 @@ jobs:
       - name: Latest release metrics
         run: |
           TAG=$(git describe --tags --abbrev=0)
-          gh velocity release "$TAG" -f json > metrics.json
-          gh velocity release "$TAG" -f markdown > metrics.md
+          gh velocity quality release "$TAG" -f json > metrics.json
+          gh velocity quality release "$TAG" -f markdown > metrics.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -694,8 +697,8 @@ jobs:
 ### Compare two releases
 
 ```bash
-gh velocity release v2.0.0 -f json > v2.json
-gh velocity release v1.9.0 -f json > v1.json
+gh velocity quality release v2.0.0 -f json > v2.json
+gh velocity quality release v1.9.0 -f json > v1.json
 
 # Compare lead times
 echo "v1.9.0 median lead time: $(jq -r '.aggregates.lead_time.median_seconds / 86400 | round | "\(.)d"' v1.json)"
@@ -705,7 +708,7 @@ echo "v2.0.0 median lead time: $(jq -r '.aggregates.lead_time.median_seconds / 8
 ### Find your slowest issues
 
 ```bash
-gh velocity release v1.2.0 -f json | \
+gh velocity quality release v1.2.0 -f json | \
   jq -r '.issues | sort_by(-.lead_time_seconds) | .[0:5] | .[] |
     "#\(.number) \(.title[0:40]) — \(.lead_time_seconds / 86400 | round)d"'
 ```
@@ -713,7 +716,7 @@ gh velocity release v1.2.0 -f json | \
 ### Check label coverage before a release
 
 ```bash
-gh velocity release v1.2.0 -f json | \
+gh velocity quality release v1.2.0 -f json | \
   jq '"Bug: \(.composition.bug_count), Feature: \(.composition.feature_count), Unlabeled: \(.composition.other_count)"'
 ```
 
@@ -724,8 +727,8 @@ If `other_count` is high, label your issues before publishing the release for mo
 When the auto-detected previous tag is wrong (non-linear tag history, pre-releases), override it:
 
 ```bash
-gh velocity release v2.0.0 --since v1.9.0
-gh velocity scope v2.0.0 --since v1.9.0
+gh velocity quality release v2.0.0 --since v1.9.0
+gh velocity quality release v2.0.0 --since v1.9.0 --discover
 ```
 
 ### Analyze a repo you don't have locally
@@ -733,9 +736,9 @@ gh velocity scope v2.0.0 --since v1.9.0
 Every command works with `-R`:
 
 ```bash
-gh velocity release v0.28.0 -R charmbracelet/bubbletea
-gh velocity lead-time 500 -R charmbracelet/bubbletea
-gh velocity scope v5.2.1 -R go-chi/chi
+gh velocity quality release v0.28.0 -R charmbracelet/bubbletea
+gh velocity flow lead-time 500 -R charmbracelet/bubbletea
+gh velocity quality release v5.2.1 -R go-chi/chi --discover
 ```
 
 All commands work remotely. Cycle time uses API-based signals (PR creation date, first assignment). A local checkout adds commit counts and a fallback signal from commit history.
@@ -745,7 +748,7 @@ All commands work remotely. Cycle time uses API-based signals (PR creation date,
 ```bash
 for tag in $(gh api repos/owner/repo/tags --jq '.[].name' | head -5); do
   echo "=== $tag ==="
-  gh velocity release "$tag" -R owner/repo 2>/dev/null
+  gh velocity quality release "$tag" -R owner/repo 2>/dev/null
   echo
 done
 ```
@@ -753,7 +756,7 @@ done
 ### Export to CSV for spreadsheet analysis
 
 ```bash
-gh velocity release v1.2.0 -f json | \
+gh velocity quality release v1.2.0 -f json | \
   jq -r '["number","title","lead_time_days","cycle_time_days","outlier"],
     (.issues[] | [
       .number,

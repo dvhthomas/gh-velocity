@@ -59,46 +59,45 @@ out=$(gh velocity config validate 2>&1)
 # Clean up config created by config tests (we use --config for remaining tests)
 rm -f .gh-velocity.yml
 
-# ── lead-time ──────────────────────────────────────────────────────
+# ── flow lead-time ─────────────────────────────────────────────────
 echo ""
-echo "lead-time (cli/cli#1)"
+echo "flow lead-time (cli/cli#1)"
 
-out=$(gh velocity lead-time 1 -R cli/cli --config "$CLI_CONFIG" 2>&1)
-[[ "$out" == *"Lead Time"* ]] && pass "lead-time pretty" || fail "lead-time pretty: $out"
+out=$(gh velocity flow lead-time 1 -R cli/cli --config "$CLI_CONFIG" 2>&1)
+[[ "$out" == *"Lead Time"* ]] && pass "flow lead-time pretty" || fail "flow lead-time pretty: $out"
 
-out=$(gh velocity lead-time 1 -R cli/cli --config "$CLI_CONFIG" -f json 2>&1)
-echo "$out" | jq -e '.lead_time_seconds' >/dev/null 2>&1 && pass "lead-time json" || fail "lead-time json: $out"
+out=$(gh velocity flow lead-time 1 -R cli/cli --config "$CLI_CONFIG" -f json 2>&1)
+echo "$out" | jq -e '.lead_time_seconds' >/dev/null 2>&1 && pass "flow lead-time json" || fail "flow lead-time json: $out"
 
-out=$(gh velocity lead-time 1 -R cli/cli --config "$CLI_CONFIG" -f markdown 2>&1)
-[[ "$out" == *"|"* ]] && pass "lead-time markdown" || fail "lead-time markdown: $out"
+out=$(gh velocity flow lead-time 1 -R cli/cli --config "$CLI_CONFIG" -f markdown 2>&1)
+[[ "$out" == *"|"* ]] && pass "flow lead-time markdown" || fail "flow lead-time markdown: $out"
 
-# ── scope ──────────────────────────────────────────────────────────
+# ── quality release --discover ────────────────────────────────────
 echo ""
-echo "scope (cli/cli v2.65.0)"
+echo "quality release --discover (cli/cli v2.65.0)"
 
-out=$(gh velocity scope v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 2>&1)
-[[ "$out" == *"Scope: v2.65.0"* ]] && pass "scope pretty" || fail "scope pretty: $out"
-[[ "$out" == *"Strategy:"* ]] && pass "scope strategies" || fail "scope strategies: $out"
+out=$(gh velocity quality release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 --discover 2>&1)
+[[ "$out" == *"Strategy:"* ]] && pass "quality release --discover strategies" || fail "quality release --discover strategies: $out"
 
-out=$(gh velocity scope v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 -f json 2>/dev/null)
-echo "$out" | jq -e '.strategies' >/dev/null 2>&1 && pass "scope json" || fail "scope json: $out"
+out=$(gh velocity quality release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 --discover -f json 2>/dev/null)
+echo "$out" | jq -e '.strategies' >/dev/null 2>&1 && pass "quality release --discover json" || fail "quality release --discover json: $out"
 
-# ── release ────────────────────────────────────────────────────────
+# ── quality release ───────────────────────────────────────────────
 echo ""
-echo "release (cli/cli v2.65.0)"
+echo "quality release (cli/cli v2.65.0)"
 
-out=$(gh velocity release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 2>&1)
-[[ "$out" == *"Release v2.65.0"* ]] && pass "release pretty" || fail "release pretty: $out"
-[[ "$out" == *"Aggregates"* ]] && pass "release aggregates" || fail "release aggregates: $out"
-[[ "$out" == *"P90"* ]] && pass "release has P90" || fail "release missing P90: $out"
+out=$(gh velocity quality release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 2>&1)
+[[ "$out" == *"Release v2.65.0"* ]] && pass "quality release pretty" || fail "quality release pretty: $out"
+[[ "$out" == *"Aggregates"* ]] && pass "quality release aggregates" || fail "quality release aggregates: $out"
+[[ "$out" == *"P90"* ]] && pass "quality release has P90" || fail "quality release missing P90: $out"
 
-out=$(gh velocity release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 -f json 2>/dev/null)
-echo "$out" | jq -e '.aggregates.lead_time.p90_seconds' >/dev/null 2>&1 && pass "release json p90" || fail "release json p90: $out"
-echo "$out" | jq -e '.aggregates.lead_time.outlier_cutoff_seconds' >/dev/null 2>&1 && pass "release json outlier cutoff" || fail "release json outlier cutoff: $out"
+out=$(gh velocity quality release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 -f json 2>/dev/null)
+echo "$out" | jq -e '.aggregates.lead_time.p90_seconds' >/dev/null 2>&1 && pass "quality release json p90" || fail "quality release json p90: $out"
+echo "$out" | jq -e '.aggregates.lead_time.outlier_cutoff_seconds' >/dev/null 2>&1 && pass "quality release json outlier cutoff" || fail "quality release json outlier cutoff: $out"
 
-out=$(gh velocity release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 -f markdown 2>/dev/null)
-[[ "$out" == *"## Release v2.65.0"* ]] && pass "release markdown" || fail "release markdown: $out"
-[[ "$out" == *"Outliers"* ]] && pass "release markdown outliers" || fail "release markdown outliers: $out"
+out=$(gh velocity quality release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 -f markdown 2>/dev/null)
+[[ "$out" == *"## Release v2.65.0"* ]] && pass "quality release markdown" || fail "quality release markdown: $out"
+[[ "$out" == *"Outliers"* ]] && pass "quality release markdown outliers" || fail "quality release markdown outliers: $out"
 
 # ── my-week ───────────────────────────────────────────────────────
 echo ""
@@ -124,8 +123,8 @@ out=$(gh velocity status my-week -R dvhthomas/gh-velocity --config "${REPO_ROOT}
 echo ""
 echo "error handling"
 
-out=$(gh velocity lead-time abc -R cli/cli --config "$CLI_CONFIG" 2>&1) && fail "bad issue should fail" || pass "bad issue rejected"
-out=$(gh velocity --post lead-time 1 -R cli/cli --config "$CLI_CONFIG" 2>&1) && fail "--post should fail" || pass "--post rejected"
+out=$(gh velocity flow lead-time abc -R cli/cli --config "$CLI_CONFIG" 2>&1) && fail "bad issue should fail" || pass "bad issue rejected"
+out=$(gh velocity --post flow lead-time 1 -R cli/cli --config "$CLI_CONFIG" 2>&1) && fail "--post should fail" || pass "--post rejected"
 
 # ── summary ────────────────────────────────────────────────────────
 echo ""

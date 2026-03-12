@@ -14,41 +14,41 @@ Requires [GitHub CLI](https://cli.github.com/) 2.0+.
 
 ## Quick start
 
-Try it now against any public repo — no config needed:
+A config file (`.gh-velocity.yml`) is required for all metric commands. Generate one first:
+
+```bash
+# 1. Analyze your repo and generate a tailored config
+gh velocity config preflight -R owner/repo --project-url https://github.com/users/you/projects/1
+
+# 2. Save it
+gh velocity config preflight --write --project-url https://github.com/users/you/projects/1
+
+# 3. Validate
+gh velocity config validate
+```
+
+Not sure which project URL to use? Run `gh velocity config discover -R owner/repo` to list them.
+
+Then run metrics:
 
 ```bash
 # How long do issues take to close? (last 30 days)
-gh velocity flow lead-time --since 30d -R cli/cli
+gh velocity flow lead-time --since 30d -R cli/cli --config docs/examples/cli-cli.yml
 
 # How did the last release go?
-gh velocity quality release v2.67.0 -R cli/cli --since v2.66.0
+gh velocity quality release v2.67.0 -R cli/cli --since v2.66.0 --config docs/examples/cli-cli.yml
 
 # Everything at a glance (composite dashboard)
-gh velocity report --since 30d -R cli/cli
+gh velocity report --since 30d -R cli/cli --config docs/examples/cli-cli.yml
 ```
 
-From inside your own repo, omit `-R`:
+From inside your own repo (with `.gh-velocity.yml` present), omit `-R` and `--config`:
 
 ```bash
 cd your-repo
 gh velocity flow lead-time 42
 gh velocity report
 ```
-
-### Set up your repo (optional but recommended)
-
-```bash
-# 1. Analyze your repo and generate a tailored config
-gh velocity config preflight -R owner/repo --project 3
-
-# 2. Save it
-gh velocity config preflight --write --project 3
-
-# 3. Validate
-gh velocity config validate
-```
-
-Not sure which project number to use? Run `gh velocity config discover -R owner/repo` to list them.
 
 ## Commands
 
@@ -60,19 +60,24 @@ gh velocity
 │   └── throughput [--since] [--until]
 │
 ├── quality                           # How good is our output?
-│   └── release <tag> [--since] [--scope]
+│   └── release <tag> [--since] [--discover]
+│
+├── risk                              # What should we watch?
+│   └── bus-factor [--since]          # Contributor concentration
 │
 ├── status                            # What's happening now?
-│   └── wip                           # Work in progress
+│   ├── wip                           # Work in progress
+│   ├── my-week [--since]             # Your recent activity
+│   └── reviews                       # PRs awaiting review
 │
 ├── report [--since] [--until]        # Composite dashboard
 │
 ├── config
-│   ├── preflight [-R repo] [--project N]  # Analyze repo, suggest config
-│   ├── create                             # Generate starter config
-│   ├── discover [-R repo]                 # Find project board IDs
-│   ├── show                               # Display resolved config
-│   └── validate                           # Check for errors
+│   ├── preflight [-R repo] [--project-url URL]  # Analyze repo, suggest config
+│   ├── create                                   # Generate starter config
+│   ├── discover [-R repo]                       # Find project board URLs
+│   ├── show                                     # Display resolved config
+│   └── validate                                 # Check for errors
 │
 └── version
 ```
@@ -160,9 +165,15 @@ jobs:
 - **Hotfix detection** — flag issues closed very close to release
 - **Aggregates** — mean, median, P90, P95, IQR-based outlier detection
 
+### Risk
+
+- **Bus factor** — contributor concentration risk (how spread is work across the team?)
+
 ### Status
 
 - **WIP** — items currently in progress (from Projects v2 board or labels)
+- **My Week** — your recent activity: issues closed, PRs merged, what's ahead
+- **Reviews** — PRs awaiting code review, with staleness detection (>48h)
 
 ### Report (composite dashboard)
 
@@ -177,20 +188,20 @@ Three strategies run in parallel to find which issues belong to a release:
 2. **commit-ref** — commit messages scanned for `fixes #N`, `closes #N`, `resolves #N`
 3. **changelog** — release body parsed for `#N` references
 
-Results merge with priority (pr-link > commit-ref > changelog). Use `--scope` to see what each strategy finds.
+Results merge with priority (pr-link > commit-ref > changelog). Use `--discover` to see what each strategy finds.
 
 ## Configuration
 
-All fields are optional. `gh velocity` works without a config file using sensible defaults.
+A config file (`.gh-velocity.yml`) is required for all metric commands. The fastest way to create one:
 
 ### Generate a tailored config
 
 ```bash
 # Preflight analyzes your repo's labels, project boards, and recent activity
-gh velocity config preflight -R owner/repo --project 3
+gh velocity config preflight -R owner/repo --project-url https://github.com/users/you/projects/1
 
 # Save directly
-gh velocity config preflight --write --project 3
+gh velocity config preflight --write --project-url https://github.com/users/you/projects/1
 ```
 
 ### Manual config
@@ -198,10 +209,17 @@ gh velocity config preflight --write --project 3
 Create `.gh-velocity.yml` in your repo root:
 
 ```yaml
-# Issue classification
+# Issue/PR classification — first matching category wins; unmatched = "other".
+# Matchers: label:<name>, type:<name>, title:/<regex>/i
 quality:
-  bug_labels: ["bug", "defect"]
-  feature_labels: ["enhancement"]
+  categories:
+    - name: bug
+      match:
+        - "label:bug"
+        - "label:defect"
+    - name: feature
+      match:
+        - "label:enhancement"
   hotfix_window_hours: 72
 
 # Commit message patterns
@@ -213,15 +231,21 @@ cycle_time:
   strategy: issue
 
 # Projects v2 board (enables WIP and lifecycle-based cycle time)
-# Find these IDs with: gh velocity config discover
+# Find your project URL with: gh velocity config discover -R owner/repo
 # project:
-#   id: "PVT_kwDOAbc123"
-#   status_field_id: "PVTSSF_kwDOAbc123"
+#   url: "https://github.com/users/yourname/projects/1"
+#   status_field: "Status"
 
-# Label-based status (alternative to project board)
-# statuses:
-#   active_labels: ["in-progress", "wip"]
-#   backlog_labels: ["backlog", "icebox"]
+# Lifecycle stages: map project board columns to workflow stages
+# lifecycle:
+#   backlog:
+#     project_status: ["Backlog", "Triage"]
+#   in-progress:
+#     project_status: ["In progress"]
+
+# Exclude bot accounts from metrics
+# exclude_users:
+#   - "dependabot[bot]"
 ```
 
 See [docs/guide.md](docs/guide.md) for the full configuration reference, metric definitions, and examples for popular OSS repos.

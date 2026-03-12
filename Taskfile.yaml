@@ -114,6 +114,16 @@ tasks:
       - task: smoke
       - echo '✓ All quality checks passed'
 
+  # ── Release ──────────────────────────────────────────────────────
+
+  release:preflight:
+    desc: Pre-release validation (run before tagging)
+    cmds:
+      - task: quality
+      - task: e2e:configs
+      - bash scripts/prerelease-analysis.sh
+      - echo '✓ All pre-release checks passed — ready to tag'
+
   # ── Maintenance ────────────────────────────────────────────────────
 
   clean:
