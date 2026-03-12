@@ -139,7 +139,8 @@ commit_ref:
 #   strategy: issue
 
 # GitHub Projects v2 board (uncomment to enable)
-# CI/Actions: GITHUB_TOKEN cannot access projects. Use a PAT with 'project' scope.
+# CI/Actions: GITHUB_TOKEN cannot access projects. Create a classic PAT with
+# 'project' scope: https://github.com/settings/tokens/new?scopes=project&description=gh-velocity
 # project:
 #   url: "https://github.com/users/yourname/projects/1"
 #   status_field: "Status"

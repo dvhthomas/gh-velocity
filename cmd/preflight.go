@@ -855,7 +855,8 @@ func renderPreflightConfig(r *PreflightResult) string {
 	// Project board config (if detected)
 	if r.HasProject && r.ProjectURL != "" {
 		b.WriteString("# Projects v2 board (auto-detected)\n")
-		b.WriteString("# CI/Actions: GITHUB_TOKEN cannot access projects. Use a PAT with 'project' scope.\n")
+		b.WriteString("# CI/Actions: GITHUB_TOKEN cannot access projects. Create a classic PAT with\n")
+		b.WriteString("# 'project' scope: https://github.com/settings/tokens/new?scopes=project&description=gh-velocity\n")
 		b.WriteString("project:\n")
 		b.WriteString(fmt.Sprintf("  url: %q\n", r.ProjectURL))
 		b.WriteString(fmt.Sprintf("  status_field: %q\n", "Status"))
