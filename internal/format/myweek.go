@@ -75,7 +75,9 @@ func buildInsightLines(r model.MyWeekResult, ins model.MyWeekInsights) []string 
 		lines = append(lines, fmt.Sprintf("Median lead time: %s (issue created → closed).", formatDuration(*ins.LeadTime)))
 	}
 	if ins.CycleTime != nil {
-		lines = append(lines, fmt.Sprintf("Median cycle time: %s (PR created → merged).", formatDuration(*ins.CycleTime)))
+		lines = append(lines, fmt.Sprintf("Median cycle time: %s (work started → done).", formatDuration(*ins.CycleTime)))
+	} else if total > 0 {
+		lines = append(lines, "Cycle time not available — run: gh velocity config preflight -R <repo> for setup guidance.")
 	}
 
 	// Blockers / attention needed
@@ -275,6 +277,7 @@ type jsonMyWeekResult struct {
 	Lookback jsonMyWeekLookback `json:"lookback"`
 	Ahead    jsonMyWeekAhead    `json:"ahead"`
 	Summary  jsonMyWeekSummary  `json:"summary"`
+	Warnings []string           `json:"warnings,omitempty"`
 }
 
 type jsonMyWeekLookback struct {
@@ -352,7 +355,7 @@ type jsonMyWeekRelease struct {
 }
 
 // WriteMyWeekJSON writes a my-week summary as JSON.
-func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights, urls MyWeekSearchURLs) error {
+func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights, urls MyWeekSearchURLs, warnings []string) error {
 	jsonIns := jsonMyWeekInsights{
 		Lines:               buildInsightLines(r, ins),
 		StaleIssues:         ins.StaleIssues,
@@ -383,6 +386,7 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights
 			IssuesOpen:   len(r.IssuesOpen),
 			PRsOpen:      len(r.PRsOpen),
 		},
+		Warnings: warnings,
 	}
 
 	// Lookback search URLs

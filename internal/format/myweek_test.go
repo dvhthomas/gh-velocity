@@ -118,11 +118,25 @@ func testMyWeekResult() model.MyWeekResult {
 	}
 }
 
+// testCycleTimeDurations returns PR-based cycle-time durations for test data.
+func testCycleTimeDurations(r model.MyWeekResult) []time.Duration {
+	var durations []time.Duration
+	for _, pr := range r.PRsMerged {
+		if pr.MergedAt != nil {
+			d := pr.MergedAt.Sub(pr.CreatedAt)
+			if d > 0 {
+				durations = append(durations, d)
+			}
+		}
+	}
+	return durations
+}
+
 func TestWriteMyWeekPretty(t *testing.T) {
 	var buf bytes.Buffer
 	rc := RenderContext{Writer: &buf, Format: Pretty}
 	r := testMyWeekResult()
-	if err := WriteMyWeekPretty(rc, r, metrics.ComputeInsights(r), MyWeekSearchURLs{}); err != nil {
+	if err := WriteMyWeekPretty(rc, r, metrics.ComputeInsights(r, testCycleTimeDurations(r)), MyWeekSearchURLs{}); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -171,7 +185,7 @@ func TestWriteMyWeekPretty_Empty(t *testing.T) {
 		Since: testSince,
 		Until: testNow,
 	}
-	if err := WriteMyWeekPretty(rc, r, metrics.ComputeInsights(r), MyWeekSearchURLs{}); err != nil {
+	if err := WriteMyWeekPretty(rc, r, metrics.ComputeInsights(r, nil), MyWeekSearchURLs{}); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -204,7 +218,7 @@ func TestWriteMyWeekPretty_EmptyWithVerifyURLs(t *testing.T) {
 		PRsMerged:    "https://github.com/search?q=prs",
 		PRsReviewed:  "https://github.com/search?q=reviews",
 	}
-	if err := WriteMyWeekPretty(rc, r, metrics.ComputeInsights(r), urls); err != nil {
+	if err := WriteMyWeekPretty(rc, r, metrics.ComputeInsights(r, nil), urls); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -223,7 +237,7 @@ func TestWriteMyWeekMarkdown(t *testing.T) {
 	var buf bytes.Buffer
 	rc := RenderContext{Writer: &buf, Format: Markdown}
 	r := testMyWeekResult()
-	if err := WriteMyWeekMarkdown(rc, r, metrics.ComputeInsights(r), MyWeekSearchURLs{}); err != nil {
+	if err := WriteMyWeekMarkdown(rc, r, metrics.ComputeInsights(r, testCycleTimeDurations(r)), MyWeekSearchURLs{}); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -265,7 +279,7 @@ func TestWriteMyWeekMarkdown_Empty(t *testing.T) {
 	var buf bytes.Buffer
 	rc := RenderContext{Writer: &buf, Format: Markdown}
 	r := model.MyWeekResult{Login: "u", Repo: "o/r", Since: testSince, Until: testNow}
-	if err := WriteMyWeekMarkdown(rc, r, metrics.ComputeInsights(r), MyWeekSearchURLs{}); err != nil {
+	if err := WriteMyWeekMarkdown(rc, r, metrics.ComputeInsights(r, nil), MyWeekSearchURLs{}); err != nil {
 		t.Fatal(err)
 	}
 	if !contains(buf.String(), "_None_") {
@@ -276,7 +290,7 @@ func TestWriteMyWeekMarkdown_Empty(t *testing.T) {
 func TestWriteMyWeekJSON(t *testing.T) {
 	var buf bytes.Buffer
 	r := testMyWeekResult()
-	if err := WriteMyWeekJSON(&buf, r, metrics.ComputeInsights(r), MyWeekSearchURLs{}); err != nil {
+	if err := WriteMyWeekJSON(&buf, r, metrics.ComputeInsights(r, testCycleTimeDurations(r)), MyWeekSearchURLs{}, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -370,6 +384,33 @@ func TestWriteMyWeekJSON(t *testing.T) {
 	}
 	if parsed.Ahead.PRsAwaitingMyReview[1].Author != "bob" {
 		t.Errorf("review[1].author = %q, want 'bob'", parsed.Ahead.PRsAwaitingMyReview[1].Author)
+	}
+}
+
+func TestWriteMyWeekPretty_CycleTimeHintWhenNA(t *testing.T) {
+	var buf bytes.Buffer
+	rc := RenderContext{Writer: &buf, Format: Pretty}
+	closedAt := testNow.Add(-24 * time.Hour)
+	r := model.MyWeekResult{
+		Login: "testuser",
+		Repo:  "owner/repo",
+		Since: testSince,
+		Until: testNow,
+		IssuesClosed: []model.Issue{
+			{Number: 1, Title: "Fix bug", CreatedAt: testSince, ClosedAt: &closedAt},
+		},
+	}
+	// Pass nil cycle time durations — simulates no strategy signal.
+	ins := metrics.ComputeInsights(r, nil)
+	if err := WriteMyWeekPretty(rc, r, ins, MyWeekSearchURLs{}); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !contains(out, "Cycle time not available") {
+		t.Error("expected cycle time hint when closed issues exist but no cycle time data")
+	}
+	if !contains(out, "preflight") {
+		t.Error("expected preflight guidance in hint")
 	}
 }
 

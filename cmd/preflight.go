@@ -216,7 +216,7 @@ type labelCount struct {
 func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, projectNumber int) (*PreflightResult, error) {
 	result := &PreflightResult{
 		Repo:     owner + "/" + repo,
-		Strategy: "issue", // default
+		Strategy: model.StrategyIssue, // default
 	}
 
 	// 0. Verify repo exists and normalize casing.
@@ -262,8 +262,8 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 					for _, o := range f.Options {
 						result.StatusOptions = append(result.StatusOptions, o.Name)
 					}
-					result.Strategy = "project-board"
-					result.Hints = append(result.Hints, fmt.Sprintf("Using project board: %s (#%d)", project.Title, project.Number))
+					result.Strategy = model.StrategyIssue
+					result.Hints = append(result.Hints, fmt.Sprintf("Using project board: %s (#%d) — issue strategy will use lifecycle config for cycle time", project.Title, project.Number))
 					break
 				}
 			}
@@ -293,13 +293,15 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 	}
 
 	// 4. Infer strategy
-	if !result.HasProject && result.RecentPRs > result.RecentIssues {
-		result.Strategy = "pr"
-		result.Hints = append(result.Hints, "More PRs than issues in the last 30 days — PR-centric workflow detected")
-	} else if result.HasProject {
-		result.Hints = append(result.Hints, "Project board detected — using project-board strategy for cycle time")
+	if result.HasProject {
+		result.Strategy = model.StrategyIssue
+		result.Hints = append(result.Hints, "Project board detected — issue strategy uses board status to detect work started")
+	} else if result.RecentPRs > 0 {
+		result.Strategy = model.StrategyPR
+		result.Hints = append(result.Hints, "No project board — using PR strategy (PR created → merged) for cycle time")
 	} else {
-		result.Hints = append(result.Hints, "Using default issue strategy (created → closed)")
+		result.Strategy = model.StrategyIssue
+		result.Hints = append(result.Hints, "No project board and no recent PRs — cycle time will be unavailable. Add a project board with: preflight --project-url <url>")
 	}
 
 	// 5. Suggest active/backlog labels if no project board
@@ -611,7 +613,7 @@ func collectMatchEvidence(categories map[string][]string, discoveredTypes []stri
 	}
 
 	// Build all probe jobs.
-	categoryOrder := []string{"bug", "feature", "chore"}
+	categoryOrder := []string{"bug", "feature", "chore", "docs"}
 	var jobs []probeJob
 	for _, cat := range categoryOrder {
 		// Label matchers from detected labels.
@@ -747,7 +749,7 @@ func renderPreflightConfig(r *PreflightResult) string {
 		evidenceByCategory[ce.Category] = ce
 	}
 
-	categoryOrder := []string{"bug", "feature", "chore"}
+	categoryOrder := []string{"bug", "feature", "chore", "docs"}
 	type effectiveCategory struct {
 		name     string
 		matchers []MatcherEvidence
@@ -848,25 +850,27 @@ func renderPreflightConfig(r *PreflightResult) string {
 		b.WriteString("lifecycle:\n")
 		writeLifecycleMapping(&b, r.StatusOptions)
 		b.WriteString("\n")
-	} else {
-		// Default lifecycle without a project board
-		b.WriteString("# Lifecycle stages (GitHub search qualifiers).\n")
+	} else if len(r.BacklogLabels) > 0 {
+		// Label-based lifecycle (no project board).
+		// Note: lifecycle.done.query is not generated because it is not consumed
+		// by any command — all date-range queries use hardcoded is:closed/is:merged.
+		b.WriteString("# Lifecycle stages (label-based, no project board)\n")
 		b.WriteString("lifecycle:\n")
-		b.WriteString("  done:\n")
-		b.WriteString("    query: \"is:closed\"\n")
-		if len(r.BacklogLabels) > 0 {
-			b.WriteString("  backlog:\n")
-			b.WriteString("    query: \"is:open")
-			for _, l := range r.BacklogLabels {
-				// Labels with spaces need quoting in GitHub search syntax.
-				if strings.Contains(l, " ") {
-					b.WriteString(fmt.Sprintf(" label:\\\"%s\\\"", l))
-				} else {
-					b.WriteString(fmt.Sprintf(" label:%s", l))
-				}
+		b.WriteString("  backlog:\n")
+		b.WriteString("    query: \"is:open")
+		for _, l := range r.BacklogLabels {
+			// Labels with spaces need quoting in GitHub search syntax.
+			if strings.Contains(l, " ") {
+				b.WriteString(fmt.Sprintf(" label:\\\"%s\\\"", l))
+			} else {
+				b.WriteString(fmt.Sprintf(" label:%s", l))
 			}
-			b.WriteString("\"\n")
 		}
+		b.WriteString("\"\n")
+		b.WriteString("\n")
+	} else {
+		b.WriteString("# No lifecycle stages detected. Add a project board for cycle time metrics:\n")
+		b.WriteString("#   gh velocity config preflight --project-url <url> --write\n")
 		b.WriteString("\n")
 	}
 
@@ -997,8 +1001,8 @@ func verifyConfig(result *PreflightResult, repoLabels []string) *VerificationRes
 	vr.CategoryCount = len(cfg.Quality.Categories)
 
 	// 3. Validate strategy prerequisites
-	if cfg.CycleTime.Strategy == "project-board" && cfg.Project.URL == "" {
-		vr.Warnings = append(vr.Warnings, "strategy \"project-board\" requires project.url to be set")
+	if cfg.CycleTime.Strategy == model.StrategyIssue && len(cfg.Lifecycle.InProgress.ProjectStatus) == 0 {
+		vr.Warnings = append(vr.Warnings, "issue strategy has no lifecycle.in-progress.project_status — cycle time will be unavailable; configure lifecycle.in-progress for cycle time metrics")
 	}
 
 	// 4. Cross-reference category labels against repo labels

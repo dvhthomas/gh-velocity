@@ -98,8 +98,9 @@ type BulkPipeline struct {
 	issues []model.Issue
 
 	// ProcessData output
-	Items []BulkItem
-	Stats model.Stats
+	Items    []BulkItem
+	Stats    model.Stats
+	Warnings []string
 }
 
 // GatherData fetches issues from GitHub search.
@@ -133,7 +134,7 @@ func (p *BulkPipeline) Render(rc format.RenderContext) error {
 	repo := p.Owner + "/" + p.Repo
 	switch rc.Format {
 	case format.JSON:
-		return WriteBulkJSON(rc.Writer, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL)
+		return WriteBulkJSON(rc.Writer, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL, p.Warnings)
 	case format.Markdown:
 		return WriteBulkMarkdown(rc, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL)
 	default:

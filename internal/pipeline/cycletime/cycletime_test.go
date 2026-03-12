@@ -9,18 +9,24 @@ import (
 )
 
 func TestIssuePipelineProcessData(t *testing.T) {
+	// Use PR strategy for testing since it doesn't require an API client.
 	created := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-	closed := time.Date(2026, 1, 3, 12, 0, 0, 0, time.UTC)
+	merged := time.Date(2026, 1, 3, 12, 0, 0, 0, time.UTC)
 
 	p := &IssuePipeline{
-		Strategy:    &metrics.IssueStrategy{},
-		StrategyStr: "issue",
+		Strategy:    &metrics.PRStrategy{},
+		StrategyStr: model.StrategyPR,
 		Issue: &model.Issue{
 			Number:    42,
 			Title:     "Fix bug",
 			State:     "closed",
 			CreatedAt: created,
-			ClosedAt:  &closed,
+			ClosedAt:  &merged,
+		},
+		PR: &model.PR{
+			Number:    100,
+			CreatedAt: created,
+			MergedAt:  &merged,
 		},
 	}
 
@@ -36,6 +42,120 @@ func TestIssuePipelineProcessData(t *testing.T) {
 	if *p.CycleTime.Duration != want {
 		t.Errorf("duration = %v, want %v", *p.CycleTime.Duration, want)
 	}
+}
+
+func TestIssuePipelineProcessData_NoProject(t *testing.T) {
+	// IssueStrategy without project returns zero metrics.
+	created := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	closed := time.Date(2026, 1, 3, 12, 0, 0, 0, time.UTC)
+
+	p := &IssuePipeline{
+		Strategy:    &metrics.IssueStrategy{}, // no client/project
+		StrategyStr: model.StrategyIssue,
+		Issue: &model.Issue{
+			Number:    42,
+			Title:     "Fix bug",
+			State:     "closed",
+			CreatedAt: created,
+			ClosedAt:  &closed,
+		},
+	}
+
+	if err := p.ProcessData(); err != nil {
+		t.Fatalf("ProcessData() error: %v", err)
+	}
+
+	// No project configured, so no cycle time signal.
+	if p.CycleTime.Duration != nil {
+		t.Errorf("expected nil duration (no project), got %v", *p.CycleTime.Duration)
+	}
+}
+
+func TestIssuePipelineProcessData_WarnsOnNA_IssueStrategy(t *testing.T) {
+	created := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	closed := time.Date(2026, 1, 3, 12, 0, 0, 0, time.UTC)
+
+	p := &IssuePipeline{
+		Strategy:    &metrics.IssueStrategy{},
+		StrategyStr: model.StrategyIssue,
+		Issue: &model.Issue{
+			Number: 42, Title: "Fix bug", State: "closed",
+			CreatedAt: created, ClosedAt: &closed,
+		},
+	}
+
+	_ = p.ProcessData()
+
+	if len(p.Warnings) == 0 {
+		t.Fatal("expected warning for issue strategy with no project")
+	}
+	if !containsStr(p.Warnings[0], "lifecycle.in-progress.project_status") {
+		t.Errorf("warning should mention project_status config, got: %s", p.Warnings[0])
+	}
+}
+
+func TestIssuePipelineProcessData_WarnsOnNA_PRStrategyNoPR(t *testing.T) {
+	created := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	closed := time.Date(2026, 1, 3, 12, 0, 0, 0, time.UTC)
+
+	p := &IssuePipeline{
+		Strategy:    &metrics.PRStrategy{},
+		StrategyStr: model.StrategyPR,
+		Issue: &model.Issue{
+			Number: 42, Title: "Fix bug", State: "closed",
+			CreatedAt: created, ClosedAt: &closed,
+		},
+		PR: nil, // no closing PR
+	}
+
+	_ = p.ProcessData()
+
+	if len(p.Warnings) == 0 {
+		t.Fatal("expected warning for PR strategy with no closing PR")
+	}
+	if !containsStr(p.Warnings[0], "closing PR") {
+		t.Errorf("warning should mention closing PR, got: %s", p.Warnings[0])
+	}
+}
+
+func TestBulkPipelineProcessData_WarnsOnAllNA(t *testing.T) {
+	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	closed := now.Add(-24 * time.Hour)
+
+	p := &BulkPipeline{
+		Owner:       "org",
+		Repo:        "repo",
+		Since:       now.Add(-30 * 24 * time.Hour),
+		Until:       now,
+		Strategy:    &metrics.IssueStrategy{}, // no project = all N/A
+		StrategyStr: model.StrategyIssue,
+		issues: []model.Issue{
+			{Number: 1, CreatedAt: now.Add(-72 * time.Hour), ClosedAt: &closed},
+			{Number: 2, CreatedAt: now.Add(-96 * time.Hour), ClosedAt: &closed},
+		},
+	}
+
+	_ = p.ProcessData()
+
+	if len(p.Warnings) == 0 {
+		t.Fatal("expected warning when all items have N/A cycle time")
+	}
+	if !containsStr(p.Warnings[0], "lifecycle.in-progress.project_status") {
+		t.Errorf("warning should mention project_status config, got: %s", p.Warnings[0])
+	}
+}
+
+func containsStr(s, sub string) bool {
+	return len(s) >= len(sub) && (s == sub || indexStr(s, sub) >= 0)
+}
+
+func indexStr(s, sub string) int {
+	for i := 0; i <= len(s)-len(sub); i++ {
+		if s[i:i+len(sub)] == sub {
+			return i
+		}
+	}
+	return -1
 }
 
 func TestPRPipelineProcessData(t *testing.T) {
@@ -68,27 +188,32 @@ func TestPRPipelineProcessData(t *testing.T) {
 
 func TestBulkPipelineProcessData(t *testing.T) {
 	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
-	closed1 := now.Add(-24 * time.Hour)
-	closed2 := now.Add(-48 * time.Hour)
+	merged1 := now.Add(-24 * time.Hour)
+	merged2 := now.Add(-48 * time.Hour)
 
+	// Use PR strategy for bulk test since issue strategy needs API.
 	p := &BulkPipeline{
 		Owner:       "org",
 		Repo:        "repo",
 		Since:       now.Add(-30 * 24 * time.Hour),
 		Until:       now,
-		Strategy:    &metrics.IssueStrategy{},
-		StrategyStr: "issue",
+		Strategy:    &metrics.PRStrategy{},
+		StrategyStr: model.StrategyPR,
 		issues: []model.Issue{
 			{
 				Number:    1,
 				CreatedAt: now.Add(-72 * time.Hour),
-				ClosedAt:  &closed1,
+				ClosedAt:  &merged1,
 			},
 			{
 				Number:    2,
 				CreatedAt: now.Add(-96 * time.Hour),
-				ClosedAt:  &closed2,
+				ClosedAt:  &merged2,
 			},
+		},
+		ClosingPRs: map[int]*model.PR{
+			1: {Number: 10, CreatedAt: now.Add(-72 * time.Hour), MergedAt: &merged1},
+			2: {Number: 11, CreatedAt: now.Add(-96 * time.Hour), MergedAt: &merged2},
 		},
 	}
 

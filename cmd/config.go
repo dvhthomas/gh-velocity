@@ -133,7 +133,8 @@ quality:
 commit_ref:
   patterns: ["closes"]
 
-# Cycle time strategy: "issue" (default), "pr", or "project-board"
+# Cycle time strategy: "issue" (default) or "pr"
+# Issue strategy uses lifecycle.in-progress to detect "work started".
 # cycle_time:
 #   strategy: issue
 
@@ -142,16 +143,16 @@ commit_ref:
 #   url: "https://github.com/users/yourname/projects/1"
 #   status_field: "Status"
 
-# Lifecycle stages: define what each workflow stage means.
-# Defaults: backlog/in-progress/in-review = is:open, done = is:closed.
-# Override with query (REST search) and/or project_status (GraphQL).
+# Lifecycle stages: map project board columns to workflow stages.
+# Used by the issue cycle time strategy to detect "work started."
+# Run: gh velocity config preflight --project-url <url> --write
 # lifecycle:
-#   done:
-#     query: "is:closed reason:completed"
-#     project_status: ["Done", "Shipped"]
 #   backlog:
-#     query: "is:open"
 #     project_status: ["Backlog", "Triage"]
+#   in-progress:
+#     project_status: ["In progress"]
+#   done:
+#     project_status: ["Done", "Shipped"]
 
 # Exclude bot accounts from metrics (e.g., dependabot, renovate).
 # These are filtered via -author: qualifiers in search queries.

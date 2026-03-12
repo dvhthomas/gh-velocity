@@ -26,9 +26,9 @@ quality:
 commit_ref:
   patterns: ["closes"]
 
-# Cycle time strategy: project-board
+# Cycle time strategy: issue (default) or pr
 cycle_time:
-  strategy: project-board
+  strategy: issue
 
 # Projects v2 board (auto-detected)
 project:

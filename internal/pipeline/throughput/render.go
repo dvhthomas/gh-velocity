@@ -22,16 +22,17 @@ var markdownTmpl = template.Must(
 // --- JSON ---
 
 type jsonOutput struct {
-	Repository string           `json:"repository"`
+	Repository string            `json:"repository"`
 	Window     format.JSONWindow `json:"window"`
-	SearchURL  string           `json:"search_url"`
-	Issues     int              `json:"issues_closed"`
-	PRs        int              `json:"prs_merged"`
-	Total      int              `json:"total"`
+	SearchURL  string            `json:"search_url"`
+	Issues     int               `json:"issues_closed"`
+	PRs        int               `json:"prs_merged"`
+	Total      int               `json:"total"`
+	Warnings   []string          `json:"warnings,omitempty"`
 }
 
 // WriteJSON writes throughput as JSON.
-func WriteJSON(w io.Writer, r model.ThroughputResult, searchURL string) error {
+func WriteJSON(w io.Writer, r model.ThroughputResult, searchURL string, warnings []string) error {
 	out := jsonOutput{
 		Repository: r.Repository,
 		Window: format.JSONWindow{
@@ -42,6 +43,7 @@ func WriteJSON(w io.Writer, r model.ThroughputResult, searchURL string) error {
 		Issues:    r.IssuesClosed,
 		PRs:       r.PRsMerged,
 		Total:     r.IssuesClosed + r.PRsMerged,
+		Warnings:  warnings,
 	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")

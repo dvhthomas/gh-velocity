@@ -22,11 +22,12 @@ var markdownTmpl = template.Must(
 // --- JSON ---
 
 type jsonOutput struct {
-	Repository string       `json:"repository"`
-	SearchURL  string       `json:"search_url"`
-	Items      []jsonItem   `json:"items"`
-	Count      int          `json:"count"`
-	StaleCount int          `json:"stale_count"`
+	Repository string     `json:"repository"`
+	SearchURL  string     `json:"search_url"`
+	Items      []jsonItem `json:"items"`
+	Count      int        `json:"count"`
+	StaleCount int        `json:"stale_count"`
+	Warnings   []string   `json:"warnings,omitempty"`
 }
 
 type jsonItem struct {
@@ -39,7 +40,7 @@ type jsonItem struct {
 }
 
 // WriteJSON writes review pressure results as JSON.
-func WriteJSON(w io.Writer, result model.ReviewPressureResult, searchURL string) error {
+func WriteJSON(w io.Writer, result model.ReviewPressureResult, searchURL string, warnings []string) error {
 	staleCount := 0
 	items := make([]jsonItem, 0, len(result.AwaitingReview))
 	for _, pr := range result.AwaitingReview {
@@ -61,6 +62,7 @@ func WriteJSON(w io.Writer, result model.ReviewPressureResult, searchURL string)
 		Items:      items,
 		Count:      len(result.AwaitingReview),
 		StaleCount: staleCount,
+		Warnings:   warnings,
 	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")

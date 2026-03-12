@@ -1,24 +1,36 @@
 package cmd
 
 import (
+	"context"
+
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
+	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
 // buildCycleTimeStrategy creates the appropriate CycleTimeStrategy based on config.
-func buildCycleTimeStrategy(deps *Deps, client *gh.Client) metrics.CycleTimeStrategy {
+// For the issue strategy, it resolves project board IDs from config and populates
+// the strategy with lifecycle backlog status values.
+func buildCycleTimeStrategy(ctx context.Context, deps *Deps, client *gh.Client) metrics.CycleTimeStrategy {
 	cfg := deps.Config
 	switch cfg.CycleTime.Strategy {
-	case "pr":
+	case model.StrategyPR:
 		return &metrics.PRStrategy{}
-	case "project-board":
-		// TODO(PR C): resolve cfg.Project.URL → project node ID at runtime.
-		// For now, ProjectBoardStrategy fields are empty; the config validator
-		// ensures project.url is set when strategy is "project-board".
-		return &metrics.ProjectBoardStrategy{
-			Client: client,
+	default: // model.StrategyIssue (also handles deprecated "project-board")
+		strat := &metrics.IssueStrategy{}
+		// Resolve project board IDs if lifecycle in-progress uses project_status.
+		if len(cfg.Lifecycle.InProgress.ProjectStatus) > 0 && cfg.Project.URL != "" {
+			info, err := client.ResolveProject(ctx, cfg.Project.URL, cfg.Project.StatusField)
+			if err != nil {
+				log.Warn("Could not resolve project for cycle time: %v", err)
+				return strat
+			}
+			strat.Client = client
+			strat.ProjectID = info.ProjectID
+			strat.StatusFieldID = info.StatusFieldID
+			strat.BacklogStatus = cfg.Lifecycle.Backlog.ProjectStatus
 		}
-	default: // "issue"
-		return &metrics.IssueStrategy{}
+		return strat
 	}
 }

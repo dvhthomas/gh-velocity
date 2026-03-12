@@ -10,61 +10,28 @@ import (
 
 var testNow = time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
 
-func TestIssueStrategy(t *testing.T) {
+func TestIssueStrategy_NoProject(t *testing.T) {
+	// IssueStrategy without project config returns zero metrics for all inputs.
 	closed := testNow.Add(48 * time.Hour)
-
 	tests := []struct {
-		name       string
-		input      CycleTimeInput
-		wantNilDur bool
-		wantDur    time.Duration
-		wantStart  string
-		wantEnd    string
+		name  string
+		input CycleTimeInput
 	}{
-		{
-			name:       "nil issue",
-			input:      CycleTimeInput{},
-			wantNilDur: true,
-		},
-		{
-			name: "closed issue",
-			input: CycleTimeInput{Issue: &model.Issue{
-				Number:    1,
-				CreatedAt: testNow,
-				ClosedAt:  &closed,
-			}},
-			wantDur:   48 * time.Hour,
-			wantStart: model.SignalIssueCreated,
-			wantEnd:   model.SignalIssueClosed,
-		},
-		{
-			name: "open issue — in progress",
-			input: CycleTimeInput{Issue: &model.Issue{
-				Number:    2,
-				CreatedAt: testNow,
-				ClosedAt:  nil,
-			}},
-			wantNilDur: true,
-			wantStart:  model.SignalIssueCreated,
-		},
-		{
-			name: "zero duration",
-			input: CycleTimeInput{Issue: &model.Issue{
-				Number:    3,
-				CreatedAt: testNow,
-				ClosedAt:  &testNow,
-			}},
-			wantDur:   0,
-			wantStart: model.SignalIssueCreated,
-			wantEnd:   model.SignalIssueClosed,
-		},
+		{name: "nil issue", input: CycleTimeInput{}},
+		{name: "closed issue", input: CycleTimeInput{Issue: &model.Issue{Number: 1, CreatedAt: testNow, ClosedAt: &closed}}},
+		{name: "open issue", input: CycleTimeInput{Issue: &model.Issue{Number: 2, CreatedAt: testNow}}},
 	}
 
-	s := &IssueStrategy{}
+	s := &IssueStrategy{} // no client, no project — signal unavailable
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := s.Compute(context.Background(), tt.input)
-			assertMetric(t, got, tt.wantNilDur, tt.wantDur, tt.wantStart, tt.wantEnd)
+			if got.Duration != nil {
+				t.Errorf("expected nil duration (no project configured), got %v", *got.Duration)
+			}
+			if got.Start != nil {
+				t.Error("expected nil Start (no project configured)")
+			}
 		})
 	}
 }

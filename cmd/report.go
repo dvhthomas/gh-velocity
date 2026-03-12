@@ -119,7 +119,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 		SearchURL:   issueQuery.URL(),
 	}
 
-	strat := buildCycleTimeStrategy(deps, client)
+	strat := buildCycleTimeStrategy(ctx, deps, client)
 	cyclePipeline := &cycletimepipe.BulkPipeline{
 		Client:      client,
 		Owner:       deps.Owner,
@@ -144,7 +144,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 	}
 
 	// For PR strategy, pre-fetch closing PRs for cycle time pipeline.
-	if cfg.CycleTime.Strategy == "pr" {
+	if cfg.CycleTime.Strategy == model.StrategyPR {
 		mergedPRs, prErr := client.SearchPRs(ctx, prQuery.Build())
 		if prErr != nil {
 			log.Warn("could not search merged PRs for cycle-time: %v", prErr)
@@ -206,6 +206,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 	if leadOK {
 		if err := leadPipeline.ProcessData(); err != nil {
 			log.Warn("lead time ProcessData: %v", err)
+			result.Warnings = append(result.Warnings, fmt.Sprintf("lead time: %v", err))
 		} else {
 			result.LeadTime = &leadPipeline.Stats
 		}
@@ -214,15 +215,21 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 	if cycleOK {
 		if err := cyclePipeline.ProcessData(); err != nil {
 			log.Warn("cycle time ProcessData: %v", err)
+			result.Warnings = append(result.Warnings, fmt.Sprintf("cycle time: %v", err))
 		} else {
 			result.CycleTime = &cyclePipeline.Stats
 			result.CycleTimeStrategy = cfg.CycleTime.Strategy
 		}
 	}
+	// Always surface strategy so format layer can show N/A context.
+	if result.CycleTimeStrategy == "" {
+		result.CycleTimeStrategy = cfg.CycleTime.Strategy
+	}
 
 	if throughputOK {
 		if err := throughputPipeline.ProcessData(); err != nil {
 			log.Warn("throughput ProcessData: %v", err)
+			result.Warnings = append(result.Warnings, fmt.Sprintf("throughput: %v", err))
 		} else {
 			result.Throughput = &model.StatsThroughput{
 				IssuesClosed: throughputPipeline.Result.IssuesClosed,

@@ -1,9 +1,12 @@
 package format
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
 func TestFormatDuration(t *testing.T) {
@@ -54,6 +57,48 @@ func TestParseFormat(t *testing.T) {
 	_, err := ParseFormat("csv")
 	if err == nil {
 		t.Error("expected error for invalid format")
+	}
+}
+
+func TestWriteReportPretty_CycleTimeNA_IssueStrategy(t *testing.T) {
+	var buf bytes.Buffer
+	rc := RenderContext{Writer: &buf, Format: Pretty}
+	r := model.StatsResult{
+		Repository:        "owner/repo",
+		Since:             time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+		Until:             time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC),
+		CycleTimeStrategy: model.StrategyIssue,
+	}
+	if err := WriteReportPretty(rc, r); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "not available") {
+		t.Error("expected 'not available' for nil cycle time with issue strategy")
+	}
+	if !strings.Contains(out, "lifecycle.in-progress.project_status") {
+		t.Error("expected project_status hint")
+	}
+}
+
+func TestWriteReportPretty_CycleTimeNA_PRStrategy(t *testing.T) {
+	var buf bytes.Buffer
+	rc := RenderContext{Writer: &buf, Format: Pretty}
+	r := model.StatsResult{
+		Repository:        "owner/repo",
+		Since:             time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+		Until:             time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC),
+		CycleTimeStrategy: model.StrategyPR,
+	}
+	if err := WriteReportPretty(rc, r); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "not available") {
+		t.Error("expected 'not available' for nil cycle time with pr strategy")
+	}
+	if !strings.Contains(out, "closing PRs") {
+		t.Error("expected closing PRs hint")
 	}
 }
 

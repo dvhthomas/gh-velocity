@@ -62,7 +62,18 @@ func TestComputeInsights(t *testing.T) {
 		},
 	}
 
-	ins := ComputeInsights(r)
+	// Pre-compute cycle time durations (PR strategy: created → merged)
+	var cycleTimeDurations []time.Duration
+	for _, pr := range r.PRsMerged {
+		if pr.MergedAt != nil {
+			d := pr.MergedAt.Sub(pr.CreatedAt)
+			if d > 0 {
+				cycleTimeDurations = append(cycleTimeDurations, d)
+			}
+		}
+	}
+
+	ins := ComputeInsights(r, cycleTimeDurations)
 
 	if ins.StaleIssues != 1 {
 		t.Errorf("StaleIssues = %d, want 1", ins.StaleIssues)
@@ -101,7 +112,7 @@ func TestComputeInsights(t *testing.T) {
 
 func TestComputeInsights_Empty(t *testing.T) {
 	r := model.MyWeekResult{Login: "u", Repo: "o/r", Since: insightsTestSince, Until: insightsTestNow}
-	ins := ComputeInsights(r)
+	ins := ComputeInsights(r, nil)
 	if ins.LeadTime != nil {
 		t.Errorf("LeadTime = %v, want nil for empty result", *ins.LeadTime)
 	}

@@ -4,6 +4,7 @@ package throughput
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/format"
@@ -28,7 +29,8 @@ type Pipeline struct {
 	prCount    int
 
 	// ProcessData output
-	Result model.ThroughputResult
+	Result   model.ThroughputResult
+	Warnings []string
 }
 
 // GatherData fetches issue and PR counts from GitHub search.
@@ -38,9 +40,13 @@ func (p *Pipeline) GatherData(ctx context.Context) error {
 
 	if issueErr == nil {
 		p.issueCount = len(issues)
+	} else {
+		p.Warnings = append(p.Warnings, fmt.Sprintf("issue search failed: %v", issueErr))
 	}
 	if prErr == nil {
 		p.prCount = len(prs)
+	} else {
+		p.Warnings = append(p.Warnings, fmt.Sprintf("PR search failed: %v", prErr))
 	}
 
 	// Partial failure is OK — we show whatever we got
@@ -66,7 +72,7 @@ func (p *Pipeline) ProcessData() error {
 func (p *Pipeline) Render(rc format.RenderContext) error {
 	switch rc.Format {
 	case format.JSON:
-		return WriteJSON(rc.Writer, p.Result, p.SearchURL)
+		return WriteJSON(rc.Writer, p.Result, p.SearchURL, p.Warnings)
 	case format.Markdown:
 		return WriteMarkdown(rc.Writer, p.Result, p.SearchURL)
 	default:

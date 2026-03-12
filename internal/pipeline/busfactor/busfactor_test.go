@@ -295,7 +295,7 @@ func TestWriteJSON(t *testing.T) {
 	var buf bytes.Buffer
 	result := testResult()
 
-	if err := WriteJSON(&buf, result); err != nil {
+	if err := WriteJSON(&buf, result, nil); err != nil {
 		t.Fatal(err)
 	}
 
