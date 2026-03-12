@@ -21,7 +21,7 @@ gh velocity release <tag> --since <prev-tag> -R <owner/repo> --config docs/examp
 | kubernetes-kubernetes.yml | kubernetes/kubernetes | pr | bug, feature, chore, docs | x | |
 | hashicorp-terraform.yml | hashicorp/terraform | pr | bug, feature, docs | | |
 | astral-sh-uv.yml | astral-sh/uv | pr | bug, feature, docs | | |
-| dvhthomas-gh-velocity.yml | dvhthomas/gh-velocity | project-board | bug, feature, docs | x | x |
+| dvhthomas-gh-velocity.yml | dvhthomas/gh-velocity | issue | bug, feature, docs | x | x |
 
 ## Generating Your Own
 

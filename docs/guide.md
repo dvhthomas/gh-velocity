@@ -377,11 +377,11 @@ commit_ref:
   patterns: ["closes"]           # default: only closing keywords
   # patterns: ["closes", "refs"]   # also match bare #N references
 
-# Cycle time strategy: "issue" (default), "pr", or "project-board"
+# Cycle time strategy: "issue" (default) or "pr"
 cycle_time:
   strategy: issue
 
-# GitHub Projects v2 — enables project-board cycle time strategy and WIP
+# GitHub Projects v2 — enables lifecycle-based cycle time and WIP
 project:
   url: "https://github.com/users/yourname/projects/1"
   status_field: "Status"
@@ -416,7 +416,7 @@ discussions:
 - `["closes"]` (default): Only matches closing keywords — `fixes #N`, `closes #N`, `resolves #N` and their variations. This is conservative and avoids false positives from comments like "see #42" or "step #1".
 - `["closes", "refs"]`: Also matches bare `#N` references. Use this if your team writes commits like "implement #42" without closing keywords. Be aware that this can match false positives like "update step #1."
 
-**`project.url`**: GitHub Projects v2 URL (e.g., `https://github.com/users/yourname/projects/1`). Enables the `project-board` cycle time strategy and the `wip` command. Find your project URL by navigating to your project board in GitHub.
+**`project.url`**: GitHub Projects v2 URL (e.g., `https://github.com/users/yourname/projects/1`). Required when lifecycle stages use `project_status` (which enables cycle time detection for the `issue` strategy). Also enables the `wip` command. Find your project URL by navigating to your project board in GitHub.
 
 **`project.status_field`**: The visible name of the status field on your project board (usually "Status"). Required when lifecycle stages use `project_status`. Run `gh velocity config discover` to find available fields and options.
 

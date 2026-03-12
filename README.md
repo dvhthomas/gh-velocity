@@ -208,11 +208,11 @@ quality:
 commit_ref:
   patterns: ["closes"]    # "refs" also matches bare #N references
 
-# Cycle time strategy: "issue" (default), "pr", or "project-board"
+# Cycle time strategy: "issue" (default) or "pr"
 cycle_time:
   strategy: issue
 
-# Projects v2 board (enables WIP and project-board cycle time)
+# Projects v2 board (enables WIP and lifecycle-based cycle time)
 # Find these IDs with: gh velocity config discover
 # project:
 #   id: "PVT_kwDOAbc123"
