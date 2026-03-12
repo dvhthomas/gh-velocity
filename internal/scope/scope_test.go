@@ -76,8 +76,8 @@ func TestQuery_URL(t *testing.T) {
 	}
 
 	u := q.URL()
-	if !strings.HasPrefix(u, "https://github.com/issues?q=") {
-		t.Errorf("URL() should start with GitHub issues URL, got %q", u)
+	if !strings.HasPrefix(u, "https://github.com/search?q=") {
+		t.Errorf("URL() should start with GitHub search URL, got %q", u)
 	}
 	if !strings.Contains(u, "repo") {
 		t.Errorf("URL() should contain encoded query, got %q", u)

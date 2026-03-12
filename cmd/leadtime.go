@@ -185,14 +185,16 @@ func runLeadTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		Target:  posting.DiscussionTarget,
 	})
 
+	searchURL := q.URL()
+
 	var fmtErr error
 	switch deps.Format {
 	case format.JSON:
-		fmtErr = format.WriteLeadTimeBulkJSON(w, repo, since, until, items, stats)
+		fmtErr = format.WriteLeadTimeBulkJSON(w, repo, since, until, items, stats, searchURL)
 	case format.Markdown:
-		fmtErr = format.WriteLeadTimeBulkMarkdown(deps.RenderCtx(w), repo, since, until, items, stats)
+		fmtErr = format.WriteLeadTimeBulkMarkdown(deps.RenderCtx(w), repo, since, until, items, stats, searchURL)
 	default:
-		fmtErr = format.WriteLeadTimeBulkPretty(deps.RenderCtx(w), repo, since, until, items, stats)
+		fmtErr = format.WriteLeadTimeBulkPretty(deps.RenderCtx(w), repo, since, until, items, stats, searchURL)
 	}
 	if fmtErr != nil {
 		return fmtErr

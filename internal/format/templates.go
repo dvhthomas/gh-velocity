@@ -113,9 +113,10 @@ type throughputTemplateData struct {
 	Issues     int
 	PRs        int
 	Total      int
+	SearchURL  string
 }
 
-func renderThroughputMarkdown(w io.Writer, r model.ThroughputResult) error {
+func renderThroughputMarkdown(w io.Writer, r model.ThroughputResult, searchURL string) error {
 	return throughputMarkdownTmpl.Execute(w, throughputTemplateData{
 		Repository: r.Repository,
 		Since:      r.Since,
@@ -123,6 +124,7 @@ func renderThroughputMarkdown(w io.Writer, r model.ThroughputResult) error {
 		Issues:     r.IssuesClosed,
 		PRs:        r.PRsMerged,
 		Total:      r.IssuesClosed + r.PRsMerged,
+		SearchURL:  searchURL,
 	})
 }
 
@@ -277,6 +279,7 @@ type leadtimeBulkTemplateData struct {
 	Until      time.Time
 	Items      []leadtimeItemRow
 	Summary    string
+	SearchURL  string
 }
 
 type leadtimeItemRow struct {
@@ -288,13 +291,14 @@ type leadtimeItemRow struct {
 	LeadTime string
 }
 
-func renderLeadTimeBulkMarkdown(w io.Writer, rc RenderContext, repo string, since, until time.Time, items []BulkLeadTimeItem, stats model.Stats) error {
+func renderLeadTimeBulkMarkdown(w io.Writer, rc RenderContext, repo string, since, until time.Time, items []BulkLeadTimeItem, stats model.Stats, searchURL string) error {
 	sorted := sortByCloseDateDesc(items)
 	data := leadtimeBulkTemplateData{
 		Repository: repo,
 		Since:      since,
 		Until:      until,
 		Summary:    formatStatsSummary(stats),
+		SearchURL:  searchURL,
 	}
 	for _, item := range sorted {
 		closedStr := "N/A"
@@ -326,6 +330,7 @@ type cycletimeBulkTemplateData struct {
 	Strategy   string
 	Items      []cycletimeItemRow
 	Summary    string
+	SearchURL  string
 }
 
 type cycletimeItemRow struct {
@@ -337,7 +342,7 @@ type cycletimeItemRow struct {
 	CycleTime string
 }
 
-func renderCycleTimeBulkMarkdown(w io.Writer, rc RenderContext, repo string, since, until time.Time, strategy string, items []BulkCycleTimeItem, stats model.Stats) error {
+func renderCycleTimeBulkMarkdown(w io.Writer, rc RenderContext, repo string, since, until time.Time, strategy string, items []BulkCycleTimeItem, stats model.Stats, searchURL string) error {
 	sorted := sortCycleByCloseDateDesc(items)
 	data := cycletimeBulkTemplateData{
 		Repository: repo,
@@ -345,6 +350,7 @@ func renderCycleTimeBulkMarkdown(w io.Writer, rc RenderContext, repo string, sin
 		Until:      until,
 		Strategy:   strategy,
 		Summary:    formatStatsSummary(stats),
+		SearchURL:  searchURL,
 	}
 	for _, item := range sorted {
 		startedStr := "N/A"
@@ -514,10 +520,13 @@ type myweekTemplateData struct {
 	Until    time.Time
 	Insights []string
 	// Lookback
-	IssuesClosed []myweekItemRow
-	PRsMerged    []myweekItemRow
-	PRsReviewed  []myweekItemRow
-	Releases     []myweekReleaseRow
+	IssuesClosed       []myweekItemRow
+	PRsMerged          []myweekItemRow
+	PRsReviewed        []myweekItemRow
+	Releases           []myweekReleaseRow
+	IssuesClosedURL    string
+	PRsMergedURL       string
+	PRsReviewedURL     string
 	// Lookahead
 	IssuesOpen []myweekAnnotatedRow
 	PRsOpen    []myweekAnnotatedRow
@@ -549,13 +558,16 @@ type myweekReviewRow struct {
 	Age    string
 }
 
-func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult) error {
+func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult, urls MyWeekSearchURLs) error {
 	data := myweekTemplateData{
-		Login:    r.Login,
-		Repo:     r.Repo,
-		Since:    r.Since,
-		Until:    r.Until,
-		Insights: buildInsightLines(r),
+		Login:           r.Login,
+		Repo:            r.Repo,
+		Since:           r.Since,
+		Until:           r.Until,
+		Insights:        buildInsightLines(r),
+		IssuesClosedURL: urls.IssuesClosed,
+		PRsMergedURL:    urls.PRsMerged,
+		PRsReviewedURL:  urls.PRsReviewed,
 	}
 
 	// Lookback: issues closed
@@ -659,6 +671,7 @@ var reviewsMarkdownTmpl = mustParseTemplate("reviews.md.tmpl")
 
 type reviewsTemplateData struct {
 	Repository string
+	SearchURL  string
 	Items      []reviewItemRow
 	Count      int
 	StaleCount int
@@ -671,10 +684,11 @@ type reviewItemRow struct {
 	Signal string
 }
 
-func renderReviewsMarkdown(w io.Writer, rc RenderContext, result model.ReviewPressureResult) error {
+func renderReviewsMarkdown(w io.Writer, rc RenderContext, result model.ReviewPressureResult, searchURL string) error {
 	sorted := sortReviewsByAgeDesc(result.AwaitingReview)
 	data := reviewsTemplateData{
 		Repository: result.Repository,
+		SearchURL:  searchURL,
 		Count:      len(sorted),
 	}
 	for _, pr := range sorted {

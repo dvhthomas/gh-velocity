@@ -1,5 +1,5 @@
 ## Lead Time: {{.Repository}} ({{date .Since}} – {{date .Until}} UTC)
-
+{{if .Items}}
 | Issue | Title | Labels | Created (UTC) | Closed (UTC) | Lead Time |
 | ---: | --- | --- | --- | --- | --- |
 {{- range .Items}}
@@ -7,3 +7,9 @@
 {{- end}}
 
 **Summary:** {{.Summary}}
+{{- else}}
+_No issues closed in this period._
+{{- if .SearchURL}}
+[Verify]({{.SearchURL}})
+{{- end}}
+{{- end}}

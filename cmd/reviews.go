@@ -6,6 +6,7 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
 )
 
@@ -81,15 +82,18 @@ func runReviews(cmd *cobra.Command) error {
 		})
 	}
 
+	// Build a search URL for open PRs awaiting review in this repo.
+	searchURL := scope.OpenPRsAwaitingReviewSearchURL(deps.Owner, deps.Repo)
+
 	w := cmd.OutOrStdout()
 	rc := deps.RenderCtx(w)
 
 	switch deps.Format {
 	case format.JSON:
-		return format.WriteReviewsJSON(w, result)
+		return format.WriteReviewsJSON(w, result, searchURL)
 	case format.Markdown:
-		return format.WriteReviewsMarkdown(rc, result)
+		return format.WriteReviewsMarkdown(rc, result, searchURL)
 	default:
-		return format.WriteReviewsPretty(rc, result)
+		return format.WriteReviewsPretty(rc, result, searchURL)
 	}
 }

@@ -22,7 +22,7 @@ func TestWriteReviewsPretty_WithItems(t *testing.T) {
 		},
 	}
 
-	if err := WriteReviewsPretty(rc, result); err != nil {
+	if err := WriteReviewsPretty(rc, result, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -46,7 +46,7 @@ func TestWriteReviewsPretty_Empty(t *testing.T) {
 		Repository: "owner/repo",
 	}
 
-	if err := WriteReviewsPretty(rc, result); err != nil {
+	if err := WriteReviewsPretty(rc, result, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -67,7 +67,7 @@ func TestWriteReviewsJSON(t *testing.T) {
 		},
 	}
 
-	if err := WriteReviewsJSON(&buf, result); err != nil {
+	if err := WriteReviewsJSON(&buf, result, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -97,7 +97,7 @@ func TestWriteReviewsMarkdown(t *testing.T) {
 		},
 	}
 
-	if err := WriteReviewsMarkdown(rc, result); err != nil {
+	if err := WriteReviewsMarkdown(rc, result, ""); err != nil {
 		t.Fatal(err)
 	}
 

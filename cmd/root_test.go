@@ -89,14 +89,11 @@ func TestHandleError_JSONFormat_EmitsEnvelope(t *testing.T) {
 
 func TestPostFlag_CoercesFormatAndSetsDryRun(t *testing.T) {
 	// Verify --post coerces format to markdown and DryRun defaults to true
-	// when GH_VELOCITY_POST_LIVE is not set. Uses "version" to skip execution
-	// (version command doesn't need Deps), so we test via a separate approach:
-	// run a command that goes through PersistentPreRunE and check Deps.
-	//
-	// We use the release command with a fake repo; it will fail during
-	// execution but PersistentPreRunE should succeed and set Deps correctly.
+	// when GH_VELOCITY_POST_LIVE is not set. Uses the release command with
+	// a real config but fake repo; it will fail during execution but
+	// PersistentPreRunE should succeed and set Deps correctly.
 	root := NewRootCmd("test", "now")
-	root.SetArgs([]string{"--post", "--repo", "owner/repo", "release", "v1.0.0"})
+	root.SetArgs([]string{"--post", "--repo", "owner/repo", "--config", "../docs/examples/cli-cli.yml", "release", "v1.0.0"})
 
 	// Ensure GH_VELOCITY_POST_LIVE is not set
 	t.Setenv("GH_VELOCITY_POST_LIVE", "")
@@ -114,7 +111,7 @@ func TestPostFlag_CoercesFormatAndSetsDryRun(t *testing.T) {
 
 func TestNewPostFlag_ImpliesPost(t *testing.T) {
 	root := NewRootCmd("test", "now")
-	root.SetArgs([]string{"--new-post", "--repo", "owner/repo", "release", "v1.0.0"})
+	root.SetArgs([]string{"--new-post", "--repo", "owner/repo", "--config", "../docs/examples/cli-cli.yml", "release", "v1.0.0"})
 
 	t.Setenv("GH_VELOCITY_POST_LIVE", "")
 
@@ -126,6 +123,40 @@ func TestNewPostFlag_ImpliesPost(t *testing.T) {
 	var appErr *model.AppError
 	if errors.As(err, &appErr) && appErr.Code == model.ErrConfigInvalid {
 		t.Fatalf("--new-post should not produce a config error, got: %v", appErr)
+	}
+}
+
+func TestConfigRequired_MissingConfigErrors(t *testing.T) {
+	// Non-config commands must fail when no config file exists.
+	// Use a non-existent --config path to simulate missing config.
+	root := NewRootCmd("test", "now")
+	root.SetArgs([]string{"--repo", "cli/cli", "--config", "/nonexistent/config.yml", "report", "--since", "7d"})
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error when config is missing")
+	}
+	var appErr *model.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected AppError, got %T: %v", err, err)
+	}
+	if appErr.Code != model.ErrConfigInvalid {
+		t.Errorf("expected code %q, got %q", model.ErrConfigInvalid, appErr.Code)
+	}
+}
+
+func TestConfigRequired_ConfigSubcommandSkipsCheck(t *testing.T) {
+	// Config subcommands must work without a config file.
+	root := NewRootCmd("test", "now")
+	root.SetArgs([]string{"config", "preflight", "-R", "cli/cli"})
+
+	err := root.Execute()
+	// preflight may fail for other reasons (network, etc) but NOT ErrConfigInvalid
+	if err != nil {
+		var appErr *model.AppError
+		if errors.As(err, &appErr) && appErr.Code == model.ErrConfigInvalid {
+			t.Fatalf("config subcommand should not require config, got: %v", appErr)
+		}
 	}
 }
 

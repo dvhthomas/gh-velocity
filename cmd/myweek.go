@@ -224,16 +224,23 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 		Releases:            releases,
 	}
 
+	// Compute search URLs for lookback sections.
+	urls := format.MyWeekSearchURLs{
+		IssuesClosed: scope.ClosedIssuesByAuthorQuery(repoScope, login, since, now).URL(),
+		PRsMerged:    scope.MergedPRsByAuthorQuery(repoScope, login, since, now).URL(),
+		PRsReviewed:  scope.ReviewedPRsByAuthorQuery(repoScope, login, since, now).URL(),
+	}
+
 	w := cmd.OutOrStdout()
 	rc := deps.RenderCtx(w)
 
 	switch deps.Format {
 	case format.JSON:
-		return format.WriteMyWeekJSON(w, result)
+		return format.WriteMyWeekJSON(w, result, urls)
 	case format.Markdown:
-		return format.WriteMyWeekMarkdown(rc, result)
+		return format.WriteMyWeekMarkdown(rc, result, urls)
 	default:
-		return format.WriteMyWeekPretty(rc, result)
+		return format.WriteMyWeekPretty(rc, result, urls)
 	}
 }
 

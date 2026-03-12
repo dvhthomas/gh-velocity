@@ -280,14 +280,16 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		Target:  posting.DiscussionTarget,
 	})
 
+	searchURL := issueQuery.URL()
+
 	var fmtErr error
 	switch deps.Format {
 	case format.JSON:
-		fmtErr = format.WriteCycleTimeBulkJSON(w, repo, since, until, deps.Config.CycleTime.Strategy, items, stats)
+		fmtErr = format.WriteCycleTimeBulkJSON(w, repo, since, until, deps.Config.CycleTime.Strategy, items, stats, searchURL)
 	case format.Markdown:
-		fmtErr = format.WriteCycleTimeBulkMarkdown(deps.RenderCtx(w), repo, since, until, deps.Config.CycleTime.Strategy, items, stats)
+		fmtErr = format.WriteCycleTimeBulkMarkdown(deps.RenderCtx(w), repo, since, until, deps.Config.CycleTime.Strategy, items, stats, searchURL)
 	default:
-		fmtErr = format.WriteCycleTimeBulkPretty(deps.RenderCtx(w), repo, since, until, deps.Config.CycleTime.Strategy, items, stats)
+		fmtErr = format.WriteCycleTimeBulkPretty(deps.RenderCtx(w), repo, since, until, deps.Config.CycleTime.Strategy, items, stats, searchURL)
 	}
 	if fmtErr != nil {
 		return fmtErr
