@@ -7,6 +7,7 @@ import (
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/metric"
+	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/bitsbyme/gh-velocity/internal/scope"
@@ -252,7 +253,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		if prErr != nil {
 			log.Warn("could not search merged PRs: %v", prErr)
 		} else {
-			closingPRs = buildClosingPRMap(ctx, client, mergedPRs)
+			closingPRs = metrics.BuildClosingPRMap(ctx, client, mergedPRs)
 		}
 	}
 

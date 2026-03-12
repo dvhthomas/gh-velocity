@@ -83,7 +83,7 @@ func ComputeDashboard(ctx context.Context, client DashboardClient, input Dashboa
 			mu.Unlock()
 			return nil
 		}
-		prMap := buildClosingPRMap(gctx, client, prs)
+		prMap := BuildClosingPRMap(gctx, client, prs)
 		mu.Lock()
 		mergedPRs = prs
 		closingPRs = prMap
@@ -221,8 +221,8 @@ func ComputeDashboard(ctx context.Context, client DashboardClient, input Dashboa
 	return result
 }
 
-// buildClosingPRMap builds a map from issue number to closing PR by fetching linked issues.
-func buildClosingPRMap(ctx context.Context, client DashboardClient, mergedPRs []model.PR) map[int]*model.PR {
+// BuildClosingPRMap builds a map from issue number to closing PR by fetching linked issues.
+func BuildClosingPRMap(ctx context.Context, client DashboardClient, mergedPRs []model.PR) map[int]*model.PR {
 	closingPRs := make(map[int]*model.PR)
 	if len(mergedPRs) == 0 {
 		return closingPRs
