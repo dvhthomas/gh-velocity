@@ -131,7 +131,7 @@ Discussion posting requires `discussions.category` (e.g., `General`) in your con
 
 ### CI / GitHub Actions
 
-gh-velocity detects `GITHUB_ACTIONS=true` and emits structured log annotations:
+gh-velocity works in GitHub Actions. The default `GITHUB_TOKEN` handles most metrics, but **cannot access Projects v2 boards** (a GitHub platform limitation). For cycle time and WIP, set `GH_VELOCITY_TOKEN` to a PAT with `project` scope — the binary picks it up automatically. See [Token permissions](docs/guide.md#token-permissions) in the guide.
 
 ```yaml
 # .github/workflows/velocity-report.yml
@@ -142,8 +142,8 @@ on:
 
 permissions:
   contents: read
-  issues: write         # post comments on issues/PRs
-  discussions: write    # post bulk reports as Discussions
+  issues: write         # --post to issues/PRs
+  discussions: write    # --post bulk reports
 
 jobs:
   report:
@@ -153,9 +153,8 @@ jobs:
       - run: gh extension install dvhthomas/gh-velocity
       - run: gh velocity report --since 30d --post -f markdown
         env:
-          # GITHUB_TOKEN cannot access Projects v2 boards.
-          # For cycle time / WIP, use a PAT with 'project' scope.
-          GH_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_VELOCITY_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
           GH_VELOCITY_POST_LIVE: 'true'
 ```
 

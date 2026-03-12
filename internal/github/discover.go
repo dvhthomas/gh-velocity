@@ -176,7 +176,7 @@ func (c *Client) DiscoverProjectByNumber(ctx context.Context, number int) (*Disc
 		} `json:"repository"`
 	}
 	if err := c.gql.DoWithContext(ctx, query, variables, &resp); err != nil {
-		return nil, fmt.Errorf("discover project #%d for %s/%s: %w\n  hint: GITHUB_TOKEN cannot access Projects v2. Use a PAT with 'project' scope (see docs/guide.md CI section)", number, c.owner, c.repo, err)
+		return nil, fmt.Errorf("discover project #%d for %s/%s: %w\n  hint: set GH_VELOCITY_TOKEN to a PAT with 'project' scope (see docs/guide.md#token-permissions)", number, c.owner, c.repo, err)
 	}
 
 	p := resp.Repository.ProjectV2

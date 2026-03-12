@@ -577,24 +577,110 @@ The JSON output includes every field an agent needs: seconds-based durations, ra
 
 ## CI integration
 
+### How authentication works
+
+gh-velocity uses the `GH_TOKEN` environment variable for all GitHub API calls — the same variable that powers the `gh` CLI. Locally, `gh auth login` handles this automatically. In CI, you set `GH_TOKEN` in your workflow.
+
 ### Token permissions
 
-`GITHUB_TOKEN` works for most commands but **cannot access Projects v2 boards**. If your config uses `project.url` (for cycle time and WIP), you need a classic PAT or fine-grained token with the `project` scope:
+The default `GITHUB_TOKEN` provided by GitHub Actions works for most gh-velocity commands. However, **`GITHUB_TOKEN` cannot access Projects v2 boards** — this is a GitHub platform limitation, not a gh-velocity limitation.
 
-1. Create a PAT at [github.com/settings/tokens](https://github.com/settings/tokens) with `project` (read) scope.
-2. Add it as a repository secret named `GH_VELOCITY_TOKEN`.
-3. Reference it in your workflow:
+gh-velocity handles this with the `GH_VELOCITY_TOKEN` environment variable. When set, the binary automatically uses it instead of `GH_TOKEN` for all API calls — no workflow fallback logic needed. Just pass both:
 
 ```yaml
 env:
-  GH_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GH_VELOCITY_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
 ```
 
-Without a project-scoped token, commands that need the project board (cycle time with issue strategy, WIP) will warn and skip that data — the rest of the report still works.
+Here's what each token can do:
+
+| Capability | `GITHUB_TOKEN` only | + `GH_VELOCITY_TOKEN` |
+| --- | --- | --- |
+| Lead time, throughput | Yes | Yes |
+| Release quality metrics | Yes | Yes |
+| Bus factor | Yes | Yes |
+| `--post` to issues/PRs | Yes | Yes |
+| `--post` to Discussions | Yes | Yes |
+| **Cycle time (issue strategy)** | **No** — requires project board | **Yes** |
+| **WIP** | **No** — requires project board | **Yes** |
+| **Reviews** | Yes | Yes |
+
+**If your config has no `project:` section**, `GITHUB_TOKEN` is all you need.
+
+**If your config has a `project:` section**, commands that need the board (cycle time with issue strategy, WIP) will warn and skip that data — the rest of the report still works. To get full metrics, set up `GH_VELOCITY_TOKEN`.
+
+### Setting up GH_VELOCITY_TOKEN for CI
+
+1. **Create a classic PAT** with `project` (read-only) scope:
+
+   [Create token](https://github.com/settings/tokens/new?scopes=project&description=gh-velocity) — this link pre-fills the scope and description.
+
+   > Fine-grained PATs do not currently support user-owned projects. Use a classic PAT for user projects, or a GitHub App for organization projects.
+
+2. **Add it as a repository secret** named `GH_VELOCITY_TOKEN`:
+
+   Go to your repo → Settings → Secrets and variables → Actions → New repository secret.
+
+3. **Pass it in your workflow** alongside `GH_TOKEN`:
+
+   ```yaml
+   env:
+     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+     GH_VELOCITY_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
+   ```
+
+   The binary prefers `GH_VELOCITY_TOKEN` when set. If it's empty or missing, it falls back to `GH_TOKEN` transparently. No workflow expressions needed — the binary handles the logic.
+
+### Workflow permissions
+
+Your workflow needs explicit `GITHUB_TOKEN` permissions for `--post` to write back to GitHub:
+
+```yaml
+permissions:
+  contents: read          # read repo and config
+  issues: write           # --post comments on issues/PRs
+  discussions: write      # --post bulk reports as Discussions
+```
+
+These are `GITHUB_TOKEN` permissions (set in the workflow file). `GH_VELOCITY_TOKEN` only needs the `project` scope — it inherits read access to public repos automatically.
+
+### GitHub Actions: weekly report
+
+Post a velocity report to Discussions every week:
+
+```yaml
+name: Velocity Report
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Monday 9am UTC
+  workflow_dispatch:      # allow manual runs
+
+permissions:
+  contents: read
+  issues: write
+  discussions: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: gh extension install dvhthomas/gh-velocity
+
+      - name: Post velocity report
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_VELOCITY_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
+          GH_VELOCITY_POST_LIVE: 'true'
+        run: gh velocity report --since 7d --post -f markdown
+```
 
 ### GitHub Actions: release metrics comment
 
-Post a metrics report on every release:
+Post a quality report on every release:
 
 ```yaml
 name: Release Metrics
@@ -615,25 +701,18 @@ jobs:
         with:
           fetch-depth: 0    # full history for accurate commit analysis
 
-      - name: Install gh-velocity
-        run: gh extension install dvhthomas/gh-velocity
+      - run: gh extension install dvhthomas/gh-velocity
+
+      - name: Post release metrics
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Generate report
+          GH_VELOCITY_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
         run: |
-          gh velocity quality release${{ github.event.release.tag_name }} -f markdown > report.md
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Post to release discussion
-        run: |
+          gh velocity quality release ${{ github.event.release.tag_name }} -f markdown > report.md
           gh issue create \
             --title "Metrics: ${{ github.event.release.tag_name }}" \
             --body-file report.md \
             --label "metrics"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ### GitHub Actions: PR lead-time check
@@ -657,10 +736,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install gh-velocity
-        run: gh extension install dvhthomas/gh-velocity
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: gh extension install dvhthomas/gh-velocity
 
       - name: Extract linked issue
         id: issue
@@ -673,16 +749,17 @@ jobs:
 
       - name: Report lead time
         if: steps.issue.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_VELOCITY_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
         run: |
           gh velocity flow lead-time ${{ steps.issue.outputs.number }} -f markdown | \
             gh pr comment ${{ github.event.pull_request.number }} --body-file -
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ### Scheduled trend reports
 
-Run weekly to track velocity over time:
+Capture metrics as build artifacts for trend analysis:
 
 ```yaml
 name: Weekly Velocity
@@ -699,18 +776,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install gh-velocity
-        run: gh extension install dvhthomas/gh-velocity
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: gh extension install dvhthomas/gh-velocity
 
       - name: Latest release metrics
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_VELOCITY_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
         run: |
           TAG=$(git describe --tags --abbrev=0)
           gh velocity quality release "$TAG" -f json > metrics.json
           gh velocity quality release "$TAG" -f markdown > metrics.md
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

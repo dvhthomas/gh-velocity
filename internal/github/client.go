@@ -4,10 +4,20 @@ package github
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	ghapi "github.com/cli/go-gh/v2/pkg/api"
 )
+
+func init() {
+	// GH_VELOCITY_TOKEN provides a PAT with 'project' scope for Projects v2
+	// access. GITHUB_TOKEN (the default in CI) cannot access projects.
+	// go-gh reads GH_TOKEN for auth, so we promote GH_VELOCITY_TOKEN early.
+	if t := os.Getenv("GH_VELOCITY_TOKEN"); t != "" {
+		os.Setenv("GH_TOKEN", t)
+	}
+}
 
 // Client wraps go-gh REST and GraphQL clients.
 type Client struct {
