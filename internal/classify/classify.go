@@ -173,26 +173,3 @@ func parseTitleMatcher(value string) (Matcher, error) {
 	return TitleMatcher{Pattern: re}, nil
 }
 
-// FromLegacyLabels creates category configs from the legacy bug_labels/feature_labels
-// config format. This provides backward compatibility.
-func FromLegacyLabels(bugLabels, featureLabels []string) []model.CategoryConfig {
-	var categories []model.CategoryConfig
-
-	if len(bugLabels) > 0 {
-		matchers := make([]string, len(bugLabels))
-		for i, l := range bugLabels {
-			matchers[i] = "label:" + l
-		}
-		categories = append(categories, model.CategoryConfig{Name: "bug", Matchers: matchers})
-	}
-
-	if len(featureLabels) > 0 {
-		matchers := make([]string, len(featureLabels))
-		for i, l := range featureLabels {
-			matchers[i] = "label:" + l
-		}
-		categories = append(categories, model.CategoryConfig{Name: "feature", Matchers: matchers})
-	}
-
-	return categories
-}

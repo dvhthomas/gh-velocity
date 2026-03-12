@@ -163,28 +163,6 @@ func TestClassifier_CategoryNames(t *testing.T) {
 	}
 }
 
-func TestFromLegacyLabels(t *testing.T) {
-	cats := FromLegacyLabels([]string{"bug", "defect"}, []string{"enhancement"})
-	if len(cats) != 2 {
-		t.Fatalf("got %d categories, want 2", len(cats))
-	}
-	if cats[0].Name != "bug" || len(cats[0].Matchers) != 2 {
-		t.Errorf("bug category: %+v", cats[0])
-	}
-	if cats[0].Matchers[0] != "label:bug" || cats[0].Matchers[1] != "label:defect" {
-		t.Errorf("bug matchers: %v", cats[0].Matchers)
-	}
-	if cats[1].Name != "feature" || cats[1].Matchers[0] != "label:enhancement" {
-		t.Errorf("feature category: %+v", cats[1])
-	}
-}
-
-func TestFromLegacyLabels_Empty(t *testing.T) {
-	cats := FromLegacyLabels(nil, nil)
-	if len(cats) != 0 {
-		t.Errorf("got %d categories from empty labels, want 0", len(cats))
-	}
-}
 
 func TestNewClassifier_InvalidMatcher(t *testing.T) {
 	categories := []model.CategoryConfig{

@@ -1,4 +1,4 @@
-package cycletime
+package metrics
 
 import (
 	"context"
@@ -8,14 +8,14 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
-var now = time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+var testNow = time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
 
 func TestIssueStrategy(t *testing.T) {
-	closed := now.Add(48 * time.Hour)
+	closed := testNow.Add(48 * time.Hour)
 
 	tests := []struct {
 		name       string
-		input      Input
+		input      CycleTimeInput
 		wantNilDur bool
 		wantDur    time.Duration
 		wantStart  string
@@ -23,14 +23,14 @@ func TestIssueStrategy(t *testing.T) {
 	}{
 		{
 			name:       "nil issue",
-			input:      Input{},
+			input:      CycleTimeInput{},
 			wantNilDur: true,
 		},
 		{
 			name: "closed issue",
-			input: Input{Issue: &model.Issue{
+			input: CycleTimeInput{Issue: &model.Issue{
 				Number:    1,
-				CreatedAt: now,
+				CreatedAt: testNow,
 				ClosedAt:  &closed,
 			}},
 			wantDur:   48 * time.Hour,
@@ -39,9 +39,9 @@ func TestIssueStrategy(t *testing.T) {
 		},
 		{
 			name: "open issue — in progress",
-			input: Input{Issue: &model.Issue{
+			input: CycleTimeInput{Issue: &model.Issue{
 				Number:    2,
-				CreatedAt: now,
+				CreatedAt: testNow,
 				ClosedAt:  nil,
 			}},
 			wantNilDur: true,
@@ -49,10 +49,10 @@ func TestIssueStrategy(t *testing.T) {
 		},
 		{
 			name: "zero duration",
-			input: Input{Issue: &model.Issue{
+			input: CycleTimeInput{Issue: &model.Issue{
 				Number:    3,
-				CreatedAt: now,
-				ClosedAt:  &now,
+				CreatedAt: testNow,
+				ClosedAt:  &testNow,
 			}},
 			wantDur:   0,
 			wantStart: model.SignalIssueCreated,
@@ -70,11 +70,11 @@ func TestIssueStrategy(t *testing.T) {
 }
 
 func TestPRStrategy(t *testing.T) {
-	merged := now.Add(24 * time.Hour)
+	merged := testNow.Add(24 * time.Hour)
 
 	tests := []struct {
 		name       string
-		input      Input
+		input      CycleTimeInput
 		wantNilDur bool
 		wantDur    time.Duration
 		wantStart  string
@@ -82,14 +82,14 @@ func TestPRStrategy(t *testing.T) {
 	}{
 		{
 			name:       "nil PR",
-			input:      Input{},
+			input:      CycleTimeInput{},
 			wantNilDur: true,
 		},
 		{
 			name: "merged PR",
-			input: Input{PR: &model.PR{
+			input: CycleTimeInput{PR: &model.PR{
 				Number:    42,
-				CreatedAt: now,
+				CreatedAt: testNow,
 				MergedAt:  &merged,
 			}},
 			wantDur:   24 * time.Hour,
@@ -98,9 +98,9 @@ func TestPRStrategy(t *testing.T) {
 		},
 		{
 			name: "open PR — in progress",
-			input: Input{PR: &model.PR{
+			input: CycleTimeInput{PR: &model.PR{
 				Number:    43,
-				CreatedAt: now,
+				CreatedAt: testNow,
 				MergedAt:  nil,
 			}},
 			wantNilDur: true,
@@ -108,9 +108,9 @@ func TestPRStrategy(t *testing.T) {
 		},
 		{
 			name: "PR with issue — only uses PR",
-			input: Input{
-				Issue: &model.Issue{Number: 1, CreatedAt: now},
-				PR:    &model.PR{Number: 42, CreatedAt: now, MergedAt: &merged},
+			input: CycleTimeInput{
+				Issue: &model.Issue{Number: 1, CreatedAt: testNow},
+				PR:    &model.PR{Number: 42, CreatedAt: testNow, MergedAt: &merged},
 			},
 			wantDur:   24 * time.Hour,
 			wantStart: model.SignalPRCreated,

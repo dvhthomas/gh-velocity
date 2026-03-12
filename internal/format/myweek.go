@@ -53,8 +53,7 @@ func formatStatusMarkdown(s model.ItemStatus) string {
 
 // buildInsightLines returns human-readable observations for 1:1 talking points.
 // Returns nil if there's nothing notable to say.
-func buildInsightLines(r model.MyWeekResult) []string {
-	ins := model.ComputeInsights(r)
+func buildInsightLines(r model.MyWeekResult, ins model.MyWeekInsights) []string {
 	days := model.DaysBetween(r.Since, r.Until)
 	var lines []string
 
@@ -137,13 +136,13 @@ type MyWeekSearchURLs struct {
 }
 
 // WriteMyWeekPretty writes a my-week summary as formatted text.
-func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, urls MyWeekSearchURLs) error {
+func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekInsights, urls MyWeekSearchURLs) error {
 	w := rc.Writer
 	fmt.Fprintf(w, "My Week — %s (%s)\n", r.Login, r.Repo)
 	fmt.Fprintf(w, "  %s to %s\n", r.Since.Format(time.DateOnly), r.Until.Format(time.DateOnly))
 
 	// Insights
-	if insights := buildInsightLines(r); len(insights) > 0 {
+	if insights := buildInsightLines(r, ins); len(insights) > 0 {
 		fmt.Fprintf(w, "\n── Insights ────────────────────────────────\n\n")
 		for _, line := range insights {
 			fmt.Fprintf(w, "  %s\n", line)
@@ -262,8 +261,8 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, urls MyWeekSearch
 }
 
 // WriteMyWeekMarkdown writes a my-week summary as markdown using an embedded template.
-func WriteMyWeekMarkdown(rc RenderContext, r model.MyWeekResult, urls MyWeekSearchURLs) error {
-	return renderMyWeekMarkdown(rc.Writer, rc, r, urls)
+func WriteMyWeekMarkdown(rc RenderContext, r model.MyWeekResult, ins model.MyWeekInsights, urls MyWeekSearchURLs) error {
+	return renderMyWeekMarkdown(rc.Writer, rc, r, ins, urls)
 }
 
 // jsonMyWeekResult is the JSON serialization of MyWeekResult.
@@ -353,10 +352,9 @@ type jsonMyWeekRelease struct {
 }
 
 // WriteMyWeekJSON writes a my-week summary as JSON.
-func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, urls MyWeekSearchURLs) error {
-	ins := model.ComputeInsights(r)
+func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights, urls MyWeekSearchURLs) error {
 	jsonIns := jsonMyWeekInsights{
-		Lines:               buildInsightLines(r),
+		Lines:               buildInsightLines(r, ins),
 		StaleIssues:         ins.StaleIssues,
 		PRsNeedingReview:    ins.PRsNeedingReview,
 		PRsAwaitingMyReview: ins.PRsAwaitingMyReview,

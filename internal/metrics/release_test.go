@@ -8,14 +8,27 @@ import (
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/classify"
-	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
-// testClassifier creates a Classifier from legacy bug/feature labels for test convenience.
+// testClassifier creates a Classifier from bug/feature label names for test convenience.
 func testClassifier(t *testing.T, bugLabels, featureLabels []string) *classify.Classifier {
 	t.Helper()
-	cats := classify.FromLegacyLabels(bugLabels, featureLabels)
+	var cats []model.CategoryConfig
+	if len(bugLabels) > 0 {
+		matchers := make([]string, len(bugLabels))
+		for i, l := range bugLabels {
+			matchers[i] = "label:" + l
+		}
+		cats = append(cats, model.CategoryConfig{Name: "bug", Matchers: matchers})
+	}
+	if len(featureLabels) > 0 {
+		matchers := make([]string, len(featureLabels))
+		for i, l := range featureLabels {
+			matchers[i] = "label:" + l
+		}
+		cats = append(cats, model.CategoryConfig{Name: "feature", Matchers: matchers})
+	}
 	c, err := classify.NewClassifier(cats)
 	if err != nil {
 		t.Fatalf("testClassifier: %v", err)
@@ -123,7 +136,7 @@ func TestBuildReleaseMetrics_LeadTimeAndCycleTime(t *testing.T) {
 		Issues:            issues,
 		FetchErrors:       map[int]error{},
 		Classifier:        testClassifier(t, []string{"bug"}, []string{"enhancement"}),
-		CycleTimeStrategy: &cycletime.IssueStrategy{},
+		CycleTimeStrategy: &IssueStrategy{},
 	}
 
 	rm, _, err := BuildReleaseMetrics(context.Background(), input)

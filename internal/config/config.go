@@ -86,8 +86,6 @@ type CommitRefConfig struct {
 }
 
 type QualityConfig struct {
-	BugLabels         []string               `yaml:"bug_labels" json:"bug_labels"`
-	FeatureLabels     []string               `yaml:"feature_labels" json:"feature_labels"`
 	Categories        []model.CategoryConfig `yaml:"categories" json:"categories"`
 	HotfixWindowHours float64                `yaml:"hotfix_window_hours" json:"hotfix_window_hours"`
 }
@@ -102,7 +100,6 @@ func Load(path string) (*Config, error) {
 
 	info, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		resolveCategories(cfg)
 		return cfg, nil
 	}
 	if err != nil {
@@ -141,17 +138,13 @@ func Parse(data []byte) (*Config, error) {
 		return nil, err
 	}
 
-	resolveCategories(cfg)
-
 	return cfg, nil
 }
 
 // Defaults returns a Config with default values. Used by config subcommands
 // and test fixtures. Non-config commands require a config file.
 func Defaults() *Config {
-	cfg := defaults()
-	resolveCategories(cfg)
-	return cfg
+	return defaults()
 }
 
 func defaults() *Config {
@@ -168,8 +161,10 @@ func defaults() *Config {
 			// Released: no default — tag-based discovery, no query needed.
 		},
 		Quality: QualityConfig{
-			BugLabels:         []string{"bug"},
-			FeatureLabels:     []string{"enhancement"},
+			Categories: []model.CategoryConfig{
+				{Name: "bug", Matchers: []string{"label:bug"}},
+				{Name: "feature", Matchers: []string{"label:enhancement"}},
+			},
 			HotfixWindowHours: DefaultHotfixWindowHours,
 		},
 	}
@@ -299,35 +294,3 @@ func validate(cfg *Config) error {
 	return nil
 }
 
-// resolveCategories ensures cfg.Quality.Categories is populated.
-// If the user specified explicit categories, those are used (and a warning
-// is emitted if legacy labels are also present in the YAML). Otherwise,
-// categories are auto-generated from bug_labels/feature_labels for backward compatibility.
-func resolveCategories(cfg *Config) {
-	if len(cfg.Quality.Categories) > 0 {
-		// Legacy labels from defaults() are always present; only warn if they
-		// differ from the defaults, indicating the user explicitly set them.
-		explicitBug := !slicesEqual(cfg.Quality.BugLabels, []string{"bug"})
-		explicitFeature := !slicesEqual(cfg.Quality.FeatureLabels, []string{"enhancement"})
-		if explicitBug || explicitFeature {
-			WarnFunc("config: both 'categories' and 'bug_labels'/'feature_labels' are set; 'categories' takes precedence")
-		}
-		return
-	}
-
-	// Auto-generate from legacy labels (including defaults).
-	cfg.Quality.Categories = classify.FromLegacyLabels(cfg.Quality.BugLabels, cfg.Quality.FeatureLabels)
-}
-
-// slicesEqual reports whether two string slices are identical.
-func slicesEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}

@@ -1,0 +1,75 @@
+// Package throughput implements the throughput metric pipeline.
+// It counts issues closed and PRs merged in a date window.
+package throughput
+
+import (
+	"context"
+	"time"
+
+	"github.com/bitsbyme/gh-velocity/internal/format"
+	gh "github.com/bitsbyme/gh-velocity/internal/github"
+	"github.com/bitsbyme/gh-velocity/internal/model"
+)
+
+// Pipeline implements pipeline.Pipeline for the throughput command.
+type Pipeline struct {
+	// Constructor params
+	Client     *gh.Client
+	Owner      string
+	Repo       string
+	Since      time.Time
+	Until      time.Time
+	IssueQuery string
+	PRQuery    string
+	SearchURL  string
+
+	// GatherData output
+	issueCount int
+	prCount    int
+
+	// ProcessData output
+	Result model.ThroughputResult
+}
+
+// GatherData fetches issue and PR counts from GitHub search.
+func (p *Pipeline) GatherData(ctx context.Context) error {
+	issues, issueErr := p.Client.SearchIssues(ctx, p.IssueQuery)
+	prs, prErr := p.Client.SearchPRs(ctx, p.PRQuery)
+
+	if issueErr == nil {
+		p.issueCount = len(issues)
+	}
+	if prErr == nil {
+		p.prCount = len(prs)
+	}
+
+	// Partial failure is OK — we show whatever we got
+	if issueErr != nil && prErr != nil {
+		return issueErr // both failed, return one
+	}
+	return nil
+}
+
+// ProcessData builds the throughput result.
+func (p *Pipeline) ProcessData() error {
+	p.Result = model.ThroughputResult{
+		Repository:   p.Owner + "/" + p.Repo,
+		Since:        p.Since,
+		Until:        p.Until,
+		IssuesClosed: p.issueCount,
+		PRsMerged:    p.prCount,
+	}
+	return nil
+}
+
+// Render writes the throughput result in the requested format.
+func (p *Pipeline) Render(rc format.RenderContext) error {
+	switch rc.Format {
+	case format.JSON:
+		return WriteJSON(rc.Writer, p.Result, p.SearchURL)
+	case format.Markdown:
+		return WriteMarkdown(rc.Writer, p.Result, p.SearchURL)
+	default:
+		return WritePretty(rc.Writer, p.Result, p.SearchURL)
+	}
+}

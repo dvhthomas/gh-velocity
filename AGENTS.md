@@ -21,6 +21,7 @@ task test:coverage  # Tests with coverage report
 - **Sequential `cmds`** in Taskfile, not parallel `deps` (prevents race conditions).
 - **Integration tests** run against the built binary (`task build`), not `go run`.
 - **Scope-first data fetching** — all issue/PR data fetching must go through GitHub Search API (REST) or GraphQL project items queries with a pre-assembled query string. Never hardcode `repo:`, `is:issue`, or date qualifiers directly in API calls. Instead, assemble queries from user scope (config + `--scope` flag) and command lifecycle qualifiers via `internal/scope`. This ensures every command benefits from user-defined filtering, even commands like `quality release` that only need scope (not lifecycle).
+- Design software for both humans (easy, obvious) and for machines (clear JSON output with breadcrumbs).
 
 ## Hard Rules
 
@@ -35,6 +36,8 @@ The following rules must **NEVER** be broken:
 
 - **Project board workflow is mandatory.** All work must follow the `github-project-workflow` skill. The [project board](https://github.com/users/dvhthomas/projects/1) tracks issue lifecycle (Backlog → Ready → In Progress → In Review → Done). Skipping transitions corrupts velocity metrics. Only use the `gh` CLI for GitHub interactions.
 
+- **Always use GitHub worktrees** for local development. Do not clone the repository directly — use `gh repo clone --worktree` instead.
+
 ## Dependencies
 
 - See go.mod
@@ -48,4 +51,5 @@ When `--format json`, errors are also JSON: `{"error": "message", "code": N}`.
 
 ## Quality
 
-Run `task quality` before every commit. Run `task test` continuously during development.
+- Run `task quality` before every commit. Run `task test` continuously during development.
+- Prove the existence of the bug before fixing it: jumping to solutions is an anti-pattern. Tests (unit, integration) are the preferred way of (dis)proving a hypothesis because they catch regressions and cumulativelybuild confidence.

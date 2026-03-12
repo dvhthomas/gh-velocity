@@ -67,14 +67,10 @@ func newConfigShowCmd() *cobra.Command {
 			fmt.Fprintf(w, "lifecycle.in-progress.query:  %s\n", cfg.Lifecycle.InProgress.Query)
 			fmt.Fprintf(w, "lifecycle.in-review.query:    %s\n", cfg.Lifecycle.InReview.Query)
 			fmt.Fprintf(w, "lifecycle.done.query:         %s\n", cfg.Lifecycle.Done.Query)
-			fmt.Fprintf(w, "quality.bug_labels:          %v\n", cfg.Quality.BugLabels)
-			fmt.Fprintf(w, "quality.feature_labels:      %v\n", cfg.Quality.FeatureLabels)
 			fmt.Fprintf(w, "quality.hotfix_window_hours:  %g\n", cfg.Quality.HotfixWindowHours)
-			if len(cfg.Quality.Categories) > 0 {
-				fmt.Fprintf(w, "quality.categories:\n")
-				for _, cat := range cfg.Quality.Categories {
-					fmt.Fprintf(w, "  - %s: %v\n", cat.Name, cat.Matchers)
-				}
+			fmt.Fprintf(w, "quality.categories:\n")
+			for _, cat := range cfg.Quality.Categories {
+				fmt.Fprintf(w, "  - %s: %v\n", cat.Name, cat.Matchers)
 			}
 			fmt.Fprintf(w, "discussions.category:        %s\n", cfg.Discussions.Category)
 			fmt.Fprintf(w, "cycle_time.strategy:         %s\n", cfg.CycleTime.Strategy)
@@ -119,10 +115,16 @@ const defaultConfigTemplate = `# gh-velocity configuration
 # scope:
 #   query: 'repo:myorg/myrepo label:"bug"'
 
-# Issue classification labels
+# Issue/PR classification — first matching category wins; unmatched = "other".
+# Matchers: label:<name>, type:<name>, title:/<regex>/i
 quality:
-  bug_labels: ["bug"]
-  feature_labels: ["enhancement"]
+  categories:
+    - name: bug
+      match:
+        - "label:bug"
+    - name: feature
+      match:
+        - "label:enhancement"
   hotfix_window_hours: 72
 
 # Commit message scanning

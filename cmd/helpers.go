@@ -1,59 +1,24 @@
 package cmd
 
 import (
-	"context"
-
-	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/metrics"
 )
 
 // buildCycleTimeStrategy creates the appropriate CycleTimeStrategy based on config.
-func buildCycleTimeStrategy(deps *Deps, client *gh.Client) cycletime.Strategy {
+func buildCycleTimeStrategy(deps *Deps, client *gh.Client) metrics.CycleTimeStrategy {
 	cfg := deps.Config
 	switch cfg.CycleTime.Strategy {
 	case "pr":
-		return &cycletime.PRStrategy{}
+		return &metrics.PRStrategy{}
 	case "project-board":
 		// TODO(PR C): resolve cfg.Project.URL → project node ID at runtime.
 		// For now, ProjectBoardStrategy fields are empty; the config validator
 		// ensures project.url is set when strategy is "project-board".
-		return &cycletime.ProjectBoardStrategy{
+		return &metrics.ProjectBoardStrategy{
 			Client: client,
 		}
 	default: // "issue"
-		return &cycletime.IssueStrategy{}
+		return &metrics.IssueStrategy{}
 	}
-}
-
-// buildClosingPRMap maps issue numbers to their closing PRs using bulk-fetched
-// merged PRs and their linked issues. Avoids N+1 API calls.
-func buildClosingPRMap(ctx context.Context, client *gh.Client, mergedPRs []model.PR) map[int]*model.PR {
-	closingPRs := make(map[int]*model.PR)
-	if len(mergedPRs) == 0 {
-		return closingPRs
-	}
-
-	prNumbers := make([]int, len(mergedPRs))
-	prMap := make(map[int]*model.PR)
-	for i, pr := range mergedPRs {
-		prNumbers[i] = pr.Number
-		prCopy := pr
-		prMap[pr.Number] = &prCopy
-	}
-
-	linkedIssues, err := client.FetchPRLinkedIssues(ctx, prNumbers)
-	if err != nil {
-		log.Warn("could not fetch PR linked issues: %v", err)
-		return closingPRs
-	}
-
-	for prNum, issues := range linkedIssues {
-		for _, issue := range issues {
-			closingPRs[issue.Number] = prMap[prNum]
-		}
-	}
-
-	return closingPRs
 }

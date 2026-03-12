@@ -20,5 +20,5 @@ func LeadTime(issue model.Issue) model.Metric {
 		Time:   *issue.ClosedAt,
 		Signal: model.SignalIssueClosed,
 	}
-	return NewMetric(start, end)
+	return model.NewMetric(start, end)
 }

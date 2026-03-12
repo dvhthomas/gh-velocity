@@ -5,6 +5,7 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
+	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/bitsbyme/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
@@ -231,16 +232,18 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 		PRsReviewed:  scope.ReviewedPRsByAuthorQuery(repoScope, login, since, now).URL(),
 	}
 
+	ins := metrics.ComputeInsights(result)
+
 	w := cmd.OutOrStdout()
 	rc := deps.RenderCtx(w)
 
 	switch deps.Format {
 	case format.JSON:
-		return format.WriteMyWeekJSON(w, result, urls)
+		return format.WriteMyWeekJSON(w, result, ins, urls)
 	case format.Markdown:
-		return format.WriteMyWeekMarkdown(rc, result, urls)
+		return format.WriteMyWeekMarkdown(rc, result, ins, urls)
 	default:
-		return format.WriteMyWeekPretty(rc, result, urls)
+		return format.WriteMyWeekPretty(rc, result, ins, urls)
 	}
 }
 

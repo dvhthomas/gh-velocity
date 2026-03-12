@@ -1,4 +1,4 @@
-package format
+package reviews
 
 import (
 	"bytes"
@@ -7,12 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bitsbyme/gh-velocity/internal/format"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
-func TestWriteReviewsPretty_WithItems(t *testing.T) {
+func TestWritePretty_WithItems(t *testing.T) {
 	var buf bytes.Buffer
-	rc := RenderContext{Writer: &buf, Format: Pretty, IsTTY: false, Width: 120}
+	rc := format.RenderContext{Writer: &buf, Format: format.Pretty, IsTTY: false, Width: 120}
 
 	result := model.ReviewPressureResult{
 		Repository: "owner/repo",
@@ -22,7 +23,7 @@ func TestWriteReviewsPretty_WithItems(t *testing.T) {
 		},
 	}
 
-	if err := WriteReviewsPretty(rc, result, ""); err != nil {
+	if err := WritePretty(rc, result, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -38,15 +39,15 @@ func TestWriteReviewsPretty_WithItems(t *testing.T) {
 	}
 }
 
-func TestWriteReviewsPretty_Empty(t *testing.T) {
+func TestWritePretty_Empty(t *testing.T) {
 	var buf bytes.Buffer
-	rc := RenderContext{Writer: &buf, Format: Pretty, IsTTY: false, Width: 120}
+	rc := format.RenderContext{Writer: &buf, Format: format.Pretty, IsTTY: false, Width: 120}
 
 	result := model.ReviewPressureResult{
 		Repository: "owner/repo",
 	}
 
-	if err := WriteReviewsPretty(rc, result, ""); err != nil {
+	if err := WritePretty(rc, result, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -56,7 +57,7 @@ func TestWriteReviewsPretty_Empty(t *testing.T) {
 	}
 }
 
-func TestWriteReviewsJSON(t *testing.T) {
+func TestWriteJSON(t *testing.T) {
 	var buf bytes.Buffer
 
 	result := model.ReviewPressureResult{
@@ -67,11 +68,11 @@ func TestWriteReviewsJSON(t *testing.T) {
 		},
 	}
 
-	if err := WriteReviewsJSON(&buf, result, ""); err != nil {
+	if err := WriteJSON(&buf, result, ""); err != nil {
 		t.Fatal(err)
 	}
 
-	var out jsonReviewsOutput
+	var out jsonOutput
 	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
 		t.Fatal(err)
 	}
@@ -86,9 +87,9 @@ func TestWriteReviewsJSON(t *testing.T) {
 	}
 }
 
-func TestWriteReviewsMarkdown(t *testing.T) {
+func TestWriteMarkdown(t *testing.T) {
 	var buf bytes.Buffer
-	rc := RenderContext{Writer: &buf, Format: Markdown, IsTTY: false, Width: 120}
+	rc := format.RenderContext{Writer: &buf, Format: format.Markdown, IsTTY: false, Width: 120}
 
 	result := model.ReviewPressureResult{
 		Repository: "owner/repo",
@@ -97,7 +98,7 @@ func TestWriteReviewsMarkdown(t *testing.T) {
 		},
 	}
 
-	if err := WriteReviewsMarkdown(rc, result, ""); err != nil {
+	if err := WriteMarkdown(rc, result, ""); err != nil {
 		t.Fatal(err)
 	}
 

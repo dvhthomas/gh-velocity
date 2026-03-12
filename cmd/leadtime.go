@@ -1,16 +1,13 @@
 package cmd
 
 import (
-	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
-	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/pipeline/leadtime"
 	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/bitsbyme/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
@@ -87,12 +84,19 @@ func runLeadTimeSingle(cmd *cobra.Command, arg string) error {
 		return err
 	}
 
-	issue, err := client.GetIssue(ctx, issueNumber)
-	if err != nil {
-		return err
+	p := &leadtime.SinglePipeline{
+		Client:      client,
+		Owner:       deps.Owner,
+		Repo:        deps.Repo,
+		IssueNumber: issueNumber,
 	}
 
-	lt := metrics.LeadTime(*issue)
+	if err := p.GatherData(ctx); err != nil {
+		return err
+	}
+	if err := p.ProcessData(); err != nil {
+		return err
+	}
 
 	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
 		Command: "lead-time",
@@ -100,23 +104,10 @@ func runLeadTimeSingle(cmd *cobra.Command, arg string) error {
 		Target:  posting.IssueComment,
 		Number:  issueNumber,
 	})
-	switch deps.Format {
-	case format.JSON:
-		if err = format.WriteLeadTimeJSON(w, deps.Owner+"/"+deps.Repo, issueNumber, issue.Title, issue.State, issue.URL, issue.Labels, lt, nil); err != nil {
-			return err
-		}
-	case format.Markdown:
-		rc := deps.RenderCtx(w)
-		fmt.Fprintf(w, "| Issue | Title | Created (UTC) | Lead Time |\n")
-		fmt.Fprintf(w, "| ---: | --- | --- | --- |\n")
-		fmt.Fprintf(w, "| %s | %s | %s | %s |\n", format.FormatItemLink(issueNumber, issue.URL, rc), issue.Title, issue.CreatedAt.UTC().Format(time.DateOnly), format.FormatMetric(lt))
-	default:
-		rc := deps.RenderCtx(w)
-		fmt.Fprintf(w, "Issue %s  %s\n", format.FormatItemLink(issueNumber, issue.URL, rc), issue.Title)
-		fmt.Fprintf(w, "  Created:   %s UTC\n", issue.CreatedAt.UTC().Format(time.RFC3339))
-		fmt.Fprintf(w, "  Lead Time: %s\n", format.FormatMetric(lt))
+	rc := deps.RenderCtx(w)
+	if err := p.Render(rc); err != nil {
+		return err
 	}
-
 	return postFn()
 }
 
@@ -159,45 +150,32 @@ func runLeadTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	if deps.Debug {
 		log.Debug("lead-time query:\n%s", q.Verbose())
 	}
-	issues, err := client.SearchIssues(ctx, q.Build())
-	if err != nil {
+
+	p := &leadtime.BulkPipeline{
+		Client:      client,
+		Owner:       deps.Owner,
+		Repo:        deps.Repo,
+		Since:       since,
+		Until:       until,
+		SearchQuery: q.Build(),
+		SearchURL:   q.URL(),
+	}
+
+	if err := p.GatherData(ctx); err != nil {
 		return err
 	}
-
-	// Compute per-issue lead time and collect durations for stats.
-	var items []format.BulkLeadTimeItem
-	var durations []time.Duration
-
-	for _, issue := range issues {
-		lt := metrics.LeadTime(issue)
-		items = append(items, format.BulkLeadTimeItem{Issue: issue, Metric: lt})
-		if lt.Duration != nil {
-			durations = append(durations, *lt.Duration)
-		}
+	if err := p.ProcessData(); err != nil {
+		return err
 	}
-
-	stats := metrics.ComputeStats(durations)
-	repo := deps.Owner + "/" + deps.Repo
 
 	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
 		Command: "lead-time",
 		Context: dateutil.FormatContext(sinceStr, untilStr),
 		Target:  posting.DiscussionTarget,
 	})
-
-	searchURL := q.URL()
-
-	var fmtErr error
-	switch deps.Format {
-	case format.JSON:
-		fmtErr = format.WriteLeadTimeBulkJSON(w, repo, since, until, items, stats, searchURL)
-	case format.Markdown:
-		fmtErr = format.WriteLeadTimeBulkMarkdown(deps.RenderCtx(w), repo, since, until, items, stats, searchURL)
-	default:
-		fmtErr = format.WriteLeadTimeBulkPretty(deps.RenderCtx(w), repo, since, until, items, stats, searchURL)
-	}
-	if fmtErr != nil {
-		return fmtErr
+	rc := deps.RenderCtx(w)
+	if err := p.Render(rc); err != nil {
+		return err
 	}
 	return postFn()
 }

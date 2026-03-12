@@ -14,6 +14,7 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/pipeline/release"
 	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/bitsbyme/gh-velocity/internal/strategy"
 	"github.com/spf13/cobra"
@@ -106,31 +107,25 @@ linking strategy discovered for the release.`,
 			input.HotfixWindowHours = deps.Config.Quality.HotfixWindowHours
 			input.CycleTimeStrategy = buildCycleTimeStrategy(deps, client)
 
-			// Compute metrics
-			rm, metricWarnings, err := metrics.BuildReleaseMetrics(ctx, input)
-			if err != nil {
+			p := &release.Pipeline{
+				Owner:    deps.Owner,
+				Repo:     deps.Repo,
+				Input:    input,
+				Warnings: warnings,
+			}
+
+			if err := p.ProcessData(); err != nil {
 				return err
 			}
-			warnings = append(warnings, metricWarnings...)
 
-			// Output
 			w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
 				Command: "release",
 				Context: tag,
 				Target:  posting.DiscussionTarget,
 			})
-
-			var fmtErr error
-			switch deps.Format {
-			case format.JSON:
-				fmtErr = format.WriteReleaseJSON(w, deps.Owner+"/"+deps.Repo, rm, warnings)
-			case format.Markdown:
-				fmtErr = format.WriteReleaseMarkdown(deps.RenderCtx(w), rm, warnings)
-			default:
-				fmtErr = format.WriteReleasePretty(deps.RenderCtx(w), rm, warnings)
-			}
-			if fmtErr != nil {
-				return fmtErr
+			rc := deps.RenderCtx(w)
+			if err := p.Render(rc); err != nil {
+				return err
 			}
 			return postFn()
 		},

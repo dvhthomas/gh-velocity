@@ -1,17 +1,14 @@
 package cmd
 
 import (
-	"fmt"
 	"strconv"
-	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
-	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/pipeline/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/bitsbyme/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
@@ -120,29 +117,35 @@ func runCycleTimePR(cmd *cobra.Command, prNumber int) error {
 		return err
 	}
 
-	pr, err := client.GetPR(ctx, prNumber)
-	if err != nil {
+	p := &cycletime.PRPipeline{
+		Client:   client,
+		Owner:    deps.Owner,
+		Repo:     deps.Repo,
+		PRNumber: prNumber,
+	}
+
+	if err := p.GatherData(ctx); err != nil {
+		return err
+	}
+	if err := p.ProcessData(); err != nil {
 		return err
 	}
 
-	strat := &cycletime.PRStrategy{}
-	ct := strat.Compute(ctx, cycletime.Input{PR: pr})
-
-	var warnings []string
-	if pr.MergedAt == nil {
-		if pr.State == "closed" {
-			warnings = append(warnings, "PR was closed without merging")
-		} else {
-			warnings = append(warnings, "PR is still open; cycle time is in progress")
-		}
+	for _, warn := range p.Warnings {
+		log.Warn("%s", warn)
 	}
 
-	return outputCycleTime(cmd, deps, client, posting.PostOptions{
+	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
 		Command: "cycle-time",
 		Context: "pr-" + strconv.Itoa(prNumber),
 		Target:  posting.PRComment,
 		Number:  prNumber,
-	}, ct, warnings, "PR", prNumber, pr.Title, pr.State, pr.URL, pr.Labels)
+	})
+	rc := deps.RenderCtx(w)
+	if err := p.Render(rc); err != nil {
+		return err
+	}
+	return postFn()
 }
 
 // runCycleTimeIssue computes cycle time for an issue using the configured strategy.
@@ -161,35 +164,39 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 		return err
 	}
 
-	issue, err := client.GetIssue(ctx, issueNumber)
-	if err != nil {
+	strat := buildCycleTimeStrategy(deps, client)
+
+	p := &cycletime.IssuePipeline{
+		Client:      client,
+		Owner:       deps.Owner,
+		Repo:        deps.Repo,
+		IssueNumber: issueNumber,
+		Strategy:    strat,
+		StrategyStr: deps.Config.CycleTime.Strategy,
+	}
+
+	if err := p.GatherData(ctx); err != nil {
+		return err
+	}
+	if err := p.ProcessData(); err != nil {
 		return err
 	}
 
-	strat := buildCycleTimeStrategy(deps, client)
-	var warnings []string
-	input := cycletime.Input{Issue: issue}
-
-	// For PR strategy, find the closing PR.
-	if deps.Config.CycleTime.Strategy == "pr" {
-		pr, prErr := client.GetClosingPR(ctx, issueNumber)
-		if prErr != nil {
-			warnings = append(warnings, fmt.Sprintf("could not find closing PR: %v", prErr))
-		} else if pr == nil {
-			warnings = append(warnings, "no closing PR found for this issue")
-		} else {
-			input.PR = pr
-		}
+	for _, warn := range p.Warnings {
+		log.Warn("%s", warn)
 	}
 
-	ct := strat.Compute(ctx, input)
-
-	return outputCycleTime(cmd, deps, client, posting.PostOptions{
+	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
 		Command: "cycle-time",
 		Context: strconv.Itoa(issueNumber),
 		Target:  posting.IssueComment,
 		Number:  issueNumber,
-	}, ct, warnings, "Issue", issueNumber, issue.Title, issue.State, issue.URL, issue.Labels)
+	})
+	rc := deps.RenderCtx(w)
+	if err := p.Render(rc); err != nil {
+		return err
+	}
+	return postFn()
 }
 
 // runCycleTimeBulk computes cycle time for all issues closed in a date window.
@@ -231,10 +238,6 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	if deps.Debug {
 		log.Debug("cycle-time issue query:\n%s", issueQuery.Verbose())
 	}
-	issues, err := client.SearchIssues(ctx, issueQuery.Build())
-	if err != nil {
-		return err
-	}
 
 	strat := buildCycleTimeStrategy(deps, client)
 
@@ -250,77 +253,38 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		if prErr != nil {
 			log.Warn("could not search merged PRs: %v", prErr)
 		} else {
-			closingPRs = buildClosingPRMap(ctx, client, mergedPRs)
+			closingPRs = metrics.BuildClosingPRMap(ctx, client, mergedPRs)
 		}
 	}
 
-	var items []format.BulkCycleTimeItem
-	var durations []time.Duration
-
-	for _, issue := range issues {
-		input := cycletime.Input{Issue: &issue}
-
-		if pr, ok := closingPRs[issue.Number]; ok {
-			input.PR = pr
-		}
-
-		ct := strat.Compute(ctx, input)
-		items = append(items, format.BulkCycleTimeItem{Issue: issue, Metric: ct})
-		if ct.Duration != nil {
-			durations = append(durations, *ct.Duration)
-		}
+	p := &cycletime.BulkPipeline{
+		Client:      client,
+		Owner:       deps.Owner,
+		Repo:        deps.Repo,
+		Since:       since,
+		Until:       until,
+		Strategy:    strat,
+		StrategyStr: deps.Config.CycleTime.Strategy,
+		SearchQuery: issueQuery.Build(),
+		SearchURL:   issueQuery.URL(),
+		ClosingPRs:  closingPRs,
 	}
 
-	stats := metrics.ComputeStats(durations)
-	repo := deps.Owner + "/" + deps.Repo
+	if err := p.GatherData(ctx); err != nil {
+		return err
+	}
+	if err := p.ProcessData(); err != nil {
+		return err
+	}
 
 	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
 		Command: "cycle-time",
 		Context: dateutil.FormatContext(sinceStr, untilStr),
 		Target:  posting.DiscussionTarget,
 	})
-
-	searchURL := issueQuery.URL()
-
-	var fmtErr error
-	switch deps.Format {
-	case format.JSON:
-		fmtErr = format.WriteCycleTimeBulkJSON(w, repo, since, until, deps.Config.CycleTime.Strategy, items, stats, searchURL)
-	case format.Markdown:
-		fmtErr = format.WriteCycleTimeBulkMarkdown(deps.RenderCtx(w), repo, since, until, deps.Config.CycleTime.Strategy, items, stats, searchURL)
-	default:
-		fmtErr = format.WriteCycleTimeBulkPretty(deps.RenderCtx(w), repo, since, until, deps.Config.CycleTime.Strategy, items, stats, searchURL)
-	}
-	if fmtErr != nil {
-		return fmtErr
-	}
-	return postFn()
-}
-
-// outputCycleTime renders cycle-time results in the requested format and optionally posts.
-func outputCycleTime(cmd *cobra.Command, deps *Deps, client *gh.Client, postOpts posting.PostOptions, ct model.Metric, warnings []string, kind string, number int, title, state, itemURL string, labels []string) error {
-	w, postFn := postIfEnabled(cmd, deps, client, postOpts)
-	repo := deps.Owner + "/" + deps.Repo
-
-	for _, warn := range warnings {
-		log.Warn("%s", warn)
-	}
-
-	var fmtErr error
-	switch deps.Format {
-	case format.JSON:
-		if kind == "PR" {
-			fmtErr = format.WriteCycleTimePRJSON(w, repo, number, title, state, itemURL, labels, ct, warnings)
-		} else {
-			fmtErr = format.WriteCycleTimeJSON(w, repo, number, title, state, itemURL, labels, ct, warnings)
-		}
-	case format.Markdown:
-		fmtErr = format.WriteCycleTimeMarkdown(deps.RenderCtx(w), kind, number, title, itemURL, ct)
-	default:
-		fmtErr = format.WriteCycleTimePretty(deps.RenderCtx(w), kind, number, title, itemURL, deps.Config.CycleTime.Strategy, ct)
-	}
-	if fmtErr != nil {
-		return fmtErr
+	rc := deps.RenderCtx(w)
+	if err := p.Render(rc); err != nil {
+		return err
 	}
 	return postFn()
 }
