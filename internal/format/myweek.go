@@ -219,25 +219,27 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 
 	// Lookahead
 	hasLookahead := len(r.IssuesOpen) > 0 || len(r.PRsOpen) > 0
-	if hasLookahead {
-		fmt.Fprintf(w, "\n── What's ahead ────────────────────────────\n")
+	fmt.Fprintf(w, "\n── What's ahead ────────────────────────────\n")
 
-		if len(r.IssuesOpen) > 0 {
-			fmt.Fprintf(w, "\nOpen Issues: %d\n", len(r.IssuesOpen))
-			for _, iss := range r.IssuesOpen {
-				s := model.IssueStatus(iss, r.Since, r.Until)
-				fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(iss.Number, iss.URL, rc), iss.Title, formatStatus(s))
-			}
+	if len(r.IssuesOpen) > 0 {
+		fmt.Fprintf(w, "\nOpen Issues: %d\n", len(r.IssuesOpen))
+		for _, iss := range r.IssuesOpen {
+			s := model.IssueStatus(iss, r.Since, r.Until)
+			fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(iss.Number, iss.URL, rc), iss.Title, formatStatus(s))
 		}
+	}
 
-		if len(r.PRsOpen) > 0 {
-			fmt.Fprintf(w, "\nOpen PRs: %d\n", len(r.PRsOpen))
-			for _, pr := range r.PRsOpen {
-				nr := model.PRNeedsReview(pr, r.PRsNeedingReview)
-				s := model.PRStatus(pr, nr, r.Since, r.Until)
-				fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title, formatStatus(s))
-			}
+	if len(r.PRsOpen) > 0 {
+		fmt.Fprintf(w, "\nOpen PRs: %d\n", len(r.PRsOpen))
+		for _, pr := range r.PRsOpen {
+			nr := model.PRNeedsReview(pr, r.PRsNeedingReview)
+			s := model.PRStatus(pr, nr, r.Since, r.Until)
+			fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title, formatStatus(s))
 		}
+	}
+
+	if !hasLookahead {
+		fmt.Fprintf(w, "\n  Nothing planned.\n")
 	}
 
 	// Review queue: PRs from others waiting on you
