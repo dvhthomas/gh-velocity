@@ -280,6 +280,10 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		return err
 	}
 
+	for _, warn := range p.Warnings {
+		log.Warn("%s", warn)
+	}
+
 	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
 		Command: "cycle-time",
 		Context: dateutil.FormatContext(sinceStr, untilStr),

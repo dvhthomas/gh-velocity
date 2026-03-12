@@ -12,7 +12,12 @@ The tradeoff is clear: you get zero-setup velocity metrics in exchange for being
 
 **Lead time** is the duration from when an issue is created to when it is closed. It measures the total elapsed time a piece of work existed, including time spent in backlog, waiting for review, blocked by dependencies, or simply forgotten. A long lead time does not necessarily mean slow development — it often means slow prioritization.
 
-**Cycle time** is the duration from when active work started on an issue to when it was closed. The tool detects the start signal automatically, in priority order: (1) status change out of backlog on a Projects v2 board, (2) the creation date of any PR referencing the issue (including drafts), (3) the first time someone was assigned, or (4) the earliest commit referencing the issue. Signals 1–3 come from the GitHub API and work on any repo. Signal 4 requires a local git checkout. Signal 1 requires project configuration in `.gh-velocity.yml`.
+**Cycle time** measures how long active work took. There are two strategies:
+
+- **Issue strategy** (`cycle_time.strategy: issue`): Starts when the issue moves out of a backlog status on a Projects v2 board (`lifecycle.in-progress.project_status`), ends when the issue is closed. Requires project board configuration.
+- **PR strategy** (`cycle_time.strategy: pr`): Starts when the closing PR is created, ends when it is merged. Works with no extra config — just link PRs to issues with "Closes #N".
+
+The strategy is configured in `.gh-velocity.yml`. If unsure, start with `pr` — it works immediately.
 
 **Release lag** is the duration from when an issue is closed to when the release containing it is published. It measures how long finished work waits before reaching users. High release lag often points to batch-and-release workflows where completed work sits in a staging branch.
 
@@ -28,27 +33,24 @@ The tradeoff is clear: you get zero-setup velocity metrics in exchange for being
 
 ```
 1. You create an issue           → lead time clock starts
-2. Issue moves out of Backlog    → cycle time signal #1 (status change)
+2. Issue moves to "In progress"  → cycle time starts (issue strategy)
    on a Projects v2 board
-   OR issue gets an "in-progress" → cycle time signal #2 (label)
-   label
-3. Someone gets assigned         → cycle time signal #4 (first assignment)
-4. A developer opens a PR        → cycle time signal #3 (PR created date)
-   (even a draft PR counts)
-5. The issue is closed           → lead time + cycle time clocks stop
-6. You publish a release that    → release lag clock stops
+   OR a PR referencing the issue → cycle time starts (PR strategy)
+   is created
+3. The issue is closed           → lead time + cycle time clocks stop
+4. You publish a release that    → release lag clock stops
    includes this work
 ```
 
-Steps 2–4 can happen in any order. The tool uses the highest-priority signal it finds — not the earliest. Each step is optional. The tool uses whatever signals exist.
+Which cycle time signal is used depends on your configured strategy (`cycle_time.strategy` in `.gh-velocity.yml`).
 
 ### Start and end signals
 
 **Lead time** always starts when the issue is created and ends when the issue is closed.
 
-**Cycle time** starts from the best available signal (see priority below) and ends when the issue is closed.
-
-Today, both metrics end at `issue.closed_at`. In a future version, the end signal may optionally extend to "work is in a release" — measuring the full delivery cycle rather than just the development cycle.
+**Cycle time** depends on the configured strategy:
+- **Issue strategy**: Starts when the issue moves into an in-progress status on the project board, ends when closed.
+- **PR strategy**: Starts when the closing PR is created, ends when the PR is merged.
 
 ### What you need to do (and what you probably already do)
 
@@ -65,87 +67,77 @@ Today, both metrics end at `issue.closed_at`. In a future version, the end signa
 | Your action | What the tool reads | Metric it enables |
 | --- | --- | --- |
 | Create an issue | `issue.created_at` | Lead time start |
-| Move issue out of Backlog | `ProjectV2ItemFieldSingleSelectValue.updatedAt` | Cycle time start (signal #1, requires project config) |
-| Add "in-progress" label | `LabeledEvent.createdAt` via timeline | Cycle time start (signal #2, requires `active_labels` config) |
-| Open any PR referencing the issue | `PullRequest.createdAt` via timeline cross-references | Cycle time start (signal #3) |
-| Assign someone | `AssignedEvent.createdAt` via timeline API | Cycle time start (signal #4) |
-| Close the issue | `issue.closed_at` | Lead time end, cycle time end |
+| Move issue to "In progress" on project board | `ProjectV2ItemFieldSingleSelectValue` | Cycle time start (issue strategy) |
+| Open a PR that closes the issue | `PullRequest.createdAt` | Cycle time start (PR strategy) |
+| Close the issue | `issue.closed_at` | Lead time end, cycle time end (issue strategy) |
+| Merge the closing PR | `PullRequest.mergedAt` | Cycle time end (PR strategy) |
 | Publish a release | `release.created_at` | Release lag, cadence |
 | Tag without a release | Tag commit date via git refs API | Release lag (less precise) |
-| Write commits referencing `#42` | `git log` (local clone only) | Commit count, fallback cycle time signal (#5) |
 
-### Signal priority for cycle time
+### Choosing a cycle time strategy
 
-The tool picks the best available signal for when work started:
+| Your workflow | Recommended strategy | Why |
+|---------------|---------------------|-----|
+| Issues tracked on a project board | `issue` | Measures real work time (board status change → closed) |
+| PRs close issues (most OSS repos) | `pr` | Measures PR review time (created → merged) |
+| Issues only, no project board or PRs | `issue` | Lead time works; cycle time requires project board setup |
 
-1. **Status change** (Projects v2) — The issue moved from the configured backlog status to any other status on a Projects v2 board. Requires `project.id` and/or `project.status_field_id` in `.gh-velocity.yml`. The backlog status name is configurable via `statuses.backlog` (default: "Backlog").
+If you're unsure, start with `pr` — it works immediately with no extra config.
 
-2. **Label** — An issue label matching `statuses.active_labels` was added (e.g., "in-progress", "wip"). This is an alternative to Projects v2 for repos that use labels to track workflow status — common in open source projects.
+To enable `issue` strategy cycle time, add a project board and run:
 
-3. **PR created** — Any PR that references the issue was opened. This includes draft PRs, open PRs, and closed PRs — the PR does not need to be merged. The tool finds these via cross-reference events and closing references in the issue timeline. If multiple PRs reference the issue, the earliest creation date wins.
+```bash
+gh velocity config preflight --project-url <your-project-url> --write
+```
 
-4. **First assigned** — The earliest `AssignedEvent` on the issue. This captures work starting before a PR exists (design, investigation, prototyping).
+### Configuring the issue strategy
 
-5. **First commit** — The earliest commit message referencing the issue number (requires a local git clone with full history). This is a fallback for repos that don't use PR linking, project boards, labels, or assignments.
-
-If none of these signals exist, cycle time is N/A.
-
-**Backlog suppression:** When the issue is currently in a backlog state, cycle time is always N/A — even if other signals exist (assignment, PR). This handles the case where someone was assigned, started work, but then the issue was sent back to backlog. Backlog is detected in two ways:
-
-- **Projects v2**: The issue's status field matches `statuses.backlog` (default: "Backlog")
-- **Labels**: The issue has a label matching any entry in `statuses.backlog_labels` (e.g., "backlog", "icebox")
-
-Lead time is unaffected — it always measures the full elapsed time from creation to close.
-
-### Two ways to track status
-
-**Option A: Projects v2 board** (best for teams using GitHub Projects)
+The issue strategy requires a Projects v2 board and lifecycle configuration:
 
 ```yaml
 # .gh-velocity.yml
 project:
-  id: "PVT_kwDOAbc123"
-  status_field_id: "PVTSSF_kwDOAbc123"
-statuses:
-  backlog: "Backlog"
+  url: "https://github.com/users/yourname/projects/1"
+  status_field: "Status"
+
+lifecycle:
+  backlog:
+    project_status: ["Backlog", "Triage"]
+  in-progress:
+    project_status: ["In progress"]
 ```
 
-The tool checks if the issue's status field has moved away from "Backlog." This is the highest-priority signal.
+When an issue moves from a backlog status to an in-progress status on the project board, that is the cycle time start signal. When the issue is closed, that is the end signal.
 
-**Option B: Labels** (best for OSS / repos without project boards)
+Run `gh velocity config discover -R owner/repo` to find your project URL, status field name, and available status values.
+
+### Configuring the PR strategy
+
+The PR strategy requires no extra config. It uses the closing PR's creation date as the cycle start and its merge date as the end:
 
 ```yaml
 # .gh-velocity.yml
-statuses:
-  active_labels: ["in-progress", "in progress", "wip"]
-  backlog_labels: ["backlog", "icebox", "deferred"]
+cycle_time:
+  strategy: pr
 ```
 
-When a label in `active_labels` is added to an issue, that becomes the cycle start signal. If the issue currently has a label in `backlog_labels`, cycle time is suppressed.
+Ensure your PRs reference issues with "Closes #N" or "Fixes #N" so the tool can link them.
 
-**Both options can be used together.** Projects v2 status is checked first. If no project config exists or the issue isn't in the project, label-based detection is used as a fallback.
+Lead time is unaffected by strategy choice — it always measures the full elapsed time from issue creation to close.
 
 ### Solo developers vs. teams
 
-**Solo developer workflow:**
-- Create an issue → work on it → open a PR → merge → tag a release
-- The tool gets everything from PR linking. No config needed.
+**Solo developer / OSS workflow** (PR strategy):
+- Create an issue → open a PR with "Closes #N" → merge → tag a release
+- Use `cycle_time.strategy: pr`. Works with no extra config.
 
-**Team workflow with project board:**
+**Team workflow with project board** (issue strategy):
 - Create an issue → triage into Backlog → move to In Progress → open a PR → review → merge → release
-- Configure `project` in `.gh-velocity.yml`. The Backlog → In Progress transition is the cycle start.
+- Use `cycle_time.strategy: issue` with `project.url` and `lifecycle.in-progress.project_status` configured. The Backlog → In Progress transition is the cycle start.
 
-**OSS workflow with labels:**
-- Create an issue → label "in-progress" when work starts → open a PR → merge → release
-- Configure `statuses.active_labels` in `.gh-velocity.yml`. The label addition is the cycle start.
-
-**Team workflow without project board or labels:**
-- Create an issue → assign it → developer opens a PR → review → merge → release
-- No config needed. The tool uses the PR creation date or assignment.
-
-**Trunk-based / no-PR workflow:**
-- Create an issue → commit with "fixes #42" → push to main → tag
-- Cycle time falls back to commit-based signals. This requires a local clone.
+**Team workflow without project board** (PR strategy):
+- Create an issue → developer opens a PR with "Closes #N" → review → merge → release
+- Use `cycle_time.strategy: pr`. The PR creation date is the cycle start.
 
 ### Connecting PRs to issues
 
@@ -178,7 +170,7 @@ You do **not** need to:
 
 ### What has limits
 
-- **Cycle time uses API signals first, commits as enrichment**. The tool detects the cycle start from the GitHub API: (1) the creation date of the PR that closed the issue, or (2) the first assignment event. These work on any repo, including remote (`-R`). If neither API signal is found and a local clone is available, the tool falls back to the earliest commit referencing the issue. **In GitHub Actions**, the default `actions/checkout` does a shallow clone. Set `fetch-depth: 0` for accurate commit-based enrichment. The tool detects shallow clones and warns you.
+- **Cycle time depends on your configured strategy**. With `pr` strategy, the tool uses the closing PR's creation → merge dates. With `issue` strategy, it uses project board status changes, which requires project configuration. If neither strategy has a signal for a given issue, cycle time is N/A. The tool warns you when this happens.
 - **The PR search API caps at 1000 results**. If a release window contains more than 1000 merged PRs, the `pr-link` strategy warns you and returns partial results. This is rare outside the largest monorepos.
 - **Tag ordering is by API default, not semver**. Tags are returned in the order GitHub's API provides, which is usually creation date. The tool picks the tag immediately before your target tag in this list. If your tag history is non-linear, use `--since` to specify the previous tag explicitly.
 - **"Closed" is not "merged"**. GitHub issues can be closed without a PR being merged — by a maintainer, a bot, or the author. `gh-velocity` treats closure as the end event regardless of cause. For most teams this is fine; for teams that close stale issues aggressively, it may inflate lead time counts.
@@ -299,19 +291,20 @@ cd cli
 gh velocity cycle-time 42
 ```
 
-To enable the highest-priority signal (project board status change), add project configuration:
+To enable project board-based cycle time (issue strategy), add project and lifecycle configuration:
 
 ```yaml
 # .gh-velocity.yml
 project:
-  id: "PVT_kwDOAbc123"              # your Projects v2 node ID
-  status_field_id: "PVTSSF_kwDOAbc123"  # your Status field ID
+  url: "https://github.com/users/yourname/projects/1"
+  status_field: "Status"
 
-statuses:
-  backlog: "Backlog"                 # issues in this status have not started
+lifecycle:
+  in-progress:
+    project_status: ["In progress"]
 ```
 
-With this config, the tool checks if the issue has moved out of "Backlog" on the project board and uses that transition as the cycle start.
+With this config and `cycle_time.strategy: issue`, the tool checks if the issue has moved into an in-progress status on the project board and uses that transition as the cycle start. Run `gh velocity config preflight --project-url <url> --write` to generate this config automatically.
 
 In **GitHub Actions**, set `fetch-depth: 0` if you want commit enrichment:
 
@@ -355,6 +348,8 @@ scope:
 
 # Issue/PR classification — first matching category wins; unmatched = "other".
 # Matchers: label:<name>, type:<name>, title:/<regex>/i
+# Note: defect rate in reports counts issues classified as "bug".
+# If you name your bug category differently, use "bug" as the name.
 quality:
   categories:
     - name: bug
@@ -370,6 +365,10 @@ quality:
       match:
         - "label:tech-debt"
         - "title:/^chore[\\(: ]/i"
+    - name: docs
+      match:
+        - "label:documentation"
+        - "label:docs"
   hotfix_window_hours: 48        # releases within 48h of previous = hotfix
 
 # Commit message scanning
@@ -378,22 +377,24 @@ commit_ref:
   # patterns: ["closes", "refs"]   # also match bare #N references
 
 # Cycle time strategy: "issue" (default) or "pr"
+# Issue strategy uses lifecycle.in-progress to detect "work started" (requires project board).
+# PR strategy uses PR created → merged (works with no extra config).
 cycle_time:
-  strategy: issue
+  strategy: pr
 
-# GitHub Projects v2 — enables lifecycle-based cycle time and WIP
+# GitHub Projects v2 — enables lifecycle-based cycle time (issue strategy) and WIP
 project:
   url: "https://github.com/users/yourname/projects/1"
   status_field: "Status"
 
-# Lifecycle stages: define what each workflow stage means.
+# Lifecycle stages: map project board columns to workflow stages.
+# Used by the issue cycle time strategy to detect "work started."
+# Run: gh velocity config preflight --project-url <url> --write
 lifecycle:
-  done:
-    query: "is:closed reason:completed"
-    project_status: ["Done", "Shipped"]
   backlog:
-    query: "is:open"
     project_status: ["Backlog", "Triage"]
+  in-progress:
+    project_status: ["In progress"]
 
 # Exclude bot accounts from metrics.
 exclude_users:
@@ -830,10 +831,44 @@ You are running in a git checkout that was cloned with limited history (common i
 
 Without full history, the tool cannot find commits between tags or search commit messages for issue references. Lead time (which only uses issue dates) is unaffected.
 
-### Cycle time shows N/A for an issue
+### Cycle time shows N/A for all issues
 
-Cycle time is N/A in two situations:
+This is the most common first-run issue. Causes by strategy:
 
-1. **No start signal found.** The tool checks, in order: (1) status change from backlog (requires project config), (2) any PR referencing the issue (including drafts), (3) an assignment event, (4) a commit referencing the issue (local clone only). If none exist — for example, the issue was closed manually without a PR, was never assigned, and has no referencing commits — cycle time is N/A. The most common fix is to link a PR to the issue using "Fixes #N" in the PR description.
+**Issue strategy** (`cycle_time.strategy: issue`):
+- Missing `lifecycle.in-progress.project_status` in config — the tool has no way to detect when work started. Fix: add a project board and run `gh velocity config preflight --project-url <url> --write`.
+- Missing `project.url` or `project.status_field` — the tool can't query the project board. Run `gh velocity config discover -R owner/repo` to find the right values.
+- Token missing `project` scope — run `gh auth status` to check.
 
-2. **Issue is in backlog.** When project configuration is active and the issue's current status matches the configured backlog status, cycle time is suppressed. This is intentional — an issue in backlog means work has not started (or was sent back). Move the issue out of backlog to start the cycle time clock.
+**PR strategy** (`cycle_time.strategy: pr`):
+- No closing PRs found — ensure PRs reference issues with "Closes #N" or "Fixes #N" in the PR description.
+- Issues were closed without PRs — the PR strategy requires merged PRs linked to issues.
+
+**Quick fix**: Switch to `strategy: pr` if you don't use a project board. It works immediately when PRs reference issues.
+
+### Cycle time shows N/A for a single issue
+
+Cycle time is N/A when the configured strategy has no signal for that issue:
+
+- **Issue strategy**: The issue was never tracked on the configured project board, or it never moved into an in-progress status.
+- **PR strategy**: No merged PR references this issue with a closing keyword.
+
+### No results / empty output
+
+1. **Check your date range**: `--since 30d` looks at the last 30 days. Try a wider range.
+2. **Check your scope**: Run with `--debug` to see the GitHub search query and verify URL.
+3. **Check the verify URL**: Bulk commands show a "Verify:" link — open it in GitHub to see what the search returns.
+4. **Check for activity**: A repo with no closed issues or merged PRs in the window will show empty results. That's correct.
+
+### Defect rate shows 0%
+
+The report's defect rate counts issues classified as "bug". If you name your bug category differently (e.g., "defect", "incident"), rename it to "bug" in your config:
+
+```yaml
+quality:
+  categories:
+    - name: bug        # must be "bug" for defect rate
+      match:
+        - "label:defect"
+        - "label:incident"
+```

@@ -76,6 +76,8 @@ func buildInsightLines(r model.MyWeekResult, ins model.MyWeekInsights) []string 
 	}
 	if ins.CycleTime != nil {
 		lines = append(lines, fmt.Sprintf("Median cycle time: %s (work started → done).", formatDuration(*ins.CycleTime)))
+	} else if total > 0 {
+		lines = append(lines, "Cycle time not available — run: gh velocity config preflight -R <repo> for setup guidance.")
 	}
 
 	// Blockers / attention needed

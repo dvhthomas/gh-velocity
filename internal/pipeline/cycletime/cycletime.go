@@ -63,6 +63,18 @@ func (p *IssuePipeline) GatherData(ctx context.Context) error {
 func (p *IssuePipeline) ProcessData() error {
 	input := metrics.CycleTimeInput{Issue: p.Issue, PR: p.PR}
 	p.CycleTime = p.Strategy.Compute(context.Background(), input)
+
+	// Warn when cycle time is truly N/A (no start signal at all).
+	if p.CycleTime.Start == nil && p.CycleTime.Duration == nil {
+		switch p.StrategyStr {
+		case "issue":
+			p.Warnings = append(p.Warnings, "No cycle time signal — configure lifecycle.in-progress.project_status for issue cycle time")
+		case "pr":
+			if p.PR == nil {
+				p.Warnings = append(p.Warnings, "No closing PR found — PR strategy requires PRs that reference issues with 'closes #N'")
+			}
+		}
+	}
 	return nil
 }
 
@@ -151,8 +163,9 @@ type BulkPipeline struct {
 	issues []model.Issue
 
 	// ProcessData output
-	Items []BulkItem
-	Stats model.Stats
+	Items    []BulkItem
+	Stats    model.Stats
+	Warnings []string
 }
 
 // GatherData fetches issues from GitHub search.
@@ -185,6 +198,16 @@ func (p *BulkPipeline) ProcessData() error {
 	}
 
 	p.Stats = metrics.ComputeStats(durations)
+
+	// Warn when all items have no cycle time data.
+	if len(durations) == 0 && len(p.Items) > 0 {
+		switch p.StrategyStr {
+		case "issue":
+			p.Warnings = append(p.Warnings, "Cycle time unavailable for all issues — no lifecycle.in-progress.project_status configured. Add a project board: gh velocity config preflight --project-url <url>")
+		case "pr":
+			p.Warnings = append(p.Warnings, "Cycle time unavailable — no issues had a closing PR. Ensure PRs reference issues with 'closes #N'")
+		}
+	}
 	return nil
 }
 

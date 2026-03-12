@@ -387,6 +387,33 @@ func TestWriteMyWeekJSON(t *testing.T) {
 	}
 }
 
+func TestWriteMyWeekPretty_CycleTimeHintWhenNA(t *testing.T) {
+	var buf bytes.Buffer
+	rc := RenderContext{Writer: &buf, Format: Pretty}
+	closedAt := testNow.Add(-24 * time.Hour)
+	r := model.MyWeekResult{
+		Login: "testuser",
+		Repo:  "owner/repo",
+		Since: testSince,
+		Until: testNow,
+		IssuesClosed: []model.Issue{
+			{Number: 1, Title: "Fix bug", CreatedAt: testSince, ClosedAt: &closedAt},
+		},
+	}
+	// Pass nil cycle time durations — simulates no strategy signal.
+	ins := metrics.ComputeInsights(r, nil)
+	if err := WriteMyWeekPretty(rc, r, ins, MyWeekSearchURLs{}); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !contains(out, "Cycle time not available") {
+		t.Error("expected cycle time hint when closed issues exist but no cycle time data")
+	}
+	if !contains(out, "preflight") {
+		t.Error("expected preflight guidance in hint")
+	}
+}
+
 // Status logic tests are in internal/model/status_test.go.
 // Formatter tests above verify the rendering of status annotations.
 
