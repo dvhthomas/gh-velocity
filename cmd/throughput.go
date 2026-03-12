@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
-	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
+	"github.com/bitsbyme/gh-velocity/internal/metric"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/bitsbyme/gh-velocity/internal/scope"
@@ -78,40 +78,33 @@ Default window is the last 30 days.`,
 				log.Debug("throughput issue query:\n%s", issueQuery.Verbose())
 				log.Debug("throughput PR query:\n%s", prQuery.Verbose())
 			}
-			issues, issueErr := client.SearchIssues(ctx, issueQuery.Build())
-			prs, prErr := client.SearchPRs(ctx, prQuery.Build())
 
-			tp := model.ThroughputResult{
-				Repository: deps.Owner + "/" + deps.Repo,
+			p := &metric.ThroughputPipeline{
+				Client:     client,
+				Owner:      deps.Owner,
+				Repo:       deps.Repo,
 				Since:      since,
 				Until:      until,
-			}
-			if issueErr == nil {
-				tp.IssuesClosed = len(issues)
-			}
-			if prErr == nil {
-				tp.PRsMerged = len(prs)
+				IssueQuery: issueQuery.Build(),
+				PRQuery:    prQuery.Build(),
+				SearchURL:  issueQuery.URL(),
 			}
 
-			searchURL := issueQuery.URL()
+			if err := p.GatherData(ctx); err != nil {
+				return err
+			}
+			if err := p.ProcessData(); err != nil {
+				return err
+			}
 
 			w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
 				Command: "throughput",
 				Context: dateutil.FormatContext(sinceFlag, untilFlag),
 				Target:  posting.DiscussionTarget,
 			})
-
-			var fmtErr error
-			switch deps.Format {
-			case format.JSON:
-				fmtErr = format.WriteThroughputJSON(w, tp, searchURL)
-			case format.Markdown:
-				fmtErr = format.WriteThroughputMarkdown(w, tp, searchURL)
-			default:
-				fmtErr = format.WriteThroughputPretty(w, tp, searchURL)
-			}
-			if fmtErr != nil {
-				return fmtErr
+			rc := deps.RenderCtx(w)
+			if err := p.Render(rc); err != nil {
+				return err
 			}
 			return postFn()
 		},
