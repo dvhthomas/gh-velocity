@@ -293,13 +293,15 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 	}
 
 	// 4. Infer strategy
-	if !result.HasProject && result.RecentPRs > result.RecentIssues {
+	if result.HasProject {
+		result.Strategy = "issue"
+		result.Hints = append(result.Hints, "Project board detected — issue strategy uses board status to detect work started")
+	} else if result.RecentPRs > 0 {
 		result.Strategy = "pr"
-		result.Hints = append(result.Hints, "More PRs than issues in the last 30 days — PR-centric workflow detected")
-	} else if result.HasProject {
-		result.Hints = append(result.Hints, "Project board detected — configure lifecycle.in-progress for cycle time metrics")
+		result.Hints = append(result.Hints, "No project board — using PR strategy (PR created → merged) for cycle time")
 	} else {
-		result.Hints = append(result.Hints, "Using default issue strategy — configure lifecycle.in-progress for cycle time metrics")
+		result.Strategy = "issue"
+		result.Hints = append(result.Hints, "No project board and no recent PRs — cycle time will be unavailable. Add a project board with: preflight --project-url <url>")
 	}
 
 	// 5. Suggest active/backlog labels if no project board
@@ -611,7 +613,7 @@ func collectMatchEvidence(categories map[string][]string, discoveredTypes []stri
 	}
 
 	// Build all probe jobs.
-	categoryOrder := []string{"bug", "feature", "chore"}
+	categoryOrder := []string{"bug", "feature", "chore", "docs"}
 	var jobs []probeJob
 	for _, cat := range categoryOrder {
 		// Label matchers from detected labels.
@@ -747,7 +749,7 @@ func renderPreflightConfig(r *PreflightResult) string {
 		evidenceByCategory[ce.Category] = ce
 	}
 
-	categoryOrder := []string{"bug", "feature", "chore"}
+	categoryOrder := []string{"bug", "feature", "chore", "docs"}
 	type effectiveCategory struct {
 		name     string
 		matchers []MatcherEvidence
@@ -848,25 +850,27 @@ func renderPreflightConfig(r *PreflightResult) string {
 		b.WriteString("lifecycle:\n")
 		writeLifecycleMapping(&b, r.StatusOptions)
 		b.WriteString("\n")
-	} else {
-		// Default lifecycle without a project board
-		b.WriteString("# Lifecycle stages (GitHub search qualifiers).\n")
+	} else if len(r.BacklogLabels) > 0 {
+		// Label-based lifecycle (no project board).
+		// Note: lifecycle.done.query is not generated because it is not consumed
+		// by any command — all date-range queries use hardcoded is:closed/is:merged.
+		b.WriteString("# Lifecycle stages (label-based, no project board)\n")
 		b.WriteString("lifecycle:\n")
-		b.WriteString("  done:\n")
-		b.WriteString("    query: \"is:closed\"\n")
-		if len(r.BacklogLabels) > 0 {
-			b.WriteString("  backlog:\n")
-			b.WriteString("    query: \"is:open")
-			for _, l := range r.BacklogLabels {
-				// Labels with spaces need quoting in GitHub search syntax.
-				if strings.Contains(l, " ") {
-					b.WriteString(fmt.Sprintf(" label:\\\"%s\\\"", l))
-				} else {
-					b.WriteString(fmt.Sprintf(" label:%s", l))
-				}
+		b.WriteString("  backlog:\n")
+		b.WriteString("    query: \"is:open")
+		for _, l := range r.BacklogLabels {
+			// Labels with spaces need quoting in GitHub search syntax.
+			if strings.Contains(l, " ") {
+				b.WriteString(fmt.Sprintf(" label:\\\"%s\\\"", l))
+			} else {
+				b.WriteString(fmt.Sprintf(" label:%s", l))
 			}
-			b.WriteString("\"\n")
 		}
+		b.WriteString("\"\n")
+		b.WriteString("\n")
+	} else {
+		b.WriteString("# No lifecycle stages detected. Add a project board for cycle time metrics:\n")
+		b.WriteString("#   gh velocity config preflight --project-url <url> --write\n")
 		b.WriteString("\n")
 	}
 
