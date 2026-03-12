@@ -202,7 +202,7 @@ type StatsResult struct {
 	Until             time.Time
 	LeadTime          *Stats
 	CycleTime         *Stats
-	CycleTimeStrategy string // "issue", "pr", or "project-board"
+	CycleTimeStrategy string // "issue" or "pr"
 	Throughput        *StatsThroughput
 	WIPCount          *int
 	Quality           *StatsQuality

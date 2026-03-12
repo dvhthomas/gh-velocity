@@ -75,7 +75,7 @@ func buildInsightLines(r model.MyWeekResult, ins model.MyWeekInsights) []string 
 		lines = append(lines, fmt.Sprintf("Median lead time: %s (issue created → closed).", formatDuration(*ins.LeadTime)))
 	}
 	if ins.CycleTime != nil {
-		lines = append(lines, fmt.Sprintf("Median cycle time: %s (PR created → merged).", formatDuration(*ins.CycleTime)))
+		lines = append(lines, fmt.Sprintf("Median cycle time: %s (work started → done).", formatDuration(*ins.CycleTime)))
 	}
 
 	// Blockers / attention needed

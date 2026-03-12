@@ -105,7 +105,7 @@ linking strategy discovered for the release.`,
 			}
 			input.Classifier = classifier
 			input.HotfixWindowHours = deps.Config.Quality.HotfixWindowHours
-			input.CycleTimeStrategy = buildCycleTimeStrategy(deps, client)
+			input.CycleTimeStrategy = buildCycleTimeStrategy(ctx, deps, client)
 
 			p := &release.Pipeline{
 				Owner:    deps.Owner,

@@ -262,8 +262,8 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 					for _, o := range f.Options {
 						result.StatusOptions = append(result.StatusOptions, o.Name)
 					}
-					result.Strategy = "project-board"
-					result.Hints = append(result.Hints, fmt.Sprintf("Using project board: %s (#%d)", project.Title, project.Number))
+					result.Strategy = "issue"
+					result.Hints = append(result.Hints, fmt.Sprintf("Using project board: %s (#%d) — issue strategy will use lifecycle config for cycle time", project.Title, project.Number))
 					break
 				}
 			}
@@ -297,9 +297,9 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 		result.Strategy = "pr"
 		result.Hints = append(result.Hints, "More PRs than issues in the last 30 days — PR-centric workflow detected")
 	} else if result.HasProject {
-		result.Hints = append(result.Hints, "Project board detected — using project-board strategy for cycle time")
+		result.Hints = append(result.Hints, "Project board detected — configure lifecycle.in-progress for cycle time metrics")
 	} else {
-		result.Hints = append(result.Hints, "Using default issue strategy (created → closed)")
+		result.Hints = append(result.Hints, "Using default issue strategy — configure lifecycle.in-progress for cycle time metrics")
 	}
 
 	// 5. Suggest active/backlog labels if no project board
@@ -997,8 +997,8 @@ func verifyConfig(result *PreflightResult, repoLabels []string) *VerificationRes
 	vr.CategoryCount = len(cfg.Quality.Categories)
 
 	// 3. Validate strategy prerequisites
-	if cfg.CycleTime.Strategy == "project-board" && cfg.Project.URL == "" {
-		vr.Warnings = append(vr.Warnings, "strategy \"project-board\" requires project.url to be set")
+	if cfg.CycleTime.Strategy == "issue" && len(cfg.Lifecycle.InProgress.ProjectStatus) == 0 {
+		vr.Warnings = append(vr.Warnings, "issue strategy has no lifecycle.in-progress.project_status — cycle time will be unavailable; configure lifecycle.in-progress for cycle time metrics")
 	}
 
 	// 4. Cross-reference category labels against repo labels

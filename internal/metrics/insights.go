@@ -7,9 +7,11 @@ import (
 )
 
 // ComputeInsights derives talking points from a MyWeekResult.
-// Lead time and cycle time are computed via ComputeStats (same path
-// as standalone lead-time and cycle-time commands).
-func ComputeInsights(r model.MyWeekResult) model.MyWeekInsights {
+// Lead time is computed from closed issues (created → closed).
+// Cycle time uses pre-computed durations from the configured strategy
+// (computed in the cmd layer which has access to config and API client).
+// Pass nil cycleTimeDurations when cycle time is unavailable.
+func ComputeInsights(r model.MyWeekResult, cycleTimeDurations []time.Duration) model.MyWeekInsights {
 	var ins model.MyWeekInsights
 	for _, iss := range r.IssuesOpen {
 		s := model.IssueStatus(iss, r.Since, r.Until)
@@ -49,18 +51,9 @@ func ComputeInsights(r model.MyWeekResult) model.MyWeekInsights {
 		}
 	}
 
-	// Cycle time: median of created → merged for merged PRs
-	if len(r.PRsMerged) > 0 {
-		var durations []time.Duration
-		for _, pr := range r.PRsMerged {
-			if pr.MergedAt != nil {
-				d := pr.MergedAt.Sub(pr.CreatedAt)
-				if d > 0 {
-					durations = append(durations, d)
-				}
-			}
-		}
-		if stats := ComputeStats(durations); stats.Median != nil {
+	// Cycle time: from pre-computed durations (strategy-aware)
+	if len(cycleTimeDurations) > 0 {
+		if stats := ComputeStats(cycleTimeDurations); stats.Median != nil {
 			ins.CycleTime = stats.Median
 		}
 	}

@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"context"
+	"time"
+
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
@@ -232,7 +235,11 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 		PRsReviewed:  scope.ReviewedPRsByAuthorQuery(repoScope, login, since, now).URL(),
 	}
 
-	ins := metrics.ComputeInsights(result)
+	// Compute cycle-time durations using the configured strategy.
+	strat := buildCycleTimeStrategy(ctx, deps, client)
+	cycleTimeDurations := computeMyWeekCycleTime(ctx, strat, result)
+
+	ins := metrics.ComputeInsights(result, cycleTimeDurations)
 
 	w := cmd.OutOrStdout()
 	rc := deps.RenderCtx(w)
@@ -244,6 +251,39 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 		return format.WriteMyWeekMarkdown(rc, result, ins, urls)
 	default:
 		return format.WriteMyWeekPretty(rc, result, ins, urls)
+	}
+}
+
+// computeMyWeekCycleTime computes cycle-time durations for closed issues
+// using the configured strategy. For issue strategy, this calls the GitHub API
+// for each issue. For PR strategy, it uses PR created → merged.
+// Returns nil when the strategy has no signal (e.g., no project configured).
+func computeMyWeekCycleTime(ctx context.Context, strat metrics.CycleTimeStrategy, r model.MyWeekResult) []time.Duration {
+	switch strat.Name() {
+	case "pr":
+		// PR strategy: PR created → merged for merged PRs
+		var durations []time.Duration
+		for _, pr := range r.PRsMerged {
+			if pr.MergedAt != nil {
+				d := pr.MergedAt.Sub(pr.CreatedAt)
+				if d > 0 {
+					durations = append(durations, d)
+				}
+			}
+		}
+		return durations
+	default: // "issue"
+		// Issue strategy: use strategy.Compute for each closed issue
+		var durations []time.Duration
+		for i := range r.IssuesClosed {
+			iss := r.IssuesClosed[i]
+			input := metrics.CycleTimeInput{Issue: &iss}
+			m := strat.Compute(ctx, input)
+			if m.Duration != nil && *m.Duration > 0 {
+				durations = append(durations, *m.Duration)
+			}
+		}
+		return durations
 	}
 }
 

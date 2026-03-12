@@ -27,7 +27,7 @@ type IssuePipeline struct {
 	Repo        string
 	IssueNumber int
 	Strategy    metrics.CycleTimeStrategy
-	StrategyStr string // "issue", "pr", "project-board" for display
+	StrategyStr string // "issue" or "pr" for display
 
 	// GatherData output
 	Issue    *model.Issue

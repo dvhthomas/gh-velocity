@@ -10,7 +10,7 @@ import (
 
 // CycleTimeStrategy computes cycle time for a single work item.
 type CycleTimeStrategy interface {
-	// Name returns the strategy identifier ("issue", "pr", "project-board").
+	// Name returns the strategy identifier ("issue" or "pr").
 	Name() string
 	// Compute returns a Metric with start/end events and duration.
 	// Returns a zero Metric when the required signal is not available.
@@ -24,16 +24,44 @@ type CycleTimeInput struct {
 	Commits []model.Commit // from linking strategies, may be empty
 }
 
-// IssueStrategy measures cycle time as issue created → issue closed.
-type IssueStrategy struct{}
+// IssueStrategy measures cycle time as "work started" → issue closed.
+// "Work started" is detected from lifecycle config (project board status change).
+// When no project board is configured (ProjectID is empty), Compute returns a
+// zero Metric — the signal is unavailable.
+type IssueStrategy struct {
+	Client        *gh.Client
+	ProjectID     string   // resolved from config project.url via ResolveProject
+	StatusFieldID string   // resolved from config project.status_field
+	BacklogStatus []string // from lifecycle.backlog.project_status
+}
 
 func (s *IssueStrategy) Name() string { return "issue" }
 
-func (s *IssueStrategy) Compute(_ context.Context, input CycleTimeInput) model.Metric {
+func (s *IssueStrategy) Compute(ctx context.Context, input CycleTimeInput) model.Metric {
 	if input.Issue == nil {
 		return model.Metric{}
 	}
-	start := &model.Event{Time: input.Issue.CreatedAt, Signal: model.SignalIssueCreated}
+	// No project configured — cycle time signal unavailable.
+	if s.Client == nil || s.ProjectID == "" {
+		return model.Metric{}
+	}
+	// Use the first backlog status for the GetProjectStatus call.
+	backlog := ""
+	if len(s.BacklogStatus) > 0 {
+		backlog = s.BacklogStatus[0]
+	}
+	ps, err := s.Client.GetProjectStatus(ctx, input.Issue.Number, s.ProjectID, s.StatusFieldID, backlog)
+	if err != nil || ps.CycleStart == nil {
+		return model.Metric{}
+	}
+	if ps.InBacklog {
+		return model.Metric{}
+	}
+	start := &model.Event{
+		Time:   ps.CycleStart.Time,
+		Signal: model.SignalStatusChange,
+		Detail: ps.CycleStart.Detail,
+	}
 	if input.Issue.ClosedAt == nil {
 		return model.Metric{Start: start}
 	}
@@ -59,39 +87,5 @@ func (s *PRStrategy) Compute(_ context.Context, input CycleTimeInput) model.Metr
 		return model.Metric{Start: start}
 	}
 	end := &model.Event{Time: *input.PR.MergedAt, Signal: model.SignalPRMerged}
-	return model.NewMetric(start, end)
-}
-
-// ProjectBoardStrategy measures cycle time as project status change
-// (out of backlog) → issue closed. Requires GitHub Projects v2 config.
-type ProjectBoardStrategy struct {
-	Client        *gh.Client
-	ProjectID     string
-	StatusFieldID string
-	BacklogStatus string
-}
-
-func (s *ProjectBoardStrategy) Name() string { return "project-board" }
-
-func (s *ProjectBoardStrategy) Compute(ctx context.Context, input CycleTimeInput) model.Metric {
-	if input.Issue == nil {
-		return model.Metric{}
-	}
-	ps, err := s.Client.GetProjectStatus(ctx, input.Issue.Number, s.ProjectID, s.StatusFieldID, s.BacklogStatus)
-	if err != nil || ps.CycleStart == nil {
-		return model.Metric{}
-	}
-	if ps.InBacklog {
-		return model.Metric{}
-	}
-	start := &model.Event{
-		Time:   ps.CycleStart.Time,
-		Signal: model.SignalStatusChange,
-		Detail: ps.CycleStart.Detail,
-	}
-	if input.Issue.ClosedAt == nil {
-		return model.Metric{Start: start}
-	}
-	end := &model.Event{Time: *input.Issue.ClosedAt, Signal: model.SignalIssueClosed}
 	return model.NewMetric(start, end)
 }

@@ -29,9 +29,12 @@ func NewCycleTimeCmd() *cobra.Command {
 The measurement strategy is set in .gh-velocity.yml:
 
   cycle_time:
-    strategy: issue          # issue created → issue closed (default)
-    strategy: pr             # PR created → PR merged
-    strategy: project-board  # status change → issue closed
+    strategy: issue  # work started → issue closed (default)
+    strategy: pr     # PR created → PR merged
+
+The issue strategy detects "work started" from lifecycle config
+(project board status change). Configure lifecycle.in-progress for
+cycle time metrics.
 
 Single mode:  gh velocity cycle-time 42
               gh velocity cycle-time --pr 99
@@ -164,7 +167,7 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 		return err
 	}
 
-	strat := buildCycleTimeStrategy(deps, client)
+	strat := buildCycleTimeStrategy(ctx, deps, client)
 
 	p := &cycletime.IssuePipeline{
 		Client:      client,
@@ -239,7 +242,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		log.Debug("cycle-time issue query:\n%s", issueQuery.Verbose())
 	}
 
-	strat := buildCycleTimeStrategy(deps, client)
+	strat := buildCycleTimeStrategy(ctx, deps, client)
 
 	// For PR strategy, bulk-fetch closing PRs to avoid N+1 API calls.
 	closingPRs := make(map[int]*model.PR)

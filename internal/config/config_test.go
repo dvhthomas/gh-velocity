@@ -426,14 +426,9 @@ func TestLoad_Validation(t *testing.T) {
 			wantErr: "",
 		},
 		{
-			name:    "cycle_time.strategy project-board with project",
-			yaml:    "cycle_time:\n  strategy: project-board\nproject:\n  url: https://github.com/users/test/projects/1",
-			wantErr: "",
-		},
-		{
-			name:    "cycle_time.strategy project-board without project",
+			name:    "cycle_time.strategy project-board deprecated to issue",
 			yaml:    "cycle_time:\n  strategy: project-board",
-			wantErr: "requires project.url",
+			wantErr: "",
 		},
 		{
 			name:    "cycle_time.strategy invalid",

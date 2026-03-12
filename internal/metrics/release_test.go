@@ -162,13 +162,9 @@ func TestBuildReleaseMetrics_LeadTimeAndCycleTime(t *testing.T) {
 		t.Error("expected lead time end signal to be issue-closed")
 	}
 
-	// Cycle time with issue strategy: created -> closed = 48h (same as lead time)
-	expectedCT := 48 * time.Hour
-	if im.CycleTime.Duration == nil || *im.CycleTime.Duration != expectedCT {
-		t.Errorf("expected cycle time %v, got %v", expectedCT, im.CycleTime.Duration)
-	}
-	if im.CycleTime.Start == nil || im.CycleTime.Start.Signal != model.SignalIssueCreated {
-		t.Error("expected cycle time start signal to be issue-created")
+	// Cycle time with issue strategy (no project): nil — signal unavailable
+	if im.CycleTime.Duration != nil {
+		t.Errorf("expected nil cycle time (no project configured), got %v", *im.CycleTime.Duration)
 	}
 
 	// Release lag: closed -> release = 24h

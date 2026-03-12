@@ -133,7 +133,8 @@ quality:
 commit_ref:
   patterns: ["closes"]
 
-# Cycle time strategy: "issue" (default), "pr", or "project-board"
+# Cycle time strategy: "issue" (default) or "pr"
+# Issue strategy uses lifecycle.in-progress to detect "work started".
 # cycle_time:
 #   strategy: issue
 

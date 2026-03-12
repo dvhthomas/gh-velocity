@@ -9,18 +9,24 @@ import (
 )
 
 func TestIssuePipelineProcessData(t *testing.T) {
+	// Use PR strategy for testing since it doesn't require an API client.
 	created := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-	closed := time.Date(2026, 1, 3, 12, 0, 0, 0, time.UTC)
+	merged := time.Date(2026, 1, 3, 12, 0, 0, 0, time.UTC)
 
 	p := &IssuePipeline{
-		Strategy:    &metrics.IssueStrategy{},
-		StrategyStr: "issue",
+		Strategy:    &metrics.PRStrategy{},
+		StrategyStr: "pr",
 		Issue: &model.Issue{
 			Number:    42,
 			Title:     "Fix bug",
 			State:     "closed",
 			CreatedAt: created,
-			ClosedAt:  &closed,
+			ClosedAt:  &merged,
+		},
+		PR: &model.PR{
+			Number:    100,
+			CreatedAt: created,
+			MergedAt:  &merged,
 		},
 	}
 
@@ -35,6 +41,33 @@ func TestIssuePipelineProcessData(t *testing.T) {
 	want := 2 * 24 * time.Hour
 	if *p.CycleTime.Duration != want {
 		t.Errorf("duration = %v, want %v", *p.CycleTime.Duration, want)
+	}
+}
+
+func TestIssuePipelineProcessData_NoProject(t *testing.T) {
+	// IssueStrategy without project returns zero metrics.
+	created := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	closed := time.Date(2026, 1, 3, 12, 0, 0, 0, time.UTC)
+
+	p := &IssuePipeline{
+		Strategy:    &metrics.IssueStrategy{}, // no client/project
+		StrategyStr: "issue",
+		Issue: &model.Issue{
+			Number:    42,
+			Title:     "Fix bug",
+			State:     "closed",
+			CreatedAt: created,
+			ClosedAt:  &closed,
+		},
+	}
+
+	if err := p.ProcessData(); err != nil {
+		t.Fatalf("ProcessData() error: %v", err)
+	}
+
+	// No project configured, so no cycle time signal.
+	if p.CycleTime.Duration != nil {
+		t.Errorf("expected nil duration (no project), got %v", *p.CycleTime.Duration)
 	}
 }
 
@@ -68,27 +101,32 @@ func TestPRPipelineProcessData(t *testing.T) {
 
 func TestBulkPipelineProcessData(t *testing.T) {
 	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
-	closed1 := now.Add(-24 * time.Hour)
-	closed2 := now.Add(-48 * time.Hour)
+	merged1 := now.Add(-24 * time.Hour)
+	merged2 := now.Add(-48 * time.Hour)
 
+	// Use PR strategy for bulk test since issue strategy needs API.
 	p := &BulkPipeline{
 		Owner:       "org",
 		Repo:        "repo",
 		Since:       now.Add(-30 * 24 * time.Hour),
 		Until:       now,
-		Strategy:    &metrics.IssueStrategy{},
-		StrategyStr: "issue",
+		Strategy:    &metrics.PRStrategy{},
+		StrategyStr: "pr",
 		issues: []model.Issue{
 			{
 				Number:    1,
 				CreatedAt: now.Add(-72 * time.Hour),
-				ClosedAt:  &closed1,
+				ClosedAt:  &merged1,
 			},
 			{
 				Number:    2,
 				CreatedAt: now.Add(-96 * time.Hour),
-				ClosedAt:  &closed2,
+				ClosedAt:  &merged2,
 			},
+		},
+		ClosingPRs: map[int]*model.PR{
+			1: {Number: 10, CreatedAt: now.Add(-72 * time.Hour), MergedAt: &merged1},
+			2: {Number: 11, CreatedAt: now.Add(-96 * time.Hour), MergedAt: &merged2},
 		},
 	}
 

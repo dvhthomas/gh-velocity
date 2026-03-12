@@ -208,7 +208,7 @@ func TestRenderPreflightConfig_RoundTrips(t *testing.T) {
 			name: "project board with status options",
 			result: &PreflightResult{
 				Repo:          "owner/repo",
-				Strategy:      "project-board",
+				Strategy:      "issue",
 				HasProject:    true,
 				ProjectURL:    "https://github.com/users/test/projects/1",
 				StatusOptions: []string{"Backlog", "In Progress", "In Review", "Done"},
@@ -672,19 +672,23 @@ func TestTypePatterns(t *testing.T) {
 	}
 }
 
-func TestVerifyConfig_ProjectBoardWithoutID(t *testing.T) {
+func TestVerifyConfig_IssueStrategyNoLifecycle(t *testing.T) {
 	result := &PreflightResult{
-		Repo:       "owner/repo",
-		Strategy:   "project-board",
-		HasProject: true,
-		// ProjectURL intentionally empty
+		Repo:     "owner/repo",
+		Strategy: "issue",
 	}
 
 	vr := verifyConfig(result, nil)
 
-	// The generated YAML won't include project.url, but strategy is project-board.
-	// config.Parse should reject this.
-	if vr.ConfigParses && len(vr.Warnings) == 0 {
-		t.Error("expected warning about project-board requiring project.url")
+	// Issue strategy without lifecycle.in-progress should warn about cycle time.
+	foundWarning := false
+	for _, w := range vr.Warnings {
+		if strings.Contains(w, "lifecycle.in-progress") {
+			foundWarning = true
+			break
+		}
+	}
+	if !foundWarning {
+		t.Error("expected warning about missing lifecycle.in-progress for cycle time")
 	}
 }

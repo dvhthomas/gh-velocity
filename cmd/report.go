@@ -119,7 +119,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 		SearchURL:   issueQuery.URL(),
 	}
 
-	strat := buildCycleTimeStrategy(deps, client)
+	strat := buildCycleTimeStrategy(ctx, deps, client)
 	cyclePipeline := &cycletimepipe.BulkPipeline{
 		Client:      client,
 		Owner:       deps.Owner,
