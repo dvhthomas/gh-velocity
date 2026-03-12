@@ -4,10 +4,8 @@ import (
 	"os"
 
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
-	"github.com/bitsbyme/gh-velocity/internal/format"
-	"github.com/bitsbyme/gh-velocity/internal/git"
 	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/metrics"
+	"github.com/bitsbyme/gh-velocity/internal/metric"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/spf13/cobra"
 )
@@ -78,29 +76,19 @@ func runBusFactor(cmd *cobra.Command, sinceStr string) error {
 		return &model.AppError{Code: model.ErrNotGitRepo, Message: "could not determine working directory: " + err.Error()}
 	}
 
-	runner := git.NewRunner(wd)
-
 	if deps.Debug {
 		log.Debug("bus-factor: since=%s depth=%d min-commits=%d", since.Format("2006-01-02"), busFactorDepth, busFactorMinCommits)
 	}
 
-	paths, err := runner.ContributorsByPath(ctx, since, busFactorDepth, busFactorMinCommits)
-	if err != nil {
-		return &model.AppError{Code: model.ErrNotGitRepo, Message: "git log failed: " + err.Error()}
+	p := &metric.BusFactorPipeline{
+		Repository: deps.Owner + "/" + deps.Repo,
+		WorkDir:    wd,
+		Since:      since,
+		Depth:      busFactorDepth,
+		MinCommits: busFactorMinCommits,
+		Format:     deps.Format,
 	}
 
-	result := metrics.ComputeBusFactor(paths, since, busFactorDepth, busFactorMinCommits)
-	result.Repository = deps.Owner + "/" + deps.Repo
-
-	w := cmd.OutOrStdout()
-	rc := deps.RenderCtx(w)
-
-	switch deps.Format {
-	case format.JSON:
-		return format.WriteBusFactorJSON(w, result)
-	case format.Markdown:
-		return format.WriteBusFactorMarkdown(rc, result)
-	default:
-		return format.WriteBusFactorPretty(rc, result)
-	}
+	rc := deps.RenderCtx(cmd.OutOrStdout())
+	return metric.RunPipeline(ctx, p, rc)
 }
