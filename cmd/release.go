@@ -62,22 +62,28 @@ linking strategy discovered for the release.`,
 
 			// Choose git data source: local git or API fallback
 			var source gitdata.Source
+			var preWarnings []string
 			if deps.HasLocalRepo {
 				wd, wdErr := os.Getwd()
 				if wdErr != nil {
 					return fmt.Errorf("get working directory: %w", wdErr)
 				}
 				if gitdata.IsShallowClone(wd) {
-					log.Warn("shallow clone detected; commit history is incomplete. Use 'actions/checkout' with fetch-depth: 0 for accurate metrics.")
+					w := "shallow clone detected; commit history is incomplete. Use 'actions/checkout' with fetch-depth: 0 for accurate metrics."
+					log.Warn("%s", w)
+					preWarnings = append(preWarnings, w)
 				}
 				source = gitdata.NewLocalSource(wd)
 			} else {
-				log.Warn("Using API for git operations (no local checkout)")
+				w := "Using API for git operations (no local checkout)"
+				log.Warn("%s", w)
+				preWarnings = append(preWarnings, w)
 				source = gitdata.NewAPISource(client)
 			}
 
 			// Gather data: tags, commits, release info, issues
 			input, scopeResult, warnings, err := gatherReleaseData(ctx, source, client, deps, tag, sinceFlag)
+			warnings = append(preWarnings, warnings...)
 			if err != nil {
 				return err
 			}

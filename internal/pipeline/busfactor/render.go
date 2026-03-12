@@ -89,6 +89,7 @@ type jsonOutput struct {
 	MinCommits int             `json:"min_commits"`
 	Paths      []jsonPathRisk  `json:"paths"`
 	Summary    jsonRiskSummary `json:"summary"`
+	Warnings   []string        `json:"warnings,omitempty"`
 }
 
 type jsonPathRisk struct {
@@ -112,7 +113,7 @@ type jsonRiskSummary struct {
 }
 
 // WriteJSON writes bus factor results as JSON.
-func WriteJSON(w io.Writer, result Result) error {
+func WriteJSON(w io.Writer, result Result, warnings []string) error {
 	high, med, low := countRisks(result)
 
 	paths := make([]jsonPathRisk, len(result.Paths))
@@ -141,6 +142,7 @@ func WriteJSON(w io.Writer, result Result) error {
 			Medium: med,
 			Low:    low,
 		},
+		Warnings: warnings,
 	}
 
 	enc := json.NewEncoder(w)

@@ -290,7 +290,7 @@ func TestWriteMyWeekMarkdown_Empty(t *testing.T) {
 func TestWriteMyWeekJSON(t *testing.T) {
 	var buf bytes.Buffer
 	r := testMyWeekResult()
-	if err := WriteMyWeekJSON(&buf, r, metrics.ComputeInsights(r, testCycleTimeDurations(r)), MyWeekSearchURLs{}); err != nil {
+	if err := WriteMyWeekJSON(&buf, r, metrics.ComputeInsights(r, testCycleTimeDurations(r)), MyWeekSearchURLs{}, nil); err != nil {
 		t.Fatal(err)
 	}
 

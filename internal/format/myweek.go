@@ -277,6 +277,7 @@ type jsonMyWeekResult struct {
 	Lookback jsonMyWeekLookback `json:"lookback"`
 	Ahead    jsonMyWeekAhead    `json:"ahead"`
 	Summary  jsonMyWeekSummary  `json:"summary"`
+	Warnings []string           `json:"warnings,omitempty"`
 }
 
 type jsonMyWeekLookback struct {
@@ -354,7 +355,7 @@ type jsonMyWeekRelease struct {
 }
 
 // WriteMyWeekJSON writes a my-week summary as JSON.
-func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights, urls MyWeekSearchURLs) error {
+func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights, urls MyWeekSearchURLs, warnings []string) error {
 	jsonIns := jsonMyWeekInsights{
 		Lines:               buildInsightLines(r, ins),
 		StaleIssues:         ins.StaleIssues,
@@ -385,6 +386,7 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights
 			IssuesOpen:   len(r.IssuesOpen),
 			PRsOpen:      len(r.PRsOpen),
 		},
+		Warnings: warnings,
 	}
 
 	// Lookback search URLs

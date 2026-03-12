@@ -57,12 +57,13 @@ func WriteSingleJSON(w io.Writer, repo string, issueNumber int, title, state, is
 // ============================================================
 
 type jsonBulkOutput struct {
-	Repository string         `json:"repository"`
+	Repository string            `json:"repository"`
 	Window     format.JSONWindow `json:"window"`
-	SearchURL  string         `json:"search_url"`
-	Items      []jsonBulkItem `json:"items"`
+	SearchURL  string            `json:"search_url"`
+	Items      []jsonBulkItem    `json:"items"`
 	Stats      format.JSONStats  `json:"stats"`
-	Capped     bool           `json:"capped,omitempty"`
+	Capped     bool              `json:"capped,omitempty"`
+	Warnings   []string          `json:"warnings,omitempty"`
 }
 
 type jsonBulkItem struct {
@@ -74,7 +75,7 @@ type jsonBulkItem struct {
 }
 
 // WriteBulkJSON writes bulk lead-time results as JSON.
-func WriteBulkJSON(w io.Writer, repo string, since, until time.Time, items []BulkItem, stats model.Stats, searchURL string) error {
+func WriteBulkJSON(w io.Writer, repo string, since, until time.Time, items []BulkItem, stats model.Stats, searchURL string, warnings []string) error {
 	out := jsonBulkOutput{
 		Repository: repo,
 		Window: format.JSONWindow{
@@ -85,6 +86,7 @@ func WriteBulkJSON(w io.Writer, repo string, since, until time.Time, items []Bul
 		Items:     make([]jsonBulkItem, 0, len(items)),
 		Stats:     format.StatsToJSON(stats),
 		Capped:    len(items) >= 1000,
+		Warnings:  warnings,
 	}
 
 	for _, item := range items {

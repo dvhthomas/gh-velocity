@@ -68,7 +68,7 @@ func TestWriteJSON(t *testing.T) {
 		},
 	}
 
-	if err := WriteJSON(&buf, result, ""); err != nil {
+	if err := WriteJSON(&buf, result, "", nil); err != nil {
 		t.Fatal(err)
 	}
 

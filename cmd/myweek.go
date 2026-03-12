@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
@@ -76,8 +77,11 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 	}
 
 	// Warn if the authenticated user looks like a bot.
+	var warnings []string
 	if isBotLogin(login) {
-		log.Warn("Authenticated as %s — my-week shows activity for the authenticated user", login)
+		w := fmt.Sprintf("Authenticated as %s — my-week shows activity for the authenticated user", login)
+		log.Warn("%s", w)
+		warnings = append(warnings, w)
 	}
 
 	// Use the resolved scope from config + --scope flag, which already
@@ -246,7 +250,7 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 
 	switch deps.Format {
 	case format.JSON:
-		return format.WriteMyWeekJSON(w, result, ins, urls)
+		return format.WriteMyWeekJSON(w, result, ins, urls, warnings)
 	case format.Markdown:
 		return format.WriteMyWeekMarkdown(rc, result, ins, urls)
 	default:

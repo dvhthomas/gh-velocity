@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
@@ -246,6 +247,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 
 	// For PR strategy, bulk-fetch closing PRs to avoid N+1 API calls.
 	closingPRs := make(map[int]*model.PR)
+	var preWarnings []string
 	if deps.Config.CycleTime.Strategy == model.StrategyPR {
 		prQuery := scope.MergedPRQuery(deps.Scope, since, until)
 		prQuery.ExcludeUsers = deps.ExcludeUsers
@@ -254,7 +256,9 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		}
 		mergedPRs, prErr := client.SearchPRs(ctx, prQuery.Build())
 		if prErr != nil {
-			log.Warn("could not search merged PRs: %v", prErr)
+			w := fmt.Sprintf("could not search merged PRs: %v", prErr)
+			log.Warn("%s", w)
+			preWarnings = append(preWarnings, w)
 		} else {
 			closingPRs = metrics.BuildClosingPRMap(ctx, client, mergedPRs)
 		}
@@ -279,6 +283,9 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	if err := p.ProcessData(); err != nil {
 		return err
 	}
+
+	// Merge pre-gather warnings (e.g., PR search failures) with pipeline warnings.
+	p.Warnings = append(preWarnings, p.Warnings...)
 
 	for _, warn := range p.Warnings {
 		log.Warn("%s", warn)

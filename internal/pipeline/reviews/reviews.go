@@ -30,6 +30,7 @@ type Pipeline struct {
 	// ProcessData output
 	Result    model.ReviewPressureResult
 	SearchURL string
+	Warnings  []string
 }
 
 // GatherData fetches open PRs awaiting review.
@@ -70,7 +71,7 @@ func (p *Pipeline) ProcessData() error {
 func (p *Pipeline) Render(rc format.RenderContext) error {
 	switch rc.Format {
 	case format.JSON:
-		return WriteJSON(rc.Writer, p.Result, p.SearchURL)
+		return WriteJSON(rc.Writer, p.Result, p.SearchURL, p.Warnings)
 	case format.Markdown:
 		return WriteMarkdown(rc, p.Result, p.SearchURL)
 	default:
