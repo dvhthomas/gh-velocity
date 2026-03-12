@@ -2,7 +2,7 @@
 
 A GitHub CLI extension that measures how fast your team ships.
 
-`gh velocity` computes lead time, cycle time, release quality, and work-in-progress metrics from your existing GitHub data — issues, pull requests, releases, and commits. No external services, no tracking pixels, no configuration databases. Just your repo.
+`gh velocity` computes lead time, cycle time, release quality, and work-in-progress metrics from your existing GitHub data — issues, pull requests, releases, and commits. No external services, no tracking pixels, no configuration databases. Just your repo or your project board, or both.
 
 ## Install
 
