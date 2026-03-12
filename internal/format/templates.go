@@ -271,13 +271,13 @@ type myweekReviewRow struct {
 	Age    string
 }
 
-func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult, urls MyWeekSearchURLs) error {
+func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult, ins model.MyWeekInsights, urls MyWeekSearchURLs) error {
 	data := myweekTemplateData{
 		Login:           r.Login,
 		Repo:            r.Repo,
 		Since:           r.Since,
 		Until:           r.Until,
-		Insights:        buildInsightLines(r),
+		Insights:        buildInsightLines(r, ins),
 		IssuesClosedURL: urls.IssuesClosed,
 		PRsMergedURL:    urls.PRsMerged,
 		PRsReviewedURL:  urls.PRsReviewed,

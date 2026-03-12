@@ -405,12 +405,12 @@ Commands like `lead-time` have two modes: single-issue (`lead-time 42`) and bulk
 
 **Eliminate duplication:**
 
-- [ ] Move `model.ComputeInsights()` out of `model/status.go` — it performs computation that belongs in `metrics/` (model can't import metrics due to dependency direction)
-- [ ] Delete `model.medianDuration()` — use `metrics.ComputeStats().Median` instead
+- [x] Move `model.ComputeInsights()` out of `model/status.go` — it performs computation that belongs in `metrics/` (model can't import metrics due to dependency direction)
+- [x] Delete `model.medianDuration()` — use `metrics.ComputeStats().Median` instead
 - [x] Delete deprecated `metrics.NewMetric()` wrapper (`internal/metrics/metric.go:12-14`) — callers use `model.NewMetric()` directly
 - [x] Delete hollow `metrics.CycleTime()` wrapper (`internal/metrics/cycletime.go:9-11`) — it's `return NewMetric(start, end)` with no added logic
 - [x] Consolidate duplicate `buildClosingPRMap` — exists in both `cmd/helpers.go:32-59` and `metrics/dashboard.go:225-251`
-- [ ] Fix double `ComputeInsights` call in `WriteMyWeekJSON` — compute once and pass result
+- [x] Fix double `ComputeInsights` call in `WriteMyWeekJSON` — compute once and pass result
 
 **Wire into report:**
 
@@ -461,8 +461,8 @@ Some commands have modes that don't fit the Pipeline lifecycle:
 - [x] Forgetting to implement `Render()` on a new metric is a compile error
 - [x] `ProcessData` is testable with injected fake data (no API/git calls)
 - [x] Report command uses explicit `[]Pipeline` list (follow-up PR)
-- [ ] `model.ComputeInsights()` moved out of `model/` (follow-up PR)
-- [ ] No duplicate median/stats computation outside `metrics.ComputeStats()` (follow-up PR)
+- [x] `model.ComputeInsights()` moved out of `model/` (follow-up PR)
+- [x] No duplicate median/stats computation outside `metrics.ComputeStats()` (follow-up PR)
 - [ ] `my-week` insights use configured cycle-time strategy (follow-up PR)
 - [x] Deprecated wrappers deleted (`metrics.NewMetric`, `metrics.CycleTime`)
 - [x] Duplicate `buildClosingPRMap` consolidated
