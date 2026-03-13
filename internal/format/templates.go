@@ -88,8 +88,8 @@ type provenanceTemplateData struct {
 	Extra      string // additional markdown content from the caller
 }
 
-// RenderProvenanceMarkdown writes a <details> block with command and config.
-// extra is optional markdown appended inside the block (e.g., effort strategy).
+// RenderProvenanceMarkdown writes a <details> block with command, config,
+// and optional extra markdown (command-specific content like effort strategy).
 func RenderProvenanceMarkdown(w io.Writer, p model.Provenance, extra string) error {
 	data := provenanceTemplateData{
 		Command: p.Command,

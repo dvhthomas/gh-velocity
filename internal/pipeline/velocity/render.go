@@ -31,6 +31,7 @@ type jsonOutput struct {
 	Repository   string           `json:"repository"`
 	Unit         string           `json:"unit"`
 	EffortUnit   string           `json:"effort_unit"`
+	Insights     []string         `json:"insights,omitempty"`
 	Provenance   model.Provenance `json:"provenance,omitempty"`
 	EffortDetail jsonEffort       `json:"effort"`
 	Current      *jsonIteration   `json:"current,omitempty"`
@@ -111,6 +112,9 @@ func WriteJSON(w io.Writer, r model.VelocityResult) error {
 		out.History = append(out.History, toJSONIteration(h))
 	}
 	out.Provenance = r.Provenance
+	for _, ins := range r.Insights {
+		out.Insights = append(out.Insights, ins.Message)
+	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(out)
@@ -163,6 +167,7 @@ func WritePretty(w io.Writer, r model.VelocityResult, verbose bool) error {
 		}
 	}
 
+	model.WriteInsightsPretty(w, r.Insights)
 	writeEffortDetailPretty(w, r.EffortDetail)
 	r.Provenance.WritePretty(w)
 
@@ -192,6 +197,7 @@ type templateData struct {
 	Unit           string
 	EffortUnit     string
 	EffortStrategy string // for notAssessedHint in current iteration
+	Insights       []string
 	Current        *model.IterationVelocity
 	History        []model.IterationVelocity
 	AvgVel         float64
@@ -201,11 +207,16 @@ type templateData struct {
 
 // WriteMarkdown writes velocity as markdown.
 func WriteMarkdown(w io.Writer, r model.VelocityResult) error {
+	var insights []string
+	for _, ins := range r.Insights {
+		insights = append(insights, ins.Message)
+	}
 	if err := markdownTmpl.Execute(w, templateData{
 		Repository:     r.Repository,
 		Unit:           r.Unit,
 		EffortUnit:     r.EffortUnit,
 		EffortStrategy: r.EffortDetail.Strategy,
+		Insights:       insights,
 		Current:        r.Current,
 		History:        r.History,
 		AvgVel:         r.AvgVelocity,

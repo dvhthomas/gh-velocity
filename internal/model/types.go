@@ -273,6 +273,12 @@ type StatsQuality struct {
 	DefectRate  float64
 }
 
+// Insight is a human-readable observation derived from the data.
+// Message may contain inline markdown (links, bold, code).
+type Insight struct {
+	Message string
+}
+
 // Provenance captures how a result was generated so consumers can
 // interpret the data and reproduce the run.
 type Provenance struct {
@@ -287,6 +293,7 @@ type VelocityResult struct {
 	EffortUnit    string  // "pts", "items", etc.
 	EffortDetail  EffortDetail
 	Provenance    Provenance
+	Insights      []Insight
 	Current       *IterationVelocity
 	History       []IterationVelocity
 	AvgVelocity   float64

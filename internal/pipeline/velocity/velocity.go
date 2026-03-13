@@ -310,7 +310,53 @@ func (p *Pipeline) ProcessData() error {
 		}
 	}
 
+	// Generate insights from the computed data.
+	p.generateInsights()
+
 	return nil
+}
+
+// generateInsights derives human-readable observations from the velocity result.
+func (p *Pipeline) generateInsights() {
+	r := &p.Result
+
+	// Check for not-assessed items.
+	var totalNotAssessed int
+	var totalItems int
+	if r.Current != nil {
+		totalNotAssessed += r.Current.NotAssessed
+		totalItems += r.Current.ItemsTotal
+	}
+	for _, h := range r.History {
+		totalNotAssessed += h.NotAssessed
+		totalItems += h.ItemsTotal
+	}
+	if totalNotAssessed > 0 && totalItems > 0 {
+		pct := float64(totalNotAssessed) / float64(totalItems) * 100
+		if pct >= 100 {
+			r.Insights = append(r.Insights, model.Insight{Message: fmt.Sprintf("All %d items lack effort estimates — velocity will be 0 until estimates are added.", totalNotAssessed)})
+		} else if pct >= 50 {
+			r.Insights = append(r.Insights, model.Insight{Message: fmt.Sprintf("%.0f%% of items (%d/%d) lack effort estimates — velocity may be understated.", pct, totalNotAssessed, totalItems)})
+		}
+	}
+
+	// High completion rate.
+	if r.Current != nil && r.Current.CompletionPct >= 100 && r.Current.ItemsTotal > 0 {
+		r.Insights = append(r.Insights, model.Insight{Message: "Current iteration is 100% complete — all committed work is done."})
+	}
+
+	// Zero velocity across all history.
+	if len(r.History) > 0 && r.AvgVelocity == 0 {
+		r.Insights = append(r.Insights, model.Insight{Message: fmt.Sprintf("Zero velocity across %d iteration(s) — check effort strategy or date range.", len(r.History))})
+	}
+
+	// High variability.
+	if r.AvgVelocity > 0 && r.StdDev > 0 {
+		cv := r.StdDev / r.AvgVelocity
+		if cv > 0.5 {
+			r.Insights = append(r.Insights, model.Insight{Message: fmt.Sprintf("High velocity variability (CV=%.1f) — sprint commitments may be inconsistent.", cv)})
+		}
+	}
 }
 
 // computeIteration computes velocity metrics for a single iteration.

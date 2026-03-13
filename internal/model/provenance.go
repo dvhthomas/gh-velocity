@@ -38,6 +38,17 @@ func (p Provenance) WritePretty(w io.Writer) {
 	}
 }
 
+// WriteInsightsPretty writes insights as a bulleted list.
+func WriteInsightsPretty(w io.Writer, insights []Insight) {
+	if len(insights) == 0 {
+		return
+	}
+	fmt.Fprintln(w)
+	for _, ins := range insights {
+		fmt.Fprintf(w, "  → %s\n", ins.Message)
+	}
+}
+
 func sortedKeys(m map[string]string) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {

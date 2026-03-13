@@ -1,5 +1,7 @@
 ## Velocity: {{ .Repository }} ({{ .Unit }})
-{{ if .Current }}
+{{ if .Insights }}
+{{ range .Insights }}> {{ . }}
+{{ end }}{{ end }}{{ if .Current }}
 ### Current: {{ .Current.Name }} ({{ date .Current.Start }} – {{ date .Current.End }})
 
 | Metric | Value |
