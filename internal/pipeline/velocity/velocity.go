@@ -356,20 +356,6 @@ func (p *Pipeline) computeIteration(iter model.Iteration, prevIter *model.Iterat
 		iv.CompletionPct = (doneEffort / committedEffort) * 100
 	}
 
-	// Carry-over: count items that also appeared in previous iteration.
-	if prevIter != nil {
-		prevItems := p.itemsForIteration(*prevIter)
-		prevSet := make(map[int]bool, len(prevItems))
-		for _, pi := range prevItems {
-			prevSet[pi.Number] = true
-		}
-		for _, item := range iterItems {
-			if prevSet[item.Number] {
-				iv.CarryOver++
-			}
-		}
-	}
-
 	// Trend.
 	if prevIter != nil {
 		prevIV := p.computeIterationVelocityOnly(*prevIter)

@@ -16,8 +16,14 @@ import (
 var templateFS embed.FS
 
 var markdownTmpl = template.Must(
-	template.New("velocity.md.tmpl").Funcs(format.TemplateFuncMap()).ParseFS(templateFS, "templates/velocity.md.tmpl"),
+	template.New("velocity.md.tmpl").Funcs(velocityFuncMap()).ParseFS(templateFS, "templates/velocity.md.tmpl"),
 )
+
+func velocityFuncMap() template.FuncMap {
+	m := format.TemplateFuncMap()
+	m["notAssessedHint"] = notAssessedHint
+	return m
+}
 
 // --- JSON ---
 
@@ -51,7 +57,6 @@ type jsonIteration struct {
 	CompletionPct float64 `json:"completion_pct"`
 	ItemsDone     int     `json:"items_done"`
 	ItemsTotal    int     `json:"items_total"`
-	CarryOver     int     `json:"carry_over"`
 	NotAssessed   int     `json:"not_assessed"`
 	Trend         string  `json:"trend"`
 }
@@ -72,7 +77,6 @@ func toJSONIteration(iv model.IterationVelocity) jsonIteration {
 		CompletionPct: iv.CompletionPct,
 		ItemsDone:     iv.ItemsDone,
 		ItemsTotal:    iv.ItemsTotal,
-		CarryOver:     iv.CarryOver,
 		NotAssessed:   iv.NotAssessed,
 		Trend:         iv.Trend,
 	}
@@ -123,11 +127,8 @@ func WritePretty(w io.Writer, r model.VelocityResult, verbose bool) error {
 		fmt.Fprintf(w, "    Committed:      %.1f %s\n", c.Committed, r.EffortUnit)
 		fmt.Fprintf(w, "    Completion:     %.0f%%\n", c.CompletionPct)
 		fmt.Fprintf(w, "    Items:          %d / %d done\n", c.ItemsDone, c.ItemsTotal)
-		if c.CarryOver > 0 {
-			fmt.Fprintf(w, "    Carry-over:     %d\n", c.CarryOver)
-		}
 		if c.NotAssessed > 0 {
-			fmt.Fprintf(w, "    Not assessed:   %d\n", c.NotAssessed)
+			fmt.Fprintf(w, "    Not assessed:   %d %s\n", c.NotAssessed, notAssessedHint(r.EffortDetail.Strategy))
 			if verbose && len(c.NotAssessedItems) > 0 {
 				fmt.Fprintf(w, "      Items: %s\n", formatItemNumbers(c.NotAssessedItems))
 			}
@@ -138,16 +139,15 @@ func WritePretty(w io.Writer, r model.VelocityResult, verbose bool) error {
 	if len(r.History) > 0 {
 		fmt.Fprintf(w, "  History:\n")
 		// Header.
-		fmt.Fprintf(w, "    %-20s %8s %8s %8s %6s %6s %s\n",
-			"Iteration", "Velocity", "Commit", "Done%", "Items", "Carry", "Trend")
-		fmt.Fprintf(w, "    %-20s %8s %8s %8s %6s %6s %s\n",
-			"─────────", "────────", "──────", "─────", "─────", "─────", "─────")
+		fmt.Fprintf(w, "    %-20s %8s %8s %8s %6s %s\n",
+			"Iteration", "Velocity", "Commit", "Done%", "Items", "Trend")
+		fmt.Fprintf(w, "    %-20s %8s %8s %8s %6s %s\n",
+			"─────────", "────────", "──────", "─────", "─────", "─────")
 		for _, h := range r.History {
-			fmt.Fprintf(w, "    %-20s %8.1f %8.1f %7.0f%% %3d/%-3d %5d %s\n",
+			fmt.Fprintf(w, "    %-20s %8.1f %8.1f %7.0f%% %3d/%-3d %s\n",
 				truncate(h.Name, 20),
 				h.Velocity, h.Committed, h.CompletionPct,
 				h.ItemsDone, h.ItemsTotal,
-				h.CarryOver,
 				h.Trend)
 		}
 		fmt.Fprintln(w)
@@ -184,29 +184,31 @@ func writeEffortDetailPretty(w io.Writer, d model.EffortDetail) {
 // --- Markdown ---
 
 type templateData struct {
-	Repository   string
-	Unit         string
-	EffortUnit   string
-	EffortDetail model.EffortDetail
-	Current      *model.IterationVelocity
-	History      []model.IterationVelocity
-	AvgVel       float64
-	AvgComp      float64
-	StdDev       float64
+	Repository     string
+	Unit           string
+	EffortUnit     string
+	EffortStrategy string
+	EffortDetail   model.EffortDetail
+	Current        *model.IterationVelocity
+	History        []model.IterationVelocity
+	AvgVel         float64
+	AvgComp        float64
+	StdDev         float64
 }
 
 // WriteMarkdown writes velocity as markdown.
 func WriteMarkdown(w io.Writer, r model.VelocityResult) error {
 	return markdownTmpl.Execute(w, templateData{
-		Repository:   r.Repository,
-		Unit:         r.Unit,
-		EffortUnit:   r.EffortUnit,
-		EffortDetail: r.EffortDetail,
-		Current:      r.Current,
-		History:      r.History,
-		AvgVel:       r.AvgVelocity,
-		AvgComp:      r.AvgCompletion,
-		StdDev:       r.StdDev,
+		Repository:     r.Repository,
+		Unit:           r.Unit,
+		EffortUnit:     r.EffortUnit,
+		EffortStrategy: r.EffortDetail.Strategy,
+		EffortDetail:   r.EffortDetail,
+		Current:        r.Current,
+		History:        r.History,
+		AvgVel:         r.AvgVelocity,
+		AvgComp:        r.AvgCompletion,
+		StdDev:         r.StdDev,
 	})
 }
 
@@ -215,6 +217,19 @@ func truncate(s string, max int) string {
 		return s
 	}
 	return s[:max-1] + "…"
+}
+
+// notAssessedHint returns a short explanation of what "not assessed" means
+// for the given effort strategy.
+func notAssessedHint(strategy string) string {
+	switch strategy {
+	case "attribute":
+		return "(no matching label/type)"
+	case "numeric":
+		return "(no estimate on board)"
+	default:
+		return ""
+	}
 }
 
 func formatItemNumbers(nums []int) string {
