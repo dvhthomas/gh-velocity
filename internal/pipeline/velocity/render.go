@@ -191,9 +191,7 @@ type templateData struct {
 	Repository     string
 	Unit           string
 	EffortUnit     string
-	EffortStrategy string
-	EffortDetail   model.EffortDetail
-	Provenance     model.Provenance
+	EffortStrategy string // for notAssessedHint in current iteration
 	Current        *model.IterationVelocity
 	History        []model.IterationVelocity
 	AvgVel         float64
@@ -203,19 +201,39 @@ type templateData struct {
 
 // WriteMarkdown writes velocity as markdown.
 func WriteMarkdown(w io.Writer, r model.VelocityResult) error {
-	return markdownTmpl.Execute(w, templateData{
+	if err := markdownTmpl.Execute(w, templateData{
 		Repository:     r.Repository,
 		Unit:           r.Unit,
 		EffortUnit:     r.EffortUnit,
 		EffortStrategy: r.EffortDetail.Strategy,
-		EffortDetail:   r.EffortDetail,
-		Provenance:     r.Provenance,
 		Current:        r.Current,
 		History:        r.History,
 		AvgVel:         r.AvgVelocity,
 		AvgComp:        r.AvgCompletion,
 		StdDev:         r.StdDev,
-	})
+	}); err != nil {
+		return err
+	}
+	return format.RenderProvenanceMarkdown(w, r.Provenance, effortDetailMarkdown(r.EffortDetail))
+}
+
+// effortDetailMarkdown returns the effort strategy description as markdown.
+func effortDetailMarkdown(d model.EffortDetail) string {
+	var s string
+	s += fmt.Sprintf("\n**Effort strategy**: %s", d.Strategy)
+	switch d.Strategy {
+	case "count":
+		s += " — every item = 1 (no effort weighting).\n"
+	case "attribute":
+		s += "\n\nLabel/type matchers (first match wins):\n\n"
+		s += "| Matcher | Value |\n|---------|-------|\n"
+		for _, m := range d.Matchers {
+			s += fmt.Sprintf("| `%s` | %.0f |\n", m.Query, m.Value)
+		}
+	case "numeric":
+		s += fmt.Sprintf(" — project board field: **%s**\n", d.NumericField)
+	}
+	return s
 }
 
 func truncate(s string, max int) string {

@@ -1,0 +1,10 @@
+<details>
+<summary>How to interpret</summary>
+{{ if .Command }}
+**Command**: `{{ .Command }}`
+{{ end }}{{ if .Config }}
+| Setting | Value |
+|---------|-------|
+{{ range .ConfigRows }}| {{ .Key }} | `{{ .Value }}` |
+{{ end }}{{ end }}{{ .Extra }}
+</details>
