@@ -1,6 +1,10 @@
 package cmd
 
 import (
+	"fmt"
+	"strings"
+
+	"github.com/bitsbyme/gh-velocity/internal/config"
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
@@ -8,6 +12,7 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/pipeline/velocity"
 	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // NewVelocityCmd returns the velocity command.
@@ -123,6 +128,7 @@ Run 'gh velocity config preflight' to get suggested configuration.`,
 			if err := p.ProcessData(); err != nil {
 				return err
 			}
+			p.Result.Provenance = buildVelocityProvenance(cmd, deps, cfg)
 
 			w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
 				Command: "velocity",
@@ -145,4 +151,52 @@ Run 'gh velocity config preflight' to get suggested configuration.`,
 	cmd.Flags().BoolVar(&verboseFlag, "verbose", false, "Include not-assessed item numbers")
 
 	return cmd
+}
+
+// buildVelocityProvenance captures the command and key config for reproducibility.
+func buildVelocityProvenance(cmd *cobra.Command, deps *Deps, cfg config.VelocityConfig) model.Provenance {
+	// Reconstruct command line from explicitly-set flags.
+	seen := map[string]bool{}
+	var parts []string
+	parts = append(parts, "gh velocity flow velocity")
+	parts = append(parts, fmt.Sprintf("--repo %s/%s", deps.Owner, deps.Repo))
+	seen["repo"] = true
+	addFlag := func(f *pflag.Flag) {
+		if seen[f.Name] {
+			return
+		}
+		seen[f.Name] = true
+		switch f.Value.Type() {
+		case "bool":
+			parts = append(parts, "--"+f.Name)
+		default:
+			parts = append(parts, fmt.Sprintf("--%s %s", f.Name, f.Value.String()))
+		}
+	}
+	cmd.Flags().Visit(addFlag)
+	cmd.InheritedFlags().Visit(addFlag)
+
+	// Capture config values that affect interpretation.
+	cfgMap := map[string]string{
+		"unit":               cfg.Unit,
+		"effort_strategy":    cfg.Effort.Strategy,
+		"iteration_strategy": cfg.Iteration.Strategy,
+	}
+	if cfg.Iteration.Strategy == "fixed" {
+		cfgMap["iteration_length"] = cfg.Iteration.Fixed.Length
+	}
+	if cfg.Iteration.Strategy == "project-field" {
+		cfgMap["iteration_field"] = cfg.Iteration.ProjectField
+	}
+	if cfg.Effort.Strategy == "numeric" {
+		cfgMap["effort_field"] = cfg.Effort.Numeric.ProjectField
+	}
+	if deps.Config.Project.URL != "" {
+		cfgMap["project_url"] = deps.Config.Project.URL
+	}
+
+	return model.Provenance{
+		Command: strings.Join(parts, " "),
+		Config:  cfgMap,
+	}
 }

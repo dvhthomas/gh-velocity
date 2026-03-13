@@ -273,12 +273,20 @@ type StatsQuality struct {
 	DefectRate  float64
 }
 
+// Provenance captures how a result was generated so consumers can
+// interpret the data and reproduce the run.
+type Provenance struct {
+	Command string            // CLI invocation that produced this result
+	Config  map[string]string // key config values relevant to interpretation
+}
+
 // VelocityResult holds the output of the velocity pipeline.
 type VelocityResult struct {
 	Repository    string
 	Unit          string  // "issues" or "prs"
 	EffortUnit    string  // "pts", "items", etc.
 	EffortDetail  EffortDetail
+	Provenance    Provenance
 	Current       *IterationVelocity
 	History       []IterationVelocity
 	AvgVelocity   float64

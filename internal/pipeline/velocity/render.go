@@ -28,14 +28,16 @@ func velocityFuncMap() template.FuncMap {
 // --- JSON ---
 
 type jsonOutput struct {
-	Repository   string          `json:"repository"`
-	Unit         string          `json:"unit"`
-	EffortUnit   string          `json:"effort_unit"`
-	EffortDetail jsonEffort      `json:"effort"`
-	Current      *jsonIteration  `json:"current,omitempty"`
-	History      []jsonIteration `json:"history,omitempty"`
-	Summary      jsonSummary     `json:"summary"`
+	Repository   string           `json:"repository"`
+	Unit         string           `json:"unit"`
+	EffortUnit   string           `json:"effort_unit"`
+	Provenance   model.Provenance `json:"provenance,omitempty"`
+	EffortDetail jsonEffort       `json:"effort"`
+	Current      *jsonIteration   `json:"current,omitempty"`
+	History      []jsonIteration  `json:"history,omitempty"`
+	Summary      jsonSummary      `json:"summary"`
 }
+
 
 type jsonEffort struct {
 	Strategy     string             `json:"strategy"`
@@ -108,6 +110,7 @@ func WriteJSON(w io.Writer, r model.VelocityResult) error {
 	for _, h := range r.History {
 		out.History = append(out.History, toJSONIteration(h))
 	}
+	out.Provenance = r.Provenance
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(out)
@@ -161,6 +164,7 @@ func WritePretty(w io.Writer, r model.VelocityResult, verbose bool) error {
 	}
 
 	writeEffortDetailPretty(w, r.EffortDetail)
+	r.Provenance.WritePretty(w)
 
 	return nil
 }
@@ -189,6 +193,7 @@ type templateData struct {
 	EffortUnit     string
 	EffortStrategy string
 	EffortDetail   model.EffortDetail
+	Provenance     model.Provenance
 	Current        *model.IterationVelocity
 	History        []model.IterationVelocity
 	AvgVel         float64
@@ -204,6 +209,7 @@ func WriteMarkdown(w io.Writer, r model.VelocityResult) error {
 		EffortUnit:     r.EffortUnit,
 		EffortStrategy: r.EffortDetail.Strategy,
 		EffortDetail:   r.EffortDetail,
+		Provenance:     r.Provenance,
 		Current:        r.Current,
 		History:        r.History,
 		AvgVel:         r.AvgVelocity,
