@@ -425,26 +425,26 @@ Suggest velocity config when none exists.
 
 **Tasks:**
 
-- [ ] Add velocity suggestion section to `renderPreflightConfig()` in `cmd/preflight.go`
-- [ ] Label heuristic detection:
+- [x] Add velocity suggestion section to `renderPreflightConfig()` in `cmd/preflight.go`
+- [x] Label heuristic detection:
   - Scan labels from preflight's existing label fetch
   - Match patterns: `size/*`, `effort:*`, `points-*`, `estimate-*` prefixes
   - Match t-shirt sizes: standalone XS, S, M, L, XL labels
   - No digit-only labels
   - Map to fibonacci defaults: XS/S=1, S/size-S=2, M/size-M=3, L/size-L=5, XL/size-XL=8
-- [ ] Project field heuristic detection:
+- [x] Project field heuristic detection:
   - Scan discovered fields (already fetched by preflight)
   - Number fields: rank by name similarity to "points", "story points", "estimate", "effort", "size"
   - Iteration fields: any `ProjectV2IterationField` is a candidate
-- [ ] Strategy suggestion logic:
+- [x] Strategy suggestion logic:
   - Number field found → suggest `numeric` with that field name
   - Else sizing labels found → suggest `attribute` with mapped values
   - Else → suggest `count` with comment about adding effort later
   - Iteration field found → suggest `project-field` with that field name
   - Else → suggest `fixed` with 14-day default
-- [ ] Emit YAML block with evidence comments (following existing preflight evidence pattern)
-- [ ] Update `verifyConfig()` to round-trip validate generated velocity section
-- [ ] Tests for heuristic detection functions (table-driven, no live API)
+- [x] Emit YAML block with evidence comments (following existing preflight evidence pattern)
+- [x] Update `verifyConfig()` to round-trip validate generated velocity section
+- [x] Tests for heuristic detection functions (table-driven, no live API)
 
 **Files:**
 - `cmd/preflight.go` (modify)
