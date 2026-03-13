@@ -235,7 +235,7 @@ Build the iteration boundary computation for both strategies.
 
 **Tasks:**
 
-- [ ] Create `internal/pipeline/velocity/period.go`
+- [x] Create `internal/pipeline/velocity/period.go`
   - `type PeriodStrategy interface { Iterations(count int) ([]Iteration, error); Current() (*Iteration, error) }`
   - `ProjectFieldPeriod{iterations []Iteration, completed []Iteration}` — built from GraphQL data
     - `Current()` returns the iteration spanning `now`
@@ -245,10 +245,10 @@ Build the iteration boundary computation for both strategies.
     - `Current()` returns the period spanning `now`
     - `Iterations(count)` returns last N completed periods
     - Name = date range string ("Mar 4 – Mar 17")
-- [ ] Fixed-period edge cases:
+- [x] Fixed-period edge cases:
   - Anchor in the future: compute backward; current iteration is whichever spans now
   - Partial current iteration: correctly identify in-progress period
-- [ ] Table-driven tests for period computation:
+- [x] Table-driven tests for period computation:
   - Fixed: anchor math, boundary alignment, current identification
   - Project-field: iteration ordering, current detection, empty completedIterations
 
