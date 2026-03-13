@@ -21,3 +21,19 @@
 
 **Summary**: avg velocity {{ printf "%.1f" $.AvgVel }} {{ $.EffortUnit }}, avg completion {{ printf "%.0f" $.AvgComp }}%{{ if gt $.StdDev 0.0 }}, std dev {{ printf "%.1f" $.StdDev }}{{ end }}
 {{ end }}
+<details>
+<summary>Effort strategy: {{ .EffortDetail.Strategy }}</summary>
+
+{{ if eq .EffortDetail.Strategy "count" -}}
+Every item = 1 (no effort weighting).
+{{ else if eq .EffortDetail.Strategy "attribute" -}}
+Label/type matchers (first match wins):
+
+| Matcher | Value |
+|---------|-------|
+{{ range .EffortDetail.Matchers }}| `{{ .Query }}` | {{ printf "%.0f" .Value }} |
+{{ end }}
+{{ else if eq .EffortDetail.Strategy "numeric" -}}
+Project board field: **{{ .EffortDetail.NumericField }}**
+{{ end -}}
+</details>

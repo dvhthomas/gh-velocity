@@ -259,10 +259,22 @@ func (p *Pipeline) ProcessData() error {
 		effortUnit = "pts"
 	}
 
+	// Build effort detail for output.
+	detail := model.EffortDetail{Strategy: p.Config.Effort.Strategy}
+	switch p.Config.Effort.Strategy {
+	case "attribute":
+		for _, m := range p.Config.Effort.Attribute {
+			detail.Matchers = append(detail.Matchers, model.EffortMatch{Query: m.Query, Value: m.Value})
+		}
+	case "numeric":
+		detail.NumericField = p.Config.Effort.Numeric.ProjectField
+	}
+
 	p.Result = model.VelocityResult{
-		Repository: p.Owner + "/" + p.Repo,
-		Unit:       p.Config.Unit,
-		EffortUnit: effortUnit,
+		Repository:   p.Owner + "/" + p.Repo,
+		Unit:         p.Config.Unit,
+		EffortUnit:   effortUnit,
+		EffortDetail: detail,
 	}
 
 	if current != nil {

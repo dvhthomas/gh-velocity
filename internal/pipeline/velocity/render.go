@@ -22,12 +22,24 @@ var markdownTmpl = template.Must(
 // --- JSON ---
 
 type jsonOutput struct {
-	Repository string          `json:"repository"`
-	Unit       string          `json:"unit"`
-	EffortUnit string          `json:"effort_unit"`
-	Current    *jsonIteration  `json:"current,omitempty"`
-	History    []jsonIteration `json:"history,omitempty"`
-	Summary    jsonSummary     `json:"summary"`
+	Repository   string          `json:"repository"`
+	Unit         string          `json:"unit"`
+	EffortUnit   string          `json:"effort_unit"`
+	EffortDetail jsonEffort      `json:"effort"`
+	Current      *jsonIteration  `json:"current,omitempty"`
+	History      []jsonIteration `json:"history,omitempty"`
+	Summary      jsonSummary     `json:"summary"`
+}
+
+type jsonEffort struct {
+	Strategy     string             `json:"strategy"`
+	Matchers     []jsonEffortMatch  `json:"matchers,omitempty"`
+	NumericField string             `json:"numeric_field,omitempty"`
+}
+
+type jsonEffortMatch struct {
+	Query string  `json:"query"`
+	Value float64 `json:"value"`
 }
 
 type jsonIteration struct {
@@ -68,10 +80,17 @@ func toJSONIteration(iv model.IterationVelocity) jsonIteration {
 
 // WriteJSON writes velocity as JSON.
 func WriteJSON(w io.Writer, r model.VelocityResult) error {
+	je := jsonEffort{Strategy: r.EffortDetail.Strategy}
+	for _, m := range r.EffortDetail.Matchers {
+		je.Matchers = append(je.Matchers, jsonEffortMatch{Query: m.Query, Value: m.Value})
+	}
+	je.NumericField = r.EffortDetail.NumericField
+
 	out := jsonOutput{
-		Repository: r.Repository,
-		Unit:       r.Unit,
-		EffortUnit: r.EffortUnit,
+		Repository:   r.Repository,
+		Unit:         r.Unit,
+		EffortUnit:   r.EffortUnit,
+		EffortDetail: je,
 		Summary: jsonSummary{
 			AvgVelocity:   r.AvgVelocity,
 			AvgCompletion: r.AvgCompletion,
@@ -141,33 +160,53 @@ func WritePretty(w io.Writer, r model.VelocityResult, verbose bool) error {
 		}
 	}
 
+	writeEffortDetailPretty(w, r.EffortDetail)
+
 	return nil
+}
+
+func writeEffortDetailPretty(w io.Writer, d model.EffortDetail) {
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "  Effort strategy:")
+	switch d.Strategy {
+	case "count":
+		fmt.Fprintln(w, "    count — every item = 1")
+	case "attribute":
+		fmt.Fprintln(w, "    attribute — label/type matchers (first match wins):")
+		for _, m := range d.Matchers {
+			fmt.Fprintf(w, "      %-30s → %.0f\n", m.Query, m.Value)
+		}
+	case "numeric":
+		fmt.Fprintf(w, "    numeric — project field %q\n", d.NumericField)
+	}
 }
 
 // --- Markdown ---
 
 type templateData struct {
-	Repository string
-	Unit       string
-	EffortUnit string
-	Current    *model.IterationVelocity
-	History    []model.IterationVelocity
-	AvgVel     float64
-	AvgComp    float64
-	StdDev     float64
+	Repository   string
+	Unit         string
+	EffortUnit   string
+	EffortDetail model.EffortDetail
+	Current      *model.IterationVelocity
+	History      []model.IterationVelocity
+	AvgVel       float64
+	AvgComp      float64
+	StdDev       float64
 }
 
 // WriteMarkdown writes velocity as markdown.
 func WriteMarkdown(w io.Writer, r model.VelocityResult) error {
 	return markdownTmpl.Execute(w, templateData{
-		Repository: r.Repository,
-		Unit:       r.Unit,
-		EffortUnit: r.EffortUnit,
-		Current:    r.Current,
-		History:    r.History,
-		AvgVel:     r.AvgVelocity,
-		AvgComp:    r.AvgCompletion,
-		StdDev:     r.StdDev,
+		Repository:   r.Repository,
+		Unit:         r.Unit,
+		EffortUnit:   r.EffortUnit,
+		EffortDetail: r.EffortDetail,
+		Current:      r.Current,
+		History:      r.History,
+		AvgVel:       r.AvgVelocity,
+		AvgComp:      r.AvgCompletion,
+		StdDev:       r.StdDev,
 	})
 }
 

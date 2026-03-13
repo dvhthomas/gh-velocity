@@ -278,11 +278,25 @@ type VelocityResult struct {
 	Repository    string
 	Unit          string  // "issues" or "prs"
 	EffortUnit    string  // "pts", "items", etc.
+	EffortDetail  EffortDetail
 	Current       *IterationVelocity
 	History       []IterationVelocity
 	AvgVelocity   float64
 	AvgCompletion float64
 	StdDev        float64
+}
+
+// EffortDetail describes the effort strategy used for velocity measurement.
+type EffortDetail struct {
+	Strategy     string         // "count", "attribute", "numeric"
+	Matchers     []EffortMatch  // for attribute strategy
+	NumericField string         // for numeric strategy
+}
+
+// EffortMatch is a display-friendly effort matcher entry.
+type EffortMatch struct {
+	Query string
+	Value float64
 }
 
 // IterationVelocity holds velocity metrics for a single iteration.
