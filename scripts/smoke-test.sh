@@ -367,6 +367,46 @@ out=$(GITHUB_ACTIONS=true $BINARY flow lead-time 2 -R cli/cli --config "$CLI_CON
 show "$out"
 [[ "$out" == *"::notice::"* ]] && pass "CI mode emits ::notice::" || fail "CI mode emits ::notice::"
 
+# ── flow velocity ─────────────────────────────────────────────────
+echo ""
+echo "flow velocity (cli/cli, count+fixed)"
+
+VEL_CONFIG="${REPO_ROOT}/docs/examples/cli-cli-velocity.yml"
+
+out=$($BINARY flow velocity -R cli/cli --config "$VEL_CONFIG" 2>&1)
+show "$out"
+[[ "$out" == *"Velocity:"* ]] && pass "flow velocity pretty" || fail "flow velocity pretty"
+[[ "$out" == *"Avg velocity"* ]] && pass "flow velocity shows avg" || fail "flow velocity shows avg"
+
+out=$($BINARY flow velocity -R cli/cli --config "$VEL_CONFIG" -f json 2>/dev/null)
+echo "$out" | jq '.avg_velocity' 2>/dev/null | sed 's/^/    avg: /'
+echo "$out" | jq -e '.repository' >/dev/null 2>&1 && pass "flow velocity json has repository" || fail "flow velocity json has repository"
+echo "$out" | jq -e '.history' >/dev/null 2>&1 && pass "flow velocity json has history" || fail "flow velocity json has history"
+
+out=$($BINARY flow velocity -R cli/cli --config "$VEL_CONFIG" -f markdown 2>/dev/null)
+show "$out"
+[[ "$out" == *"## Velocity:"* ]] && pass "flow velocity markdown" || fail "flow velocity markdown"
+
+out=$($BINARY flow velocity --current -R cli/cli --config "$VEL_CONFIG" 2>&1)
+show "$out"
+[[ "$out" == *"Current"* ]] && pass "flow velocity --current" || fail "flow velocity --current"
+
+out=$($BINARY flow velocity --history -R cli/cli --config "$VEL_CONFIG" 2>&1)
+show "$out"
+[[ "$out" == *"Velocity:"* ]] && pass "flow velocity --history" || fail "flow velocity --history"
+
+out=$($BINARY flow velocity --iterations 3 -R cli/cli --config "$VEL_CONFIG" 2>&1)
+show "$out"
+[[ "$out" == *"Velocity:"* ]] && pass "flow velocity --iterations 3" || fail "flow velocity --iterations 3"
+
+out=$($BINARY flow velocity --help 2>&1)
+[[ "$out" == *"Examples:"* ]] && pass "velocity has examples" || fail "velocity has examples"
+
+# Velocity requires iteration strategy configured.
+out=$($BINARY flow velocity -R cli/cli --config "$CLI_CONFIG" 2>&1) && fail "velocity without iteration should fail" || pass "velocity requires iteration config"
+show "$out"
+[[ "$out" == *"iteration.strategy"* ]] && pass "velocity error mentions iteration" || fail "velocity error mentions iteration"
+
 # ── old commands removed ──────────────────────────────────────────
 echo ""
 echo "old commands removed (clean break)"

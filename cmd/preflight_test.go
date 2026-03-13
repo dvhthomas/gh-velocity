@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/bitsbyme/gh-velocity/internal/config"
+	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -743,6 +744,328 @@ func TestWriteLifecycleMapping_ReadyAloneAsBacklog(t *testing.T) {
 	}
 	if !strings.Contains(output, `"Ready"`) {
 		t.Errorf("expected Ready mapped to backlog, got:\n%s", output)
+	}
+}
+
+func TestDetectSizingLabels(t *testing.T) {
+	tests := []struct {
+		name   string
+		labels []string
+		want   int    // expected number of matches
+		check  func([]SizingLabelMatch) // optional deeper assertions
+	}{
+		{
+			name:   "size/ prefix",
+			labels: []string{"size/XS", "size/S", "size/M", "size/L", "size/XL", "unrelated"},
+			want:   5,
+			check: func(matches []SizingLabelMatch) {
+				// Should be sorted by value ascending.
+				if matches[0].Value != 1 || matches[4].Value != 8 {
+					for _, m := range matches {
+						t.Errorf("  %s = %.0f", m.Label, m.Value)
+					}
+				}
+			},
+		},
+		{
+			name:   "effort: prefix",
+			labels: []string{"effort:S", "effort:L"},
+			want:   2,
+		},
+		{
+			name:   "points- prefix",
+			labels: []string{"points-1", "points-3", "points-5", "points-8", "points-13"},
+			want:   5,
+		},
+		{
+			name:   "standalone t-shirt sizes",
+			labels: []string{"XS", "S", "M", "L", "XL"},
+			want:   5,
+		},
+		{
+			name:   "no sizing labels",
+			labels: []string{"bug", "enhancement", "docs"},
+			want:   0,
+		},
+		{
+			name:   "mixed sizing and non-sizing",
+			labels: []string{"size/S", "bug", "size/L", "enhancement"},
+			want:   2,
+		},
+		{
+			name:   "no duplicates",
+			labels: []string{"size/s", "size/s"}, // same label twice
+			want:   1,
+		},
+		{
+			name:   "digit-only labels excluded",
+			labels: []string{"1", "2", "3"},
+			want:   0, // standalone digits don't match (not in standaloneSizes)
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			matches := detectSizingLabels(tt.labels)
+			if len(matches) != tt.want {
+				t.Errorf("detectSizingLabels() returned %d matches, want %d", len(matches), tt.want)
+				for _, m := range matches {
+					t.Logf("  %s → %.0f", m.Label, m.Value)
+				}
+			}
+			if tt.check != nil && len(matches) == tt.want {
+				tt.check(matches)
+			}
+		})
+	}
+}
+
+func TestDetectVelocityHeuristics(t *testing.T) {
+	tests := []struct {
+		name           string
+		fields         []gh.DiscoveredField
+		labels         []string
+		wantEffort     string
+		wantIteration  string
+		wantNumField   string
+		wantIterField  string
+		wantSizingLen  int
+	}{
+		{
+			name:          "no project fields, no sizing labels → count + fixed",
+			fields:        nil,
+			labels:        []string{"bug", "enhancement"},
+			wantEffort:    "count",
+			wantIteration: "fixed",
+		},
+		{
+			name: "number field found → numeric",
+			fields: []gh.DiscoveredField{
+				{Name: "Status", Type: "ProjectV2SingleSelectField"},
+				{Name: "Story Points", Type: "ProjectV2Field"},
+			},
+			labels:        []string{"bug"},
+			wantEffort:    "numeric",
+			wantNumField:  "Story Points",
+			wantIteration: "fixed",
+		},
+		{
+			name: "iteration field found → project-field",
+			fields: []gh.DiscoveredField{
+				{Name: "Sprint", Type: "ProjectV2IterationField"},
+			},
+			labels:         []string{"bug"},
+			wantEffort:     "count",
+			wantIteration:  "project-field",
+			wantIterField:  "Sprint",
+		},
+		{
+			name: "both number and iteration fields",
+			fields: []gh.DiscoveredField{
+				{Name: "Effort", Type: "ProjectV2Field"},
+				{Name: "Iteration", Type: "ProjectV2IterationField"},
+			},
+			labels:         []string{"bug"},
+			wantEffort:     "numeric",
+			wantNumField:   "Effort",
+			wantIteration:  "project-field",
+			wantIterField:  "Iteration",
+		},
+		{
+			name:          "sizing labels found, no number field → attribute",
+			fields:        nil,
+			labels:        []string{"size/XS", "size/S", "size/M", "size/L", "size/XL"},
+			wantEffort:    "attribute",
+			wantIteration: "fixed",
+			wantSizingLen: 5,
+		},
+		{
+			name: "number field takes priority over sizing labels",
+			fields: []gh.DiscoveredField{
+				{Name: "Points", Type: "ProjectV2Field"},
+			},
+			labels:         []string{"size/S", "size/M", "size/L"},
+			wantEffort:     "numeric",
+			wantNumField:   "Points",
+			wantIteration:  "fixed",
+			wantSizingLen:  3, // still detected but not used for strategy
+		},
+		{
+			name: "non-effort number field ignored",
+			fields: []gh.DiscoveredField{
+				{Name: "Priority", Type: "ProjectV2Field"},        // doesn't match effort names
+				{Name: "Description", Type: "ProjectV2Field"},     // doesn't match
+			},
+			labels:         []string{"size/S", "size/M"},
+			wantEffort:     "attribute", // falls through to labels
+			wantIteration:  "fixed",
+			wantSizingLen:  2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := &PreflightResult{Repo: "owner/repo", Strategy: model.StrategyIssue}
+			detectVelocityHeuristics(result, tt.fields, tt.labels)
+
+			vh := result.VelocityHeuristic
+			if vh == nil {
+				t.Fatal("VelocityHeuristic is nil")
+			}
+			if vh.EffortStrategy != tt.wantEffort {
+				t.Errorf("EffortStrategy = %q, want %q", vh.EffortStrategy, tt.wantEffort)
+			}
+			if vh.IterationStrategy != tt.wantIteration {
+				t.Errorf("IterationStrategy = %q, want %q", vh.IterationStrategy, tt.wantIteration)
+			}
+			if tt.wantNumField != "" && vh.NumericField != tt.wantNumField {
+				t.Errorf("NumericField = %q, want %q", vh.NumericField, tt.wantNumField)
+			}
+			if tt.wantIterField != "" && vh.IterationField != tt.wantIterField {
+				t.Errorf("IterationField = %q, want %q", vh.IterationField, tt.wantIterField)
+			}
+			if tt.wantSizingLen > 0 && len(vh.SizingLabels) != tt.wantSizingLen {
+				t.Errorf("SizingLabels len = %d, want %d", len(vh.SizingLabels), tt.wantSizingLen)
+			}
+		})
+	}
+}
+
+func TestRenderPreflightConfig_VelocityNumeric(t *testing.T) {
+	result := &PreflightResult{
+		Repo:          "owner/repo",
+		Strategy:      model.StrategyIssue,
+		HasProject:    true,
+		ProjectURL:    "https://github.com/users/test/projects/1",
+		StatusOptions: []string{"Backlog", "In Progress", "Done"},
+		VelocityHeuristic: &VelocityHeuristic{
+			EffortStrategy:    "numeric",
+			IterationStrategy: "project-field",
+			NumericField:      "Story Points",
+			IterationField:    "Sprint",
+		},
+	}
+
+	yamlStr := renderPreflightConfig(result)
+
+	for _, want := range []string{
+		"velocity:",
+		"strategy: numeric",
+		`project_field: "Story Points"`,
+		"strategy: project-field",
+		`project_field: "Sprint"`,
+	} {
+		if !strings.Contains(yamlStr, want) {
+			t.Errorf("expected %q in output, got:\n%s", want, yamlStr)
+		}
+	}
+
+	// Round-trip validate.
+	origWarn := config.WarnFunc
+	config.WarnFunc = func(string, ...any) {}
+	defer func() { config.WarnFunc = origWarn }()
+
+	_, err := config.Parse([]byte(yamlStr))
+	if err != nil {
+		t.Fatalf("generated YAML does not parse:\n%s\nerror: %v", yamlStr, err)
+	}
+}
+
+func TestRenderPreflightConfig_VelocityAttribute(t *testing.T) {
+	result := &PreflightResult{
+		Repo:     "owner/repo",
+		Strategy: model.StrategyIssue,
+		VelocityHeuristic: &VelocityHeuristic{
+			EffortStrategy:    "attribute",
+			IterationStrategy: "fixed",
+			SizingLabels: []SizingLabelMatch{
+				{Label: "size/S", Query: "label:size/S", Value: 2},
+				{Label: "size/M", Query: "label:size/M", Value: 3},
+				{Label: "size/L", Query: "label:size/L", Value: 5},
+			},
+		},
+	}
+
+	yamlStr := renderPreflightConfig(result)
+
+	for _, want := range []string{
+		"velocity:",
+		"strategy: attribute",
+		`query: "label:size/S"`,
+		"value: 2",
+		`query: "label:size/L"`,
+		"value: 5",
+		"strategy: fixed",
+		"length:",
+		"anchor:",
+	} {
+		if !strings.Contains(yamlStr, want) {
+			t.Errorf("expected %q in output, got:\n%s", want, yamlStr)
+		}
+	}
+
+	// Round-trip validate.
+	origWarn := config.WarnFunc
+	config.WarnFunc = func(string, ...any) {}
+	defer func() { config.WarnFunc = origWarn }()
+
+	_, err := config.Parse([]byte(yamlStr))
+	if err != nil {
+		t.Fatalf("generated YAML does not parse:\n%s\nerror: %v", yamlStr, err)
+	}
+}
+
+func TestRenderPreflightConfig_VelocityCountDefault(t *testing.T) {
+	result := &PreflightResult{
+		Repo:     "owner/repo",
+		Strategy: model.StrategyIssue,
+		VelocityHeuristic: &VelocityHeuristic{
+			EffortStrategy:    "count",
+			IterationStrategy: "fixed",
+		},
+	}
+
+	yamlStr := renderPreflightConfig(result)
+
+	if !strings.Contains(yamlStr, "strategy: count") {
+		t.Errorf("expected count strategy in output:\n%s", yamlStr)
+	}
+	if !strings.Contains(yamlStr, "strategy: fixed") {
+		t.Errorf("expected fixed strategy in output:\n%s", yamlStr)
+	}
+
+	// Round-trip validate.
+	origWarn := config.WarnFunc
+	config.WarnFunc = func(string, ...any) {}
+	defer func() { config.WarnFunc = origWarn }()
+
+	_, err := config.Parse([]byte(yamlStr))
+	if err != nil {
+		t.Fatalf("generated YAML does not parse:\n%s\nerror: %v", yamlStr, err)
+	}
+}
+
+func TestRenderPreflightConfig_NoVelocityHeuristic(t *testing.T) {
+	// When no heuristic ran (e.g., very old preflight result), emit commented velocity.
+	result := &PreflightResult{
+		Repo:     "owner/repo",
+		Strategy: model.StrategyIssue,
+	}
+
+	yamlStr := renderPreflightConfig(result)
+
+	if !strings.Contains(yamlStr, "# velocity:") {
+		t.Errorf("expected commented velocity section:\n%s", yamlStr)
+	}
+
+	// Should still round-trip.
+	origWarn := config.WarnFunc
+	config.WarnFunc = func(string, ...any) {}
+	defer func() { config.WarnFunc = origWarn }()
+
+	_, err := config.Parse([]byte(yamlStr))
+	if err != nil {
+		t.Fatalf("generated YAML does not parse:\n%s\nerror: %v", yamlStr, err)
 	}
 }
 

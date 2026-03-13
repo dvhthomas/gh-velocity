@@ -1,0 +1,189 @@
+---
+title: gh-velocity GitHub API Consumption Model
+description: Estimate API usage for each command to help users plan their rate limit budget
+---
+
+# GitHub API Rate Limits
+
+## Primary Limits
+
+rest_search_per_min = 30
+rest_search_per_hour = 1800
+rest_core_per_hour = 5000
+graphql_points_per_hour = 5000
+
+## Secondary (Abuse) Limits
+
+GitHub enforces undocumented secondary rate limits on the Search API.
+Rapid sequential search calls (even within primary limits) can trigger
+a multi-minute lockout. This is the biggest risk for gh-velocity.
+
+---
+
+# Per-Command API Consumption
+
+## Parameters (adjust these for your repo)
+
+iteration_count = 6
+items_per_search = 50
+pages_per_search = 1
+board_size = 200
+board_pages = 2
+
+## velocity (search-based: fixed period + count/attribute)
+
+Each iteration window requires one search API call (paginated at 100/page).
+Current + history iterations are fetched.
+
+velocity_search_iters = iteration_count + 1
+velocity_search_calls = velocity_search_iters * pages_per_search
+velocity_search_with_current_only = 1 * pages_per_search
+
+With `--current` flag, only 1 search call is needed (fixed in latest).
+
+## velocity (board-based: project-field or numeric)
+
+Board-based uses GraphQL, not the search API.
+
+velocity_board_resolve = 1
+velocity_board_iter_field = 1
+velocity_board_items = board_pages
+velocity_board_total = velocity_board_resolve + velocity_board_iter_field + velocity_board_items
+
+Board strategy avoids the search API entirely — no secondary rate limit risk.
+
+## throughput
+
+throughput_issue_search = pages_per_search
+throughput_pr_search = pages_per_search
+throughput_total = throughput_issue_search + throughput_pr_search
+
+## lead-time (bulk)
+
+leadtime_total = pages_per_search
+
+## cycle-time (bulk, issue strategy)
+
+cycletime_issue_search = pages_per_search
+cycletime_total = cycletime_issue_search
+
+## cycle-time (bulk, PR strategy)
+
+cycletime_pr_issue_search = pages_per_search
+cycletime_pr_pr_search = pages_per_search
+cycletime_pr_graphql = items_per_search
+cycletime_pr_total = cycletime_pr_issue_search + cycletime_pr_pr_search + cycletime_pr_graphql
+
+PR strategy is expensive: 1 GraphQL call per issue to find closing PR.
+
+## my-week
+
+myweek_search_queries = 7
+myweek_releases = 1
+myweek_auth = 1
+myweek_total = myweek_search_queries + myweek_releases + myweek_auth
+
+All 7 search queries run concurrently — can trigger secondary rate limits.
+
+## report (dashboard)
+
+Report's 3 pipelines (leadtime, cycletime, throughput) all search for the
+same closed issues. The query-level cache with singleflight coalesces
+these 3 identical SearchIssues calls into 1 API call.
+
+report_issue_search = 1
+report_pr_search = pages_per_search
+report_total = report_issue_search + report_pr_search
+
+Before cache: 4 search calls (3 identical issue + 1 PR).
+After cache: 2 search calls (1 deduplicated issue + 1 PR).
+
+## wip
+
+wip_resolve = 1
+wip_items = board_pages
+wip_total = wip_resolve + wip_items
+
+GraphQL only — no search API impact.
+
+## release
+
+release_rest = 3
+release_search = pages_per_search
+release_graphql_batches = 3
+release_total = release_rest + release_search + release_graphql_batches
+
+## preflight
+
+preflight_rest = 4
+preflight_graphql = 5
+preflight_total = preflight_rest + preflight_graphql
+
+---
+
+# Scenario: Weekly CI Run (all commands)
+
+## Typical weekly run
+
+weekly_velocity = velocity_search_calls
+weekly_throughput = throughput_total
+weekly_report = report_total
+weekly_myweek = myweek_total
+weekly_total_search = weekly_velocity + weekly_throughput + weekly_report + weekly_myweek
+
+weekly_search_pct = weekly_total_search / rest_search_per_hour * 100
+
+## Search API budget used per weekly run
+
+weekly_total_search calls out of rest_search_per_hour available per hour.
+That is weekly_search_pct percent of the hourly search budget.
+
+---
+
+# Scenario: velocity --current only (recommended for CI)
+
+current_only_search = 1
+current_only_pct = current_only_search / rest_search_per_hour * 100
+
+Using `--current` reduces velocity from velocity_search_calls to current_only_search search call(s).
+
+---
+
+# Recommendations
+
+## Preflight defaults
+
+recommended_iteration_count = 3
+recommended_velocity_calls = recommended_iteration_count + 1
+savings_vs_default = velocity_search_calls - recommended_velocity_calls
+
+Reducing default iteration count from iteration_count to recommended_iteration_count
+saves savings_vs_default search API calls per run.
+
+## Secondary rate limit mitigation
+
+max_safe_sequential_searches = 10
+
+Rule of thumb: stay under max_safe_sequential_searches sequential search API
+calls in a 60-second window to avoid secondary rate limits.
+
+velocity_at_6_iters = 7
+velocity_at_3_iters = 4
+myweek_concurrent = 7
+
+Both `velocity --iterations 6` and `my-week` approach the danger zone.
+Board-based velocity (GraphQL) avoids this entirely.
+
+## Query cache impact
+
+The in-process query cache with singleflight deduplication reduces
+API calls when the same search query is issued multiple times within
+a single command invocation.
+
+report_before_cache = 4
+report_after_cache = report_total
+report_cache_savings = report_before_cache - report_after_cache
+
+Primary beneficiary: `report` saves report_cache_savings search call(s) per run.
+Other commands issue unique queries — cache provides no savings for them
+unless the same command is run with identical parameters within the same process.

@@ -21,7 +21,7 @@ import (
 
 func newConfigPreflightCmd() *cobra.Command {
 	var (
-		writeFlag      bool
+		writeFlag      string
 		projectURLFlag string
 		projectFlag    int // deprecated
 	)
@@ -51,6 +51,9 @@ each choice. Use --write to save it directly.`,
   # Write config directly to .gh-velocity.yml
   gh velocity config preflight --write --project-url https://github.com/users/me/projects/3
 
+  # Write config to a custom path
+  gh velocity config preflight -R cli/cli --write=output/configs/cli-cli.yml
+
   # JSON output for tooling
   gh velocity config preflight -R owner/repo -f json`,
 		Args: cobra.NoArgs,
@@ -68,7 +71,7 @@ each choice. Use --write to save it directly.`,
 				log.Notice("Using repo %s/%s from git remote (use --repo to override)", owner, repo)
 			}
 
-			client, err := gh.NewClient(owner, repo)
+			client, err := gh.NewClient(owner, repo, 0)
 			if err != nil {
 				return err
 			}
@@ -121,8 +124,8 @@ each choice. Use --write to save it directly.`,
 				return fmt.Errorf("preflight generated invalid config (please report this): %w", parseErr)
 			}
 
-			if writeFlag {
-				path := ".gh-velocity.yml"
+			if writeFlag != "" {
+				path := writeFlag
 				if _, statErr := os.Stat(path); statErr == nil {
 					return &model.AppError{
 						Code:    model.ErrConfigInvalid,
@@ -147,7 +150,8 @@ each choice. Use --write to save it directly.`,
 		},
 	}
 
-	cmd.Flags().BoolVar(&writeFlag, "write", false, "Write the recommended config to .gh-velocity.yml")
+	cmd.Flags().StringVar(&writeFlag, "write", "", "Write config to path (default: .gh-velocity.yml)")
+	cmd.Flag("write").NoOptDefVal = ".gh-velocity.yml"
 	cmd.Flags().StringVar(&projectURLFlag, "project-url", "", "Project board URL (e.g., https://github.com/orgs/myorg/projects/1)")
 	cmd.Flags().IntVar(&projectFlag, "project", 0, "Project board number (deprecated: use --project-url)")
 	_ = cmd.Flags().MarkDeprecated("project", "use --project-url instead")
@@ -173,6 +177,26 @@ type PreflightResult struct {
 	Verification     *VerificationResult `json:"verification,omitempty"`
 	RepoAutoDetected bool                `json:"repo_auto_detected"`
 	Hints            []string            `json:"hints"`
+
+	// Velocity heuristics
+	VelocityHeuristic *VelocityHeuristic `json:"velocity_heuristic,omitempty"`
+}
+
+// VelocityHeuristic holds detected signals for velocity configuration.
+type VelocityHeuristic struct {
+	EffortStrategy    string              `json:"effort_strategy"`              // "numeric", "attribute", or "count"
+	IterationStrategy string              `json:"iteration_strategy"`           // "project-field" or "fixed"
+	NumericField      string              `json:"numeric_field,omitempty"`      // project Number field name
+	IterationField    string              `json:"iteration_field,omitempty"`    // project Iteration field name
+	SizingLabels      []SizingLabelMatch  `json:"sizing_labels,omitempty"`     // detected sizing labels
+	Evidence          []string            `json:"evidence,omitempty"`           // human-readable evidence
+}
+
+// SizingLabelMatch maps a detected sizing label to a fibonacci effort value.
+type SizingLabelMatch struct {
+	Label string  `json:"label"`
+	Query string  `json:"query"` // "label:size/XS"
+	Value float64 `json:"value"` // fibonacci default
 }
 
 // CategoryEvidence shows how well each matcher performs against recent data.
@@ -248,12 +272,14 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 
 	// 2. Discover project board (if --project specified)
 	var projectID, statusFieldID string
+	var projectFields []gh.DiscoveredField
 	if projectNumber > 0 {
 		project, projErr := client.DiscoverProjectByNumber(ctx, projectNumber)
 		if projErr != nil {
 			result.Hints = append(result.Hints, fmt.Sprintf("Could not fetch project #%d: %v", projectNumber, projErr))
 		} else {
 			projectID = project.ID
+			projectFields = project.Fields
 			for _, f := range project.Fields {
 				if strings.EqualFold(f.Name, "Status") && len(f.Options) > 0 {
 					result.HasProject = true
@@ -317,7 +343,7 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 	var repoTypes, projectTypes []string
 
 	g, gCtx := errgroup.WithContext(ctx)
-	g.SetLimit(5)
+	g.SetLimit(3) // Limit concurrency to avoid GitHub secondary rate limits.
 
 	// Path 1: Repo-level issue types (always runs — -R is always resolved)
 	g.Go(func() error {
@@ -388,6 +414,14 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 	// 5b. Collect match evidence: run each matcher against recent items
 	result.MatchEvidence = collectMatchEvidence(result.Categories, result.DiscoveredTypes, issues, prs)
 
+	// 5c. Velocity heuristics: detect effort and iteration signals.
+	detectVelocityHeuristics(result, projectFields, labels)
+	if vh := result.VelocityHeuristic; vh != nil {
+		for _, ev := range vh.Evidence {
+			result.Hints = append(result.Hints, fmt.Sprintf("Velocity: %s", ev))
+		}
+	}
+
 	// 6. Check posting readiness (best-effort)
 	pr := checkPostingReadiness(ctx, client)
 	result.PostingReadiness = pr
@@ -423,6 +457,144 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 	}
 
 	return result, nil
+}
+
+// sizingPatterns maps label prefixes/patterns to t-shirt size → fibonacci value.
+// Order matters: more specific prefixes first.
+var sizingPatterns = []struct {
+	prefix string
+	sizes  map[string]float64
+}{
+	{"size/", map[string]float64{"xs": 1, "s": 2, "m": 3, "l": 5, "xl": 8}},
+	{"size-", map[string]float64{"xs": 1, "s": 2, "m": 3, "l": 5, "xl": 8}},
+	{"effort:", map[string]float64{"xs": 1, "s": 2, "m": 3, "l": 5, "xl": 8}},
+	{"effort/", map[string]float64{"xs": 1, "s": 2, "m": 3, "l": 5, "xl": 8}},
+	{"points-", map[string]float64{"1": 1, "2": 2, "3": 3, "5": 5, "8": 8, "13": 13}},
+	{"estimate-", map[string]float64{"xs": 1, "s": 2, "m": 3, "l": 5, "xl": 8}},
+}
+
+// standaloneSizes maps standalone t-shirt size labels (case-insensitive).
+var standaloneSizes = map[string]float64{
+	"xs": 1, "s": 2, "m": 3, "l": 5, "xl": 8,
+}
+
+// detectSizingLabels scans labels for sizing patterns.
+func detectSizingLabels(labels []string) []SizingLabelMatch {
+	var matches []SizingLabelMatch
+	seen := make(map[string]bool)
+
+	for _, label := range labels {
+		lower := strings.ToLower(label)
+
+		// Check prefix patterns.
+		matched := false
+		for _, sp := range sizingPatterns {
+			if strings.HasPrefix(lower, sp.prefix) {
+				suffix := lower[len(sp.prefix):]
+				if val, ok := sp.sizes[suffix]; ok && !seen[lower] {
+					seen[lower] = true
+					matches = append(matches, SizingLabelMatch{
+						Label: label,
+						Query: "label:" + label,
+						Value: val,
+					})
+					matched = true
+					break
+				}
+			}
+		}
+		if matched {
+			continue
+		}
+
+		// Check standalone t-shirt sizes (exact match only, skip digit-only).
+		if val, ok := standaloneSizes[lower]; ok && !seen[lower] {
+			seen[lower] = true
+			matches = append(matches, SizingLabelMatch{
+				Label: label,
+				Query: "label:" + label,
+				Value: val,
+			})
+		}
+	}
+
+	// Sort by value ascending for config readability.
+	sort.Slice(matches, func(i, j int) bool {
+		return matches[i].Value < matches[j].Value
+	})
+	return matches
+}
+
+// effortFieldNames are names that suggest a Number field is used for effort.
+var effortFieldNames = []string{
+	"story points", "story point",
+	"points", "point",
+	"estimate",
+	"effort",
+	"size",
+	"sp",
+}
+
+// detectVelocityHeuristics analyzes labels and project fields for velocity config suggestions.
+func detectVelocityHeuristics(result *PreflightResult, fields []gh.DiscoveredField, labels []string) {
+	vh := &VelocityHeuristic{
+		EffortStrategy:    "count",
+		IterationStrategy: "fixed",
+	}
+
+	// Scan project fields for Number and Iteration fields.
+	var numberFieldName, iterationFieldName string
+	for _, f := range fields {
+		switch f.Type {
+		case "ProjectV2IterationField":
+			if iterationFieldName == "" {
+				iterationFieldName = f.Name
+				vh.Evidence = append(vh.Evidence, fmt.Sprintf("Iteration field %q found on project board", f.Name))
+			}
+		case "ProjectV2Field":
+			// ProjectV2Field includes Text, Number, Date — match by name heuristic.
+			lower := strings.ToLower(f.Name)
+			for _, effortName := range effortFieldNames {
+				if strings.Contains(lower, effortName) {
+					if numberFieldName == "" {
+						numberFieldName = f.Name
+						vh.Evidence = append(vh.Evidence, fmt.Sprintf("Number field %q matches effort pattern", f.Name))
+					}
+					break
+				}
+			}
+		}
+	}
+
+	// Scan labels for sizing patterns.
+	sizingLabels := detectSizingLabels(labels)
+	vh.SizingLabels = sizingLabels
+	if len(sizingLabels) > 0 {
+		labelNames := make([]string, len(sizingLabels))
+		for i, sl := range sizingLabels {
+			labelNames[i] = sl.Label
+		}
+		vh.Evidence = append(vh.Evidence, fmt.Sprintf("Sizing labels detected: %s", strings.Join(labelNames, ", ")))
+	}
+
+	// Strategy suggestion logic per plan:
+	// Number field found → numeric
+	// Else sizing labels found → attribute
+	// Else → count
+	if numberFieldName != "" {
+		vh.EffortStrategy = "numeric"
+		vh.NumericField = numberFieldName
+	} else if len(sizingLabels) > 0 {
+		vh.EffortStrategy = "attribute"
+	}
+
+	// Iteration field found → project-field, else → fixed
+	if iterationFieldName != "" {
+		vh.IterationStrategy = "project-field"
+		vh.IterationField = iterationFieldName
+	}
+
+	result.VelocityHeuristic = vh
 }
 
 // checkPostingReadiness probes the repo to determine posting prerequisites.
@@ -852,6 +1024,13 @@ func renderPreflightConfig(r *PreflightResult) string {
 	b.WriteString("  - \"dependabot[bot]\"\n")
 	b.WriteString("\n")
 
+	// API throttle — prevents GitHub secondary rate limits.
+	b.WriteString("# Minimum seconds between GitHub search API calls.\n")
+	b.WriteString("# Prevents secondary (abuse) rate limits which trigger on burst traffic.\n")
+	b.WriteString("# Set to 0 to disable (not recommended for CI).\n")
+	b.WriteString(fmt.Sprintf("api_throttle_seconds: %d\n", config.DefaultAPIThrottleSeconds))
+	b.WriteString("\n")
+
 	// Project board config (if detected)
 	if r.HasProject && r.ProjectURL != "" {
 		b.WriteString("# Projects v2 board (auto-detected)\n")
@@ -900,7 +1079,72 @@ func renderPreflightConfig(r *PreflightResult) string {
 		b.WriteString("\n")
 	}
 
+	// Velocity section.
+	renderVelocityConfig(&b, r)
+
 	return b.String()
+}
+
+// renderVelocityConfig emits the velocity: section from heuristic results.
+func renderVelocityConfig(b *strings.Builder, r *PreflightResult) {
+	vh := r.VelocityHeuristic
+	if vh == nil {
+		// No heuristic ran — emit commented defaults.
+		b.WriteString("# Velocity: effort completed per iteration.\n")
+		b.WriteString("# Run: gh velocity config preflight --project-url <url> --write\n")
+		b.WriteString("# velocity:\n")
+		b.WriteString("#   unit: issues\n")
+		b.WriteString("#   effort:\n")
+		b.WriteString("#     strategy: count\n")
+		b.WriteString("#   iteration:\n")
+		b.WriteString("#     strategy: fixed\n")
+		b.WriteString("#     fixed:\n")
+		b.WriteString("#       length: \"14d\"\n")
+		b.WriteString("#       anchor: \"2026-01-06\"\n")
+		b.WriteString("#     count: 3\n")
+		b.WriteString("\n")
+		return
+	}
+
+	b.WriteString("# Velocity: effort completed per iteration.\n")
+	for _, ev := range vh.Evidence {
+		b.WriteString(fmt.Sprintf("# Evidence: %s\n", ev))
+	}
+	b.WriteString("velocity:\n")
+	b.WriteString("  unit: issues\n")
+	b.WriteString("  effort:\n")
+	b.WriteString(fmt.Sprintf("    strategy: %s\n", vh.EffortStrategy))
+
+	switch vh.EffortStrategy {
+	case "numeric":
+		b.WriteString("    numeric:\n")
+		b.WriteString(fmt.Sprintf("      project_field: %q\n", vh.NumericField))
+	case "attribute":
+		b.WriteString("    attribute:\n")
+		for _, sl := range vh.SizingLabels {
+			b.WriteString(fmt.Sprintf("      - query: %q\n", sl.Query))
+			b.WriteString(fmt.Sprintf("        value: %.0f\n", sl.Value))
+		}
+	}
+
+	b.WriteString("  iteration:\n")
+	b.WriteString(fmt.Sprintf("    strategy: %s\n", vh.IterationStrategy))
+
+	switch vh.IterationStrategy {
+	case "project-field":
+		b.WriteString(fmt.Sprintf("    project_field: %q\n", vh.IterationField))
+	case "fixed":
+		b.WriteString("    fixed:\n")
+		b.WriteString("      length: \"14d\"\n")
+		now := nowFunc()()
+		// Anchor on the most recent Monday.
+		daysFromMonday := (int(now.Weekday()) + 6) % 7
+		anchor := now.AddDate(0, 0, -daysFromMonday)
+		b.WriteString(fmt.Sprintf("      anchor: %q\n", anchor.Format("2006-01-02")))
+	}
+
+	b.WriteString("    count: 3\n")
+	b.WriteString("\n")
 }
 
 // printPreflightDiagnostics writes analysis details to stderr for interactive use.

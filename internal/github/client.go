@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	ghapi "github.com/cli/go-gh/v2/pkg/api"
 )
 
@@ -33,11 +36,20 @@ type Client struct {
 	projGQL    *ghapi.GraphQLClient // separate client for project queries (GH_VELOCITY_TOKEN)
 	owner      string
 	repo       string
-	repoNodeID string // cached GraphQL node ID, populated lazily by repoID()
+	repoNodeID string       // cached GraphQL node ID, populated lazily by repoID()
+	cache      *QueryCache  // deduplicates identical API calls within a single invocation
+
+	// Search throttle: serializes search API calls with a minimum gap to
+	// avoid triggering GitHub's secondary (abuse) rate limits.
+	searchMu       sync.Mutex
+	searchDelay    time.Duration // minimum gap between search API calls
+	searchLastCall time.Time     // last time a search call was issued
 }
 
 // NewClient creates a Client for the given owner/repo.
-func NewClient(owner, repo string) (*Client, error) {
+// searchDelay is the minimum gap between search API calls to avoid triggering
+// GitHub's secondary rate limits. Pass 0 to disable throttling.
+func NewClient(owner, repo string, searchDelay time.Duration) (*Client, error) {
 	rest, err := ghapi.DefaultRESTClient()
 	if err != nil {
 		return nil, fmt.Errorf("github: create REST client: %w", err)
@@ -47,12 +59,39 @@ func NewClient(owner, repo string) (*Client, error) {
 		return nil, fmt.Errorf("github: create GraphQL client: %w", err)
 	}
 	return &Client{
-		rest:    rest,
-		gql:     gql,
-		projGQL: projectGQL(),
-		owner:   owner,
-		repo:    repo,
+		rest:        rest,
+		gql:         gql,
+		projGQL:     projectGQL(),
+		owner:       owner,
+		repo:        repo,
+		cache:       NewQueryCache(10 * time.Minute),
+		searchDelay: searchDelay,
 	}, nil
+}
+
+// throttleSearch enforces a minimum gap between search API calls.
+// Concurrent goroutines serialize through the mutex, ensuring only one
+// search call is in-flight at a time with spacing between them.
+// Returns a context error if the context is cancelled during the wait.
+func (c *Client) throttleSearch(ctx context.Context) error {
+	c.searchMu.Lock()
+	defer c.searchMu.Unlock()
+
+	if c.searchDelay <= 0 {
+		return nil
+	}
+
+	elapsed := time.Since(c.searchLastCall)
+	if wait := c.searchDelay - elapsed; wait > 0 {
+		log.Debug("throttle: waiting %s before next search call", wait.Round(time.Millisecond))
+		select {
+		case <-time.After(wait):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	c.searchLastCall = time.Now()
+	return nil
 }
 
 // projectClient returns the project-specific GraphQL client if available,

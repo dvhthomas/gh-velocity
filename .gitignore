@@ -3,6 +3,9 @@ gh-velocity
 dist/
 *.exe
 
+# Generated output (task gen:configs, etc.)
+output/
+
 # Test
 coverage.out
 coverage.html

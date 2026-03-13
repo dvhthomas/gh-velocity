@@ -6,8 +6,10 @@ import (
 	"math"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/classify"
 	"github.com/bitsbyme/gh-velocity/internal/log"
@@ -21,6 +23,7 @@ const (
 	DefaultHotfixWindowHours = 72
 	MaxConfigFileSize        = 64 * 1024 // 64 KB
 	MaxHotfixWindowHours     = 8760      // 1 year in hours
+	DefaultAPIThrottleSeconds = 2
 )
 
 // WarnFunc is called for non-fatal warnings (e.g., unknown config keys).
@@ -39,7 +42,52 @@ type Config struct {
 	Discussions  DiscussionsConfig `yaml:"discussions" json:"discussions"`
 	CommitRef    CommitRefConfig   `yaml:"commit_ref" json:"commit_ref"`
 	CycleTime    CycleTimeConfig   `yaml:"cycle_time" json:"cycle_time"`
+	Velocity     VelocityConfig    `yaml:"velocity" json:"velocity"`
 	ExcludeUsers []string          `yaml:"exclude_users" json:"exclude_users"`
+	// APIThrottleSeconds is the minimum delay in seconds between GitHub search
+	// API calls. Prevents triggering GitHub's secondary (abuse) rate limits
+	// which have undocumented thresholds and multi-minute lockouts. Default: 2.
+	// Set to 0 to disable throttling (not recommended).
+	APIThrottleSeconds *int `yaml:"api_throttle_seconds" json:"api_throttle_seconds"`
+}
+
+// VelocityConfig controls how velocity (effort per iteration) is measured.
+type VelocityConfig struct {
+	Unit      string          `yaml:"unit" json:"unit"`           // "issues" or "prs"
+	Effort    EffortConfig    `yaml:"effort" json:"effort"`
+	Iteration IterationConfig `yaml:"iteration" json:"iteration"`
+}
+
+// EffortConfig controls how effort is assigned to work items.
+type EffortConfig struct {
+	Strategy  string              `yaml:"strategy" json:"strategy"` // "count", "attribute", "numeric"
+	Attribute []EffortMatcher     `yaml:"attribute" json:"attribute"`
+	Numeric   NumericEffortConfig `yaml:"numeric" json:"numeric"`
+}
+
+// EffortMatcher maps a classify.Matcher query to an effort value.
+type EffortMatcher struct {
+	Query string  `yaml:"query" json:"query"` // classify.Matcher syntax
+	Value float64 `yaml:"value" json:"value"`
+}
+
+// NumericEffortConfig identifies a Number field on a project board.
+type NumericEffortConfig struct {
+	ProjectField string `yaml:"project_field" json:"project_field"`
+}
+
+// IterationConfig controls how iteration boundaries are determined.
+type IterationConfig struct {
+	Strategy     string              `yaml:"strategy" json:"strategy"` // "project-field" or "fixed"
+	ProjectField string              `yaml:"project_field" json:"project_field"`
+	Fixed        FixedIterationConfig `yaml:"fixed" json:"fixed"`
+	Count        int                 `yaml:"count" json:"count"` // default 3; higher values increase API consumption
+}
+
+// FixedIterationConfig defines calendar-based iteration boundaries.
+type FixedIterationConfig struct {
+	Length string `yaml:"length" json:"length"` // e.g., "14d"
+	Anchor string `yaml:"anchor" json:"anchor"` // e.g., "2026-01-06"
 }
 
 // ScopeConfig holds the user's scope query — a GitHub search query fragment.
@@ -167,6 +215,15 @@ func defaults() *Config {
 			},
 			HotfixWindowHours: DefaultHotfixWindowHours,
 		},
+		Velocity: VelocityConfig{
+			Unit: "issues",
+			Effort: EffortConfig{
+				Strategy: "count",
+			},
+			Iteration: IterationConfig{
+				Count: 6,
+			},
+		},
 	}
 }
 
@@ -181,6 +238,8 @@ var knownTopLevelKeys = map[string]bool{
 	"commit_ref":    true,
 	"cycle_time":    true,
 	"exclude_users": true,
+	"velocity":      true,
+	"api_throttle_seconds": true,
 }
 
 // warnUnknownKeysFromMap warns about any top-level keys in the parsed map
@@ -290,6 +349,112 @@ func validate(cfg *Config) error {
 				return fmt.Errorf("config: quality.categories.%s: %w", cat.Name, err)
 			}
 		}
+	}
+
+	if err := validateVelocity(&cfg.Velocity, cfg.Project.URL); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// APIThrottleDuration returns the configured delay between search API calls.
+// Returns 0 (no throttle) if not set. The preflight command recommends
+// api_throttle_seconds: 2 when generating a config.
+func (c *Config) APIThrottleDuration() time.Duration {
+	if c.APIThrottleSeconds != nil {
+		return time.Duration(*c.APIThrottleSeconds) * time.Second
+	}
+	return 0
+}
+
+// durationPattern matches duration strings like "14d", "7d", "1w".
+var durationPattern = regexp.MustCompile(`^(\d+)([dw])$`)
+
+// ParseFixedLength parses a fixed iteration length string like "14d" or "2w"
+// into a time.Duration. Exported for use by the period computation engine.
+func ParseFixedLength(s string) (time.Duration, error) {
+	m := durationPattern.FindStringSubmatch(s)
+	if m == nil {
+		return 0, fmt.Errorf("invalid duration %q: expected format like \"14d\" or \"2w\"", s)
+	}
+	n, _ := strconv.Atoi(m[1])
+	switch m[2] {
+	case "d":
+		return time.Duration(n) * 24 * time.Hour, nil
+	case "w":
+		return time.Duration(n) * 7 * 24 * time.Hour, nil
+	}
+	return 0, fmt.Errorf("invalid duration unit in %q", s)
+}
+
+func validateVelocity(v *VelocityConfig, projectURL string) error {
+	// unit
+	switch v.Unit {
+	case "issues", "prs":
+		// valid
+	default:
+		return fmt.Errorf("config: velocity.unit must be \"issues\" or \"prs\", got %q", v.Unit)
+	}
+
+	// effort.strategy
+	switch v.Effort.Strategy {
+	case "count":
+		// no additional validation
+	case "attribute":
+		if len(v.Effort.Attribute) == 0 {
+			return fmt.Errorf("config: velocity.effort.attribute requires at least one matcher")
+		}
+		for i, m := range v.Effort.Attribute {
+			if m.Value < 0 {
+				return fmt.Errorf("config: velocity.effort.attribute[%d].value must be non-negative, got %v", i, m.Value)
+			}
+			if _, err := classify.ParseMatcher(m.Query); err != nil {
+				return fmt.Errorf("config: velocity.effort.attribute[%d].query: %w", i, err)
+			}
+		}
+	case "numeric":
+		if v.Effort.Numeric.ProjectField == "" {
+			return fmt.Errorf("config: velocity.effort.numeric.project_field is required")
+		}
+		if projectURL == "" {
+			return fmt.Errorf("config: project.url is required when velocity.effort.strategy is \"numeric\"")
+		}
+	default:
+		return fmt.Errorf("config: velocity.effort.strategy must be \"count\", \"attribute\", or \"numeric\", got %q", v.Effort.Strategy)
+	}
+
+	// iteration.strategy
+	switch v.Iteration.Strategy {
+	case "project-field":
+		if v.Iteration.ProjectField == "" {
+			return fmt.Errorf("config: velocity.iteration.project_field is required when strategy is \"project-field\"")
+		}
+		if projectURL == "" {
+			return fmt.Errorf("config: project.url is required when velocity.iteration.strategy is \"project-field\"")
+		}
+	case "fixed":
+		if v.Iteration.Fixed.Length == "" {
+			return fmt.Errorf("config: velocity.iteration.fixed.length is required when strategy is \"fixed\"")
+		}
+		if _, err := ParseFixedLength(v.Iteration.Fixed.Length); err != nil {
+			return fmt.Errorf("config: velocity.iteration.fixed.length: %w", err)
+		}
+		if v.Iteration.Fixed.Anchor == "" {
+			return fmt.Errorf("config: velocity.iteration.fixed.anchor is required when strategy is \"fixed\"")
+		}
+		if _, err := time.Parse(time.DateOnly, v.Iteration.Fixed.Anchor); err != nil {
+			return fmt.Errorf("config: velocity.iteration.fixed.anchor must be a date (YYYY-MM-DD), got %q", v.Iteration.Fixed.Anchor)
+		}
+	case "":
+		// No iteration strategy specified — OK (velocity section may be defaults-only)
+	default:
+		return fmt.Errorf("config: velocity.iteration.strategy must be \"project-field\" or \"fixed\", got %q", v.Iteration.Strategy)
+	}
+
+	// count
+	if v.Iteration.Count <= 0 {
+		return fmt.Errorf("config: velocity.iteration.count must be > 0, got %d", v.Iteration.Count)
 	}
 
 	return nil

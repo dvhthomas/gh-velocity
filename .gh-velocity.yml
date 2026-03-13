@@ -47,6 +47,10 @@ cycle_time:
 exclude_users:
   - "dependabot[bot]"
 
+# Minimum seconds between GitHub search API calls.
+# Prevents secondary (abuse) rate limits which trigger on burst traffic.
+api_throttle_seconds: 2
+
 # Projects v2 board (auto-detected)
 # CI/Actions: GITHUB_TOKEN cannot access projects. Create a classic PAT with
 # 'project' scope: https://github.com/settings/tokens/new?scopes=project&description=gh-velocity
@@ -64,6 +68,25 @@ lifecycle:
     project_status: ["In review"]
   done:
     project_status: ["Done"]
+
+# Velocity measurement
+velocity:
+  unit: issues
+  effort:
+    strategy: attribute
+    attribute:
+      - query: "label:enhancement"
+        value: 3
+      - query: "label:bug"
+        value: 2
+      - query: "label:documentation"
+        value: 1
+  iteration:
+    strategy: fixed
+    fixed:
+      length: "14d"
+      anchor: "2026-03-10"
+    count: 6
 
 # Post bulk reports (--post) as Discussion posts.
 # CI/Actions: requires 'discussions: write' in workflow permissions.

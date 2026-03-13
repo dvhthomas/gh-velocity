@@ -496,6 +496,178 @@ discussions:
   category: General`,
 			wantErr: "",
 		},
+		// --- Velocity config validation ---
+		{
+			name:    "velocity defaults valid",
+			yaml:    "",
+			wantErr: "",
+		},
+		{
+			name:    "velocity unit invalid",
+			yaml:    "velocity:\n  unit: stories",
+			wantErr: "velocity.unit must be",
+		},
+		{
+			name:    "velocity unit prs valid",
+			yaml:    "velocity:\n  unit: prs",
+			wantErr: "",
+		},
+		{
+			name:    "velocity effort strategy invalid",
+			yaml:    "velocity:\n  effort:\n    strategy: fibonacci",
+			wantErr: "velocity.effort.strategy must be",
+		},
+		{
+			name:    "velocity attribute empty matchers",
+			yaml:    "velocity:\n  effort:\n    strategy: attribute",
+			wantErr: "requires at least one matcher",
+		},
+		{
+			name: "velocity attribute negative value",
+			yaml: `velocity:
+  effort:
+    strategy: attribute
+    attribute:
+      - query: "label:bug"
+        value: -1`,
+			wantErr: "must be non-negative",
+		},
+		{
+			name: "velocity attribute invalid query",
+			yaml: `velocity:
+  effort:
+    strategy: attribute
+    attribute:
+      - query: "unknown:foo"
+        value: 3`,
+			wantErr: "velocity.effort.attribute[0].query",
+		},
+		{
+			name: "velocity attribute valid",
+			yaml: `velocity:
+  effort:
+    strategy: attribute
+    attribute:
+      - query: "label:size/S"
+        value: 2
+      - query: "label:size/M"
+        value: 3`,
+			wantErr: "",
+		},
+		{
+			name: "velocity attribute value zero valid",
+			yaml: `velocity:
+  effort:
+    strategy: attribute
+    attribute:
+      - query: "label:chore"
+        value: 0`,
+			wantErr: "",
+		},
+		{
+			name:    "velocity numeric missing project_field",
+			yaml:    "velocity:\n  effort:\n    strategy: numeric",
+			wantErr: "numeric.project_field is required",
+		},
+		{
+			name: "velocity numeric missing project url",
+			yaml: `velocity:
+  effort:
+    strategy: numeric
+    numeric:
+      project_field: "Story Points"`,
+			wantErr: "project.url is required",
+		},
+		{
+			name: "velocity numeric valid",
+			yaml: `project:
+  url: https://github.com/users/test/projects/1
+velocity:
+  effort:
+    strategy: numeric
+    numeric:
+      project_field: "Story Points"`,
+			wantErr: "",
+		},
+		{
+			name:    "velocity iteration strategy invalid",
+			yaml:    "velocity:\n  iteration:\n    strategy: calendar",
+			wantErr: "velocity.iteration.strategy must be",
+		},
+		{
+			name: "velocity project-field missing field name",
+			yaml: `project:
+  url: https://github.com/users/test/projects/1
+velocity:
+  iteration:
+    strategy: project-field`,
+			wantErr: "velocity.iteration.project_field is required",
+		},
+		{
+			name:    "velocity project-field missing project url",
+			yaml:    "velocity:\n  iteration:\n    strategy: project-field\n    project_field: Sprint",
+			wantErr: "project.url is required",
+		},
+		{
+			name: "velocity project-field valid",
+			yaml: `project:
+  url: https://github.com/users/test/projects/1
+velocity:
+  iteration:
+    strategy: project-field
+    project_field: Sprint`,
+			wantErr: "",
+		},
+		{
+			name:    "velocity fixed missing length",
+			yaml:    "velocity:\n  iteration:\n    strategy: fixed\n    fixed:\n      anchor: '2026-01-06'",
+			wantErr: "fixed.length is required",
+		},
+		{
+			name:    "velocity fixed invalid length",
+			yaml:    "velocity:\n  iteration:\n    strategy: fixed\n    fixed:\n      length: '14x'\n      anchor: '2026-01-06'",
+			wantErr: "invalid duration",
+		},
+		{
+			name:    "velocity fixed missing anchor",
+			yaml:    "velocity:\n  iteration:\n    strategy: fixed\n    fixed:\n      length: '14d'",
+			wantErr: "fixed.anchor is required",
+		},
+		{
+			name:    "velocity fixed invalid anchor",
+			yaml:    "velocity:\n  iteration:\n    strategy: fixed\n    fixed:\n      length: '14d'\n      anchor: 'not-a-date'",
+			wantErr: "must be a date",
+		},
+		{
+			name: "velocity fixed valid",
+			yaml: `velocity:
+  iteration:
+    strategy: fixed
+    fixed:
+      length: "14d"
+      anchor: "2026-01-06"`,
+			wantErr: "",
+		},
+		{
+			name: "velocity fixed length weeks valid",
+			yaml: `velocity:
+  iteration:
+    strategy: fixed
+    fixed:
+      length: "2w"
+      anchor: "2026-01-06"`,
+			wantErr: "",
+		},
+		{
+			name:    "velocity iteration count zero",
+			yaml:    "velocity:\n  iteration:\n    count: 0",
+			wantErr: "count must be > 0",
+		},
+		{
+			name:    "velocity iteration count negative",
+			yaml:    "velocity:\n  iteration:\n    count: -1",
+			wantErr: "count must be > 0",
+		},
 	}
 
 	for _, tt := range tests {

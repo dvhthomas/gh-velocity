@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"text/template"
 	"time"
@@ -67,6 +68,48 @@ func TemplateFuncMap() template.FuncMap {
 		fm[k] = v
 	}
 	return fm
+}
+
+// ============================================================
+// Provenance (shared "how to interpret" section)
+// ============================================================
+
+var provenanceMarkdownTmpl = mustParseTemplate("provenance.md.tmpl")
+
+type provenanceRow struct {
+	Key   string
+	Value string
+}
+
+type provenanceTemplateData struct {
+	Command    string
+	Config     bool // whether to render the config table
+	ConfigRows []provenanceRow
+	Extra      string // additional markdown content from the caller
+}
+
+// RenderProvenanceMarkdown writes a <details> block with command, config,
+// and optional extra markdown (command-specific content like effort strategy).
+func RenderProvenanceMarkdown(w io.Writer, p model.Provenance, extra string) error {
+	data := provenanceTemplateData{
+		Command: p.Command,
+		Config:  len(p.Config) > 0,
+		Extra:   extra,
+	}
+	keys := sortedStringKeys(p.Config)
+	for _, k := range keys {
+		data.ConfigRows = append(data.ConfigRows, provenanceRow{Key: k, Value: p.Config[k]})
+	}
+	return provenanceMarkdownTmpl.Execute(w, data)
+}
+
+func sortedStringKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // ============================================================

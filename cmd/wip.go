@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/format"
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/spf13/cobra"
 )
@@ -57,7 +56,7 @@ func runWIP(cmd *cobra.Command) error {
 		}
 	}
 
-	client, err := gh.NewClient(deps.Owner, deps.Repo)
+	client, err := deps.NewClient()
 	if err != nil {
 		return err
 	}
