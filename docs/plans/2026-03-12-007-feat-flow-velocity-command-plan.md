@@ -1,7 +1,7 @@
 ---
 title: "feat: flow velocity command"
 type: feat
-status: active
+status: completed
 date: 2026-03-12
 origin: docs/brainstorms/2026-03-12-velocity-command-brainstorm.md
 ---
@@ -456,17 +456,17 @@ End-to-end validation and docs updates.
 
 **Tasks:**
 
-- [ ] Add velocity smoke tests to `scripts/smoke-test.sh`:
+- [x] Add velocity smoke tests to `scripts/smoke-test.sh`:
   - `flow velocity` with count+fixed config
   - `flow velocity --history` / `--current`
   - `flow velocity --format json` schema validation
   - `flow velocity --iterations 3`
   - `config validate --velocity`
   - Preflight with velocity-suggesting repo signals
-- [ ] Update README.md with velocity command documentation
-- [ ] Update AGENTS.md if any new conventions emerge
-- [ ] Verify `task quality` passes (golangci-lint)
-- [ ] Verify `task test` passes
+- [x] Update README.md with velocity command documentation (N/A — no README in this project)
+- [x] Update AGENTS.md if any new conventions emerge (none — all patterns follow existing conventions)
+- [x] Verify `task quality` passes (golangci-lint)
+- [x] Verify `task test` passes
 
 **Files:**
 - `scripts/smoke-test.sh` (modify)
