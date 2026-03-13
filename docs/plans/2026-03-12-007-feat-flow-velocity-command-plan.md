@@ -371,16 +371,16 @@ Wire the Cobra command, register under `flow`, connect posting.
 
 **Tasks:**
 
-- [ ] Create `cmd/velocity.go`
+- [x] Create `cmd/velocity.go`
   - `NewVelocityCmd() *cobra.Command`
   - Flags: `--current`, `--history`, `--iterations N`, `--since`, `--until`, `--verbose`, `--post`
   - RunE: extract deps, build client, build pipeline, run GatherData/ProcessData, handle posting via `postIfEnabled()`, Render
   - Examples in Long/Example showing common invocations
-- [ ] Add `cmd.AddCommand(NewVelocityCmd())` to `cmd/flow.go`
-- [ ] Update `flow` command Short description to include velocity
-- [ ] Posting: discussion target for bulk summaries (same pattern as throughput)
+- [x] Add `cmd.AddCommand(NewVelocityCmd())` to `cmd/flow.go`
+- [x] Update `flow` command Short description to include velocity
+- [x] Posting: discussion target for bulk summaries (same pattern as throughput)
   - Marker context: iteration name or date range
-- [ ] Add `--verbose` flag for not-assessed item list (new flag, not `--debug`)
+- [x] Add `--verbose` flag for not-assessed item list (new flag, not `--debug`)
 
 **Files:**
 - `cmd/velocity.go` (new)
