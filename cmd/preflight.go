@@ -322,17 +322,15 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 	if result.HasProject {
 		result.Strategy = model.StrategyIssue
 		result.Hints = append(result.Hints, "Project board detected — issue strategy uses board status to detect work started")
+	} else if len(result.ActiveLabels) > 0 {
+		result.Strategy = model.StrategyIssue
+		result.Hints = append(result.Hints, fmt.Sprintf("Found status labels %v — issue strategy uses label timeline for cycle time", result.ActiveLabels))
 	} else if result.RecentPRs > 0 {
 		result.Strategy = model.StrategyPR
-		result.Hints = append(result.Hints, "No project board — using PR strategy (PR created → merged) for cycle time")
+		result.Hints = append(result.Hints, "No project board or status labels — using PR strategy (PR created → merged) for cycle time")
 	} else {
 		result.Strategy = model.StrategyIssue
-		result.Hints = append(result.Hints, "No project board and no recent PRs — cycle time will be unavailable. Add a project board with: preflight --project-url <url>")
-	}
-
-	// 5. Suggest active/backlog labels if no project board
-	if !result.HasProject && len(result.ActiveLabels) > 0 {
-		result.Hints = append(result.Hints, fmt.Sprintf("Found status labels: %v — can be used for WIP tracking", result.ActiveLabels))
+		result.Hints = append(result.Hints, "No project board, status labels, or recent PRs — cycle time will be unavailable. Add a project board with: preflight --project-url <url>")
 	}
 
 	if result.RecentIssues == 0 && result.RecentPRs == 0 {
@@ -1046,26 +1044,28 @@ func renderPreflightConfig(r *PreflightResult) string {
 		b.WriteString("lifecycle:\n")
 		writeLifecycleMapping(&b, r.StatusOptions)
 		b.WriteString("\n")
-	} else if len(r.BacklogLabels) > 0 {
+	} else if len(r.ActiveLabels) > 0 || len(r.BacklogLabels) > 0 {
 		// Label-based lifecycle (no project board).
-		// Note: lifecycle.done.query is not generated because it is not consumed
-		// by any command — all date-range queries use hardcoded is:closed/is:merged.
 		b.WriteString("# Lifecycle stages (label-based, no project board)\n")
+		b.WriteString("# match: patterns use classify.Matcher syntax for cycle time detection\n")
 		b.WriteString("lifecycle:\n")
-		b.WriteString("  backlog:\n")
-		b.WriteString("    query: \"is:open")
-		for _, l := range r.BacklogLabels {
-			// Labels with spaces need quoting in GitHub search syntax.
-			if strings.Contains(l, " ") {
-				b.WriteString(fmt.Sprintf(" label:\\\"%s\\\"", l))
-			} else {
-				b.WriteString(fmt.Sprintf(" label:%s", l))
+		if len(r.BacklogLabels) > 0 {
+			b.WriteString("  backlog:\n")
+			b.WriteString("    match:\n")
+			for _, l := range r.BacklogLabels {
+				b.WriteString(fmt.Sprintf("      - \"label:%s\"\n", l))
 			}
 		}
-		b.WriteString("\"\n")
+		if len(r.ActiveLabels) > 0 {
+			b.WriteString("  in-progress:\n")
+			b.WriteString("    match:\n")
+			for _, l := range r.ActiveLabels {
+				b.WriteString(fmt.Sprintf("      - \"label:%s\"\n", l))
+			}
+		}
 		b.WriteString("\n")
 	} else {
-		b.WriteString("# No lifecycle stages detected. Add a project board for cycle time metrics:\n")
+		b.WriteString("# No lifecycle stages detected. Add a project board or status labels for cycle time metrics:\n")
 		b.WriteString("#   gh velocity config preflight --project-url <url> --write\n")
 		b.WriteString("\n")
 	}
@@ -1281,8 +1281,10 @@ func verifyConfig(result *PreflightResult, repoLabels []string) *VerificationRes
 	vr.CategoryCount = len(cfg.Quality.Categories)
 
 	// 3. Validate strategy prerequisites
-	if cfg.CycleTime.Strategy == model.StrategyIssue && len(cfg.Lifecycle.InProgress.ProjectStatus) == 0 {
-		vr.Warnings = append(vr.Warnings, "issue strategy has no lifecycle.in-progress.project_status — cycle time will be unavailable; configure lifecycle.in-progress for cycle time metrics")
+	hasProjectStatus := len(cfg.Lifecycle.InProgress.ProjectStatus) > 0
+	hasMatch := len(cfg.Lifecycle.InProgress.Match) > 0
+	if cfg.CycleTime.Strategy == model.StrategyIssue && !hasProjectStatus && !hasMatch {
+		vr.Warnings = append(vr.Warnings, "issue strategy has no lifecycle.in-progress.project_status or match — cycle time will be unavailable; configure lifecycle.in-progress for cycle time metrics")
 	}
 
 	// 4. Cross-reference category labels against repo labels

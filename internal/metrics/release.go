@@ -110,11 +110,8 @@ func BuildReleaseMetrics(ctx context.Context, input ReleaseInput) (model.Release
 			Title:     im.Issue.Title,
 		}
 		result := input.Classifier.Classify(ci)
-		issueMetrics[i].Category = result.Category
-		categoryCounts[result.Category]++
-		for _, w := range result.Warnings {
-			warnings = append(warnings, fmt.Sprintf("issue #%d: %s", im.Issue.Number, w))
-		}
+		issueMetrics[i].Category = result.Category()
+		categoryCounts[result.Category()]++
 	}
 
 	categoryRatios := make(map[string]float64, len(catNames))

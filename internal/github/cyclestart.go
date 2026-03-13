@@ -3,8 +3,10 @@ package github
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/bitsbyme/gh-velocity/internal/classify"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -212,4 +214,96 @@ func (c *Client) GetProjectStatus(ctx context.Context, issueNumber int, projectI
 
 	// Issue not found in the project or no matching status field.
 	return &ProjectStatus{}, nil
+}
+
+// labeledEventResponse is the GraphQL response for label timeline queries.
+type labeledEventResponse struct {
+	Repository struct {
+		Issue struct {
+			TimelineItems struct {
+				Nodes []labeledEventNode `json:"nodes"`
+			} `json:"timelineItems"`
+		} `json:"issue"`
+	} `json:"repository"`
+}
+
+type labeledEventNode struct {
+	Typename  string    `json:"__typename"`
+	CreatedAt time.Time `json:"createdAt"`
+	Label     struct {
+		Name string `json:"name"`
+	} `json:"label"`
+}
+
+// GetLabelCycleStart finds the earliest label event on an issue that matches
+// any of the given matchers. This is used by the issue cycle time strategy
+// when no project board is configured but lifecycle.in-progress.match is set.
+//
+// matcherStrings uses classify.Matcher syntax (e.g., "label:in-progress").
+// Only label: matchers are meaningful here; type: and title: matchers are
+// silently skipped since we're matching against label events.
+func (c *Client) GetLabelCycleStart(ctx context.Context, issueNumber int, matcherStrings []string) (*CycleStart, error) {
+	// Parse matchers and extract label names for matching.
+	var matchers []classify.Matcher
+	for _, s := range matcherStrings {
+		m, err := classify.ParseMatcher(s)
+		if err != nil {
+			return nil, fmt.Errorf("parse lifecycle matcher %q: %w", s, err)
+		}
+		matchers = append(matchers, m)
+	}
+
+	query := `query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    issue(number: $number) {
+      timelineItems(first: 100, itemTypes: [LABELED_EVENT]) {
+        nodes {
+          __typename
+          ... on LabeledEvent {
+            createdAt
+            label { name }
+          }
+        }
+      }
+    }
+  }
+}`
+	variables := map[string]any{
+		"owner":  c.owner,
+		"repo":   c.repo,
+		"number": issueNumber,
+	}
+
+	key := CacheKey("label-cycle-start", c.owner, c.repo, fmt.Sprintf("%d", issueNumber))
+	v, err := c.cache.Do(key, func() (any, error) {
+		var resp labeledEventResponse
+		if err := c.gql.DoWithContext(ctx, query, variables, &resp); err != nil {
+			return nil, fmt.Errorf("get label timeline for issue #%d: %w", issueNumber, err)
+		}
+		return resp.Repository.Issue.TimelineItems.Nodes, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	nodes := v.([]labeledEventNode)
+
+	// Find the earliest label event that matches any of the matchers.
+	var earliest *CycleStart
+	for _, node := range nodes {
+		input := classify.Input{Labels: []string{node.Label.Name}}
+		for _, m := range matchers {
+			if m.Matches(input) {
+				if earliest == nil || node.CreatedAt.Before(earliest.Time) {
+					earliest = &CycleStart{
+						Time:   node.CreatedAt,
+						Signal: "label-added",
+						Detail: fmt.Sprintf("labeled %q", strings.ToLower(node.Label.Name)),
+					}
+				}
+				break
+			}
+		}
+	}
+
+	return earliest, nil
 }

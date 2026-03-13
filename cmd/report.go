@@ -283,7 +283,7 @@ func computeQuality(items []leadtime.BulkItem, categories []model.CategoryConfig
 			IssueType: item.Issue.IssueType,
 			Title:     item.Issue.Title,
 		})
-		if result.Category == "bug" {
+		if result.Category() == "bug" {
 			bugCount++
 		}
 	}

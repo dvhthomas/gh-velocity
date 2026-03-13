@@ -30,6 +30,10 @@ func buildCycleTimeStrategy(ctx context.Context, deps *Deps, client *gh.Client) 
 			strat.ProjectID = info.ProjectID
 			strat.StatusFieldID = info.StatusFieldID
 			strat.BacklogStatus = cfg.Lifecycle.Backlog.ProjectStatus
+		} else if len(cfg.Lifecycle.InProgress.Match) > 0 {
+			// Label-based cycle time: use timeline API to detect "work started".
+			strat.Client = client
+			strat.InProgressMatch = cfg.Lifecycle.InProgress.Match
 		}
 		return strat
 	}

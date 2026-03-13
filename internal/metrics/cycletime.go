@@ -25,14 +25,17 @@ type CycleTimeInput struct {
 }
 
 // IssueStrategy measures cycle time as "work started" → issue closed.
-// "Work started" is detected from lifecycle config (project board status change).
-// When no project board is configured (ProjectID is empty), Compute returns a
-// zero Metric — the signal is unavailable.
+// "Work started" is detected from either:
+//   - Project board status change (when ProjectID is set)
+//   - Label timeline events (when InProgressMatch is set)
+//
+// When neither signal source is configured, Compute returns a zero Metric.
 type IssueStrategy struct {
-	Client        *gh.Client
-	ProjectID     string   // resolved from config project.url via ResolveProject
-	StatusFieldID string   // resolved from config project.status_field
-	BacklogStatus []string // from lifecycle.backlog.project_status
+	Client          *gh.Client
+	ProjectID       string   // resolved from config project.url via ResolveProject
+	StatusFieldID   string   // resolved from config project.status_field
+	BacklogStatus   []string // from lifecycle.backlog.project_status
+	InProgressMatch []string // from lifecycle.in-progress.match (classify.Matcher syntax)
 }
 
 func (s *IssueStrategy) Name() string { return model.StrategyIssue }
@@ -41,11 +44,22 @@ func (s *IssueStrategy) Compute(ctx context.Context, input CycleTimeInput) model
 	if input.Issue == nil {
 		return model.Metric{}
 	}
-	// No project configured — cycle time signal unavailable.
-	if s.Client == nil || s.ProjectID == "" {
-		return model.Metric{}
+
+	// Try project board first (higher fidelity signal).
+	if s.Client != nil && s.ProjectID != "" {
+		return s.computeFromProject(ctx, input)
 	}
-	// Use the first backlog status for the GetProjectStatus call.
+
+	// Fall back to label timeline events.
+	if s.Client != nil && len(s.InProgressMatch) > 0 {
+		return s.computeFromLabels(ctx, input)
+	}
+
+	// No signal source configured.
+	return model.Metric{}
+}
+
+func (s *IssueStrategy) computeFromProject(ctx context.Context, input CycleTimeInput) model.Metric {
 	backlog := ""
 	if len(s.BacklogStatus) > 0 {
 		backlog = s.BacklogStatus[0]
@@ -61,6 +75,23 @@ func (s *IssueStrategy) Compute(ctx context.Context, input CycleTimeInput) model
 		Time:   ps.CycleStart.Time,
 		Signal: model.SignalStatusChange,
 		Detail: ps.CycleStart.Detail,
+	}
+	if input.Issue.ClosedAt == nil {
+		return model.Metric{Start: start}
+	}
+	end := &model.Event{Time: *input.Issue.ClosedAt, Signal: model.SignalIssueClosed}
+	return model.NewMetric(start, end)
+}
+
+func (s *IssueStrategy) computeFromLabels(ctx context.Context, input CycleTimeInput) model.Metric {
+	cs, err := s.Client.GetLabelCycleStart(ctx, input.Issue.Number, s.InProgressMatch)
+	if err != nil || cs == nil {
+		return model.Metric{}
+	}
+	start := &model.Event{
+		Time:   cs.Time,
+		Signal: model.SignalLabelAdded,
+		Detail: cs.Detail,
 	}
 	if input.Issue.ClosedAt == nil {
 		return model.Metric{Start: start}
