@@ -262,7 +262,7 @@ The core pipeline that ties together iteration resolution, data fetching, effort
 
 **Tasks:**
 
-- [ ] Create `internal/pipeline/velocity/velocity.go`
+- [x] Create `internal/pipeline/velocity/velocity.go`
   - Pipeline struct:
     ```go
     type Pipeline struct {
@@ -304,7 +304,7 @@ The core pipeline that ties together iteration resolution, data fetching, effort
     4. If `--since`/`--until`: filter iterations to those overlapping the window
     5. Store `VelocityResult`
   - **Render(rc)**: switch on format, delegate to render functions
-- [ ] Narrow client interface at consumer site (per AGENTS.md):
+- [x] Narrow client interface at consumer site (per AGENTS.md):
   ```go
   type Client interface {
       SearchIssues(ctx context.Context, query string) ([]model.Issue, error)
@@ -324,7 +324,7 @@ Three-format output following existing patterns.
 
 **Tasks:**
 
-- [ ] Create `internal/pipeline/velocity/render.go`
+- [x] Create `internal/pipeline/velocity/render.go`
   - `WriteJSON(w, result)` — struct-based JSON with nested iterations
     ```go
     type jsonOutput struct {
@@ -353,12 +353,12 @@ Three-format output following existing patterns.
     - History table using `format.NewTable()`
     - Summary line with avg velocity, avg completion, std dev
   - `WriteMarkdown(w, result)` — embedded template
-- [ ] Create `internal/pipeline/velocity/templates/velocity.md.tmpl`
+- [x] Create `internal/pipeline/velocity/templates/velocity.md.tmpl`
   - Current iteration section
   - History table
   - Summary stats
   - Use shared `format.TemplateFuncMap()` helpers
-- [ ] Table-driven render tests: verify JSON structure, pretty output shape, markdown template execution
+- [x] Table-driven render tests: verify JSON structure, pretty output shape, markdown template execution
 
 **Files:**
 - `internal/pipeline/velocity/render.go` (new)

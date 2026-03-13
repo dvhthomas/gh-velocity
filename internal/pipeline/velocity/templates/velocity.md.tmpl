@@ -1,0 +1,23 @@
+## Velocity: {{ .Repository }} ({{ .Unit }})
+{{ if .Current }}
+### Current: {{ .Current.Name }} ({{ date .Current.Start }} – {{ date .Current.End }})
+
+| Metric | Value |
+|--------|-------|
+| Velocity | {{ printf "%.1f" .Current.Velocity }} {{ .EffortUnit }} |
+| Committed | {{ printf "%.1f" .Current.Committed }} {{ .EffortUnit }} |
+| Completion | {{ printf "%.0f" .Current.CompletionPct }}% |
+| Items | {{ .Current.ItemsDone }} / {{ .Current.ItemsTotal }} done |
+{{ if gt .Current.CarryOver 0 }}| Carry-over | {{ .Current.CarryOver }} |
+{{ end }}{{ if gt .Current.NotAssessed 0 }}| Not assessed | {{ .Current.NotAssessed }} |
+{{ end }}
+{{ end }}{{ if .History }}
+### History
+
+| Iteration | Velocity | Committed | Done% | Items | Carry | Trend |
+|-----------|----------|-----------|-------|-------|-------|-------|
+{{ range .History }}| {{ .Name }} | {{ printf "%.1f" .Velocity }} | {{ printf "%.1f" .Committed }} | {{ printf "%.0f" .CompletionPct }}% | {{ .ItemsDone }}/{{ .ItemsTotal }} | {{ .CarryOver }} | {{ .Trend }} |
+{{ end }}
+
+**Summary**: avg velocity {{ printf "%.1f" $.AvgVel }} {{ $.EffortUnit }}, avg completion {{ printf "%.0f" $.AvgComp }}%{{ if gt $.StdDev 0.0 }}, std dev {{ printf "%.1f" $.StdDev }}{{ end }}
+{{ end }}
