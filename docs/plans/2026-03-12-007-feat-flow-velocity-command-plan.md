@@ -213,13 +213,13 @@ Build the effort classification system that maps items to effort values using th
 
 **Tasks:**
 
-- [ ] Create `internal/pipeline/velocity/effort.go`
+- [x] Create `internal/pipeline/velocity/effort.go`
   - `type EffortEvaluator interface { Evaluate(item VelocityItem) (float64, bool) }` — returns (effort, assessed)
   - `CountEvaluator{}` — always returns (1, true)
   - `AttributeEvaluator{matchers []compiledMatcher}` — iterates matchers in config order, first match wins. Uses `classify.Matcher.Match(classify.Input{Labels, IssueType, Title})`. Returns (value, true) on match, (0, false) on no match
   - `NumericEvaluator{}` — returns (*item.Effort, true) if non-nil and >= 0. Returns (0, false) if nil. Warns and returns (0, false) if negative
   - Factory: `NewEffortEvaluator(cfg EffortConfig) (EffortEvaluator, error)` — parses matchers, validates
-- [ ] Table-driven tests for each evaluator:
+- [x] Table-driven tests for each evaluator:
   - Count: always returns 1
   - Attribute: first-match wins, no match → not assessed, `value: 0` is valid
   - Numeric: nil → not assessed, 0 → valid, negative → not assessed + warn
