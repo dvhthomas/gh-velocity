@@ -102,12 +102,13 @@ func newConfigShowCmd() *cobra.Command {
 }
 
 func newConfigValidateCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:     "validate",
-		Short:   "Validate configuration and report errors",
-		Example: `  gh velocity config validate`,
+	cmd := &cobra.Command{
+		Use:   "validate",
+		Short: "Validate configuration and report errors",
+		Example: `  gh velocity config validate
+  gh velocity config validate --velocity`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := config.Load(config.DefaultConfigFile)
+			cfg, err := config.Load(config.DefaultConfigFile)
 			if err != nil {
 				return emitConfigError(cmd, err)
 			}
@@ -121,9 +122,18 @@ func newConfigValidateCmd() *cobra.Command {
 			} else {
 				fmt.Fprintln(cmd.OutOrStdout(), "config: valid")
 			}
+
+			// Run velocity-specific live validation if --velocity flag is set.
+			if _, err := runVelocityValidation(cmd, cfg); err != nil {
+				return err
+			}
+
 			return nil
 		},
 	}
+
+	addVelocityValidateFlag(cmd)
+	return cmd
 }
 
 const defaultConfigTemplate = `# gh-velocity configuration

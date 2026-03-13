@@ -392,8 +392,8 @@ Live validation that runs effort matchers against real issues.
 
 **Tasks:**
 
-- [ ] Add `--velocity` flag to `newConfigValidateCmd()` in `cmd/config.go`
-- [ ] When `--velocity` is set:
+- [x] Add `--velocity` flag to `newConfigValidateCmd()` in `cmd/config.go`
+- [x] When `--velocity` is set:
   1. Load config, verify velocity section exists
   2. Build GitHub client
   3. Fetch recent closed issues / merged PRs (last 90 days via search API, respecting scope)
@@ -412,7 +412,7 @@ Live validation that runs effort matchers against real issues.
      - Check if any items have iteration assigned
   7. Pretty output showing match counts, overlaps, gaps, distribution (as in brainstorm mockup)
   8. Respect `--verbose` for full unmatched item list
-- [ ] Tests for validation logic (unit tests with fake data, no live API)
+- [x] Tests for validation logic (unit tests with fake data, no live API)
 
 **Files:**
 - `cmd/config.go` (modify)
