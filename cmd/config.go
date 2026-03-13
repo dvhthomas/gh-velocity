@@ -74,6 +74,25 @@ func newConfigShowCmd() *cobra.Command {
 			}
 			fmt.Fprintf(w, "discussions.category:        %s\n", cfg.Discussions.Category)
 			fmt.Fprintf(w, "cycle_time.strategy:         %s\n", cfg.CycleTime.Strategy)
+			fmt.Fprintf(w, "velocity.unit:               %s\n", cfg.Velocity.Unit)
+			fmt.Fprintf(w, "velocity.effort.strategy:    %s\n", cfg.Velocity.Effort.Strategy)
+			if cfg.Velocity.Effort.Strategy == "attribute" {
+				for i, m := range cfg.Velocity.Effort.Attribute {
+					fmt.Fprintf(w, "  attribute[%d]: %s → %.0f\n", i, m.Query, m.Value)
+				}
+			}
+			if cfg.Velocity.Effort.Strategy == "numeric" {
+				fmt.Fprintf(w, "  numeric.project_field:     %s\n", cfg.Velocity.Effort.Numeric.ProjectField)
+			}
+			fmt.Fprintf(w, "velocity.iteration.strategy: %s\n", cfg.Velocity.Iteration.Strategy)
+			if cfg.Velocity.Iteration.Strategy == "project-field" {
+				fmt.Fprintf(w, "  project_field:             %s\n", cfg.Velocity.Iteration.ProjectField)
+			}
+			if cfg.Velocity.Iteration.Strategy == "fixed" {
+				fmt.Fprintf(w, "  fixed.length:              %s\n", cfg.Velocity.Iteration.Fixed.Length)
+				fmt.Fprintf(w, "  fixed.anchor:              %s\n", cfg.Velocity.Iteration.Fixed.Anchor)
+			}
+			fmt.Fprintf(w, "velocity.iteration.count:    %d\n", cfg.Velocity.Iteration.Count)
 			if len(cfg.ExcludeUsers) > 0 {
 				fmt.Fprintf(w, "exclude_users:               %v\n", cfg.ExcludeUsers)
 			}
@@ -161,6 +180,34 @@ commit_ref:
 # exclude_users:
 #   - "dependabot[bot]"
 #   - "renovate[bot]"
+
+# Velocity: effort completed per iteration (sprint velocity).
+# velocity:
+#   unit: issues                    # "issues" (default) or "prs"
+#   effort:
+#     strategy: count               # "count" (default), "attribute", or "numeric"
+#     # attribute strategy — map labels/types to effort values (first match wins):
+#     # attribute:
+#     #   - query: "label:size/XS"
+#     #     value: 1
+#     #   - query: "label:size/S"
+#     #     value: 2
+#     #   - query: "label:size/M"
+#     #     value: 3
+#     #   - query: "label:size/L"
+#     #     value: 5
+#     #   - query: "label:size/XL"
+#     #     value: 8
+#     # numeric strategy — read effort from a project board Number field:
+#     # numeric:
+#     #   project_field: "Story Points"
+#   iteration:
+#     strategy: fixed               # "project-field" or "fixed"
+#     # project_field: "Sprint"     # name of ProjectV2 Iteration field
+#     fixed:
+#       length: "14d"               # iteration length (e.g., "14d", "1w")
+#       anchor: "2026-01-06"        # start date of any iteration
+#     count: 6                      # number of past iterations to show
 
 # Post results to GitHub (--post flag).
 # CI/Actions: requires 'issues: write' for issue/PR comments,

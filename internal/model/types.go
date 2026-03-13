@@ -51,15 +51,16 @@ func NewMetric(start, end *Event) Metric {
 
 // Issue represents a GitHub issue with the fields needed for metrics.
 type Issue struct {
-	Number    int
-	Title     string
-	State     string // "open" or "closed"
-	Labels    []string
-	IssueType string // GitHub Issue Type (from GraphQL); empty for REST-sourced issues
-	CreatedAt time.Time
-	ClosedAt  *time.Time
-	UpdatedAt time.Time // last activity timestamp from GitHub
-	URL       string
+	Number      int
+	Title       string
+	State       string // "open" or "closed"
+	StateReason string // "completed", "not_planned", or "" (for open issues)
+	Labels      []string
+	IssueType   string // GitHub Issue Type (from GraphQL); empty for REST-sourced issues
+	CreatedAt   time.Time
+	ClosedAt    *time.Time
+	UpdatedAt   time.Time // last activity timestamp from GitHub
+	URL         string
 }
 
 // Commit represents a git commit.
@@ -270,4 +271,65 @@ type StatsQuality struct {
 	BugCount    int
 	TotalIssues int
 	DefectRate  float64
+}
+
+// VelocityResult holds the output of the velocity pipeline.
+type VelocityResult struct {
+	Repository    string
+	Unit          string  // "issues" or "prs"
+	EffortUnit    string  // "pts", "items", etc.
+	Current       *IterationVelocity
+	History       []IterationVelocity
+	AvgVelocity   float64
+	AvgCompletion float64
+	StdDev        float64
+}
+
+// IterationVelocity holds velocity metrics for a single iteration.
+type IterationVelocity struct {
+	Name             string
+	Start            time.Time
+	End              time.Time
+	Velocity         float64 // effort completed
+	Committed        float64 // effort committed
+	CompletionPct    float64 // velocity/committed * 100
+	ItemsDone        int
+	ItemsTotal       int
+	CarryOver        int
+	NotAssessed      int
+	NotAssessedItems []int   // issue/PR numbers
+	Trend            string  // "▲", "▼", "─"
+}
+
+// Iteration represents a project iteration (sprint) period.
+type Iteration struct {
+	ID        string
+	Title     string
+	StartDate time.Time
+	Duration  int       // days
+	EndDate   time.Time // computed: StartDate + Duration days
+}
+
+// VelocityItem represents a work item with iteration and effort data
+// from a project board, used by the velocity pipeline.
+type VelocityItem struct {
+	ContentType string     // "Issue" or "PullRequest"
+	Number      int
+	Title       string
+	Repo        string     // "owner/repo"
+	State       string
+	StateReason string     // "completed", "not_planned", ""
+	ClosedAt    *time.Time
+	MergedAt    *time.Time
+	CreatedAt   time.Time
+	Labels      []string
+	IssueType   string
+	IterationID string
+	Effort      *float64   // from Number field, nil if unset
+}
+
+// IterationFieldConfig holds the configuration of a ProjectV2 Iteration field.
+type IterationFieldConfig struct {
+	Iterations          []Iteration
+	CompletedIterations []Iteration
 }

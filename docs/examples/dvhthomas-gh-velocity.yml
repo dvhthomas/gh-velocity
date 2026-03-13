@@ -47,6 +47,16 @@ lifecycle:
     project_status: ["Done"]
   # unmapped: "Ready"
 
+# Velocity: effort per iteration
+# velocity:
+#   unit: issues
+#   effort:
+#     strategy: count
+#   iteration:
+#     strategy: project-field
+#     project_field: "Sprint"
+#     count: 6
+
 # Exclude bot accounts from metrics.
 # These are filtered via -author: qualifiers in search queries.
 # exclude_users:
