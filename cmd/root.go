@@ -15,6 +15,7 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/config"
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	"github.com/bitsbyme/gh-velocity/internal/gitdata"
+	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/bitsbyme/gh-velocity/internal/scope"
@@ -59,6 +60,15 @@ func nowFunc() func() time.Time {
 		}
 	}
 	return func() time.Time { return time.Now().UTC() }
+}
+
+// NewClient creates a GitHub API client with the configured API throttle applied.
+func (d *Deps) NewClient() (*gh.Client, error) {
+	var delay time.Duration
+	if d.Config != nil {
+		delay = d.Config.APIThrottleDuration()
+	}
+	return gh.NewClient(d.Owner, d.Repo, delay)
 }
 
 // RenderCtx builds a format.RenderContext from Deps and a writer.

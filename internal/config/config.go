@@ -23,6 +23,7 @@ const (
 	DefaultHotfixWindowHours = 72
 	MaxConfigFileSize        = 64 * 1024 // 64 KB
 	MaxHotfixWindowHours     = 8760      // 1 year in hours
+	DefaultAPIThrottleSeconds = 2
 )
 
 // WarnFunc is called for non-fatal warnings (e.g., unknown config keys).
@@ -43,6 +44,11 @@ type Config struct {
 	CycleTime    CycleTimeConfig   `yaml:"cycle_time" json:"cycle_time"`
 	Velocity     VelocityConfig    `yaml:"velocity" json:"velocity"`
 	ExcludeUsers []string          `yaml:"exclude_users" json:"exclude_users"`
+	// APIThrottleSeconds is the minimum delay in seconds between GitHub search
+	// API calls. Prevents triggering GitHub's secondary (abuse) rate limits
+	// which have undocumented thresholds and multi-minute lockouts. Default: 2.
+	// Set to 0 to disable throttling (not recommended).
+	APIThrottleSeconds *int `yaml:"api_throttle_seconds" json:"api_throttle_seconds"`
 }
 
 // VelocityConfig controls how velocity (effort per iteration) is measured.
@@ -75,7 +81,7 @@ type IterationConfig struct {
 	Strategy     string              `yaml:"strategy" json:"strategy"` // "project-field" or "fixed"
 	ProjectField string              `yaml:"project_field" json:"project_field"`
 	Fixed        FixedIterationConfig `yaml:"fixed" json:"fixed"`
-	Count        int                 `yaml:"count" json:"count"` // default 6
+	Count        int                 `yaml:"count" json:"count"` // default 3; higher values increase API consumption
 }
 
 // FixedIterationConfig defines calendar-based iteration boundaries.
@@ -233,6 +239,7 @@ var knownTopLevelKeys = map[string]bool{
 	"cycle_time":    true,
 	"exclude_users": true,
 	"velocity":      true,
+	"api_throttle_seconds": true,
 }
 
 // warnUnknownKeysFromMap warns about any top-level keys in the parsed map
@@ -349,6 +356,16 @@ func validate(cfg *Config) error {
 	}
 
 	return nil
+}
+
+// APIThrottleDuration returns the configured delay between search API calls.
+// Returns 0 (no throttle) if not set. The preflight command recommends
+// api_throttle_seconds: 2 when generating a config.
+func (c *Config) APIThrottleDuration() time.Duration {
+	if c.APIThrottleSeconds != nil {
+		return time.Duration(*c.APIThrottleSeconds) * time.Second
+	}
+	return 0
 }
 
 // durationPattern matches duration strings like "14d", "7d", "1w".

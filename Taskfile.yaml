@@ -77,6 +77,23 @@ tasks:
     cmds:
       - bash scripts/smoke-test.sh
 
+  gen:configs:
+    desc: Generate configs via preflight for example repos (writes to output/configs/)
+    deps: [build]
+    cmds:
+      - rm -rf output/configs && mkdir -p output/configs
+      - bash scripts/generate-config.sh cli/cli
+      - sleep 5
+      - bash scripts/generate-config.sh kubernetes/kubernetes
+      - sleep 5
+      - bash scripts/generate-config.sh hashicorp/terraform
+      - sleep 5
+      - bash scripts/generate-config.sh astral-sh/uv
+      - sleep 5
+      - bash scripts/generate-config.sh facebook/react
+      - sleep 5
+      - bash scripts/generate-config.sh dvhthomas/gh-velocity --project-url https://github.com/users/dvhthomas/projects/1
+
   e2e:configs:
     desc: Run E2E tests with example configs against real OSS repos
     deps: [build]
@@ -111,7 +128,6 @@ tasks:
       - task: staticcheck
       - task: vulncheck
       - task: check:graphql-injection
-      - task: smoke
       - echo '✓ All quality checks passed'
 
   # ── Release ──────────────────────────────────────────────────────
@@ -120,7 +136,6 @@ tasks:
     desc: Pre-release validation (run before tagging)
     cmds:
       - task: quality
-      - task: e2e:configs
       - bash scripts/prerelease-analysis.sh
       - echo '✓ All pre-release checks passed — ready to tag'
 

@@ -7,7 +7,6 @@ import (
 
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
 	"github.com/bitsbyme/gh-velocity/internal/format"
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
@@ -63,7 +62,7 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 		return &model.AppError{Code: model.ErrConfigInvalid, Message: err.Error()}
 	}
 
-	client, err := gh.NewClient(deps.Owner, deps.Repo)
+	client, err := deps.NewClient()
 	if err != nil {
 		return err
 	}
@@ -95,7 +94,7 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 	var releases []model.Release
 
 	g, gCtx := errgroup.WithContext(ctx)
-	g.SetLimit(8)
+	g.SetLimit(3) // Limit concurrency to avoid GitHub secondary rate limits on search API.
 
 	// Lookback: what happened in the --since period.
 	g.Go(func() error {

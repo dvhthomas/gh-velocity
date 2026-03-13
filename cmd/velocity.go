@@ -6,7 +6,6 @@ import (
 
 	"github.com/bitsbyme/gh-velocity/internal/config"
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/bitsbyme/gh-velocity/internal/pipeline/velocity"
@@ -77,7 +76,7 @@ Run 'gh velocity config preflight' to get suggested configuration.`,
 				}
 			}
 
-			client, err := gh.NewClient(deps.Owner, deps.Repo)
+			client, err := deps.NewClient()
 			if err != nil {
 				return err
 			}
@@ -159,7 +158,7 @@ func buildVelocityProvenance(cmd *cobra.Command, deps *Deps, cfg config.Velocity
 	seen := map[string]bool{}
 	var parts []string
 	parts = append(parts, "gh velocity flow velocity")
-	parts = append(parts, fmt.Sprintf("--repo %s/%s", deps.Owner, deps.Repo))
+	// --repo is context, not a filter — capture it in config, not the command.
 	seen["repo"] = true
 	addFlag := func(f *pflag.Flag) {
 		if seen[f.Name] {
@@ -178,6 +177,7 @@ func buildVelocityProvenance(cmd *cobra.Command, deps *Deps, cfg config.Velocity
 
 	// Capture config values that affect interpretation.
 	cfgMap := map[string]string{
+		"run_in":             deps.Owner + "/" + deps.Repo,
 		"unit":               cfg.Unit,
 		"effort_strategy":    cfg.Effort.Strategy,
 		"iteration_strategy": cfg.Iteration.Strategy,

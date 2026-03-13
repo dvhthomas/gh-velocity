@@ -40,7 +40,7 @@ func runVelocityValidation(cmd *cobra.Command, cfg *config.Config) (bool, error)
 		return true, err
 	}
 
-	client, err := gh.NewClient(owner, repo)
+	client, err := gh.NewClient(owner, repo, 0)
 	if err != nil {
 		return true, err
 	}

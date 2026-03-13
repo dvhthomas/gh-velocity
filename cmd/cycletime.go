@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
@@ -116,7 +115,7 @@ func runCycleTimePR(cmd *cobra.Command, prNumber int) error {
 		}
 	}
 
-	client, err := gh.NewClient(deps.Owner, deps.Repo)
+	client, err := deps.NewClient()
 	if err != nil {
 		return err
 	}
@@ -163,7 +162,7 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 		}
 	}
 
-	client, err := gh.NewClient(deps.Owner, deps.Repo)
+	client, err := deps.NewClient()
 	if err != nil {
 		return err
 	}
@@ -232,7 +231,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		return &model.AppError{Code: model.ErrConfigInvalid, Message: err.Error()}
 	}
 
-	client, err := gh.NewClient(deps.Owner, deps.Repo)
+	client, err := deps.NewClient()
 	if err != nil {
 		return err
 	}

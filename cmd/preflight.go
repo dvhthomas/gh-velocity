@@ -21,7 +21,7 @@ import (
 
 func newConfigPreflightCmd() *cobra.Command {
 	var (
-		writeFlag      bool
+		writeFlag      string
 		projectURLFlag string
 		projectFlag    int // deprecated
 	)
@@ -51,6 +51,9 @@ each choice. Use --write to save it directly.`,
   # Write config directly to .gh-velocity.yml
   gh velocity config preflight --write --project-url https://github.com/users/me/projects/3
 
+  # Write config to a custom path
+  gh velocity config preflight -R cli/cli --write=output/configs/cli-cli.yml
+
   # JSON output for tooling
   gh velocity config preflight -R owner/repo -f json`,
 		Args: cobra.NoArgs,
@@ -68,7 +71,7 @@ each choice. Use --write to save it directly.`,
 				log.Notice("Using repo %s/%s from git remote (use --repo to override)", owner, repo)
 			}
 
-			client, err := gh.NewClient(owner, repo)
+			client, err := gh.NewClient(owner, repo, 0)
 			if err != nil {
 				return err
 			}
@@ -121,8 +124,8 @@ each choice. Use --write to save it directly.`,
 				return fmt.Errorf("preflight generated invalid config (please report this): %w", parseErr)
 			}
 
-			if writeFlag {
-				path := ".gh-velocity.yml"
+			if writeFlag != "" {
+				path := writeFlag
 				if _, statErr := os.Stat(path); statErr == nil {
 					return &model.AppError{
 						Code:    model.ErrConfigInvalid,
@@ -147,7 +150,8 @@ each choice. Use --write to save it directly.`,
 		},
 	}
 
-	cmd.Flags().BoolVar(&writeFlag, "write", false, "Write the recommended config to .gh-velocity.yml")
+	cmd.Flags().StringVar(&writeFlag, "write", "", "Write config to path (default: .gh-velocity.yml)")
+	cmd.Flag("write").NoOptDefVal = ".gh-velocity.yml"
 	cmd.Flags().StringVar(&projectURLFlag, "project-url", "", "Project board URL (e.g., https://github.com/orgs/myorg/projects/1)")
 	cmd.Flags().IntVar(&projectFlag, "project", 0, "Project board number (deprecated: use --project-url)")
 	_ = cmd.Flags().MarkDeprecated("project", "use --project-url instead")
@@ -339,7 +343,7 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 	var repoTypes, projectTypes []string
 
 	g, gCtx := errgroup.WithContext(ctx)
-	g.SetLimit(5)
+	g.SetLimit(3) // Limit concurrency to avoid GitHub secondary rate limits.
 
 	// Path 1: Repo-level issue types (always runs — -R is always resolved)
 	g.Go(func() error {
@@ -1020,6 +1024,13 @@ func renderPreflightConfig(r *PreflightResult) string {
 	b.WriteString("  - \"dependabot[bot]\"\n")
 	b.WriteString("\n")
 
+	// API throttle — prevents GitHub secondary rate limits.
+	b.WriteString("# Minimum seconds between GitHub search API calls.\n")
+	b.WriteString("# Prevents secondary (abuse) rate limits which trigger on burst traffic.\n")
+	b.WriteString("# Set to 0 to disable (not recommended for CI).\n")
+	b.WriteString(fmt.Sprintf("api_throttle_seconds: %d\n", config.DefaultAPIThrottleSeconds))
+	b.WriteString("\n")
+
 	// Project board config (if detected)
 	if r.HasProject && r.ProjectURL != "" {
 		b.WriteString("# Projects v2 board (auto-detected)\n")
@@ -1090,7 +1101,7 @@ func renderVelocityConfig(b *strings.Builder, r *PreflightResult) {
 		b.WriteString("#     fixed:\n")
 		b.WriteString("#       length: \"14d\"\n")
 		b.WriteString("#       anchor: \"2026-01-06\"\n")
-		b.WriteString("#     count: 6\n")
+		b.WriteString("#     count: 3\n")
 		b.WriteString("\n")
 		return
 	}
@@ -1132,7 +1143,7 @@ func renderVelocityConfig(b *strings.Builder, r *PreflightResult) {
 		b.WriteString(fmt.Sprintf("      anchor: %q\n", anchor.Format("2006-01-02")))
 	}
 
-	b.WriteString("    count: 6\n")
+	b.WriteString("    count: 3\n")
 	b.WriteString("\n")
 }
 

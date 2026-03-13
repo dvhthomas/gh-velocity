@@ -55,7 +55,7 @@ linking strategy discovered for the release.`,
 				}
 			}
 
-			client, err := gh.NewClient(deps.Owner, deps.Repo)
+			client, err := deps.NewClient()
 			if err != nil {
 				return err
 			}

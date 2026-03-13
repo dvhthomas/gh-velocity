@@ -191,6 +191,11 @@ commit_ref:
 #   - "dependabot[bot]"
 #   - "renovate[bot]"
 
+# Minimum seconds between GitHub search API calls.
+# Prevents secondary (abuse) rate limits which trigger on burst traffic.
+# Set to 0 to disable (not recommended for CI).
+# api_throttle_seconds: 2
+
 # Velocity: effort completed per iteration (sprint velocity).
 # velocity:
 #   unit: issues                    # "issues" (default) or "prs"
@@ -281,7 +286,7 @@ needed for .gh-velocity.yml configuration.`,
 				log.Notice("Using repo %s/%s from git remote (use --repo to override)", owner, repo)
 			}
 
-			client, err := gh.NewClient(owner, repo)
+			client, err := gh.NewClient(owner, repo, 0)
 			if err != nil {
 				return err
 			}

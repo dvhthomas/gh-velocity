@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -235,7 +236,26 @@ func buildVelocityItemsQuery(iterFieldName, numFieldName string) string {
 
 // ListProjectItemsWithFields returns project items with iteration and number field values.
 // Pass empty string for either field name to skip that field.
+// Results are cached per-process: identical (projectID, fields) return cached results.
 func (c *Client) ListProjectItemsWithFields(ctx context.Context, projectID, iterFieldName, numFieldName string) ([]model.VelocityItem, error) {
+	key := CacheKey("project-items", projectID, iterFieldName, numFieldName)
+	hit := true
+	v, err := c.cache.Do(key, func() (any, error) {
+		hit = false
+		return c.listProjectItemsWithFieldsUncached(ctx, projectID, iterFieldName, numFieldName)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if hit {
+		log.Debug("cache hit: project-items key=%s", key[:8])
+	} else {
+		log.Debug("cache miss: project-items key=%s (%d items)", key[:8], len(v.([]model.VelocityItem)))
+	}
+	return v.([]model.VelocityItem), nil
+}
+
+func (c *Client) listProjectItemsWithFieldsUncached(ctx context.Context, projectID, iterFieldName, numFieldName string) ([]model.VelocityItem, error) {
 	query := buildVelocityItemsQuery(iterFieldName, numFieldName)
 
 	var allItems []model.VelocityItem

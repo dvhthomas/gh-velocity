@@ -36,7 +36,7 @@ type jsonOutput struct {
 	EffortDetail jsonEffort       `json:"effort"`
 	Current      *jsonIteration   `json:"current,omitempty"`
 	History      []jsonIteration  `json:"history,omitempty"`
-	Summary      jsonSummary      `json:"summary"`
+	Summary      *jsonSummary     `json:"summary,omitempty"`
 }
 
 
@@ -62,6 +62,8 @@ type jsonIteration struct {
 	ItemsTotal    int     `json:"items_total"`
 	NotAssessed   int     `json:"not_assessed"`
 	Trend         string  `json:"trend"`
+	DayOfCycle    int     `json:"day_of_cycle,omitempty"`
+	TotalDays     int     `json:"total_days,omitempty"`
 }
 
 type jsonSummary struct {
@@ -82,6 +84,8 @@ func toJSONIteration(iv model.IterationVelocity) jsonIteration {
 		ItemsTotal:    iv.ItemsTotal,
 		NotAssessed:   iv.NotAssessed,
 		Trend:         iv.Trend,
+		DayOfCycle:    iv.DayOfCycle,
+		TotalDays:     iv.TotalDays,
 	}
 }
 
@@ -98,11 +102,13 @@ func WriteJSON(w io.Writer, r model.VelocityResult) error {
 		Unit:         r.Unit,
 		EffortUnit:   r.EffortUnit,
 		EffortDetail: je,
-		Summary: jsonSummary{
+	}
+	if len(r.History) > 0 {
+		out.Summary = &jsonSummary{
 			AvgVelocity:   r.AvgVelocity,
 			AvgCompletion: r.AvgCompletion,
 			StdDev:        r.StdDev,
-		},
+		}
 	}
 	if r.Current != nil {
 		ji := toJSONIteration(*r.Current)
@@ -130,6 +136,9 @@ func WritePretty(w io.Writer, r model.VelocityResult, verbose bool) error {
 		c := r.Current
 		fmt.Fprintf(w, "  Current: %s (%s – %s)\n",
 			c.Name, c.Start.Format(time.DateOnly), c.End.Format(time.DateOnly))
+		if c.TotalDays > 0 {
+			fmt.Fprintf(w, "    Progress:       day %d of %d\n", c.DayOfCycle, c.TotalDays)
+		}
 		fmt.Fprintf(w, "    Velocity:       %.1f %s\n", c.Velocity, r.EffortUnit)
 		fmt.Fprintf(w, "    Committed:      %.1f %s\n", c.Committed, r.EffortUnit)
 		fmt.Fprintf(w, "    Completion:     %.0f%%\n", c.CompletionPct)

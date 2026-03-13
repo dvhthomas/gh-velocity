@@ -1,9 +1,11 @@
 ## Velocity: {{ .Repository }} ({{ .Unit }})
 {{ if .Insights }}
-{{ range .Insights }}> {{ . }}
+{{ range .Insights }}- {{ . }}
 {{ end }}{{ end }}{{ if .Current }}
 ### Current: {{ .Current.Name }} ({{ date .Current.Start }} – {{ date .Current.End }})
-
+{{ if gt .Current.TotalDays 0 }}
+Day {{ .Current.DayOfCycle }} of {{ .Current.TotalDays }}
+{{ end }}
 | Metric | Value |
 |--------|-------|
 | Velocity | {{ printf "%.1f" .Current.Velocity }} {{ .EffortUnit }} |

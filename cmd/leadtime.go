@@ -4,7 +4,6 @@ import (
 	"strconv"
 
 	"github.com/bitsbyme/gh-velocity/internal/dateutil"
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/bitsbyme/gh-velocity/internal/pipeline/leadtime"
@@ -79,7 +78,7 @@ func runLeadTimeSingle(cmd *cobra.Command, arg string) error {
 		}
 	}
 
-	client, err := gh.NewClient(deps.Owner, deps.Repo)
+	client, err := deps.NewClient()
 	if err != nil {
 		return err
 	}
@@ -140,7 +139,7 @@ func runLeadTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		return &model.AppError{Code: model.ErrConfigInvalid, Message: err.Error()}
 	}
 
-	client, err := gh.NewClient(deps.Owner, deps.Repo)
+	client, err := deps.NewClient()
 	if err != nil {
 		return err
 	}

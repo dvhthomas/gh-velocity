@@ -328,6 +328,8 @@ type IterationVelocity struct {
 	NotAssessed      int
 	NotAssessedItems []int   // issue/PR numbers
 	Trend            string  // "▲", "▼", "─"
+	DayOfCycle       int     // days elapsed since iteration start (0 if not current)
+	TotalDays        int     // total iteration length in days (0 if not current)
 }
 
 // Iteration represents a project iteration (sprint) period.

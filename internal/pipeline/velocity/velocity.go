@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"strings"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/config"
@@ -106,13 +105,8 @@ func (p *Pipeline) gatherFromBoard(ctx context.Context) error {
 		return fmt.Errorf("velocity: %w", err)
 	}
 
-	// Filter to target repo.
-	targetRepo := strings.ToLower(p.Owner + "/" + p.Repo)
-	for _, item := range items {
-		if strings.ToLower(item.Repo) == targetRepo {
-			p.items = append(p.items, item)
-		}
-	}
+	// Board is the scope — include all items, don't filter by repo.
+	p.items = items
 
 	return nil
 }
@@ -125,21 +119,24 @@ func (p *Pipeline) gatherFromSearch(ctx context.Context) error {
 	}
 	p.periods = fp
 
-	// Get all iterations we need (current + history).
-	count := p.IterationCount
-	current, err := fp.Current()
-	if err != nil {
-		return fmt.Errorf("velocity: %w", err)
-	}
-	history, err := fp.Iterations(count)
-	if err != nil {
-		return fmt.Errorf("velocity: %w", err)
+	// Only fetch iterations we actually need based on flags.
+	var allIters []model.Iteration
+
+	if !p.ShowHistory {
+		current, err := fp.Current()
+		if err != nil {
+			return fmt.Errorf("velocity: %w", err)
+		}
+		allIters = append(allIters, *current)
 	}
 
-	// Collect all iteration windows and fetch items for each.
-	allIters := make([]model.Iteration, 0, 1+len(history))
-	allIters = append(allIters, *current)
-	allIters = append(allIters, history...)
+	if !p.ShowCurrent {
+		history, err := fp.Iterations(p.IterationCount)
+		if err != nil {
+			return fmt.Errorf("velocity: %w", err)
+		}
+		allIters = append(allIters, history...)
+	}
 
 	for _, iter := range allIters {
 		items, err := p.fetchItemsForPeriod(ctx, iter.StartDate, iter.EndDate)
@@ -279,6 +276,17 @@ func (p *Pipeline) ProcessData() error {
 
 	if current != nil {
 		iv := p.computeIteration(*current, nil)
+		// Compute cycle position for current iteration.
+		totalDays := int(current.EndDate.Sub(current.StartDate).Hours() / 24)
+		dayOfCycle := int(p.Now.Sub(current.StartDate).Hours()/24) + 1 // 1-indexed: day 1 = first day
+		if dayOfCycle < 1 {
+			dayOfCycle = 1
+		}
+		if dayOfCycle > totalDays {
+			dayOfCycle = totalDays
+		}
+		iv.DayOfCycle = dayOfCycle
+		iv.TotalDays = totalDays
 		p.Result.Current = &iv
 	}
 

@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/bitsbyme/gh-velocity/internal/pipeline"
 	"github.com/bitsbyme/gh-velocity/internal/pipeline/reviews"
@@ -45,7 +44,7 @@ func runReviews(cmd *cobra.Command) error {
 		}
 	}
 
-	client, err := gh.NewClient(deps.Owner, deps.Repo)
+	client, err := deps.NewClient()
 	if err != nil {
 		return err
 	}
