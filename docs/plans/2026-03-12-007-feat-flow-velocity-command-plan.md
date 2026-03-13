@@ -162,19 +162,19 @@ Extend the GitHub client to fetch iteration field configuration and item-level i
 
 **Tasks:**
 
-- [ ] Add `ListIterationField(ctx, projectID, fieldName) (*IterationFieldConfig, error)` to `internal/github/`
+- [x] Add `ListIterationField(ctx, projectID, fieldName) (*IterationFieldConfig, error)` to `internal/github/`
   - Query `ProjectV2IterationField.configuration` for `iterations` + `completedIterations`
   - Returns `IterationFieldConfig{Iterations []Iteration, CompletedIterations []Iteration, DefaultDuration int}`
   - Each `Iteration{ID, Title, StartDate, Duration}` — end date computed
   - GraphQL variables only (per AGENTS.md)
-- [ ] Add `ResolveIterationField(ctx, projectURL, fieldName) (projectID, fieldID string, err error)` or extend `ResolveProject`
+- [x] Add `ResolveIterationField(ctx, projectURL, fieldName) (projectID, fieldID string, err error)` or extend `ResolveProject`
   - Similar to how status field is resolved, but for iteration fields
   - Must handle type mismatch (field exists but is not an iteration field)
-- [ ] Extend `ListProjectItems` or add `ListProjectItemsWithFields(ctx, projectID, iterationFieldName, numberFieldName)` to return iteration assignment and number field value per item
+- [x] Extend `ListProjectItems` or add `ListProjectItemsWithFields(ctx, projectID, iterationFieldName, numberFieldName)` to return iteration assignment and number field value per item
   - GraphQL fragment uses `fieldValueByName(name: "Sprint")` for iteration and `fieldValueByName(name: "Story Points")` for number
   - Returns extended `ProjectItem` or new `VelocityItem` with `IterationID`, `IterationTitle`, `EffortValue *float64`
   - Filter to items matching target repo (`deps.Owner/deps.Repo`)
-- [ ] Add model types for iteration data
+- [x] Add model types for iteration data
   ```go
   // internal/model/types.go
   type Iteration struct {
@@ -200,7 +200,7 @@ Extend the GitHub client to fetch iteration field configuration and item-level i
       Effort      *float64 // from Number field, nil if unset
   }
   ```
-- [ ] Table-driven tests with mock GraphQL responses
+- [x] Table-driven tests with mock GraphQL responses
 
 **Files:**
 - `internal/github/iteration.go` (new)

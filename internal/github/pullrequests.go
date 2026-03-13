@@ -13,13 +13,14 @@ import (
 
 // searchIssueResponse represents a single item from the GitHub search API.
 type searchIssueResponse struct {
-	Number    int        `json:"number"`
-	Title     string     `json:"title"`
-	State     string     `json:"state"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	ClosedAt  *time.Time `json:"closed_at"`
-	HTMLURL   string     `json:"html_url"`
+	Number      int        `json:"number"`
+	Title       string     `json:"title"`
+	State       string     `json:"state"`
+	StateReason string     `json:"state_reason"` // "completed", "not_planned", or null
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ClosedAt    *time.Time `json:"closed_at"`
+	HTMLURL     string     `json:"html_url"`
 	User      *struct {
 		Login string `json:"login"`
 	} `json:"user"`

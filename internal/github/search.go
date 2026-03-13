@@ -18,14 +18,15 @@ func searchItemToIssue(item searchIssueResponse) model.Issue {
 		labels[i] = l.Name
 	}
 	issue := model.Issue{
-		Number:    item.Number,
-		Title:     item.Title,
-		State:     item.State,
-		Labels:    labels,
-		CreatedAt: item.CreatedAt.UTC(),
-		UpdatedAt: item.UpdatedAt.UTC(),
-		ClosedAt:  item.ClosedAt,
-		URL:       item.HTMLURL,
+		Number:      item.Number,
+		Title:       item.Title,
+		State:       item.State,
+		StateReason: item.StateReason,
+		Labels:      labels,
+		CreatedAt:   item.CreatedAt.UTC(),
+		UpdatedAt:   item.UpdatedAt.UTC(),
+		ClosedAt:    item.ClosedAt,
+		URL:         item.HTMLURL,
 	}
 	if issue.ClosedAt != nil {
 		utc := issue.ClosedAt.UTC()
