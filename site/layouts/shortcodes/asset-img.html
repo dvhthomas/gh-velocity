@@ -5,7 +5,11 @@
 {{- $img := resources.Get $src -}}
 {{- if $img -}}
   {{- $fp := $img | fingerprint -}}
-  <img src="{{ $fp.RelPermalink }}" alt="{{ $alt }}"{{ with $style }} style="{{ . }}"{{ end }} />
+  {{- if $style -}}
+    <img src="{{ $fp.RelPermalink }}" alt="{{ $alt }}" style="{{ $style | safeCSS }}" />
+  {{- else -}}
+    <img src="{{ $fp.RelPermalink }}" alt="{{ $alt }}" />
+  {{- end -}}
 {{- else -}}
   <!-- asset not found: {{ $src }} -->
 {{- end -}}
