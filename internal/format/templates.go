@@ -125,6 +125,7 @@ type reportTemplateData struct {
 	LeadTime   string
 	CycleTime  string
 	Throughput string
+	Velocity   string
 	WIP        string
 	Quality    string
 	Warnings   []string
@@ -145,6 +146,9 @@ func renderReportMarkdown(w io.Writer, r model.StatsResult) error {
 	if r.Throughput != nil {
 		data.Throughput = fmt.Sprintf("%d issues closed, %d PRs merged",
 			r.Throughput.IssuesClosed, r.Throughput.PRsMerged)
+	}
+	if r.Velocity != nil {
+		data.Velocity = FormatVelocitySummary(*r.Velocity)
 	}
 	if r.WIPCount != nil {
 		data.WIP = fmt.Sprintf("%d items in progress", *r.WIPCount)

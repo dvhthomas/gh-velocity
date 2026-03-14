@@ -102,6 +102,144 @@ func TestWriteReportPretty_CycleTimeNA_PRStrategy(t *testing.T) {
 	}
 }
 
+func TestWriteReportPretty_WithVelocity(t *testing.T) {
+	var buf bytes.Buffer
+	rc := RenderContext{Writer: &buf, Format: Pretty}
+	r := model.StatsResult{
+		Repository: "owner/repo",
+		Since:      time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+		Until:      time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC),
+		Velocity: &model.VelocityResult{
+			AvgVelocity:   28.7,
+			AvgCompletion: 80.7,
+			EffortUnit:    "pts",
+			History: []model.IterationVelocity{
+				{Name: "Sprint 10"},
+				{Name: "Sprint 11"},
+			},
+		},
+	}
+	if err := WriteReportPretty(rc, r); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Velocity") {
+		t.Error("expected Velocity label in output")
+	}
+	if !strings.Contains(out, "28.7 pts/sprint") {
+		t.Errorf("expected velocity summary, got: %s", out)
+	}
+	if !strings.Contains(out, "n=2") {
+		t.Error("expected iteration count n=2")
+	}
+}
+
+func TestWriteReportPretty_NoVelocityConfig(t *testing.T) {
+	var buf bytes.Buffer
+	rc := RenderContext{Writer: &buf, Format: Pretty}
+	r := model.StatsResult{
+		Repository: "owner/repo",
+		Since:      time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+		Until:      time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC),
+	}
+	if err := WriteReportPretty(rc, r); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "Velocity") {
+		t.Error("velocity should not appear when not configured")
+	}
+}
+
+func TestWriteReportJSON_WithVelocity(t *testing.T) {
+	var buf bytes.Buffer
+	r := model.StatsResult{
+		Repository: "owner/repo",
+		Since:      time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+		Until:      time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC),
+		Velocity: &model.VelocityResult{
+			AvgVelocity:   31.0,
+			AvgCompletion: 85.5,
+			StdDev:        6.2,
+			EffortUnit:    "pts",
+			Current:       &model.IterationVelocity{Name: "Sprint 12"},
+			History: []model.IterationVelocity{
+				{Name: "Sprint 11"},
+			},
+		},
+	}
+	if err := WriteReportJSON(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, `"velocity"`) {
+		t.Error("expected velocity key in JSON")
+	}
+	if !strings.Contains(out, `"avg_velocity"`) {
+		t.Error("expected avg_velocity in JSON")
+	}
+	if !strings.Contains(out, `"current_iteration"`) {
+		t.Error("expected current_iteration in JSON")
+	}
+	if !strings.Contains(out, `"iteration_count": 2`) {
+		t.Errorf("expected iteration_count 2, got: %s", out)
+	}
+}
+
+func TestWriteReportJSON_NoVelocity(t *testing.T) {
+	var buf bytes.Buffer
+	r := model.StatsResult{
+		Repository: "owner/repo",
+		Since:      time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+		Until:      time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC),
+	}
+	if err := WriteReportJSON(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if strings.Contains(out, `"velocity"`) {
+		t.Error("velocity should not appear in JSON when not configured")
+	}
+}
+
+func TestWriteReportMarkdown_WithVelocity(t *testing.T) {
+	var buf bytes.Buffer
+	rc := RenderContext{Writer: &buf, Format: Markdown}
+	r := model.StatsResult{
+		Repository: "owner/repo",
+		Since:      time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+		Until:      time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC),
+		Velocity: &model.VelocityResult{
+			AvgVelocity:   25.0,
+			AvgCompletion: 90.0,
+			EffortUnit:    "items",
+			History: []model.IterationVelocity{
+				{Name: "Sprint 5"},
+				{Name: "Sprint 6"},
+				{Name: "Sprint 7"},
+			},
+		},
+	}
+	if err := WriteReportMarkdown(rc, r); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Velocity") {
+		t.Error("expected Velocity row in markdown")
+	}
+	if !strings.Contains(out, "25.0 items/sprint") {
+		t.Errorf("expected velocity summary in markdown, got: %s", out)
+	}
+}
+
+func TestFormatVelocitySummary_NoIterations(t *testing.T) {
+	v := model.VelocityResult{EffortUnit: "pts"}
+	got := FormatVelocitySummary(v)
+	if got != "no iterations in window" {
+		t.Errorf("got %q, want 'no iterations in window'", got)
+	}
+}
+
 func TestSanitizeMarkdown(t *testing.T) {
 	tests := []struct {
 		name  string

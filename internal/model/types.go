@@ -212,6 +212,7 @@ type StatsResult struct {
 	CycleTime         *Stats
 	CycleTimeStrategy string // StrategyIssue or StrategyPR
 	Throughput        *StatsThroughput
+	Velocity          *VelocityResult
 	WIPCount          *int
 	Quality           *StatsQuality
 	Warnings          []string
