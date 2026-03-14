@@ -116,33 +116,34 @@ func TestClassifier_Classify(t *testing.T) {
 	}
 
 	tests := []struct {
-		name        string
-		input       Input
-		expect      string
-		wantWarning bool
+		name           string
+		input          Input
+		expectPrimary  string
+		expectMulti    bool
+		expectAllCount int
 	}{
-		{"bug by label", Input{Labels: []string{"bug"}}, "bug", false},
-		{"bug by defect label", Input{Labels: []string{"defect"}}, "bug", false},
-		{"bug by type", Input{IssueType: "Bug"}, "bug", false},
-		{"feature by label", Input{Labels: []string{"enhancement"}}, "feature", false},
-		{"feature by type", Input{IssueType: "Feature"}, "feature", false},
-		{"regression by label", Input{Labels: []string{"regression"}}, "regression", false},
-		{"regression by title", Input{Title: "regression: flaky test"}, "regression", false},
-		{"other when no match", Input{Labels: []string{"documentation"}}, "other", false},
-		{"empty input", Input{}, "other", false},
-		{"first match wins with warning", Input{Labels: []string{"bug", "regression"}}, "bug", true},
+		{"bug by label", Input{Labels: []string{"bug"}}, "bug", false, 1},
+		{"bug by defect label", Input{Labels: []string{"defect"}}, "bug", false, 1},
+		{"bug by type", Input{IssueType: "Bug"}, "bug", false, 1},
+		{"feature by label", Input{Labels: []string{"enhancement"}}, "feature", false, 1},
+		{"feature by type", Input{IssueType: "Feature"}, "feature", false, 1},
+		{"regression by label", Input{Labels: []string{"regression"}}, "regression", false, 1},
+		{"regression by title", Input{Title: "regression: flaky test"}, "regression", false, 1},
+		{"other when no match", Input{Labels: []string{"documentation"}}, "other", false, 0},
+		{"empty input", Input{}, "other", false, 0},
+		{"multi-match returns all", Input{Labels: []string{"bug", "regression"}}, "bug", true, 2},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := c.Classify(tt.input)
-			if result.Category != tt.expect {
-				t.Errorf("Classify().Category = %q, want %q", result.Category, tt.expect)
+			if result.Category() != tt.expectPrimary {
+				t.Errorf("Classify().Category() = %q, want %q", result.Category(), tt.expectPrimary)
 			}
-			if tt.wantWarning && len(result.Warnings) == 0 {
-				t.Error("expected warning for multi-category match, got none")
+			if result.MultiMatch() != tt.expectMulti {
+				t.Errorf("Classify().MultiMatch() = %v, want %v", result.MultiMatch(), tt.expectMulti)
 			}
-			if !tt.wantWarning && len(result.Warnings) > 0 {
-				t.Errorf("unexpected warnings: %v", result.Warnings)
+			if len(result.Categories) != tt.expectAllCount {
+				t.Errorf("Classify().Categories = %v (len %d), want len %d", result.Categories, len(result.Categories), tt.expectAllCount)
 			}
 		})
 	}

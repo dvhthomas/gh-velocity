@@ -109,6 +109,10 @@ type LifecycleStage struct {
 	Query string `yaml:"query" json:"query"`
 	// ProjectStatus lists project board status values for GraphQL filtering.
 	ProjectStatus []string `yaml:"project_status" json:"project_status"`
+	// Match lists classify.Matcher patterns (e.g., "label:in-progress") for
+	// client-side lifecycle grouping. Used by the issue cycle time strategy
+	// when no project board is configured.
+	Match []string `yaml:"match" json:"match,omitempty"`
 }
 
 // LifecycleConfig defines the lifecycle stages for workflow-based filtering.

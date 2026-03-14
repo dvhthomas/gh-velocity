@@ -89,8 +89,8 @@ func TestIssuePipelineProcessData_WarnsOnNA_IssueStrategy(t *testing.T) {
 	if len(p.Warnings) == 0 {
 		t.Fatal("expected warning for issue strategy with no project")
 	}
-	if !containsStr(p.Warnings[0], "lifecycle.in-progress.project_status") {
-		t.Errorf("warning should mention project_status config, got: %s", p.Warnings[0])
+	if !containsStr(p.Warnings[0], "lifecycle.in-progress") {
+		t.Errorf("warning should mention lifecycle.in-progress config, got: %s", p.Warnings[0])
 	}
 }
 
@@ -140,8 +140,8 @@ func TestBulkPipelineProcessData_WarnsOnAllNA(t *testing.T) {
 	if len(p.Warnings) == 0 {
 		t.Fatal("expected warning when all items have N/A cycle time")
 	}
-	if !containsStr(p.Warnings[0], "lifecycle.in-progress.project_status") {
-		t.Errorf("warning should mention project_status config, got: %s", p.Warnings[0])
+	if !containsStr(p.Warnings[0], "lifecycle.in-progress") {
+		t.Errorf("warning should mention lifecycle.in-progress config, got: %s", p.Warnings[0])
 	}
 }
 

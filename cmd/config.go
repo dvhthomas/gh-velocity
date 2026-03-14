@@ -64,7 +64,13 @@ func newConfigShowCmd() *cobra.Command {
 			fmt.Fprintf(w, "project.url:                 %s\n", cfg.Project.URL)
 			fmt.Fprintf(w, "project.status_field:        %s\n", cfg.Project.StatusField)
 			fmt.Fprintf(w, "lifecycle.backlog.query:      %s\n", cfg.Lifecycle.Backlog.Query)
+			if len(cfg.Lifecycle.Backlog.Match) > 0 {
+				fmt.Fprintf(w, "lifecycle.backlog.match:      %v\n", cfg.Lifecycle.Backlog.Match)
+			}
 			fmt.Fprintf(w, "lifecycle.in-progress.query:  %s\n", cfg.Lifecycle.InProgress.Query)
+			if len(cfg.Lifecycle.InProgress.Match) > 0 {
+				fmt.Fprintf(w, "lifecycle.in-progress.match:  %v\n", cfg.Lifecycle.InProgress.Match)
+			}
 			fmt.Fprintf(w, "lifecycle.in-review.query:    %s\n", cfg.Lifecycle.InReview.Query)
 			fmt.Fprintf(w, "lifecycle.done.query:         %s\n", cfg.Lifecycle.Done.Query)
 			fmt.Fprintf(w, "quality.hotfix_window_hours:  %g\n", cfg.Quality.HotfixWindowHours)
@@ -174,9 +180,10 @@ commit_ref:
 #   url: "https://github.com/users/yourname/projects/1"
 #   status_field: "Status"
 
-# Lifecycle stages: map project board columns to workflow stages.
+# Lifecycle stages: map project board columns or labels to workflow stages.
 # Used by the issue cycle time strategy to detect "work started."
-# Run: gh velocity config preflight --project-url <url> --write
+#
+# Option 1: project board columns (requires project.url)
 # lifecycle:
 #   backlog:
 #     project_status: ["Backlog", "Triage"]
@@ -184,6 +191,13 @@ commit_ref:
 #     project_status: ["In progress"]
 #   done:
 #     project_status: ["Done", "Shipped"]
+#
+# Option 2: label-based (no project board needed)
+# lifecycle:
+#   backlog:
+#     match: ["label:backlog"]
+#   in-progress:
+#     match: ["label:in-progress", "label:wip"]
 
 # Exclude bot accounts from metrics (e.g., dependabot, renovate).
 # These are filtered via -author: qualifiers in search queries.

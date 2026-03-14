@@ -10,6 +10,7 @@ const (
 	SignalIssueClosed      = "issue-closed"
 	SignalStatusChange     = "status-change"
 	SignalLabel            = "label"
+	SignalLabelAdded       = "label-added"
 	SignalPRCreated        = "pr-created"
 	SignalPRMerged         = "pr-merged"
 	SignalAssigned         = "assigned"

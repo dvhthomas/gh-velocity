@@ -146,7 +146,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 	if cfg.CycleTime.Strategy == model.StrategyPR {
 		mergedPRs, prErr := client.SearchPRs(ctx, prQuery.Build())
 		if prErr != nil {
-			log.Warn("could not search merged PRs for cycle-time: %v", prErr)
+			deps.WarnUnlessJSON("could not search merged PRs for cycle-time: %v", prErr)
 		} else {
 			cyclePipeline.ClosingPRs = metrics.BuildClosingPRMap(ctx, client, mergedPRs)
 		}
@@ -204,7 +204,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 
 	if leadOK {
 		if err := leadPipeline.ProcessData(); err != nil {
-			log.Warn("lead time ProcessData: %v", err)
+			deps.WarnUnlessJSON("lead time ProcessData: %v", err)
 			result.Warnings = append(result.Warnings, fmt.Sprintf("lead time: %v", err))
 		} else {
 			result.LeadTime = &leadPipeline.Stats
@@ -213,7 +213,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 
 	if cycleOK {
 		if err := cyclePipeline.ProcessData(); err != nil {
-			log.Warn("cycle time ProcessData: %v", err)
+			deps.WarnUnlessJSON("cycle time ProcessData: %v", err)
 			result.Warnings = append(result.Warnings, fmt.Sprintf("cycle time: %v", err))
 		} else {
 			result.CycleTime = &cyclePipeline.Stats
@@ -227,7 +227,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 
 	if throughputOK {
 		if err := throughputPipeline.ProcessData(); err != nil {
-			log.Warn("throughput ProcessData: %v", err)
+			deps.WarnUnlessJSON("throughput ProcessData: %v", err)
 			result.Warnings = append(result.Warnings, fmt.Sprintf("throughput: %v", err))
 		} else {
 			result.Throughput = &model.StatsThroughput{
@@ -283,7 +283,7 @@ func computeQuality(items []leadtime.BulkItem, categories []model.CategoryConfig
 			IssueType: item.Issue.IssueType,
 			Title:     item.Issue.Title,
 		})
-		if result.Category == "bug" {
+		if result.Category() == "bug" {
 			bugCount++
 		}
 	}

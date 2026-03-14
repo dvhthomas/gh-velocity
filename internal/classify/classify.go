@@ -49,15 +49,30 @@ func NewClassifier(categories []model.CategoryConfig) (*Classifier, error) {
 	return c, nil
 }
 
-// ClassifyResult holds a classification outcome and any warnings.
+// ClassifyResult holds a classification outcome.
 type ClassifyResult struct {
-	Category string
-	Warnings []string
+	// Categories contains all matched category names (may be more than one).
+	// Empty when nothing matched — use Category() which returns "other".
+	Categories []string
 }
 
-// Classify returns the category name for the given input.
-// Returns "other" if no category matches. If the input matches multiple
-// categories, the first match wins and a warning is included.
+// Category returns the primary (first matched) category name.
+// Returns "other" if no category matched.
+func (r ClassifyResult) Category() string {
+	if len(r.Categories) == 0 {
+		return "other"
+	}
+	return r.Categories[0]
+}
+
+// MultiMatch returns true when the input matched more than one category.
+func (r ClassifyResult) MultiMatch() bool {
+	return len(r.Categories) > 1
+}
+
+// Classify evaluates the input against all category rules and returns every
+// matching category. The first match is the primary category (via Category()).
+// Multiple matches are expected and useful as diagnostic information.
 func (c *Classifier) Classify(input Input) ClassifyResult {
 	var matched []string
 	for i, ms := range c.matchers {
@@ -68,17 +83,7 @@ func (c *Classifier) Classify(input Input) ClassifyResult {
 			}
 		}
 	}
-
-	if len(matched) == 0 {
-		return ClassifyResult{Category: "other"}
-	}
-
-	result := ClassifyResult{Category: matched[0]}
-	if len(matched) > 1 {
-		result.Warnings = append(result.Warnings,
-			fmt.Sprintf("matches multiple categories %v — classified as %q (first match)", matched, matched[0]))
-	}
-	return result
+	return ClassifyResult{Categories: matched}
 }
 
 // CategoryNames returns the ordered list of category names (excluding "other").

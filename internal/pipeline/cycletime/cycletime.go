@@ -68,7 +68,7 @@ func (p *IssuePipeline) ProcessData() error {
 	if p.CycleTime.Start == nil && p.CycleTime.Duration == nil {
 		switch p.StrategyStr {
 		case model.StrategyIssue:
-			p.Warnings = append(p.Warnings, "No cycle time signal — configure lifecycle.in-progress.project_status for issue cycle time")
+			p.Warnings = append(p.Warnings, "No cycle time signal — configure lifecycle.in-progress with project_status or match for issue cycle time")
 		case model.StrategyPR:
 			if p.PR == nil {
 				p.Warnings = append(p.Warnings, "No closing PR found — PR strategy requires PRs that reference issues with 'closes #N'")
@@ -203,7 +203,7 @@ func (p *BulkPipeline) ProcessData() error {
 	if len(durations) == 0 && len(p.Items) > 0 {
 		switch p.StrategyStr {
 		case model.StrategyIssue:
-			p.Warnings = append(p.Warnings, "Cycle time unavailable for all issues — no lifecycle.in-progress.project_status configured. Add a project board: gh velocity config preflight --project-url <url>")
+			p.Warnings = append(p.Warnings, "Cycle time unavailable for all issues — configure lifecycle.in-progress with project_status or match. Run: gh velocity config preflight --write")
 		case model.StrategyPR:
 			p.Warnings = append(p.Warnings, "Cycle time unavailable — no issues had a closing PR. Ensure PRs reference issues with 'closes #N'")
 		}
