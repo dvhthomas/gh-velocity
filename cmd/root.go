@@ -38,12 +38,12 @@ type Deps struct {
 	DryRun       bool // true unless GH_VELOCITY_POST_LIVE=true — protects against accidental mutations
 	Owner        string
 	Repo         string
-	Scope        string // merged config + flag scope (GitHub search query fragment)
-	ExcludeUsers string // "-author:bot1 -author:bot2" exclusion qualifiers from config
-	HasLocalRepo bool   // true when a local git checkout is available
-	IsTTY        bool   // true when stdout is a terminal
-	TermWidth    int    // terminal width in columns (0 = unknown)
-	Debug        bool   // true when --debug is set
+	Scope        string           // merged config + flag scope (GitHub search query fragment)
+	ExcludeUsers string           // "-author:bot1 -author:bot2" exclusion qualifiers from config
+	HasLocalRepo bool             // true when a local git checkout is available
+	IsTTY        bool             // true when stdout is a terminal
+	TermWidth    int              // terminal width in columns (0 = unknown)
+	Debug        bool             // true when --debug is set
 	Now          func() time.Time // returns current time; override via GH_VELOCITY_NOW for testing
 }
 

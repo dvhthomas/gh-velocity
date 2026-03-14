@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"text/template"
 	"time"
 
@@ -31,19 +32,19 @@ type jsonOutput struct {
 	Repository   string           `json:"repository"`
 	Unit         string           `json:"unit"`
 	EffortUnit   string           `json:"effort_unit"`
+	Warnings     []string         `json:"warnings,omitempty"`
 	Insights     []string         `json:"insights,omitempty"`
-	Provenance   model.Provenance `json:"provenance,omitempty"`
+	Provenance   model.Provenance `json:"provenance"`
 	EffortDetail jsonEffort       `json:"effort"`
 	Current      *jsonIteration   `json:"current,omitempty"`
 	History      []jsonIteration  `json:"history,omitempty"`
 	Summary      *jsonSummary     `json:"summary,omitempty"`
 }
 
-
 type jsonEffort struct {
-	Strategy     string             `json:"strategy"`
-	Matchers     []jsonEffortMatch  `json:"matchers,omitempty"`
-	NumericField string             `json:"numeric_field,omitempty"`
+	Strategy     string            `json:"strategy"`
+	Matchers     []jsonEffortMatch `json:"matchers,omitempty"`
+	NumericField string            `json:"numeric_field,omitempty"`
 }
 
 type jsonEffortMatch struct {
@@ -101,6 +102,7 @@ func WriteJSON(w io.Writer, r model.VelocityResult) error {
 		Repository:   r.Repository,
 		Unit:         r.Unit,
 		EffortUnit:   r.EffortUnit,
+		Warnings:     r.Warnings,
 		EffortDetail: je,
 	}
 	if len(r.History) > 0 {
@@ -131,6 +133,13 @@ func WriteJSON(w io.Writer, r model.VelocityResult) error {
 // WritePretty writes velocity as formatted text.
 func WritePretty(w io.Writer, r model.VelocityResult, verbose bool) error {
 	fmt.Fprintf(w, "Velocity: %s (%s)\n\n", r.Repository, r.Unit)
+
+	for _, warn := range r.Warnings {
+		fmt.Fprintf(w, "\u26a0 %s\n", warn)
+	}
+	if len(r.Warnings) > 0 {
+		fmt.Fprintln(w)
+	}
 
 	if r.Current != nil {
 		c := r.Current
@@ -239,21 +248,21 @@ func WriteMarkdown(w io.Writer, r model.VelocityResult) error {
 
 // effortDetailMarkdown returns the effort strategy description as markdown.
 func effortDetailMarkdown(d model.EffortDetail) string {
-	var s string
-	s += fmt.Sprintf("\n**Effort strategy**: %s", d.Strategy)
+	var s strings.Builder
+	s.WriteString(fmt.Sprintf("\n**Effort strategy**: %s", d.Strategy))
 	switch d.Strategy {
 	case "count":
-		s += " — every item = 1 (no effort weighting).\n"
+		s.WriteString(" — every item = 1 (no effort weighting).\n")
 	case "attribute":
-		s += "\n\nLabel/type matchers (first match wins):\n\n"
-		s += "| Matcher | Value |\n|---------|-------|\n"
+		s.WriteString("\n\nLabel/type matchers (first match wins):\n\n")
+		s.WriteString("| Matcher | Value |\n|---------|-------|\n")
 		for _, m := range d.Matchers {
-			s += fmt.Sprintf("| `%s` | %.0f |\n", m.Query, m.Value)
+			s.WriteString(fmt.Sprintf("| `%s` | %.0f |\n", m.Query, m.Value))
 		}
 	case "numeric":
-		s += fmt.Sprintf(" — project board field: **%s**\n", d.NumericField)
+		s.WriteString(fmt.Sprintf(" — project board field: **%s**\n", d.NumericField))
 	}
-	return s
+	return s.String()
 }
 
 func truncate(s string, max int) string {
@@ -280,12 +289,12 @@ func formatItemNumbers(nums []int) string {
 	if len(nums) == 0 {
 		return ""
 	}
-	s := ""
+	var s strings.Builder
 	for i, n := range nums {
 		if i > 0 {
-			s += ", "
+			s.WriteString(", ")
 		}
-		s += fmt.Sprintf("#%d", n)
+		s.WriteString(fmt.Sprintf("#%d", n))
 	}
-	return s
+	return s.String()
 }

@@ -42,7 +42,7 @@ func newConfigShowCmd() *cobra.Command {
 		Example: `  gh velocity config show
   gh velocity config show -f json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load(config.DefaultConfigFile)
+			cfg, err := config.Load(resolveConfigPath(cmd))
 			if err != nil {
 				return emitConfigError(cmd, err)
 			}
@@ -114,7 +114,7 @@ func newConfigValidateCmd() *cobra.Command {
 		Example: `  gh velocity config validate
   gh velocity config validate --velocity`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load(config.DefaultConfigFile)
+			cfg, err := config.Load(resolveConfigPath(cmd))
 			if err != nil {
 				return emitConfigError(cmd, err)
 			}
@@ -219,7 +219,7 @@ commit_ref:
 #   unit: issues                    # "issues" (default) or "prs"
 #   effort:
 #     strategy: count               # "count" (default), "attribute", or "numeric"
-#     # attribute strategy — map labels/types to effort values (first match wins):
+#     # attribute strategy — map labels/types/fields to effort values (first match wins):
 #     # attribute:
 #     #   - query: "label:size/XS"
 #     #     value: 1
@@ -231,6 +231,9 @@ commit_ref:
 #     #     value: 5
 #     #   - query: "label:size/XL"
 #     #     value: 8
+#     #   # field: matchers use project board SingleSelect fields:
+#     #   # - query: "field:Size/S"
+#     #   #   value: 2
 #     # numeric strategy — read effort from a project board Number field:
 #     # numeric:
 #     #   project_field: "Story Points"
@@ -369,6 +372,14 @@ needed for .gh-velocity.yml configuration.`,
 			return nil
 		},
 	}
+}
+
+// resolveConfigPath returns the config file path from --config flag or default.
+func resolveConfigPath(cmd *cobra.Command) string {
+	if f, _ := cmd.Root().PersistentFlags().GetString("config"); f != "" {
+		return f
+	}
+	return config.DefaultConfigFile
 }
 
 // emitConfigError wraps a config loading error into a structured AppError.

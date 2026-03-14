@@ -77,6 +77,56 @@ func TestTitleMatcher(t *testing.T) {
 	}
 }
 
+func TestFieldMatcher(t *testing.T) {
+	tests := []struct {
+		name   string
+		field  string
+		value  string
+		input  Input
+		expect bool
+	}{
+		{"exact match", "Size", "M", Input{Fields: map[string]string{"Size": "M"}}, true},
+		{"case insensitive field", "size", "M", Input{Fields: map[string]string{"Size": "M"}}, true},
+		{"case insensitive value", "Size", "m", Input{Fields: map[string]string{"Size": "M"}}, true},
+		{"both case insensitive", "SIZE", "xl", Input{Fields: map[string]string{"Size": "XL"}}, true},
+		{"no match wrong value", "Size", "L", Input{Fields: map[string]string{"Size": "M"}}, false},
+		{"no match wrong field", "Priority", "M", Input{Fields: map[string]string{"Size": "M"}}, false},
+		{"nil fields", "Size", "M", Input{}, false},
+		{"empty fields map", "Size", "M", Input{Fields: map[string]string{}}, false},
+		{"multiple fields", "Size", "S", Input{Fields: map[string]string{"Status": "Done", "Size": "S"}}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := FieldMatcher{Field: tt.field, Value: tt.value}
+			if got := m.Matches(tt.input); got != tt.expect {
+				t.Errorf("FieldMatcher{%q, %q}.Matches() = %v, want %v", tt.field, tt.value, got, tt.expect)
+			}
+		})
+	}
+}
+
+func TestParseFieldMatcher(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"valid", "field:Size/M", false},
+		{"valid with spaces", "field:Story Size/XL", false},
+		{"no slash", "field:SizeM", true},
+		{"empty name", "field:/M", true},
+		{"empty value", "field:Size/", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseMatcher(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseMatcher(%q) error = %v, wantErr = %v", tt.input, err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestParseMatcher(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -92,6 +142,7 @@ func TestParseMatcher(t *testing.T) {
 		{"title no slash", "title:fix", true},
 		{"title no closing slash", "title:/fix", true},
 		{"title invalid regex", "title:/[invalid/", true},
+		{"field matcher", "field:Size/M", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -163,7 +214,6 @@ func TestClassifier_CategoryNames(t *testing.T) {
 		t.Errorf("CategoryNames() = %v, want [bug feature]", names)
 	}
 }
-
 
 func TestNewClassifier_InvalidMatcher(t *testing.T) {
 	categories := []model.CategoryConfig{

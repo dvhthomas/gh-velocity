@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -27,9 +28,9 @@ type iterationFieldNode struct {
 }
 
 type iterationFieldConfigNode struct {
-	Duration            int                     `json:"duration"`
-	Iterations          []iterationValueNode    `json:"iterations"`
-	CompletedIterations []iterationValueNode    `json:"completedIterations"`
+	Duration            int                  `json:"duration"`
+	Iterations          []iterationValueNode `json:"iterations"`
+	CompletedIterations []iterationValueNode `json:"completedIterations"`
 }
 
 type iterationValueNode struct {
@@ -128,23 +129,8 @@ func parseIteration(n iterationValueNode) (model.Iteration, error) {
 	}, nil
 }
 
-// velocityItemsResponse is the GraphQL response for velocity item queries.
-type velocityItemsResponse struct {
-	Node struct {
-		Items struct {
-			PageInfo struct {
-				HasNextPage bool   `json:"hasNextPage"`
-				EndCursor   string `json:"endCursor"`
-			} `json:"pageInfo"`
-			Nodes []velocityItemNode `json:"nodes"`
-		} `json:"items"`
-	} `json:"node"`
-}
-
-type velocityItemNode struct {
-	Content   velocityContent       `json:"content"`
-	Iteration *velocityFieldIter    `json:"iteration"`
-	Effort    *velocityFieldNumber  `json:"effort"`
+type velocityFieldSingleSelect struct {
+	Name string `json:"name"`
 }
 
 type velocityContent struct {
@@ -185,7 +171,7 @@ type velocityFieldNumber struct {
 // Field names are inserted as string literals in fieldValueByName() calls
 // since GraphQL does not support variables in alias/field-name positions.
 // The field names come from validated user config, not raw user input.
-func buildVelocityItemsQuery(iterFieldName, numFieldName string) string {
+func buildVelocityItemsQuery(iterFieldName, numFieldName string, singleSelectFields []string) string {
 	var iterFragment, numFragment string
 	if iterFieldName != "" {
 		iterFragment = fmt.Sprintf(`
@@ -207,6 +193,16 @@ func buildVelocityItemsQuery(iterFieldName, numFieldName string) string {
           }`, numFieldName)
 	}
 
+	var ssFragments strings.Builder
+	for i, name := range singleSelectFields {
+		ssFragments.WriteString(fmt.Sprintf(`
+          ss%d: fieldValueByName(name: %q) {
+            ... on ProjectV2ItemFieldSingleSelectValue {
+              name
+            }
+          }`, i, name))
+	}
+
 	return fmt.Sprintf(`query($projectId: ID!, $cursor: String) {
   node(id: $projectId) {
     ... on ProjectV2 {
@@ -226,23 +222,25 @@ func buildVelocityItemsQuery(iterFieldName, numFieldName string) string {
               repository { nameWithOwner }
               labels(first: 20) { nodes { name } }
             }
-          }%s%s
+          }%s%s%s
         }
       }
     }
   }
-}`, iterFragment, numFragment)
+}`, iterFragment, numFragment, ssFragments.String())
 }
 
 // ListProjectItemsWithFields returns project items with iteration and number field values.
 // Pass empty string for either field name to skip that field.
 // Results are cached per-process: identical (projectID, fields) return cached results.
-func (c *Client) ListProjectItemsWithFields(ctx context.Context, projectID, iterFieldName, numFieldName string) ([]model.VelocityItem, error) {
-	key := CacheKey("project-items", projectID, iterFieldName, numFieldName)
+func (c *Client) ListProjectItemsWithFields(ctx context.Context, projectID, iterFieldName, numFieldName string, singleSelectFields []string) ([]model.VelocityItem, error) {
+	keyParts := []string{"project-items", projectID, iterFieldName, numFieldName}
+	keyParts = append(keyParts, singleSelectFields...)
+	key := CacheKey(keyParts...)
 	hit := true
 	v, err := c.cache.Do(key, func() (any, error) {
 		hit = false
-		return c.listProjectItemsWithFieldsUncached(ctx, projectID, iterFieldName, numFieldName)
+		return c.listProjectItemsWithFieldsUncached(ctx, projectID, iterFieldName, numFieldName, singleSelectFields)
 	})
 	if err != nil {
 		return nil, err
@@ -255,8 +253,28 @@ func (c *Client) ListProjectItemsWithFields(ctx context.Context, projectID, iter
 	return v.([]model.VelocityItem), nil
 }
 
-func (c *Client) listProjectItemsWithFieldsUncached(ctx context.Context, projectID, iterFieldName, numFieldName string) ([]model.VelocityItem, error) {
-	query := buildVelocityItemsQuery(iterFieldName, numFieldName)
+// velocityItemsRawResponse allows dynamic SingleSelect field parsing.
+type velocityItemsRawResponse struct {
+	Node struct {
+		Items struct {
+			PageInfo struct {
+				HasNextPage bool   `json:"hasNextPage"`
+				EndCursor   string `json:"endCursor"`
+			} `json:"pageInfo"`
+			Nodes []json.RawMessage `json:"nodes"`
+		} `json:"items"`
+	} `json:"node"`
+}
+
+// velocityItemRaw holds both typed fields and raw JSON for dynamic SingleSelect parsing.
+type velocityItemRaw struct {
+	Content   velocityContent      `json:"content"`
+	Iteration *velocityFieldIter   `json:"iteration"`
+	Effort    *velocityFieldNumber `json:"effort"`
+}
+
+func (c *Client) listProjectItemsWithFieldsUncached(ctx context.Context, projectID, iterFieldName, numFieldName string, singleSelectFields []string) ([]model.VelocityItem, error) {
+	query := buildVelocityItemsQuery(iterFieldName, numFieldName, singleSelectFields)
 
 	var allItems []model.VelocityItem
 	var cursor *string
@@ -269,12 +287,17 @@ func (c *Client) listProjectItemsWithFieldsUncached(ctx context.Context, project
 			variables["cursor"] = *cursor
 		}
 
-		var resp velocityItemsResponse
+		var resp velocityItemsRawResponse
 		if err := c.projectClient().DoWithContext(ctx, query, variables, &resp); err != nil {
 			return nil, fmt.Errorf("list project items with fields: %w", err)
 		}
 
-		for _, node := range resp.Node.Items.Nodes {
+		for _, raw := range resp.Node.Items.Nodes {
+			var node velocityItemRaw
+			if err := json.Unmarshal(raw, &node); err != nil {
+				continue
+			}
+
 			ct := node.Content
 			if ct.Typename != "Issue" && ct.Typename != "PullRequest" {
 				continue // skip DraftIssues
@@ -323,6 +346,23 @@ func (c *Client) listProjectItemsWithFieldsUncached(ctx context.Context, project
 			if node.Effort != nil && node.Effort.Number != nil {
 				v := *node.Effort.Number
 				item.Effort = &v
+			}
+
+			// Parse dynamic SingleSelect fields (ss0, ss1, ...).
+			if len(singleSelectFields) > 0 {
+				var rawMap map[string]json.RawMessage
+				if err := json.Unmarshal(raw, &rawMap); err == nil {
+					item.Fields = make(map[string]string, len(singleSelectFields))
+					for i, fieldName := range singleSelectFields {
+						alias := fmt.Sprintf("ss%d", i)
+						if ssRaw, ok := rawMap[alias]; ok {
+							var ss velocityFieldSingleSelect
+							if err := json.Unmarshal(ssRaw, &ss); err == nil && ss.Name != "" {
+								item.Fields[fieldName] = ss.Name
+							}
+						}
+					}
+				}
 			}
 
 			allItems = append(allItems, item)

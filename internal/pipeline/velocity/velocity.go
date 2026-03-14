@@ -21,7 +21,7 @@ type Client interface {
 	SearchIssues(ctx context.Context, query string) ([]model.Issue, error)
 	SearchPRs(ctx context.Context, query string) ([]model.PR, error)
 	ListIterationField(ctx context.Context, projectID, fieldName string) (*model.IterationFieldConfig, error)
-	ListProjectItemsWithFields(ctx context.Context, projectID, iterFieldName, numFieldName string) ([]model.VelocityItem, error)
+	ListProjectItemsWithFields(ctx context.Context, projectID, iterFieldName, numFieldName string, singleSelectFields []string) ([]model.VelocityItem, error)
 }
 
 // Pipeline implements the velocity metric pipeline.
@@ -56,7 +56,8 @@ func (p *Pipeline) GatherData(ctx context.Context) error {
 	}
 
 	needsBoard := p.Config.Effort.Strategy == "numeric" ||
-		p.Config.Iteration.Strategy == "project-field"
+		p.Config.Iteration.Strategy == "project-field" ||
+		HasFieldMatchers(p.Config.Effort)
 
 	if needsBoard {
 		return p.gatherFromBoard(ctx)
@@ -100,9 +101,19 @@ func (p *Pipeline) gatherFromBoard(ctx context.Context) error {
 		numField = p.Config.Effort.Numeric.ProjectField
 	}
 
-	items, err := p.Client.ListProjectItemsWithFields(ctx, projInfo.ProjectID, iterField, numField)
+	ssFields := ExtractFieldMatcherNames(p.Config.Effort)
+
+	items, err := p.Client.ListProjectItemsWithFields(ctx, projInfo.ProjectID, iterField, numField, ssFields)
 	if err != nil {
 		return fmt.Errorf("velocity: %w", err)
+	}
+
+	if len(items) > MaxBoardItems {
+		log.Warn("board has %d items (limit: %d), truncating", len(items), MaxBoardItems)
+		p.Result.Warnings = append(p.Result.Warnings,
+			fmt.Sprintf("Board has %d items (limit: %d). Results may be incomplete. Consider: tighter --scope, shorter time range, or switch to label-based attribute strategy.",
+				len(items), MaxBoardItems))
+		items = items[:MaxBoardItems]
 	}
 
 	// Board is the scope — include all items, don't filter by repo.
@@ -278,10 +289,9 @@ func (p *Pipeline) ProcessData() error {
 		iv := p.computeIteration(*current, nil)
 		// Compute cycle position for current iteration.
 		totalDays := int(current.EndDate.Sub(current.StartDate).Hours() / 24)
-		dayOfCycle := int(p.Now.Sub(current.StartDate).Hours()/24) + 1 // 1-indexed: day 1 = first day
-		if dayOfCycle < 1 {
-			dayOfCycle = 1
-		}
+		dayOfCycle := max(
+			// 1-indexed: day 1 = first day
+			int(p.Now.Sub(current.StartDate).Hours()/24)+1, 1)
 		if dayOfCycle > totalDays {
 			dayOfCycle = totalDays
 		}

@@ -1,7 +1,8 @@
 ---
 title: Cycle-Time Strategies & Flexible Classification
 date: 2026-03-10
-status: complete
+status: completed
+type: brainstorm
 supersedes: docs/brainstorms/2026-03-09-linking-strategies-brainstorm.md
 related_issue: https://github.com/dvhthomas/gh-velocity/issues/2
 ---

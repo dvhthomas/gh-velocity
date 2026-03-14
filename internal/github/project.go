@@ -44,13 +44,15 @@ func ParseProjectURL(rawURL string) (owner string, number int, isOrg bool, err e
 
 // ResolveProject resolves a GitHub project URL and status field name to their internal IDs.
 // It fetches the project by number via GraphQL, then finds the named status field.
+// For org/user project URLs, it queries the organization or user directly rather than
+// going through the repository.
 func (c *Client) ResolveProject(ctx context.Context, projectURL, statusFieldName string) (*ProjectInfo, error) {
-	_, number, _, err := ParseProjectURL(projectURL)
+	owner, number, isOrg, err := ParseProjectURL(projectURL)
 	if err != nil {
 		return nil, err
 	}
 
-	project, err := c.DiscoverProjectByNumber(ctx, number)
+	project, err := c.DiscoverProjectByOwner(ctx, owner, number, isOrg)
 	if err != nil {
 		return nil, fmt.Errorf("resolve project: %w", err)
 	}

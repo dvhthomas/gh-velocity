@@ -1,8 +1,8 @@
 ---
 title: "Metric Pipeline Interface — Compile-Time Guardrails for Adding Metrics"
 date: 2026-03-12
-status: complete
-origin: deepening of docs/plans/2026-03-12-001-feat-metrics-architecture-and-ux-plan.md (Phase 3)
+status: completed
+type: brainstorm
 ---
 
 # Metric Pipeline Interface

@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/classify"
 	"github.com/bitsbyme/gh-velocity/internal/config"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/bitsbyme/gh-velocity/internal/pipeline/velocity"
 	"github.com/bitsbyme/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
 )
@@ -70,13 +72,81 @@ func runVelocityValidation(cmd *cobra.Command, cfg *config.Config) (bool, error)
 			cfg.Velocity.Iteration.Fixed.Length, cfg.Velocity.Iteration.Fixed.Anchor)
 	}
 
+	// Show API budget after validation.
+	printAPIUsage(ctx, client)
+
 	return true, nil
 }
 
 func validateAttributeEffort(ctx context.Context, w io.Writer, cfg *config.Config, client *gh.Client, owner, repo string) error {
-	fmt.Fprintln(w, "velocity effort: attribute (testing matchers against recent items)")
+	hasFieldMatchers := velocity.HasFieldMatchers(cfg.Velocity.Effort)
 
-	// Fetch recent closed issues (last 90 days).
+	if hasFieldMatchers {
+		return validateAttributeEffortFromBoard(ctx, w, cfg, client)
+	}
+	return validateAttributeEffortFromSearch(ctx, w, cfg, client, owner, repo)
+}
+
+// validateAttributeEffortFromBoard fetches project board items with SingleSelect
+// field values, then tests field: matchers against them.
+func validateAttributeEffortFromBoard(ctx context.Context, w io.Writer, cfg *config.Config, client *gh.Client) error {
+	fmt.Fprintln(w, "velocity effort: attribute (testing field: matchers against board items)")
+
+	if cfg.Project.URL == "" {
+		return fmt.Errorf("velocity validate: project.url required for field: matchers")
+	}
+
+	projInfo, err := client.ResolveProject(ctx, cfg.Project.URL, "")
+	if err != nil {
+		return &model.AppError{
+			Code:    model.ErrNotFound,
+			Message: fmt.Sprintf("resolve project for attribute validation: %v", err),
+		}
+	}
+
+	ssFields := velocity.ExtractFieldMatcherNames(cfg.Velocity.Effort)
+	items, err := client.ListProjectItemsWithFields(ctx, projInfo.ProjectID, "", "", ssFields)
+	if err != nil {
+		return fmt.Errorf("velocity validate: %w", err)
+	}
+
+	// Run matchers against board items.
+	counts := make([]effortMatchCount, len(cfg.Velocity.Effort.Attribute))
+	for i, m := range cfg.Velocity.Effort.Attribute {
+		counts[i] = effortMatchCount{query: m.Query, value: m.Value}
+	}
+
+	unmatched := 0
+	for _, item := range items {
+		input := classify.Input{
+			Labels:    item.Labels,
+			IssueType: item.IssueType,
+			Title:     item.Title,
+			Fields:    item.Fields,
+		}
+		matched := false
+		for i, m := range cfg.Velocity.Effort.Attribute {
+			parsed, _ := classify.ParseMatcher(m.Query)
+			if parsed.Matches(input) {
+				counts[i].count++
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			unmatched++
+		}
+	}
+
+	printAttributeDistribution(w, counts, unmatched, len(items), "board items")
+	return nil
+}
+
+// validateAttributeEffortFromSearch tests label/type/title matchers against
+// recent closed issues fetched via the search API.
+func validateAttributeEffortFromSearch(ctx context.Context, w io.Writer, cfg *config.Config, client *gh.Client, owner, repo string) error {
+	fmt.Fprintln(w, "velocity effort: attribute (testing matchers against recent issues)")
+
 	scopeStr := cfg.Scope.Query
 	if scopeStr == "" {
 		scopeStr = fmt.Sprintf("repo:%s/%s", owner, repo)
@@ -88,15 +158,9 @@ func validateAttributeEffort(ctx context.Context, w io.Writer, cfg *config.Confi
 		return fmt.Errorf("velocity validate: %w", err)
 	}
 
-	// Build matchers.
-	type matchCount struct {
-		query   string
-		value   float64
-		count   int
-	}
-	counts := make([]matchCount, len(cfg.Velocity.Effort.Attribute))
+	counts := make([]effortMatchCount, len(cfg.Velocity.Effort.Attribute))
 	for i, m := range cfg.Velocity.Effort.Attribute {
-		counts[i] = matchCount{query: m.Query, value: m.Value}
+		counts[i] = effortMatchCount{query: m.Query, value: m.Value}
 	}
 
 	unmatched := 0
@@ -112,7 +176,7 @@ func validateAttributeEffort(ctx context.Context, w io.Writer, cfg *config.Confi
 			if parsed.Matches(input) {
 				counts[i].count++
 				matched = true
-				break // first match wins
+				break
 			}
 		}
 		if !matched {
@@ -120,20 +184,29 @@ func validateAttributeEffort(ctx context.Context, w io.Writer, cfg *config.Confi
 		}
 	}
 
-	fmt.Fprintf(w, "\n  Distribution (%d issues, last 90 days):\n", len(issues))
+	printAttributeDistribution(w, counts, unmatched, len(issues), "issues, last 90 days")
+	return nil
+}
+
+type effortMatchCount struct {
+	query string
+	value float64
+	count int
+}
+
+func printAttributeDistribution(w io.Writer, counts []effortMatchCount, unmatched, total int, source string) {
+	fmt.Fprintf(w, "\n  Distribution (%d %s):\n", total, source)
 	fmt.Fprintf(w, "  %-30s %6s %8s\n", "Matcher", "Value", "Count")
-	fmt.Fprintf(w, "  %-30s %6s %8s\n", "──────────────────────────────", "──────", "────────")
+	fmt.Fprintf(w, "  %-30s %6s %8s\n", strings.Repeat("─", 30), strings.Repeat("─", 6), strings.Repeat("─", 8))
 	for _, mc := range counts {
 		fmt.Fprintf(w, "  %-30s %6.0f %8d\n", mc.query, mc.value, mc.count)
 	}
 	fmt.Fprintf(w, "  %-30s %6s %8d\n", "(not assessed)", "", unmatched)
 
-	if unmatched > 0 && len(issues) > 0 {
-		pct := float64(unmatched) / float64(len(issues)) * 100
+	if unmatched > 0 && total > 0 {
+		pct := float64(unmatched) / float64(total) * 100
 		fmt.Fprintf(w, "\n  %.0f%% of items unmatched — consider adding more matchers\n", pct)
 	}
-
-	return nil
 }
 
 func validateNumericEffort(ctx context.Context, w io.Writer, cfg *config.Config, client *gh.Client) error {
@@ -147,7 +220,7 @@ func validateNumericEffort(ctx context.Context, w io.Writer, cfg *config.Config,
 		}
 	}
 
-	items, err := client.ListProjectItemsWithFields(ctx, projInfo.ProjectID, "", cfg.Velocity.Effort.Numeric.ProjectField)
+	items, err := client.ListProjectItemsWithFields(ctx, projInfo.ProjectID, "", cfg.Velocity.Effort.Numeric.ProjectField, nil)
 	if err != nil {
 		return fmt.Errorf("velocity validate: %w", err)
 	}

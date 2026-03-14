@@ -208,7 +208,7 @@ func TestFixedPeriod_Iterations(t *testing.T) {
 		start time.Time
 		end   time.Time
 	}{
-		{date(2026, 2, 17), date(2026, 3, 3)},  // most recent completed
+		{date(2026, 2, 17), date(2026, 3, 3)}, // most recent completed
 		{date(2026, 2, 3), date(2026, 2, 17)},
 		{date(2026, 1, 20), date(2026, 2, 3)},
 	}

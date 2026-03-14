@@ -1,8 +1,8 @@
 ---
 title: GitHub Actions Integration and --post Implementation
 date: 2026-03-10
-status: active
-tags: [ci, github-actions, posting, discussions, idempotent]
+status: completed
+type: brainstorm
 ---
 
 # GitHub Actions Integration and --post Implementation
