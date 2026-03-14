@@ -32,9 +32,9 @@
     <!-- Eye -->
     <rect x="34" y="4" width="2" height="2" fill="white"/>
     <!-- Front leg stub -->
-    <rect x="22" y="16" width="4" height="6"/>
+    <rect x="20" y="16" width="4" height="6"/>
     <!-- Back leg stub -->
-    <rect x="10" y="16" width="4" height="6"/>
+    <rect x="8" y="16" width="4" height="6"/>
     <!-- Tail -->
     <rect x="4" y="10" width="4" height="2"/>
     <rect x="2" y="8" width="4" height="2"/>
