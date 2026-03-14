@@ -1,19 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges">
-  <!-- Tiny 8-bit tortoise favicon in fresh green -->
-  <!-- Shell -->
-  <rect x="10" y="4" width="12" height="2" fill="#22C55E"/>
-  <rect x="8" y="6" width="16" height="2" fill="#22C55E"/>
-  <rect x="8" y="8" width="16" height="2" fill="#16A34A"/>
-  <rect x="8" y="10" width="16" height="2" fill="#22C55E"/>
-  <rect x="8" y="12" width="16" height="2" fill="#16A34A"/>
-  <rect x="10" y="14" width="12" height="2" fill="#22C55E"/>
-  <!-- Head -->
-  <rect x="24" y="8" width="4" height="2" fill="#22C55E"/>
-  <rect x="24" y="10" width="4" height="2" fill="#22C55E"/>
-  <rect x="26" y="8" width="2" height="2" fill="#166534"/>
-  <!-- Legs -->
-  <rect x="10" y="16" width="4" height="4" fill="#22C55E"/>
-  <rect x="18" y="16" width="4" height="4" fill="#22C55E"/>
-  <!-- Tail -->
-  <rect x="4" y="10" width="4" height="2" fill="#22C55E"/>
+  <!-- Tiny tortoise favicon, single color -->
+  <g fill="#22C55E">
+    <!-- Shell -->
+    <rect x="10" y="4" width="12" height="2"/>
+    <rect x="8" y="6" width="16" height="2"/>
+    <rect x="8" y="8" width="16" height="2"/>
+    <rect x="8" y="10" width="16" height="2"/>
+    <rect x="8" y="12" width="16" height="2"/>
+    <rect x="10" y="14" width="14" height="2"/>
+    <!-- Head -->
+    <rect x="24" y="8" width="4" height="2"/>
+    <rect x="24" y="10" width="4" height="2"/>
+    <!-- Eye -->
+    <rect x="26" y="8" width="2" height="2" fill="white"/>
+    <!-- Legs -->
+    <rect x="10" y="16" width="4" height="4"/>
+    <rect x="20" y="16" width="4" height="4"/>
+    <!-- Tail -->
+    <rect x="4" y="12" width="4" height="2"/>
+  </g>
 </svg>
