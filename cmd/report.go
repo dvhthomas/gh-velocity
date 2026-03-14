@@ -13,6 +13,7 @@ import (
 	cycletimepipe "github.com/bitsbyme/gh-velocity/internal/pipeline/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/pipeline/leadtime"
 	"github.com/bitsbyme/gh-velocity/internal/pipeline/throughput"
+	"github.com/bitsbyme/gh-velocity/internal/pipeline/velocity"
 	"github.com/bitsbyme/gh-velocity/internal/posting"
 	"github.com/bitsbyme/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
@@ -152,12 +153,30 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 		}
 	}
 
+	// Velocity pipeline — only if iteration strategy is configured.
+	var velocityPipeline *velocity.Pipeline
+	if cfg.Velocity.Iteration.Strategy != "" {
+		velocityPipeline = &velocity.Pipeline{
+			Client:         client,
+			Owner:          deps.Owner,
+			Repo:           deps.Repo,
+			Config:         cfg.Velocity,
+			ProjectConfig:  cfg.Project,
+			Scope:          deps.Scope,
+			ExcludeUsers:   deps.ExcludeUsers,
+			Now:            now,
+			IterationCount: cfg.Velocity.Iteration.Count,
+			Since:          &since,
+			Until:          &until,
+		}
+	}
+
 	// --- GatherData concurrently ---
 	var (
 		warnings []string
 		mu       sync.Mutex
 	)
-	leadOK, cycleOK, throughputOK := true, true, true
+	leadOK, cycleOK, throughputOK, velocityOK := true, true, true, true
 
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(5)
@@ -191,6 +210,18 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 		}
 		return nil
 	})
+
+	if velocityPipeline != nil {
+		g.Go(func() error {
+			if err := velocityPipeline.GatherData(gctx); err != nil {
+				mu.Lock()
+				warnings = append(warnings, fmt.Sprintf("velocity: %v", err))
+				velocityOK = false
+				mu.Unlock()
+			}
+			return nil
+		})
+	}
 
 	_ = g.Wait()
 
@@ -234,6 +265,15 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 				IssuesClosed: throughputPipeline.Result.IssuesClosed,
 				PRsMerged:    throughputPipeline.Result.PRsMerged,
 			}
+		}
+	}
+
+	if velocityOK && velocityPipeline != nil {
+		if err := velocityPipeline.ProcessData(); err != nil {
+			deps.WarnUnlessJSON("velocity ProcessData: %v", err)
+			result.Warnings = append(result.Warnings, fmt.Sprintf("velocity: %v", err))
+		} else {
+			result.Velocity = &velocityPipeline.Result
 		}
 	}
 
