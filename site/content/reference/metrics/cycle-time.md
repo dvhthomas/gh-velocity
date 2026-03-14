@@ -164,3 +164,12 @@ Cycle time uses the same aggregation as lead time: mean, median, std dev, P90, P
 | `lifecycle.backlog.project_status` | Board column names excluded from cycle start |
 | `project.url` | Project board URL (required for board fallback) |
 | `project.status_field` | Status field name on the board (required for board fallback) |
+
+## See also
+
+- [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) -- step-by-step guide to choosing and configuring a strategy
+- [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}) -- why label timestamps are preferred over board timestamps
+- [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) -- what healthy cycle time looks like
+- [Lead Time]({{< relref "/reference/metrics/lead-time" >}}) -- the full elapsed duration (superset of cycle time)
+- [Troubleshooting: Cycle time shows N/A]({{< relref "/guides/troubleshooting" >}}#cycle-time-shows-na-for-all-issues) -- common fixes
+- [Configuration Reference: cycle_time]({{< relref "/reference/config" >}}#cycle_time) -- all config fields

@@ -116,3 +116,10 @@ Lead Time
 - `gh velocity flow lead-time <issue>` -- single-issue lead time
 - `gh velocity quality release <tag>` -- per-issue and aggregate lead time within a release
 - `gh velocity report` -- aggregate lead time across a time window
+
+## See also
+
+- [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) -- what healthy lead time looks like and common patterns
+- [Understanding Statistics]({{< relref "/concepts/statistics" >}}) -- median, percentiles, and outlier detection explained
+- [Cycle Time]({{< relref "/reference/metrics/cycle-time" >}}) -- the active-work subset of lead time
+- [Configuration Reference]({{< relref "/reference/config" >}}) -- config fields that affect which issues are included

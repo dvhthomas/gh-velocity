@@ -101,35 +101,35 @@ gh velocity quality release v1.2.0 --format markdown | \
 
 There are no universal benchmarks. What matters is your trend over time and whether the numbers match your team's experience. That said, here are patterns that indicate healthy delivery:
 
-### Lead time
+### [Lead time]({{< relref "/reference/metrics/lead-time" >}})
 
 - **Median under 30 days** for most product teams. This means a typical issue goes from creation to close within a month.
 - **P95 under 90 days**. If your P95 is over 90 days, old issues are being closed alongside new work, which is normal but worth understanding.
 - **Low stddev relative to the mean**. If `stddev / mean > 1`, delivery times are highly variable. Consistent teams have lower relative standard deviation.
 
-### Cycle time
+### [Cycle time]({{< relref "/reference/metrics/cycle-time" >}})
 
 - **Median under 7 days** means active work on a typical issue completes within a week.
 - **Cycle time much shorter than lead time** is normal and expected. The gap represents backlog time (waiting before work starts).
 - **N/A cycle times** mean the configured strategy has no signal for those issues. See [Cycle Time Setup]({{< relref "cycle-time-setup" >}}) to fix this.
 
-### Release lag
+### [Release lag]({{< relref "/reference/metrics/quality" >}})
 
 - **Median under 7 days** means completed work reaches users within a week.
 - **High release lag with low cadence** means work is done but sits waiting for a release. Consider releasing more frequently.
 
-### Composition and defect rate
+### [Composition and defect rate]({{< relref "/reference/metrics/quality" >}})
 
 - **Defect rate under 30%** is typical for product-focused teams.
 - **High "other" count** means your issues lack classification labels. Run `gh velocity config preflight` to generate category matchers, or label issues before releasing. See [Recipes: Check label coverage]({{< relref "recipes" >}}#check-label-coverage-before-a-release).
 
-### Velocity
+### [Velocity]({{< relref "/reference/metrics/velocity" >}})
 
 - **Stable velocity across iterations** indicates predictable delivery. Look at the trend column in the history table.
 - **Completion rate above 80%** means the team commits to a realistic amount of work per iteration.
 - **High standard deviation** in velocity across iterations suggests scope changes or inconsistent estimation.
 
-### Throughput
+### [Throughput]({{< relref "/reference/metrics/throughput" >}})
 
 - **Steady or growing item count** over time means consistent output. A sudden drop may indicate blockers or context switching.
 
@@ -168,7 +168,7 @@ Either there are genuinely no bugs in this release, or your bug category matcher
 
 ### "Not assessed" items in velocity output
 
-Items that do not match any effort query are excluded from velocity and committed totals and reported separately. A high not-assessed count means your effort matchers need tuning. Run `gh velocity config validate --velocity` to see which issues are unmatched.
+Items that do not match any effort query are excluded from velocity and committed totals and reported separately. A high not-assessed count means your effort matchers need tuning. Run `gh velocity config validate --velocity` to see which issues are unmatched. See [Setting Up Velocity: Validating effort matchers]({{< relref "/guides/velocity-setup" >}}#validating-effort-matchers) for details.
 
 ## Comparing across releases
 

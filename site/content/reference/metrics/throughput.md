@@ -81,3 +81,9 @@ Activity (last 30 days)
 
 - `gh velocity report --since 30d` -- activity summary including throughput counts
 - `gh velocity flow lead-time --since 30d` -- closed issue count as context
+
+## See also
+
+- [Velocity]({{< relref "/reference/metrics/velocity" >}}) -- effort-weighted, iteration-aligned output metric
+- [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) -- what throughput trends mean
+- [Configuration Reference]({{< relref "/reference/config" >}}) -- scope and exclude_users fields that affect throughput

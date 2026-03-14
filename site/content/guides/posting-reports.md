@@ -27,7 +27,7 @@ This safety net prevents accidental posts during local testing.
 
 ## Discussions config
 
-Bulk commands post to GitHub Discussions. Configure the target category in your config file:
+Bulk commands post to GitHub Discussions. Configure the target category in your [config file]({{< relref "/getting-started/configuration" >}}):
 
 ```yaml
 discussions:

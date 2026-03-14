@@ -5,13 +5,13 @@ weight: 2
 
 # Setting Up Velocity
 
-The `flow velocity` command measures effort completed per iteration -- a number, not a ratio. It answers "how much work did we ship this sprint?" expressed in effort units. A related metric, completion rate (done / committed), measures predictability. Both are shown in the output.
+The `flow velocity` command measures effort completed per iteration -- a number, not a ratio. It answers "how much work did we ship this sprint?" expressed in effort units. A related metric, completion rate (done / committed), measures predictability. Both are shown in the output. For the metric definition and formula, see the [Velocity reference]({{< relref "/reference/metrics/velocity" >}}).
 
 ## How velocity differs from throughput
 
 Throughput counts items in a sliding window. Velocity is effort-weighted and iteration-aligned:
 
-- **Throughput**: "12 issues closed in the last 30 days"
+- **[Throughput]({{< relref "/reference/metrics/throughput" >}})**: "12 issues closed in the last 30 days"
 - **Velocity**: "31 story points completed in Sprint 12"
 
 If you do not size your work items, velocity with the `count` strategy is effectively throughput sliced into iterations.

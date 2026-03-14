@@ -11,8 +11,8 @@ type: docs
 
 ## What you can measure
 
-- **Flow metrics**: Lead time, cycle time, velocity (effort per sprint), throughput
-- **Quality metrics**: Defect rate, hotfix detection, category composition per release
+- **Flow metrics**: [Lead time]({{< relref "/reference/metrics/lead-time" >}}), [cycle time]({{< relref "/reference/metrics/cycle-time" >}}), [velocity]({{< relref "/reference/metrics/velocity" >}}) (effort per sprint), [throughput]({{< relref "/reference/metrics/throughput" >}})
+- **Quality metrics**: [Defect rate, hotfix detection, category composition]({{< relref "/reference/metrics/quality" >}}) per release
 - **Risk signals**: Bus factor, knowledge concentration per directory
 - **Status**: Work in progress, review pressure, personal weekly summary
 

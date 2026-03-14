@@ -5,7 +5,7 @@ weight: 5
 
 # Agent Integration
 
-Every gh-velocity command supports `--format json` for structured output. This makes the tool composable with LLM agents, CI scripts, and data pipelines.
+Every gh-velocity command supports `--format json` for structured output. This makes the tool composable with LLM agents, CI scripts, and data pipelines. For an overview of what the metrics mean, see [Interpreting Results]({{< relref "/guides/interpreting-results" >}}).
 
 ## JSON output structure
 

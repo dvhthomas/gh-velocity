@@ -5,7 +5,7 @@ weight: 3
 
 # Cycle Time Setup
 
-Cycle time measures how long active work took on an issue. It excludes backlog time (unlike lead time, which measures the full elapsed duration from creation to close). The measurement depends on your configured strategy.
+Cycle time measures how long active work took on an issue. It excludes backlog time (unlike [lead time]({{< relref "/reference/metrics/lead-time" >}}), which measures the full elapsed duration from creation to close). The measurement depends on your configured strategy. For the metric definition and formula, see the [Cycle Time reference]({{< relref "/reference/metrics/cycle-time" >}}).
 
 ## Choosing a strategy
 

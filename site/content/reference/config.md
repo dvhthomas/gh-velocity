@@ -116,7 +116,7 @@ project:
 
 ## `lifecycle`
 
-Maps workflow stages to GitHub search qualifiers and/or project board statuses. Commands use these to filter items by lifecycle stage.
+Maps workflow stages to GitHub search qualifiers and/or project board statuses. Commands use these to filter items by lifecycle stage. See [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}) for guidance on choosing between labels and board status.
 
 Each stage has three optional fields:
 
@@ -285,13 +285,13 @@ cycle_time:
   strategy: pr
 ```
 
-See [Cycle Time]({{< relref "metrics/cycle-time" >}}) for detailed strategy comparison.
+See [Cycle Time]({{< relref "metrics/cycle-time" >}}) for the metric definition, and [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) for a step-by-step configuration guide.
 
 ---
 
 ## `velocity`
 
-Controls how velocity (effort per iteration) is measured. See [Velocity]({{< relref "metrics/velocity" >}}) for detailed documentation.
+Controls how velocity (effort per iteration) is measured. See [Velocity]({{< relref "metrics/velocity" >}}) for the metric definition, and [Setting Up Velocity]({{< relref "/guides/velocity-setup" >}}) for a step-by-step configuration guide.
 
 ### `velocity.unit`
 
@@ -609,3 +609,12 @@ api_throttle_seconds: 2
 | `exclude_users` | `[]` |
 | `discussions.category` | `""` |
 | `api_throttle_seconds` | not set (no throttle) |
+
+## See also
+
+- [Configuration (Getting Started)]({{< relref "/getting-started/configuration" >}}) -- first-time setup guide with preflight, discover, and validate
+- [Setting Up Velocity]({{< relref "/guides/velocity-setup" >}}) -- effort strategies, iteration strategies, and validation
+- [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) -- choosing and configuring a cycle time strategy
+- [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}) -- why labels are preferred for lifecycle tracking
+- [CI Setup]({{< relref "/getting-started/ci-setup" >}}) -- token setup for CI environments
+- [Examples]({{< relref "/examples" >}}) -- annotated real-world configs for popular repositories

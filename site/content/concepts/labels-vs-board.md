@@ -163,3 +163,10 @@ velocity:
 ```
 
 SingleSelect fields like "Size" on the project board can be used for effort classification via `field:Name/Value` matchers. This requires `project.url` to be set since field values are fetched via the GraphQL API.
+
+## See also
+
+- [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) -- step-by-step guide to configuring cycle time with labels or board
+- [Cycle Time Reference]({{< relref "/reference/metrics/cycle-time" >}}) -- metric definition, signals, and strategies
+- [Configuration Reference: lifecycle]({{< relref "/reference/config" >}}#lifecycle) -- full schema for lifecycle stages
+- [GitHub's Capabilities & Limits]({{< relref "/concepts/github-capabilities" >}}) -- broader context on what the API can and cannot do

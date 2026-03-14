@@ -42,3 +42,10 @@ weight: 1
 **Developer-level attribution.** The tool measures issue and release velocity, not individual performance. This is intentional.
 
 **Cross-repo tracking.** Each invocation targets a single repository. Multi-repo releases require separate runs.
+
+## See also
+
+- [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}) -- detailed explanation of the project board timestamp limitation
+- [Linking Strategies]({{< relref "/concepts/linking-strategies" >}}) -- how the tool connects PRs to issues and releases
+- [API Consumption]({{< relref "/reference/api-consumption" >}}) -- rate limits, per-command costs, and optimization tips
+- [Configuration]({{< relref "/getting-started/configuration" >}}) -- set up your config to work within these constraints

@@ -122,7 +122,7 @@ A release is flagged as a hotfix if published within this many hours of the prev
 
 ### `cycle_time`
 
-Which strategy to use: `issue` (label-based) or `pr` (PR creation to merge). See [How It Works](../how-it-works/) for guidance on choosing.
+Which strategy to use: `issue` (label-based) or `pr` (PR creation to merge). See [How It Works]({{< relref "/getting-started/how-it-works" >}}) for guidance on choosing, and [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) for step-by-step configuration.
 
 ```yaml
 cycle_time:
@@ -141,7 +141,7 @@ project:
 
 ### `lifecycle`
 
-Maps labels and project board columns to workflow stages. Labels (`match`) provide reliable cycle time timestamps. Board columns (`project_status`) power WIP and backlog detection:
+Maps labels and project board columns to workflow stages. Labels (`match`) provide reliable cycle time timestamps. Board columns (`project_status`) power WIP and backlog detection. See [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}) for why labels are preferred:
 
 ```yaml
 lifecycle:
@@ -197,10 +197,12 @@ The default `gh auth login` token works for all local usage. In CI, different to
 
 **If your config has a `project:` section**, commands that need the board will warn and skip that data unless `GH_VELOCITY_TOKEN` is set. The rest of the report still works.
 
-For CI token setup details, see [CI Setup](../ci-setup/).
+For CI token setup details, see [CI Setup]({{< relref "/getting-started/ci-setup" >}}).
 
 ## Next steps
 
 - [Configuration Reference]({{< relref "/reference/config" >}}) -- full schema with all options and defaults
-- [CI Setup](../ci-setup/) -- automate reports with GitHub Actions
-- [How It Works](../how-it-works/) -- understand the metrics and strategies
+- [CI Setup]({{< relref "/getting-started/ci-setup" >}}) -- automate reports with GitHub Actions
+- [Velocity Setup]({{< relref "/guides/velocity-setup" >}}) -- configure effort-weighted sprint metrics
+- [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) -- configure cycle time measurement
+- [How It Works]({{< relref "/getting-started/how-it-works" >}}) -- understand the metrics and strategies

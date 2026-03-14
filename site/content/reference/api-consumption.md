@@ -187,3 +187,10 @@ Strategies to stay under the cap:
 6. **In CI, space invocations**. If your workflow runs multiple gh-velocity commands, add 60+ second gaps between them to avoid secondary rate limits.
 
 7. **Use `--config`** with pre-built example configs to avoid repeated `preflight` runs against the API.
+
+## See also
+
+- [CI Setup]({{< relref "/getting-started/ci-setup" >}}) -- token setup and workflow patterns for CI
+- [Configuration Reference: api_throttle_seconds]({{< relref "/reference/config" >}}#api_throttle_seconds) -- throttle configuration
+- [Troubleshooting]({{< relref "/guides/troubleshooting" >}}) -- fixing rate limit errors and CI issues
+- [GitHub's Capabilities & Limits]({{< relref "/concepts/github-capabilities" >}}) -- broader context on API constraints

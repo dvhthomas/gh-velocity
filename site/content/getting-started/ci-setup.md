@@ -9,7 +9,7 @@ Run gh-velocity in CI to post automated reports on releases, PRs, and schedules.
 
 ## How authentication works
 
-gh-velocity uses the `GH_TOKEN` environment variable for all GitHub API calls -- the same variable that powers the `gh` CLI. Locally, `gh auth login` handles this automatically. In CI, you set `GH_TOKEN` in your workflow.
+gh-velocity uses the `GH_TOKEN` environment variable for all GitHub API calls -- the same variable that powers the `gh` CLI. Locally, `gh auth login` handles this automatically. In CI, you set `GH_TOKEN` in your workflow. For details on what each token can access, see the [Configuration: Token permissions]({{< relref "/getting-started/configuration" >}}#token-permissions) section.
 
 ## Token setup
 
@@ -112,7 +112,7 @@ jobs:
 ```
 
 > [!NOTE]
-> The `GH_VELOCITY_POST_LIVE` environment variable is required for `--post` to actually write to GitHub. Without it, `--post` runs in dry-run mode. This is a safety net to prevent accidental posts during local testing.
+> The `GH_VELOCITY_POST_LIVE` environment variable is required for `--post` to actually write to GitHub. Without it, `--post` runs in dry-run mode. This is a safety net to prevent accidental posts during local testing. See [Posting Reports]({{< relref "/guides/posting-reports" >}}) for all `--post` options and patterns.
 
 ### Release metrics comment
 
@@ -256,5 +256,7 @@ The gh-velocity repo itself uses a CI workflow for velocity reports. See [`docs/
 
 ## Next steps
 
-- [Configuration](../configuration/) -- set up your `.gh-velocity.yml`
-- [How It Works](../how-it-works/) -- understand the metrics and strategies
+- [Configuration]({{< relref "/getting-started/configuration" >}}) -- set up your `.gh-velocity.yml`
+- [Posting Reports]({{< relref "/guides/posting-reports" >}}) -- `--post` options, idempotent posting, and manual patterns
+- [Troubleshooting]({{< relref "/guides/troubleshooting" >}}) -- fix common CI errors like "Resource not accessible" and dry-run `--post`
+- [How It Works]({{< relref "/getting-started/how-it-works" >}}) -- understand the metrics and strategies

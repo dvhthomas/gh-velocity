@@ -110,3 +110,9 @@ commit_ref:
 ```
 
 The broader setting catches commits like "implement #42" but can produce false positives from messages like "update step #1." Use it when your team consistently references issues in commits without closing keywords.
+
+## See also
+
+- [Configuration Reference: commit_ref]({{< relref "/reference/config" >}}#commit_ref) -- full schema for commit_ref patterns
+- [Quality Metrics]({{< relref "/reference/metrics/quality" >}}) -- how linking strategies feed into release quality reports
+- [Troubleshooting]({{< relref "/guides/troubleshooting" >}}) -- debugging missing issues in release reports

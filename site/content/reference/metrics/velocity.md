@@ -220,3 +220,10 @@ Velocity  dvhthomas/gh-velocity
 - `gh velocity flow velocity --history` -- past iterations only
 - `gh velocity flow velocity --iterations 3` -- override iteration count
 - `gh velocity flow velocity --verbose` -- show not-assessed item numbers
+
+## See also
+
+- [Setting Up Velocity]({{< relref "/guides/velocity-setup" >}}) -- step-by-step guide to effort strategies, iteration strategies, and validation
+- [Throughput]({{< relref "/reference/metrics/throughput" >}}) -- simpler unweighted count metric for teams without sprints
+- [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) -- what healthy velocity looks like
+- [Configuration Reference: velocity]({{< relref "/reference/config" >}}#velocity) -- all config fields

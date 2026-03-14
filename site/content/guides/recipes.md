@@ -5,7 +5,7 @@ weight: 6
 
 # How-To Recipes
 
-Practical patterns for common tasks with gh-velocity.
+Practical patterns for common tasks with gh-velocity. For understanding what the output means, see [Interpreting Results]({{< relref "/guides/interpreting-results" >}}). For CI automation, see [CI Setup]({{< relref "/getting-started/ci-setup" >}}).
 
 ## Compare two releases
 
@@ -115,13 +115,13 @@ gh velocity report --since 30d --scope "label:team-frontend assignee:alice"
 
 ## Check what each linking strategy found
 
-The `--discover` flag on `quality release` shows what `pr-link`, `commit-ref`, and `changelog` each discovered:
+The `--discover` flag on `quality release` shows what each [linking strategy]({{< relref "/concepts/linking-strategies" >}}) (`pr-link`, `commit-ref`, `changelog`) discovered:
 
 ```bash
 gh velocity quality release v1.2.0 --discover
 ```
 
-The output lists issues found by each strategy and marks items that appear in multiple strategies. Use this to understand how well the strategies cover your workflow and whether you need to adjust `commit_ref.patterns` in your config.
+The output lists issues found by each strategy and marks items that appear in multiple strategies. Use this to understand how well the strategies cover your workflow and whether you need to adjust [`commit_ref.patterns`]({{< relref "/reference/config" >}}#commit_ref) in your config.
 
 ## Bulk lead-time analysis
 

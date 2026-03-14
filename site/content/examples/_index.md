@@ -12,7 +12,7 @@ All example configs are in [`docs/examples/`](https://github.com/dvhthomas/gh-ve
 
 ## Generating your own config
 
-Use `preflight` to auto-detect a good starting config for any repo:
+Use [preflight]({{< relref "/getting-started/configuration" >}}#generate-a-config-with-preflight) to auto-detect a good starting config for any repo:
 
 ```bash
 gh velocity config preflight -R owner/repo              # preview to stdout
@@ -273,3 +273,10 @@ jobs:
 ```
 
 See [`docs/examples/velocity-report.yml`](https://github.com/dvhthomas/gh-velocity/blob/main/docs/examples/velocity-report.yml) for the full workflow file.
+
+## See also
+
+- [Configuration (Getting Started)]({{< relref "/getting-started/configuration" >}}) -- first-time setup guide
+- [Configuration Reference]({{< relref "/reference/config" >}}) -- full schema with all options and defaults
+- [CI Setup]({{< relref "/getting-started/ci-setup" >}}) -- workflow patterns for GitHub Actions
+- [Posting Reports]({{< relref "/guides/posting-reports" >}}) -- `--post` options for automated reporting

@@ -30,7 +30,7 @@ Both the current and previous tags need dates for the pr-link strategy to search
 More than half the issues in a release lack the labels configured for classification. Fix by:
 
 1. Labeling your issues with bug/feature labels
-2. Customizing `quality.categories` in your config to match your existing labels
+2. Customizing [`quality.categories`]({{< relref "/reference/config" >}}#qualitycategories) in your config to match your existing labels
 3. Running `gh velocity config preflight` to discover available labels and generate matching categories
 
 ### "shallow clone detected; commit history is incomplete"
@@ -113,7 +113,7 @@ quality:
 Issues classified as "other" did not match any category in `quality.categories`. This usually means issues lack the expected labels. Fix by:
 
 1. Labeling issues before releasing
-2. Adding more matchers to your categories (e.g., `type:Bug` for GitHub Issue Types, `title:/^fix/i` for title patterns)
+2. Adding more matchers to your categories (e.g., `type:Bug` for GitHub Issue Types, `title:/^fix/i` for title patterns). See [Configuration Reference: matcher syntax]({{< relref "/reference/config" >}}#matcher-syntax) for all matcher types.
 3. Running `gh velocity config preflight` to discover available labels
 
 ### Tag ordering is unexpected
@@ -128,7 +128,7 @@ gh velocity quality release v2.0.0 --since v1.9.0
 
 ### "config file required"
 
-All metric commands require a `.gh-velocity.yml` file. Create one with:
+All metric commands require a [`.gh-velocity.yml`]({{< relref "/getting-started/configuration" >}}) file. Create one with:
 
 ```bash
 gh velocity config preflight --write
@@ -163,7 +163,7 @@ gh velocity config show --format json
 
 ### --post does nothing in CI
 
-`--post` runs in dry-run mode by default. Set `GH_VELOCITY_POST_LIVE=true` in your workflow environment:
+`--post` runs in dry-run mode by default. Set `GH_VELOCITY_POST_LIVE=true` in your workflow environment. See [Posting Reports]({{< relref "/guides/posting-reports" >}}) for all posting patterns:
 
 ```yaml
 env:

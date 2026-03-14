@@ -61,3 +61,10 @@ The raw number is hard to interpret on its own. The useful signal is the ratio o
 High variability is not inherently bad -- it often reflects a mix of quick fixes and longer projects. But if you are trying to make delivery more predictable, reducing this ratio is a concrete goal.
 
 Standard deviation requires at least 2 data points.
+
+## See also
+
+- [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) -- what "good" looks like for each metric, and common patterns to watch for
+- [Lead Time Reference]({{< relref "/reference/metrics/lead-time" >}}) -- metric definition and aggregation details
+- [Cycle Time Reference]({{< relref "/reference/metrics/cycle-time" >}}) -- metric definition and aggregation details
+- [Quality Metrics]({{< relref "/reference/metrics/quality" >}}) -- outlier detection in release reports

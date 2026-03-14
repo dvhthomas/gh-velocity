@@ -21,18 +21,18 @@ Every issue follows a lifecycle, and each transition produces a timestamp that m
    includes this work
 ```
 
-Which cycle time signal is used depends on your configured strategy (`cycle_time.strategy` in `.gh-velocity.yml`). If you are unsure, start with `pr` -- it works immediately with no extra configuration.
+Which cycle time signal is used depends on your configured strategy (`cycle_time.strategy` in [`.gh-velocity.yml`]({{< relref "/getting-started/configuration" >}})). If you are unsure, start with `pr` -- it works immediately with no extra configuration.
 
 ## The metrics
 
-**Lead time** is the total elapsed time from issue creation to closure. It includes time in backlog, waiting for review, blocked by dependencies, or simply forgotten. A long lead time does not necessarily mean slow development -- it often means slow prioritization.
+**[Lead time]({{< relref "/reference/metrics/lead-time" >}})** is the total elapsed time from issue creation to closure. It includes time in backlog, waiting for review, blocked by dependencies, or simply forgotten. A long lead time does not necessarily mean slow development -- it often means slow prioritization.
 
-**Cycle time** measures how long active work took. Two strategies are available:
+**[Cycle time]({{< relref "/reference/metrics/cycle-time" >}})** measures how long active work took. Two strategies are available:
 
 - **Issue strategy** (`cycle_time.strategy: issue`): Starts when an in-progress label is applied, ends when the issue is closed. Label timestamps are immutable and reliable.
 - **PR strategy** (`cycle_time.strategy: pr`): Starts when the closing PR is created, ends when it is merged. Works with no extra config -- just link PRs to issues with "Closes #N".
 
-**Release lag** is the time from when an issue is closed to when the release containing it is published. High release lag points to batch-and-release workflows where completed work sits waiting.
+**Release lag** is the time from when an issue is closed to when the release containing it is published. High release lag points to batch-and-release workflows where completed work sits waiting. See [Quality Metrics]({{< relref "/reference/metrics/quality" >}}) for the full definition.
 
 **Cadence** is the time between consecutive releases. Combined with composition (bug ratio, feature ratio), it tells you whether you are shipping improvements or fighting fires.
 
@@ -86,7 +86,7 @@ The simplest path is labels:
 
 If you use a project board, add `project.url` and `project.status_field` to your config. The board's status column can drive both WIP detection and cycle time. For best results, use both board status and labels — see [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}).
 
-Run `config preflight --write` to auto-detect your setup and generate the right config.
+Run `config preflight --write` to auto-detect your setup and generate the right config. See [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) for a detailed walkthrough.
 
 ## Connecting PRs to issues
 
@@ -192,5 +192,7 @@ quality:
 
 ## Next steps
 
-- [Configuration](../configuration/) -- set up your `.gh-velocity.yml`
-- [CI Setup](../ci-setup/) -- automate reports with GitHub Actions
+- [Configuration]({{< relref "/getting-started/configuration" >}}) -- set up your `.gh-velocity.yml`
+- [CI Setup]({{< relref "/getting-started/ci-setup" >}}) -- automate reports with GitHub Actions
+- [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) -- understand what "good" looks like for each metric
+- [Understanding Statistics]({{< relref "/concepts/statistics" >}}) -- median, percentiles, outlier detection explained

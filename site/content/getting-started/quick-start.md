@@ -58,7 +58,7 @@ gh extension upgrade velocity
 
 ## First query against a public repo
 
-All metric commands require a config file. When targeting a remote repo with `--repo`, use `--config` to point at an example config (see `docs/examples/` in the repo). From inside your own repo with `.gh-velocity.yml` present, the config is loaded automatically.
+All metric commands require a [config file]({{< relref "/getting-started/configuration" >}}). When targeting a remote repo with `--repo`, use `--config` to point at an example config (see `docs/examples/` in the repo). From inside your own repo with `.gh-velocity.yml` present, the config is loaded automatically.
 
 Start with a public repo to see what the output looks like:
 
@@ -71,7 +71,7 @@ This takes 10-30 seconds depending on the number of issues. You will see:
 
 - Release metadata (previous tag, cadence, hotfix status)
 - Composition breakdown (bugs, features, other)
-- Per-issue table with lead time, cycle time, release lag, and outlier flags
+- Per-issue table with [lead time]({{< relref "/reference/metrics/lead-time" >}}), [cycle time]({{< relref "/reference/metrics/cycle-time" >}}), release lag, and outlier flags
 - Aggregate statistics with P90, P95, and outlier counts
 
 Try the same report in JSON to see the full structured data:
@@ -93,7 +93,7 @@ gh velocity quality release v2.67.0 -R cli/cli -f json | jq '.aggregates.lead_ti
 }
 ```
 
-See which linking strategy found each issue:
+See which [linking strategy]({{< relref "/concepts/linking-strategies" >}}) found each issue:
 
 ```bash
 gh velocity quality release v2.67.0 -R cli/cli --discover
@@ -128,6 +128,7 @@ gh velocity flow cycle-time 42
 
 ## Next steps
 
-- [How It Works](../how-it-works/) -- understand how your GitHub workflow maps to metrics
-- [Configuration](../configuration/) -- generate a config file tailored to your repo
-- [CI Setup](../ci-setup/) -- automate reports with GitHub Actions
+- [How It Works]({{< relref "/getting-started/how-it-works" >}}) -- understand how your GitHub workflow maps to metrics
+- [Configuration]({{< relref "/getting-started/configuration" >}}) -- generate a config file tailored to your repo
+- [CI Setup]({{< relref "/getting-started/ci-setup" >}}) -- automate reports with GitHub Actions
+- [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) -- understand what the output means and what "good" looks like

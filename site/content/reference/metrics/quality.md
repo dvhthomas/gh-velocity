@@ -205,3 +205,11 @@ Release v1.2.0 (2026-03-01)
 - `gh velocity quality release <tag>` -- full release quality report
 - `gh velocity quality release <tag> --discover` -- show which linking strategies found each issue
 - `gh velocity quality release <tag> --since <prev-tag>` -- specify previous tag explicitly
+
+## See also
+
+- [Linking Strategies]({{< relref "/concepts/linking-strategies" >}}) -- how the tool finds which issues belong to a release
+- [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) -- what healthy defect rates and composition look like
+- [Understanding Statistics]({{< relref "/concepts/statistics" >}}) -- outlier detection, percentiles, and median vs. mean
+- [Configuration Reference: quality]({{< relref "/reference/config" >}}#quality) -- category matchers and hotfix window
+- [Troubleshooting: Defect rate shows 0%]({{< relref "/guides/troubleshooting" >}}#defect-rate-shows-0) -- common configuration fix
