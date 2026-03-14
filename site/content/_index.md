@@ -1,13 +1,13 @@
 ---
-title: "gh-velocity"
+title: "GitHub Velocity"
 type: docs
 ---
 
-# gh-velocity
+# GitHub Velocity
 
-**GitHub velocity and quality metrics** — measure how fast your team ships.
+**Measure how fast your team ships** — velocity, quality, and flow metrics from GitHub data.
 
-gh-velocity is a GitHub CLI extension that computes development velocity and quality metrics from GitHub data and posts them where the work happens: issues, discussions, and release notes.
+`gh-velocity` is a GitHub CLI extension that computes development metrics and posts them where the work happens: issues, discussions, and release notes.
 
 ## What you can measure
 
@@ -18,22 +18,25 @@ gh-velocity is a GitHub CLI extension that computes development velocity and qua
 
 ## Get started
 
-{{< columns >}}
+| | | |
+|---|---|---|
+| **[Getting Started]({{< relref "getting-started" >}})** | **[Guides]({{< relref "guides" >}})** | **[Concepts]({{< relref "concepts" >}})** |
+| Install, configure, and run your first command in 5 minutes. | Task-oriented help: interpreting results, setting up velocity, CI integration. | How gh-velocity works: metric definitions, statistics, linking strategies. |
+| **[Reference]({{< relref "reference" >}})** | **[Examples]({{< relref "examples" >}})** | |
+| Complete CLI, config, and metric reference documentation. | Real-world configs for popular repositories. | |
 
-### [Getting Started](getting-started/)
-Install, configure, and run your first command in 5 minutes.
+## Install
 
-<--->
+```bash
+gh extension install dvhthomas/gh-velocity
+```
 
-### [Guides](guides/)
-Task-oriented help: interpreting results, setting up velocity, CI integration.
+Then generate a config tailored to your repo:
 
-<--->
+```bash
+gh velocity config preflight -R owner/repo --write
+```
 
-### [Reference](reference/)
-Complete CLI, config, and metric reference documentation.
+---
 
-{{< /columns >}}
-
-### [Concepts](concepts/)
-How gh-velocity works: metric definitions, statistics, linking strategies.
+Maintained by [Dylan Thomas](https://github.com/dvhthomas) · [Source on GitHub](https://github.com/dvhthomas/gh-velocity) · Built with the [Compound Engineering](https://bitsby.me/2026/03/compound-engineering/) methodology

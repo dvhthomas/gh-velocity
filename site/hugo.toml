@@ -1,6 +1,6 @@
 baseURL = "https://dvhthomas.github.io/gh-velocity/"
 languageCode = "en"
-title = "gh-velocity"
+title = "GitHub Velocity"
 
 # Hugo Book theme
 disableKinds = ["taxonomy"]
