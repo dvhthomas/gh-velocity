@@ -102,7 +102,7 @@ func WriteReportPretty(rc RenderContext, r model.StatsResult) error {
 	} else if r.CycleTimeStrategy != "" {
 		switch r.CycleTimeStrategy {
 		case model.StrategyIssue:
-			fmt.Fprintf(w, "  Cycle Time:  not available (configure lifecycle.in-progress.project_status)\n")
+			fmt.Fprintf(w, "  Cycle Time:  not available (configure lifecycle.in-progress with project_status or match)\n")
 		case model.StrategyPR:
 			fmt.Fprintf(w, "  Cycle Time:  not available (no closing PRs found)\n")
 		}

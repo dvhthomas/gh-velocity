@@ -10,8 +10,8 @@ import (
 
 var testNow = time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
 
-func TestIssueStrategy_NoProject(t *testing.T) {
-	// IssueStrategy without project config returns zero metrics for all inputs.
+func TestIssueStrategy_NoSignalSource(t *testing.T) {
+	// IssueStrategy without any signal source (no project, no match) returns zero.
 	closed := testNow.Add(48 * time.Hour)
 	tests := []struct {
 		name  string
@@ -22,17 +22,29 @@ func TestIssueStrategy_NoProject(t *testing.T) {
 		{name: "open issue", input: CycleTimeInput{Issue: &model.Issue{Number: 2, CreatedAt: testNow}}},
 	}
 
-	s := &IssueStrategy{} // no client, no project — signal unavailable
+	s := &IssueStrategy{} // no client, no project, no match — signal unavailable
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := s.Compute(context.Background(), tt.input)
 			if got.Duration != nil {
-				t.Errorf("expected nil duration (no project configured), got %v", *got.Duration)
+				t.Errorf("expected nil duration (no signal source), got %v", *got.Duration)
 			}
 			if got.Start != nil {
-				t.Error("expected nil Start (no project configured)")
+				t.Error("expected nil Start (no signal source)")
 			}
 		})
+	}
+}
+
+func TestIssueStrategy_MatchWithoutClient(t *testing.T) {
+	// InProgressMatch is set but no client — should return zero (can't query API).
+	closed := testNow.Add(48 * time.Hour)
+	s := &IssueStrategy{InProgressMatch: []string{"label:in-progress"}}
+	got := s.Compute(context.Background(), CycleTimeInput{
+		Issue: &model.Issue{Number: 1, CreatedAt: testNow, ClosedAt: &closed},
+	})
+	if got.Duration != nil {
+		t.Errorf("expected nil duration (no client), got %v", *got.Duration)
 	}
 }
 

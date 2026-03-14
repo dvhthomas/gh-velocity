@@ -76,8 +76,8 @@ func TestWriteReportPretty_CycleTimeNA_IssueStrategy(t *testing.T) {
 	if !strings.Contains(out, "not available") {
 		t.Error("expected 'not available' for nil cycle time with issue strategy")
 	}
-	if !strings.Contains(out, "lifecycle.in-progress.project_status") {
-		t.Error("expected project_status hint")
+	if !strings.Contains(out, "lifecycle.in-progress") {
+		t.Error("expected lifecycle.in-progress hint")
 	}
 }
 
