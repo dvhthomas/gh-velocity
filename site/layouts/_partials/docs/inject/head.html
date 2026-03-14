@@ -1,24 +1,37 @@
 {{- $favicon := resources.Get "favicon.svg" | fingerprint -}}
 {{- $shelly := resources.Get "images/logo.svg" | fingerprint -}}
+{{- $font := resources.Get "fonts/press-start-2p.woff2" | fingerprint -}}
 <link rel="icon" href="{{ $favicon.RelPermalink }}" type="image/svg+xml">
 
 <style>
+  @font-face {
+    font-family: 'Press Start 2P';
+    src: url('{{ $font.RelPermalink }}') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+
   :root {
-    --font-heading: ui-rounded, 'Hiragino Maru Gothic ProN', system-ui, sans-serif;
+    --font-heading: 'Press Start 2P', monospace;
     --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     --font-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
     --color-brand: #22C55E;
   }
 
-  /* Headings: rounded system font, bold and tight */
+  /* Headings: 8-bit pixel font */
   .book-article h1,
   .book-article h2,
   .book-article h3,
   .book-brand span {
     font-family: var(--font-heading);
-    font-weight: 800;
-    letter-spacing: -0.02em;
   }
+
+  /* Scale down — Press Start 2P runs large */
+  .book-article h1 { font-size: 1.4rem; line-height: 1.6; }
+  .book-article h2 { font-size: 1rem; line-height: 1.6; }
+  .book-article h3 { font-size: 0.85rem; line-height: 1.6; }
+  .book-brand span { font-size: 0.7rem; }
 
   /* Body: system sans — fast, native, readable */
   body,
@@ -40,8 +53,8 @@
   .book-article h1::before {
     content: "";
     display: inline-block;
-    width: 1.2em;
-    height: 0.9em;
+    width: 1.4em;
+    height: 1em;
     margin-right: 0.3em;
     vertical-align: baseline;
     background: url("{{ $shelly.RelPermalink }}") no-repeat center / contain;
