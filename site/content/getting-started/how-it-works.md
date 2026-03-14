@@ -68,24 +68,25 @@ Most of this is probably part of your workflow already.
 
 ## Choosing a cycle time strategy
 
-| Your workflow | Recommended strategy | Why |
-|---------------|---------------------|-----|
-| Issues with lifecycle labels | `issue` | Measures real work time (label applied to closed); immutable timestamps |
-| Issues on a project board | `issue` + labels | Use labels for cycle time, board for WIP/backlog visibility |
-| PRs close issues (most OSS repos) | `pr` | Measures PR review time (created to merged) |
-| Issues only, no labels or PRs | `issue` | Lead time works; add an `in-progress` label for cycle time |
+| Your workflow | Recommended strategy | Config | Why |
+|---|---|---|---|
+| Issues with lifecycle labels | `issue` + labels | `lifecycle.in-progress.match: ["label:in-progress"]` | Immutable label timestamps; most reliable |
+| Issues on a project board | `issue` + board + labels | `project.url`, `project.status_field`, `lifecycle.in-progress.project_status` + `match` | Board for WIP/backlog; labels for cycle time timestamps |
+| Issues on a project board (no labels) | `issue` + board only | `project.url`, `project.status_field`, `lifecycle.in-progress.project_status: ["In progress"]` | Works if cards are moved promptly and not tidied retroactively |
+| PRs close issues (most OSS repos) | `pr` | `cycle_time.strategy: pr` | Measures PR review time (created to merged); zero config needed |
+| Issues only, no labels or PRs | `issue` | (none) | Lead time works out of the box; add a label for cycle time |
 
-To enable `issue` strategy cycle time with labels:
+**Setting up the issue strategy:**
+
+The simplest path is labels:
 
 1. Create a label like `in-progress` or `wip` in your repo
 2. Add `lifecycle.in-progress.match: ["label:in-progress"]` to your config
 3. Apply the label to issues when work starts
 
-Or run preflight to auto-detect:
+If you use a project board, add `project.url` and `project.status_field` to your config. The board's status column can drive both WIP detection and cycle time. For best results, use both board status and labels — see [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}).
 
-```bash
-gh velocity config preflight -R owner/repo --write
-```
+Run `config preflight --write` to auto-detect your setup and generate the right config.
 
 ## Connecting PRs to issues
 
