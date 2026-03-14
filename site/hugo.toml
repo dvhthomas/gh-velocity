@@ -6,6 +6,10 @@ title = "GitHub Velocity"
 disableKinds = ["taxonomy"]
 enableGitInfo = true
 
+# Disable typographer to prevent -- becoming en-dash in flag names like --project-url
+[markup.goldmark.extensions]
+  typographer = false
+
 [module]
 [[module.imports]]
   path = "github.com/alex-shpak/hugo-book"

@@ -44,7 +44,8 @@ func main() {
 
 		desc := descriptions[name]
 		if desc != "" {
-			return fmt.Sprintf("---\ntitle: \"%s\"\ndescription: \"%s\"\nbookToC: true\n---\n\n", title, desc)
+			// Use single-quoted YAML so backticks in descriptions are preserved.
+			return fmt.Sprintf("---\ntitle: \"%s\"\ndescription: '%s'\nbookToC: true\n---\n\n", title, strings.ReplaceAll(desc, "'", "''"))
 		}
 		return fmt.Sprintf("---\ntitle: \"%s\"\nbookToC: true\n---\n\n", title)
 	}
@@ -74,7 +75,7 @@ func main() {
 func buildDescriptions(cmd *cobracmd.Command, m map[string]string) {
 	name := strings.ReplaceAll(cmd.CommandPath(), " ", "_")
 	if cmd.Short != "" {
-		m[name] = strings.ReplaceAll(cmd.Short, `"`, `\"`)
+		m[name] = cmd.Short
 	}
 	for _, sub := range cmd.Commands() {
 		buildDescriptions(sub, m)
