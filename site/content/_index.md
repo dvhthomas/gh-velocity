@@ -7,8 +7,8 @@ type: docs
 {{< asset-img src="images/logo-lockup.svg" alt="velocity" style="max-width: 600px; width: 100%; image-rendering: pixelated;" >}}
 </div>
 
-<h1 style="text-align: center; font-size: 2.4rem; margin-bottom: 1rem; line-height: 1.2;">
-  Ship predictably.<br/>Measure what matters.
+<h1 class="no-shelly" style="text-align: center; font-size: 2.4rem; margin-bottom: 1rem; line-height: 1.2;">
+  Measure what matters.
 </h1>
 
 <p style="text-align: center; color: #666; font-size: 1.2rem; max-width: 560px; margin: 0 auto 2.5rem;">

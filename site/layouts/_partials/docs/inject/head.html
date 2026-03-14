@@ -1,15 +1,55 @@
 {{- $favicon := resources.Get "favicon.svg" | fingerprint -}}
 {{- $shelly := resources.Get "images/logo.svg" | fingerprint -}}
 <link rel="icon" href="{{ $favicon.RelPermalink }}" type="image/svg+xml">
+
+<!-- Fonts: Press Start 2P for headings (8-bit), Space Grotesk for body (modern geometric), JetBrains Mono for code -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
 <style>
+  /* Headings: 8-bit pixel font */
+  .book-article h1,
+  .book-article h2,
+  .book-article h3,
+  .book-brand span {
+    font-family: 'Press Start 2P', monospace;
+  }
+
+  /* Scale down headings — Press Start 2P runs large */
+  .book-article h1 { font-size: 1.4rem; line-height: 1.6; }
+  .book-article h2 { font-size: 1rem; line-height: 1.6; }
+  .book-article h3 { font-size: 0.85rem; line-height: 1.6; }
+  .book-brand span { font-size: 0.75rem; }
+
+  /* Body: clean geometric sans */
+  body,
+  .book-article p,
+  .book-article li,
+  .book-article td,
+  .book-menu-content {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  /* Code: pixel-crisp mono */
+  code, pre, .book-article code, .book-article pre {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Shelly before every h1 */
   .book-article h1::before {
     content: "";
     display: inline-block;
-    width: 1.2em;
-    height: 0.9em;
+    width: 1.4em;
+    height: 1em;
     margin-right: 0.3em;
     vertical-align: baseline;
     background: url("{{ $shelly.RelPermalink }}") no-repeat center / contain;
     image-rendering: pixelated;
+  }
+
+  /* Exclude Shelly on landing page hero */
+  .book-article h1.no-shelly::before {
+    display: none;
   }
 </style>
