@@ -1,8 +1,11 @@
-# Velocity, Burndown, and Burnup: Deep Research Findings
-
-Date: 2026-03-12
-
 ---
+title: "Velocity, Burndown, and Burnup Research"
+date: 2026-03-12
+status: completed
+type: research
+---
+
+# Velocity, Burndown, and Burnup: Deep Research Findings
 
 ## 1. GitHub Projects v2 Built-in Charts
 

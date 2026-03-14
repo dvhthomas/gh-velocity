@@ -1,7 +1,8 @@
 ---
 title: Linking Strategies & Flexible Classification
 date: 2026-03-09
-status: complete
+status: completed
+type: brainstorm
 ---
 
 # Linking Strategies & Flexible Classification

@@ -70,6 +70,9 @@ func runVelocityValidation(cmd *cobra.Command, cfg *config.Config) (bool, error)
 			cfg.Velocity.Iteration.Fixed.Length, cfg.Velocity.Iteration.Fixed.Anchor)
 	}
 
+	// Show API budget after validation.
+	printAPIUsage(ctx, client)
+
 	return true, nil
 }
 
@@ -147,7 +150,7 @@ func validateNumericEffort(ctx context.Context, w io.Writer, cfg *config.Config,
 		}
 	}
 
-	items, err := client.ListProjectItemsWithFields(ctx, projInfo.ProjectID, "", cfg.Velocity.Effort.Numeric.ProjectField)
+	items, err := client.ListProjectItemsWithFields(ctx, projInfo.ProjectID, "", cfg.Velocity.Effort.Numeric.ProjectField, nil)
 	if err != nil {
 		return fmt.Errorf("velocity validate: %w", err)
 	}

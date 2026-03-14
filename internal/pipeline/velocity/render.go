@@ -31,6 +31,7 @@ type jsonOutput struct {
 	Repository   string           `json:"repository"`
 	Unit         string           `json:"unit"`
 	EffortUnit   string           `json:"effort_unit"`
+	Warnings     []string         `json:"warnings,omitempty"`
 	Insights     []string         `json:"insights,omitempty"`
 	Provenance   model.Provenance `json:"provenance,omitempty"`
 	EffortDetail jsonEffort       `json:"effort"`
@@ -101,6 +102,7 @@ func WriteJSON(w io.Writer, r model.VelocityResult) error {
 		Repository:   r.Repository,
 		Unit:         r.Unit,
 		EffortUnit:   r.EffortUnit,
+		Warnings:     r.Warnings,
 		EffortDetail: je,
 	}
 	if len(r.History) > 0 {
@@ -131,6 +133,13 @@ func WriteJSON(w io.Writer, r model.VelocityResult) error {
 // WritePretty writes velocity as formatted text.
 func WritePretty(w io.Writer, r model.VelocityResult, verbose bool) error {
 	fmt.Fprintf(w, "Velocity: %s (%s)\n\n", r.Repository, r.Unit)
+
+	for _, warn := range r.Warnings {
+		fmt.Fprintf(w, "\u26a0 %s\n", warn)
+	}
+	if len(r.Warnings) > 0 {
+		fmt.Fprintln(w)
+	}
 
 	if r.Current != nil {
 		c := r.Current

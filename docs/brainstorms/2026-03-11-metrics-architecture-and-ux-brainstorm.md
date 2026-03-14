@@ -1,8 +1,8 @@
 ---
 title: Metrics Architecture and UX Improvements
 date: 2026-03-11
-status: draft
-origin: conversation during my-week implementation (PR #43)
+status: completed
+type: brainstorm
 ---
 
 # Metrics Architecture and UX Improvements

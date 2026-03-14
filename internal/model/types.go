@@ -296,6 +296,7 @@ type VelocityResult struct {
 	EffortDetail  EffortDetail
 	Provenance    Provenance
 	Insights      []Insight
+	Warnings      []string // user-facing warnings (e.g., board item cap exceeded)
 	Current       *IterationVelocity
 	History       []IterationVelocity
 	AvgVelocity   float64
@@ -358,7 +359,8 @@ type VelocityItem struct {
 	Labels      []string
 	IssueType   string
 	IterationID string
-	Effort      *float64   // from Number field, nil if unset
+	Effort      *float64          // from Number field, nil if unset
+	Fields      map[string]string // project board field values (e.g., SingleSelect)
 }
 
 // IterationFieldConfig holds the configuration of a ProjectV2 Iteration field.

@@ -219,7 +219,7 @@ commit_ref:
 #   unit: issues                    # "issues" (default) or "prs"
 #   effort:
 #     strategy: count               # "count" (default), "attribute", or "numeric"
-#     # attribute strategy — map labels/types to effort values (first match wins):
+#     # attribute strategy — map labels/types/fields to effort values (first match wins):
 #     # attribute:
 #     #   - query: "label:size/XS"
 #     #     value: 1
@@ -231,6 +231,9 @@ commit_ref:
 #     #     value: 5
 #     #   - query: "label:size/XL"
 #     #     value: 8
+#     #   # field: matchers use project board SingleSelect fields:
+#     #   # - query: "field:Size/S"
+#     #   #   value: 2
 #     # numeric strategy — read effort from a project board Number field:
 #     # numeric:
 #     #   project_field: "Story Points"

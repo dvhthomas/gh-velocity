@@ -12,9 +12,10 @@ import (
 
 // Input holds the fields available for classification matching.
 type Input struct {
-	Labels    []string // issue or PR labels
-	IssueType string   // GitHub Issue Type (from GraphQL)
-	Title     string   // issue or PR title
+	Labels    []string          // issue or PR labels
+	IssueType string            // GitHub Issue Type (from GraphQL)
+	Title     string            // issue or PR title
+	Fields    map[string]string // project board field values (e.g., SingleSelect)
 }
 
 // Matcher tests whether an input matches a classification rule.
@@ -97,9 +98,10 @@ func (c *Classifier) CategoryNames() []string {
 
 // ParseMatcher parses a matcher string into a Matcher implementation.
 // Supported formats:
-//   - "label:<name>"   — case-insensitive label match
-//   - "type:<name>"    — exact match on GitHub Issue Type
+//   - "label:<name>"        — case-insensitive label match
+//   - "type:<name>"         — exact match on GitHub Issue Type
 //   - "title:/<regex>/<flags>" — regex match on title (flag: i = case-insensitive)
+//   - "field:<name>/<value>"   — case-insensitive match on a project board field value
 func ParseMatcher(s string) (Matcher, error) {
 	prefix, value, ok := strings.Cut(s, ":")
 	if !ok || value == "" {
@@ -113,8 +115,10 @@ func ParseMatcher(s string) (Matcher, error) {
 		return TypeMatcher{Type: value}, nil
 	case "title":
 		return parseTitleMatcher(value)
+	case "field":
+		return parseFieldMatcher(value, s)
 	default:
-		return nil, fmt.Errorf("unknown matcher type %q in %q: expected \"label\", \"type\", or \"title\"", prefix, s)
+		return nil, fmt.Errorf("unknown matcher type %q in %q: expected \"label\", \"type\", \"title\", or \"field\"", prefix, s)
 	}
 }
 
@@ -176,5 +180,33 @@ func parseTitleMatcher(value string) (Matcher, error) {
 	}
 
 	return TitleMatcher{Pattern: re}, nil
+}
+
+// FieldMatcher matches items by a project board field value (e.g., SingleSelect).
+// Both field name and value are compared case-insensitively.
+type FieldMatcher struct {
+	Field string // field name, e.g., "Size"
+	Value string // expected value, e.g., "M"
+}
+
+func (m FieldMatcher) Matches(input Input) bool {
+	if input.Fields == nil {
+		return false
+	}
+	for k, v := range input.Fields {
+		if strings.EqualFold(k, m.Field) && strings.EqualFold(v, m.Value) {
+			return true
+		}
+	}
+	return false
+}
+
+// parseFieldMatcher parses "Name/Value" into a FieldMatcher.
+func parseFieldMatcher(value, raw string) (Matcher, error) {
+	name, val, ok := strings.Cut(value, "/")
+	if !ok || name == "" || val == "" {
+		return nil, fmt.Errorf("invalid field matcher %q: expected format \"field:Name/Value\"", raw)
+	}
+	return FieldMatcher{Field: name, Value: val}, nil
 }
 

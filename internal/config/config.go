@@ -409,6 +409,7 @@ func validateVelocity(v *VelocityConfig, projectURL string) error {
 		if len(v.Effort.Attribute) == 0 {
 			return fmt.Errorf("config: velocity.effort.attribute requires at least one matcher")
 		}
+		hasFieldMatcher := false
 		for i, m := range v.Effort.Attribute {
 			if m.Value < 0 {
 				return fmt.Errorf("config: velocity.effort.attribute[%d].value must be non-negative, got %v", i, m.Value)
@@ -416,6 +417,12 @@ func validateVelocity(v *VelocityConfig, projectURL string) error {
 			if _, err := classify.ParseMatcher(m.Query); err != nil {
 				return fmt.Errorf("config: velocity.effort.attribute[%d].query: %w", i, err)
 			}
+			if strings.HasPrefix(m.Query, "field:") {
+				hasFieldMatcher = true
+			}
+		}
+		if hasFieldMatcher && projectURL == "" {
+			return fmt.Errorf("config: project.url is required when velocity.effort.attribute uses \"field:\" matchers (requires project board access)")
 		}
 	case "numeric":
 		if v.Effort.Numeric.ProjectField == "" {

@@ -44,6 +44,7 @@ type Client struct {
 	searchMu       sync.Mutex
 	searchDelay    time.Duration // minimum gap between search API calls
 	searchLastCall time.Time     // last time a search call was issued
+
 }
 
 // NewClient creates a Client for the given owner/repo.
@@ -101,6 +102,37 @@ func (c *Client) projectClient() *ghapi.GraphQLClient {
 		return c.projGQL
 	}
 	return c.gql
+}
+
+// RateLimitStatus holds the current GraphQL rate limit state.
+type RateLimitStatus struct {
+	Limit     int
+	Remaining int
+	Used      int
+	ResetAt   time.Time
+}
+
+// RateLimit queries the current GraphQL rate limit status.
+// Costs 1 point itself, so call sparingly (e.g., once at command end).
+func (c *Client) RateLimit(ctx context.Context) (*RateLimitStatus, error) {
+	var resp struct {
+		RateLimit struct {
+			Limit     int    `json:"limit"`
+			Remaining int    `json:"remaining"`
+			Used      int    `json:"used"`
+			ResetAt   string `json:"resetAt"`
+		} `json:"rateLimit"`
+	}
+	if err := c.gql.DoWithContext(ctx, `{ rateLimit { limit remaining used resetAt } }`, nil, &resp); err != nil {
+		return nil, err
+	}
+	resetAt, _ := time.Parse(time.RFC3339, resp.RateLimit.ResetAt)
+	return &RateLimitStatus{
+		Limit:     resp.RateLimit.Limit,
+		Remaining: resp.RateLimit.Remaining,
+		Used:      resp.RateLimit.Used,
+		ResetAt:   resetAt,
+	}, nil
 }
 
 // Owner returns the repository owner.

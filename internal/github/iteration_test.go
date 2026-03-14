@@ -117,7 +117,7 @@ func TestBuildVelocityItemsQuery(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			q := buildVelocityItemsQuery(tt.iterFieldName, tt.numFieldName)
+			q := buildVelocityItemsQuery(tt.iterFieldName, tt.numFieldName, nil)
 			for _, s := range tt.wantContains {
 				if !contains(q, s) {
 					t.Errorf("query should contain %q, got:\n%s", s, q)
@@ -130,6 +130,20 @@ func TestBuildVelocityItemsQuery(t *testing.T) {
 			}
 		})
 	}
+
+	// Test SingleSelect field fragments.
+	t.Run("with single select fields", func(t *testing.T) {
+		q := buildVelocityItemsQuery("", "", []string{"Size", "Priority"})
+		for _, want := range []string{
+			`ss0: fieldValueByName(name: "Size")`,
+			`ss1: fieldValueByName(name: "Priority")`,
+			"ProjectV2ItemFieldSingleSelectValue",
+		} {
+			if !contains(q, want) {
+				t.Errorf("query should contain %q, got:\n%s", want, q)
+			}
+		}
+	})
 }
 
 func contains(s, substr string) bool {
