@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"io"
+	"maps"
 	"sort"
 	"strings"
 	"text/template"
@@ -29,12 +30,12 @@ var funcMap = template.FuncMap{
 		}
 		return t.UTC().Format(time.DateOnly)
 	},
-	"duration": FormatDuration,
-	"durationPtr": FormatDurationPtr,
+	"duration":       FormatDuration,
+	"durationPtr":    FormatDurationPtr,
 	"metricDuration": FormatMetricDuration,
-	"metric": FormatMetric,
-	"sanitize": SanitizeMarkdown,
-	"labels":   FormatLabels,
+	"metric":         FormatMetric,
+	"sanitize":       SanitizeMarkdown,
+	"labels":         FormatLabels,
 	"itemLink": func(number int, url string) string {
 		if url == "" {
 			return fmt.Sprintf("#%d", number)
@@ -64,9 +65,7 @@ func mustParseTemplate(name string) *template.Template {
 // Per-metric packages extend this with metric-specific functions.
 func TemplateFuncMap() template.FuncMap {
 	fm := make(template.FuncMap, len(funcMap))
-	for k, v := range funcMap {
-		fm[k] = v
-	}
+	maps.Copy(fm, funcMap)
 	return fm
 }
 
@@ -125,6 +124,7 @@ type reportTemplateData struct {
 	LeadTime   string
 	CycleTime  string
 	Throughput string
+	Velocity   string
 	WIP        string
 	Quality    string
 	Warnings   []string
@@ -145,6 +145,9 @@ func renderReportMarkdown(w io.Writer, r model.StatsResult) error {
 	if r.Throughput != nil {
 		data.Throughput = fmt.Sprintf("%d issues closed, %d PRs merged",
 			r.Throughput.IssuesClosed, r.Throughput.PRsMerged)
+	}
+	if r.Velocity != nil {
+		data.Velocity = FormatVelocitySummary(*r.Velocity)
 	}
 	if r.WIPCount != nil {
 		data.WIP = fmt.Sprintf("%d items in progress", *r.WIPCount)
@@ -276,13 +279,13 @@ type myweekTemplateData struct {
 	Until    time.Time
 	Insights []string
 	// Lookback
-	IssuesClosed       []myweekItemRow
-	PRsMerged          []myweekItemRow
-	PRsReviewed        []myweekItemRow
-	Releases           []myweekReleaseRow
-	IssuesClosedURL    string
-	PRsMergedURL       string
-	PRsReviewedURL     string
+	IssuesClosed    []myweekItemRow
+	PRsMerged       []myweekItemRow
+	PRsReviewed     []myweekItemRow
+	Releases        []myweekReleaseRow
+	IssuesClosedURL string
+	PRsMergedURL    string
+	PRsReviewedURL  string
 	// Lookahead
 	IssuesOpen []myweekAnnotatedRow
 	PRsOpen    []myweekAnnotatedRow
@@ -291,7 +294,7 @@ type myweekTemplateData struct {
 }
 
 type myweekItemRow struct {
-	Link string
+	Link  string
 	Title string
 	Date  string
 }
@@ -418,4 +421,3 @@ func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult, i
 
 	return myweekMarkdownTmpl.Execute(w, data)
 }
-

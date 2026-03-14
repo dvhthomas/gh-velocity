@@ -122,14 +122,14 @@ func WritePretty(rc format.RenderContext, kind string, number int, title, itemUR
 // ============================================================
 
 type jsonBulkOutput struct {
-	Repository string              `json:"repository"`
-	Window     format.JSONWindow   `json:"window"`
-	SearchURL  string              `json:"search_url"`
-	Strategy   string              `json:"strategy"`
-	Items      []jsonBulkItem      `json:"items"`
-	Stats      format.JSONStats    `json:"stats"`
-	Capped     bool                `json:"capped,omitempty"`
-	Warnings   []string            `json:"warnings,omitempty"`
+	Repository string            `json:"repository"`
+	Window     format.JSONWindow `json:"window"`
+	SearchURL  string            `json:"search_url"`
+	Strategy   string            `json:"strategy"`
+	Items      []jsonBulkItem    `json:"items"`
+	Stats      format.JSONStats  `json:"stats"`
+	Capped     bool              `json:"capped,omitempty"`
+	Warnings   []string          `json:"warnings,omitempty"`
 }
 
 type jsonBulkItem struct {

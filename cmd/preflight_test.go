@@ -687,14 +687,14 @@ func TestRenderPreflightConfig_LabelMatchersIncludedWithZeroHits(t *testing.T) {
 			{
 				Category: "bug",
 				Matchers: []MatcherEvidence{
-					{Matcher: "label:bug", Count: 0},                                                    // label detected but 0 hits
+					{Matcher: "label:bug", Count: 0}, // label detected but 0 hits
 					{Matcher: `title:/^fix[\(: ]/i`, Count: 3, Example: "#1 fix: crash", Suggested: true}, // title probe with hits
 				},
 			},
 			{
 				Category: "feature",
 				Matchers: []MatcherEvidence{
-					{Matcher: "label:enhancement", Count: 0},                                               // label detected but 0 hits
+					{Matcher: "label:enhancement", Count: 0},                                                    // label detected but 0 hits
 					{Matcher: `title:/^feat[\(: ]/i`, Count: 2, Example: "#2 feat: dark mode", Suggested: true}, // title probe with hits
 				},
 			},
@@ -777,7 +777,7 @@ func TestDetectSizingLabels(t *testing.T) {
 	tests := []struct {
 		name   string
 		labels []string
-		want   int    // expected number of matches
+		want   int                      // expected number of matches
 		check  func([]SizingLabelMatch) // optional deeper assertions
 	}{
 		{
@@ -848,14 +848,14 @@ func TestDetectSizingLabels(t *testing.T) {
 
 func TestDetectVelocityHeuristics(t *testing.T) {
 	tests := []struct {
-		name           string
-		fields         []gh.DiscoveredField
-		labels         []string
-		wantEffort     string
-		wantIteration  string
-		wantNumField   string
-		wantIterField  string
-		wantSizingLen  int
+		name          string
+		fields        []gh.DiscoveredField
+		labels        []string
+		wantEffort    string
+		wantIteration string
+		wantNumField  string
+		wantIterField string
+		wantSizingLen int
 	}{
 		{
 			name:          "no project fields, no sizing labels → count + fixed",
@@ -880,10 +880,10 @@ func TestDetectVelocityHeuristics(t *testing.T) {
 			fields: []gh.DiscoveredField{
 				{Name: "Sprint", Type: "ProjectV2IterationField"},
 			},
-			labels:         []string{"bug"},
-			wantEffort:     "count",
-			wantIteration:  "project-field",
-			wantIterField:  "Sprint",
+			labels:        []string{"bug"},
+			wantEffort:    "count",
+			wantIteration: "project-field",
+			wantIterField: "Sprint",
 		},
 		{
 			name: "both number and iteration fields",
@@ -891,11 +891,11 @@ func TestDetectVelocityHeuristics(t *testing.T) {
 				{Name: "Effort", Type: "ProjectV2Field"},
 				{Name: "Iteration", Type: "ProjectV2IterationField"},
 			},
-			labels:         []string{"bug"},
-			wantEffort:     "numeric",
-			wantNumField:   "Effort",
-			wantIteration:  "project-field",
-			wantIterField:  "Iteration",
+			labels:        []string{"bug"},
+			wantEffort:    "numeric",
+			wantNumField:  "Effort",
+			wantIteration: "project-field",
+			wantIterField: "Iteration",
 		},
 		{
 			name:          "sizing labels found, no number field → attribute",
@@ -910,22 +910,22 @@ func TestDetectVelocityHeuristics(t *testing.T) {
 			fields: []gh.DiscoveredField{
 				{Name: "Points", Type: "ProjectV2Field"},
 			},
-			labels:         []string{"size/S", "size/M", "size/L"},
-			wantEffort:     "numeric",
-			wantNumField:   "Points",
-			wantIteration:  "fixed",
-			wantSizingLen:  3, // still detected but not used for strategy
+			labels:        []string{"size/S", "size/M", "size/L"},
+			wantEffort:    "numeric",
+			wantNumField:  "Points",
+			wantIteration: "fixed",
+			wantSizingLen: 3, // still detected but not used for strategy
 		},
 		{
 			name: "non-effort number field ignored",
 			fields: []gh.DiscoveredField{
-				{Name: "Priority", Type: "ProjectV2Field"},        // doesn't match effort names
-				{Name: "Description", Type: "ProjectV2Field"},     // doesn't match
+				{Name: "Priority", Type: "ProjectV2Field"},    // doesn't match effort names
+				{Name: "Description", Type: "ProjectV2Field"}, // doesn't match
 			},
-			labels:         []string{"size/S", "size/M"},
-			wantEffort:     "attribute", // falls through to labels
-			wantIteration:  "fixed",
-			wantSizingLen:  2,
+			labels:        []string{"size/S", "size/M"},
+			wantEffort:    "attribute", // falls through to labels
+			wantIteration: "fixed",
+			wantSizingLen: 2,
 		},
 	}
 

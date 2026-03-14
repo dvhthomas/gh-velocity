@@ -1,7 +1,11 @@
-# gh-velocity: GitHub Velocity & Quality Metrics
+---
+title: "gh-velocity: GitHub Velocity & Quality Metrics"
+date: 2026-03-09
+status: completed
+type: brainstorm
+---
 
-**Date:** 2026-03-09
-**Status:** Brainstorm
+# gh-velocity: GitHub Velocity & Quality Metrics
 
 ## What We're Building
 

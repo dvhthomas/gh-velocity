@@ -77,7 +77,7 @@ func testMyWeekResult() model.MyWeekResult {
 		// Lookback: releases
 		Releases: []model.Release{
 			{TagName: "v1.2.0", Name: "v1.2.0 — March release",
-				URL: "https://github.com/owner/repo/releases/tag/v1.2.0",
+				URL:       "https://github.com/owner/repo/releases/tag/v1.2.0",
 				CreatedAt: publishedMar5, PublishedAt: &publishedMar5},
 		},
 

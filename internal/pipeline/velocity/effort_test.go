@@ -41,10 +41,10 @@ func TestAttributeEvaluator(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		item     model.VelocityItem
-		wantVal  float64
-		wantOK   bool
+		name    string
+		item    model.VelocityItem
+		wantVal float64
+		wantOK  bool
 	}{
 		{
 			name:    "matches first",
@@ -129,6 +129,107 @@ func TestNumericEvaluator(t *testing.T) {
 			v, ok := e.Evaluate(tt.item)
 			if v != tt.wantVal || ok != tt.wantOK {
 				t.Errorf("Evaluate(#%d) = (%.1f, %v), want (%.1f, %v)", tt.item.Number, v, ok, tt.wantVal, tt.wantOK)
+			}
+		})
+	}
+}
+
+func TestAttributeEvaluator_FieldMatchers(t *testing.T) {
+	cfg := config.EffortConfig{
+		Strategy: "attribute",
+		Attribute: []config.EffortMatcher{
+			{Query: "field:Size/XS", Value: 1},
+			{Query: "field:Size/S", Value: 2},
+			{Query: "field:Size/M", Value: 3},
+			{Query: "field:Size/L", Value: 5},
+			{Query: "field:Size/XL", Value: 8},
+		},
+	}
+
+	e, err := NewEffortEvaluator(cfg)
+	if err != nil {
+		t.Fatalf("NewEffortEvaluator: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		item    model.VelocityItem
+		wantVal float64
+		wantOK  bool
+	}{
+		{
+			name:    "matches XS",
+			item:    model.VelocityItem{Number: 1, Fields: map[string]string{"Size": "XS"}},
+			wantVal: 1, wantOK: true,
+		},
+		{
+			name:    "matches M case insensitive",
+			item:    model.VelocityItem{Number: 2, Fields: map[string]string{"size": "m"}},
+			wantVal: 3, wantOK: true,
+		},
+		{
+			name:    "no match = not assessed",
+			item:    model.VelocityItem{Number: 3, Fields: map[string]string{"Priority": "High"}},
+			wantVal: 0, wantOK: false,
+		},
+		{
+			name:    "nil fields = not assessed",
+			item:    model.VelocityItem{Number: 4},
+			wantVal: 0, wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v, ok := e.Evaluate(tt.item)
+			if v != tt.wantVal || ok != tt.wantOK {
+				t.Errorf("Evaluate(#%d) = (%.0f, %v), want (%.0f, %v)", tt.item.Number, v, ok, tt.wantVal, tt.wantOK)
+			}
+		})
+	}
+}
+
+func TestHasFieldMatchers(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  config.EffortConfig
+		want bool
+	}{
+		{"count strategy", config.EffortConfig{Strategy: "count"}, false},
+		{"attribute no field", config.EffortConfig{Strategy: "attribute", Attribute: []config.EffortMatcher{{Query: "label:size/S", Value: 2}}}, false},
+		{"attribute with field", config.EffortConfig{Strategy: "attribute", Attribute: []config.EffortMatcher{{Query: "field:Size/M", Value: 3}}}, true},
+		{"mixed matchers", config.EffortConfig{Strategy: "attribute", Attribute: []config.EffortMatcher{{Query: "label:bug", Value: 1}, {Query: "field:Size/L", Value: 5}}}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := HasFieldMatchers(tt.cfg); got != tt.want {
+				t.Errorf("HasFieldMatchers() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExtractFieldMatcherNames(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  config.EffortConfig
+		want []string
+	}{
+		{"count strategy", config.EffortConfig{Strategy: "count"}, nil},
+		{"no field matchers", config.EffortConfig{Strategy: "attribute", Attribute: []config.EffortMatcher{{Query: "label:bug", Value: 1}}}, nil},
+		{"one field", config.EffortConfig{Strategy: "attribute", Attribute: []config.EffortMatcher{{Query: "field:Size/M", Value: 3}, {Query: "field:Size/L", Value: 5}}}, []string{"Size"}},
+		{"two fields", config.EffortConfig{Strategy: "attribute", Attribute: []config.EffortMatcher{{Query: "field:Size/M", Value: 3}, {Query: "field:Priority/High", Value: 8}}}, []string{"Size", "Priority"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ExtractFieldMatcherNames(tt.cfg)
+			if len(got) != len(tt.want) {
+				t.Fatalf("ExtractFieldMatcherNames() = %v, want %v", got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("ExtractFieldMatcherNames()[%d] = %q, want %q", i, got[i], tt.want[i])
+				}
 			}
 		})
 	}

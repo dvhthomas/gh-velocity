@@ -1,7 +1,8 @@
 ---
 title: "Scope & Lifecycle Filtering"
-type: feat
 date: 2026-03-11
+status: completed
+type: brainstorm
 ---
 
 # Scope & Lifecycle Filtering

@@ -1,7 +1,11 @@
-# Brainstorm: Actionable Output — Making gh-velocity Indispensable
+---
+title: "Actionable Output — Making gh-velocity Indispensable"
+date: 2026-03-10
+status: active
+type: brainstorm
+---
 
-**Date:** 2026-03-10
-**Status:** Ready
+# Brainstorm: Actionable Output — Making gh-velocity Indispensable
 **Scope:** Product vision for transforming gh-velocity from "shows metrics" to "drives action" across developers, PMs, and engineering leaders
 
 ## The Problem

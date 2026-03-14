@@ -1,6 +1,7 @@
 ---
 title: "Strategy Completeness Audit: Do All Config Combinations Produce Meaningful Results?"
 date: 2026-03-12
+status: completed
 type: research
 ---
 

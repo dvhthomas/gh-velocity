@@ -144,6 +144,7 @@ each choice. Use --write to save it directly.`,
 			// Print diagnostic summary to stderr (not included in --write output).
 			log.Notice("")
 			printPreflightDiagnostics(result)
+			printAPIUsage(ctx, client)
 			log.Notice("")
 			log.Notice("To save this config:  gh velocity config preflight --write")
 			return nil
@@ -184,12 +185,14 @@ type PreflightResult struct {
 
 // VelocityHeuristic holds detected signals for velocity configuration.
 type VelocityHeuristic struct {
-	EffortStrategy    string              `json:"effort_strategy"`              // "numeric", "attribute", or "count"
-	IterationStrategy string              `json:"iteration_strategy"`           // "project-field" or "fixed"
-	NumericField      string              `json:"numeric_field,omitempty"`      // project Number field name
-	IterationField    string              `json:"iteration_field,omitempty"`    // project Iteration field name
-	SizingLabels      []SizingLabelMatch  `json:"sizing_labels,omitempty"`     // detected sizing labels
-	Evidence          []string            `json:"evidence,omitempty"`           // human-readable evidence
+	EffortStrategy       string             `json:"effort_strategy"`           // "numeric", "attribute", or "count"
+	IterationStrategy    string             `json:"iteration_strategy"`        // "project-field" or "fixed"
+	NumericField         string             `json:"numeric_field,omitempty"`   // project Number field name
+	IterationField       string             `json:"iteration_field,omitempty"` // project Iteration field name
+	SizingLabels         []SizingLabelMatch `json:"sizing_labels,omitempty"`   // detected sizing labels
+	SingleSelectField    string             `json:"single_select_field,omitempty"`
+	SingleSelectMatchers []SizingLabelMatch `json:"single_select_matchers,omitempty"`
+	Evidence             []string           `json:"evidence,omitempty"` // human-readable evidence
 }
 
 // SizingLabelMatch maps a detected sizing label to a fibonacci effort value.
@@ -533,6 +536,39 @@ var effortFieldNames = []string{
 	"sp",
 }
 
+var tshirtSizes = []string{"XS", "S", "M", "L", "XL"}
+
+var tshirtEffortMap = map[string]float64{
+	"XS": 1, "S": 2, "M": 3, "L": 5, "XL": 8,
+}
+
+func detectSingleSelectSizing(options []gh.DiscoveredOption) ([]SizingLabelMatch, bool) {
+	optionNames := make(map[string]string, len(options))
+	for _, o := range options {
+		optionNames[strings.ToUpper(o.Name)] = o.Name
+	}
+	var matches int
+	for _, size := range tshirtSizes {
+		if _, ok := optionNames[size]; ok {
+			matches++
+		}
+	}
+	if matches < 3 {
+		return nil, false
+	}
+	var matchers []SizingLabelMatch
+	for _, size := range tshirtSizes {
+		if original, ok := optionNames[size]; ok {
+			matchers = append(matchers, SizingLabelMatch{
+				Label: original,
+				Query: fmt.Sprintf("field:%s/%s", "%s", original),
+				Value: tshirtEffortMap[size],
+			})
+		}
+	}
+	return matchers, true
+}
+
 // detectVelocityHeuristics analyzes labels and project fields for velocity config suggestions.
 func detectVelocityHeuristics(result *PreflightResult, fields []gh.DiscoveredField, labels []string) {
 	vh := &VelocityHeuristic{
@@ -540,7 +576,7 @@ func detectVelocityHeuristics(result *PreflightResult, fields []gh.DiscoveredFie
 		IterationStrategy: "fixed",
 	}
 
-	// Scan project fields for Number and Iteration fields.
+	// Scan project fields for Number, Iteration, and SingleSelect fields.
 	var numberFieldName, iterationFieldName string
 	for _, f := range fields {
 		switch f.Type {
@@ -561,6 +597,18 @@ func detectVelocityHeuristics(result *PreflightResult, fields []gh.DiscoveredFie
 					break
 				}
 			}
+		case "ProjectV2SingleSelectField":
+			if len(f.Options) > 0 {
+				if matchers, ok := detectSingleSelectSizing(f.Options); ok {
+					// Fix up the query templates with the actual field name.
+					for i := range matchers {
+						matchers[i].Query = fmt.Sprintf("field:%s/%s", f.Name, matchers[i].Label)
+					}
+					vh.SingleSelectField = f.Name
+					vh.SingleSelectMatchers = matchers
+					vh.Evidence = append(vh.Evidence, fmt.Sprintf("SingleSelect field %q has T-shirt sizing options", f.Name))
+				}
+			}
 		}
 	}
 
@@ -575,13 +623,16 @@ func detectVelocityHeuristics(result *PreflightResult, fields []gh.DiscoveredFie
 		vh.Evidence = append(vh.Evidence, fmt.Sprintf("Sizing labels detected: %s", strings.Join(labelNames, ", ")))
 	}
 
-	// Strategy suggestion logic per plan:
+	// Strategy suggestion logic:
 	// Number field found → numeric
-	// Else sizing labels found → attribute
+	// Else SingleSelect sizing found → attribute (field: matchers)
+	// Else sizing labels found → attribute (label: matchers)
 	// Else → count
 	if numberFieldName != "" {
 		vh.EffortStrategy = "numeric"
 		vh.NumericField = numberFieldName
+	} else if len(vh.SingleSelectMatchers) > 0 {
+		vh.EffortStrategy = "attribute"
 	} else if len(sizingLabels) > 0 {
 		vh.EffortStrategy = "attribute"
 	}
@@ -1121,11 +1172,48 @@ func renderVelocityConfig(b *strings.Builder, r *PreflightResult) {
 	case "numeric":
 		b.WriteString("    numeric:\n")
 		b.WriteString(fmt.Sprintf("      project_field: %q\n", vh.NumericField))
+		// If SingleSelect sizing was also detected, show it as a commented-out alternative.
+		if len(vh.SingleSelectMatchers) > 0 {
+			b.WriteString("    # Alternative: use the SingleSelect field instead of the Number field.\n")
+			b.WriteString("    # Change strategy to \"attribute\" and uncomment:\n")
+			b.WriteString("    # attribute:\n")
+			for _, sm := range vh.SingleSelectMatchers {
+				b.WriteString(fmt.Sprintf("    #   - query: %q\n", sm.Query))
+				b.WriteString(fmt.Sprintf("    #     value: %.0f\n", sm.Value))
+			}
+		}
+		// If sizing labels were also detected, show them as a commented-out alternative.
+		if len(vh.SizingLabels) > 0 && len(vh.SingleSelectMatchers) == 0 {
+			b.WriteString("    # Alternative: use sizing labels instead of the Number field.\n")
+			b.WriteString("    # Change strategy to \"attribute\" and uncomment:\n")
+			b.WriteString("    # attribute:\n")
+			for _, sl := range vh.SizingLabels {
+				b.WriteString(fmt.Sprintf("    #   - query: %q\n", sl.Query))
+				b.WriteString(fmt.Sprintf("    #     value: %.0f\n", sl.Value))
+			}
+		}
 	case "attribute":
 		b.WriteString("    attribute:\n")
-		for _, sl := range vh.SizingLabels {
-			b.WriteString(fmt.Sprintf("      - query: %q\n", sl.Query))
-			b.WriteString(fmt.Sprintf("        value: %.0f\n", sl.Value))
+		// Prefer SingleSelect field matchers over label matchers.
+		if len(vh.SingleSelectMatchers) > 0 {
+			for _, sm := range vh.SingleSelectMatchers {
+				b.WriteString(fmt.Sprintf("      - query: %q\n", sm.Query))
+				b.WriteString(fmt.Sprintf("        value: %.0f\n", sm.Value))
+			}
+			// If sizing labels were also detected, show them as a commented-out alternative.
+			if len(vh.SizingLabels) > 0 {
+				b.WriteString("    # Alternative: use sizing labels instead of the project field.\n")
+				b.WriteString("    # No project board needed with label-based matchers.\n")
+				for _, sl := range vh.SizingLabels {
+					b.WriteString(fmt.Sprintf("    #   - query: %q\n", sl.Query))
+					b.WriteString(fmt.Sprintf("    #     value: %.0f\n", sl.Value))
+				}
+			}
+		} else {
+			for _, sl := range vh.SizingLabels {
+				b.WriteString(fmt.Sprintf("      - query: %q\n", sl.Query))
+				b.WriteString(fmt.Sprintf("        value: %.0f\n", sl.Value))
+			}
 		}
 	}
 
@@ -1200,6 +1288,22 @@ func printPreflightDiagnostics(r *PreflightResult) {
 				log.Notice("Config verification: %s", w)
 			}
 		}
+	}
+}
+
+// printAPIUsage queries and displays the current GraphQL rate limit status.
+// Shows remaining budget and percentage used. Best-effort: silently skips on error.
+func printAPIUsage(ctx context.Context, client *gh.Client) {
+	rl, err := client.RateLimit(ctx)
+	if err != nil {
+		return
+	}
+	pctUsed := float64(rl.Used) / float64(rl.Limit) * 100
+	log.Notice("")
+	log.Notice("API budget: %d/%d GraphQL points used (%.1f%%), %d remaining",
+		rl.Used, rl.Limit, pctUsed, rl.Remaining)
+	if rl.Remaining < 1000 {
+		log.Notice("⚠ Low API budget — consider waiting until reset at %s", rl.ResetAt.Format("15:04 MST"))
 	}
 }
 

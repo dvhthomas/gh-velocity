@@ -213,6 +213,7 @@ type StatsResult struct {
 	CycleTime         *Stats
 	CycleTimeStrategy string // StrategyIssue or StrategyPR
 	Throughput        *StatsThroughput
+	Velocity          *VelocityResult
 	WIPCount          *int
 	Quality           *StatsQuality
 	Warnings          []string
@@ -235,18 +236,18 @@ type ThroughputResult struct {
 
 // MyWeekResult holds the "my week" summary for one user.
 type MyWeekResult struct {
-	Login        string
-	Repo         string
-	Since        time.Time
-	Until        time.Time
+	Login string
+	Repo  string
+	Since time.Time
+	Until time.Time
 	// Lookback: what happened
 	IssuesClosed []Issue
 	PRsMerged    []PR
 	PRsReviewed  []PR
 	// Lookahead: what's in progress
-	IssuesOpen      []Issue // open issues assigned to me
-	PRsOpen         []PR    // open PRs I authored
-	PRsNeedingReview []PR   // open PRs with zero reviews (subset of PRsOpen)
+	IssuesOpen       []Issue // open issues assigned to me
+	PRsOpen          []PR    // open PRs I authored
+	PRsNeedingReview []PR    // open PRs with zero reviews (subset of PRsOpen)
 	// Review pressure: PRs from others waiting on me
 	PRsAwaitingMyReview []PR // open PRs where I'm a requested reviewer
 	// Releases published in the lookback period
@@ -291,11 +292,12 @@ type Provenance struct {
 // VelocityResult holds the output of the velocity pipeline.
 type VelocityResult struct {
 	Repository    string
-	Unit          string  // "issues" or "prs"
-	EffortUnit    string  // "pts", "items", etc.
+	Unit          string // "issues" or "prs"
+	EffortUnit    string // "pts", "items", etc.
 	EffortDetail  EffortDetail
 	Provenance    Provenance
 	Insights      []Insight
+	Warnings      []string // user-facing warnings (e.g., board item cap exceeded)
 	Current       *IterationVelocity
 	History       []IterationVelocity
 	AvgVelocity   float64
@@ -305,9 +307,9 @@ type VelocityResult struct {
 
 // EffortDetail describes the effort strategy used for velocity measurement.
 type EffortDetail struct {
-	Strategy     string         // "count", "attribute", "numeric"
-	Matchers     []EffortMatch  // for attribute strategy
-	NumericField string         // for numeric strategy
+	Strategy     string        // "count", "attribute", "numeric"
+	Matchers     []EffortMatch // for attribute strategy
+	NumericField string        // for numeric strategy
 }
 
 // EffortMatch is a display-friendly effort matcher entry.
@@ -328,10 +330,10 @@ type IterationVelocity struct {
 	ItemsTotal       int
 	CarryOver        int
 	NotAssessed      int
-	NotAssessedItems []int   // issue/PR numbers
-	Trend            string  // "▲", "▼", "─"
-	DayOfCycle       int     // days elapsed since iteration start (0 if not current)
-	TotalDays        int     // total iteration length in days (0 if not current)
+	NotAssessedItems []int  // issue/PR numbers
+	Trend            string // "▲", "▼", "─"
+	DayOfCycle       int    // days elapsed since iteration start (0 if not current)
+	TotalDays        int    // total iteration length in days (0 if not current)
 }
 
 // Iteration represents a project iteration (sprint) period.
@@ -346,19 +348,20 @@ type Iteration struct {
 // VelocityItem represents a work item with iteration and effort data
 // from a project board, used by the velocity pipeline.
 type VelocityItem struct {
-	ContentType string     // "Issue" or "PullRequest"
+	ContentType string // "Issue" or "PullRequest"
 	Number      int
 	Title       string
-	Repo        string     // "owner/repo"
+	Repo        string // "owner/repo"
 	State       string
-	StateReason string     // "completed", "not_planned", ""
+	StateReason string // "completed", "not_planned", ""
 	ClosedAt    *time.Time
 	MergedAt    *time.Time
 	CreatedAt   time.Time
 	Labels      []string
 	IssueType   string
 	IterationID string
-	Effort      *float64   // from Number field, nil if unset
+	Effort      *float64          // from Number field, nil if unset
+	Fields      map[string]string // project board field values (e.g., SingleSelect)
 }
 
 // IterationFieldConfig holds the configuration of a ProjectV2 Iteration field.

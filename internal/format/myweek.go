@@ -283,11 +283,11 @@ type jsonMyWeekResult struct {
 }
 
 type jsonMyWeekLookback struct {
-	IssuesClosed []jsonMyWeekItem       `json:"issues_closed"`
-	PRsMerged    []jsonMyWeekItem       `json:"prs_merged"`
-	Releases     []jsonMyWeekRelease    `json:"releases,omitempty"`
-	PRsReviewed  []jsonMyWeekItem       `json:"prs_reviewed"`
-	SearchURLs   jsonMyWeekSearchURLs   `json:"search_urls"`
+	IssuesClosed []jsonMyWeekItem     `json:"issues_closed"`
+	PRsMerged    []jsonMyWeekItem     `json:"prs_merged"`
+	Releases     []jsonMyWeekRelease  `json:"releases,omitempty"`
+	PRsReviewed  []jsonMyWeekItem     `json:"prs_reviewed"`
+	SearchURLs   jsonMyWeekSearchURLs `json:"search_urls"`
 }
 
 type jsonMyWeekSearchURLs struct {
@@ -297,8 +297,8 @@ type jsonMyWeekSearchURLs struct {
 }
 
 type jsonMyWeekAhead struct {
-	IssuesOpen          []jsonMyWeekAheadItem `json:"issues_open"`
-	PRsOpen             []jsonMyWeekAheadItem `json:"prs_open"`
+	IssuesOpen          []jsonMyWeekAheadItem  `json:"issues_open"`
+	PRsOpen             []jsonMyWeekAheadItem  `json:"prs_open"`
 	PRsAwaitingMyReview []jsonMyWeekReviewItem `json:"prs_awaiting_my_review"`
 }
 
@@ -349,11 +349,11 @@ type jsonMyWeekInsights struct {
 }
 
 type jsonMyWeekRelease struct {
-	Tag           string `json:"tag"`
-	Name          string `json:"name"`
-	URL           string `json:"url,omitempty"`
-	PublishedAt   string `json:"published_at"`
-	IsPrerelease  bool   `json:"is_prerelease,omitempty"`
+	Tag          string `json:"tag"`
+	Name         string `json:"name"`
+	URL          string `json:"url,omitempty"`
+	PublishedAt  string `json:"published_at"`
+	IsPrerelease bool   `json:"is_prerelease,omitempty"`
 }
 
 // WriteMyWeekJSON writes a my-week summary as JSON.

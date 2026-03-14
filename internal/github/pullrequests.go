@@ -21,7 +21,7 @@ type searchIssueResponse struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ClosedAt    *time.Time `json:"closed_at"`
 	HTMLURL     string     `json:"html_url"`
-	User      *struct {
+	User        *struct {
 		Login string `json:"login"`
 	} `json:"user"`
 	Labels []struct {

@@ -87,7 +87,7 @@ func (p *FixedPeriod) Iterations(count int) ([]model.Iteration, error) {
 
 	// Walk backward from the iteration before current.
 	t := current.StartDate.Add(-p.Length)
-	for i := 0; i < count; i++ {
+	for range count {
 		it := p.iterationAt(t)
 		result = append(result, it)
 		t = it.StartDate.Add(-p.Length)

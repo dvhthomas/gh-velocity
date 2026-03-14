@@ -1,7 +1,11 @@
-# Brainstorm: True Velocity Command
+---
+title: "True Velocity Command"
+date: 2026-03-12
+status: completed
+type: brainstorm
+---
 
-**Date:** 2026-03-12
-**Status:** Complete
+# Brainstorm: True Velocity Command
 **Research:** [velocity-burndown-research.md](2026-03-12-velocity-burndown-research.md)
 
 ## What We're Building

@@ -127,8 +127,8 @@ func (c *Client) DiscoverProjects(ctx context.Context) ([]DiscoveredProject, err
 	return projects, nil
 }
 
-// DiscoverProjectByNumber fetches a single Projects v2 board by its number,
-// including its fields and single-select options.
+// DiscoverProjectByNumber fetches a single Projects v2 board by its number
+// via the repository link. This works for projects linked to a specific repo.
 func (c *Client) DiscoverProjectByNumber(ctx context.Context, number int) (*DiscoveredProject, error) {
 	query := `query($owner: String!, $repo: String!, $number: Int!) {
 		repository(owner: $owner, name: $repo) {
@@ -184,6 +184,89 @@ func (c *Client) DiscoverProjectByNumber(ctx context.Context, number int) (*Disc
 		return nil, fmt.Errorf("project #%d not found on %s/%s", number, c.owner, c.repo)
 	}
 
+	return nodeToProject(p), nil
+}
+
+// projectV2Fields is the common GraphQL fragment for project fields.
+const projectV2Fields = `
+	id
+	title
+	number
+	url
+	fields(first: 30) {
+		nodes {
+			... on ProjectV2SingleSelectField {
+				__typename
+				id
+				name
+				options {
+					id
+					name
+				}
+			}
+			... on ProjectV2Field {
+				__typename
+				id
+				name
+			}
+			... on ProjectV2IterationField {
+				__typename
+				id
+				name
+			}
+		}
+	}`
+
+// DiscoverProjectByOwner fetches a project by number directly from the owner
+// (user or organization), bypassing the repository link. This works for org-level
+// projects and user projects that may not be linked to a specific repo.
+func (c *Client) DiscoverProjectByOwner(ctx context.Context, owner string, number int, isOrg bool) (*DiscoveredProject, error) {
+	ownerType := "user"
+	if isOrg {
+		ownerType = "organization"
+	}
+
+	// GraphQL does not support dynamic field names, so we use two query variants.
+	query := fmt.Sprintf(`query($login: String!, $number: Int!) {
+		%s(login: $login) {
+			projectV2(number: $number) {%s}
+		}
+	}`, ownerType, projectV2Fields)
+
+	variables := map[string]any{
+		"login":  owner,
+		"number": number,
+	}
+
+	// The response shape varies by owner type, but the projectV2 field is the same.
+	var resp struct {
+		User *struct {
+			ProjectV2 *discoverProjectNode `json:"projectV2"`
+		} `json:"user,omitempty"`
+		Organization *struct {
+			ProjectV2 *discoverProjectNode `json:"projectV2"`
+		} `json:"organization,omitempty"`
+	}
+	if err := c.projectClient().DoWithContext(ctx, query, variables, &resp); err != nil {
+		return nil, fmt.Errorf("discover project #%d for %s %s: %w\n  hint: set GH_VELOCITY_TOKEN to a PAT with 'project' scope (see docs/guide.md#token-permissions)", number, ownerType, owner, err)
+	}
+
+	var p *discoverProjectNode
+	if isOrg && resp.Organization != nil {
+		p = resp.Organization.ProjectV2
+	} else if !isOrg && resp.User != nil {
+		p = resp.User.ProjectV2
+	}
+
+	if p == nil {
+		return nil, fmt.Errorf("project #%d not found for %s %s", number, ownerType, owner)
+	}
+
+	return nodeToProject(p), nil
+}
+
+// nodeToProject converts a GraphQL project node to a DiscoveredProject.
+func nodeToProject(p *discoverProjectNode) *DiscoveredProject {
 	proj := &DiscoveredProject{
 		ID:     p.ID,
 		Title:  p.Title,
@@ -201,6 +284,5 @@ func (c *Client) DiscoverProjectByNumber(ctx context.Context, number int) (*Disc
 		}
 		proj.Fields = append(proj.Fields, field)
 	}
-
-	return proj, nil
+	return proj
 }

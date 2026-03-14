@@ -1,7 +1,8 @@
 ---
 title: "Cycle Time Strategy Rework: Lifecycle-Aware Issue Strategy"
 date: 2026-03-12
-status: complete
+status: completed
+type: brainstorm
 ---
 
 # Cycle Time Strategy Rework

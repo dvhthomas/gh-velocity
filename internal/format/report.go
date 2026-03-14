@@ -12,15 +12,25 @@ import (
 // --- JSON ---
 
 type jsonStatsOutput struct {
-	Repository        string            `json:"repository"`
-	Window            JSONWindow        `json:"window"`
-	LeadTime          *JSONStats        `json:"lead_time,omitempty"`
-	CycleTime         *JSONStats        `json:"cycle_time,omitempty"`
-	CycleTimeStrategy string            `json:"cycle_time_strategy,omitempty"`
-	Throughput        *jsonThroughput   `json:"throughput,omitempty"`
-	WIP               *jsonWIP          `json:"wip,omitempty"`
-	Quality           *jsonStatsQuality `json:"quality,omitempty"`
-	Warnings          []string          `json:"warnings,omitempty"`
+	Repository        string               `json:"repository"`
+	Window            JSONWindow           `json:"window"`
+	LeadTime          *JSONStats           `json:"lead_time,omitempty"`
+	CycleTime         *JSONStats           `json:"cycle_time,omitempty"`
+	CycleTimeStrategy string               `json:"cycle_time_strategy,omitempty"`
+	Throughput        *jsonThroughput      `json:"throughput,omitempty"`
+	Velocity          *jsonVelocitySummary `json:"velocity,omitempty"`
+	WIP               *jsonWIP             `json:"wip,omitempty"`
+	Quality           *jsonStatsQuality    `json:"quality,omitempty"`
+	Warnings          []string             `json:"warnings,omitempty"`
+}
+
+type jsonVelocitySummary struct {
+	AvgVelocity      float64 `json:"avg_velocity"`
+	AvgCompletionPct float64 `json:"avg_completion_pct"`
+	StdDev           float64 `json:"std_dev"`
+	EffortUnit       string  `json:"effort_unit"`
+	IterationCount   int     `json:"iteration_count"`
+	CurrentIteration string  `json:"current_iteration,omitempty"`
 }
 
 type jsonThroughput struct {
@@ -61,6 +71,24 @@ func WriteReportJSON(w io.Writer, r model.StatsResult) error {
 			IssuesClosed: r.Throughput.IssuesClosed,
 			PRsMerged:    r.Throughput.PRsMerged,
 		}
+	}
+	if r.Velocity != nil {
+		v := r.Velocity
+		n := len(v.History)
+		if v.Current != nil {
+			n++
+		}
+		summary := &jsonVelocitySummary{
+			AvgVelocity:      v.AvgVelocity,
+			AvgCompletionPct: v.AvgCompletion,
+			StdDev:           v.StdDev,
+			EffortUnit:       v.EffortUnit,
+			IterationCount:   n,
+		}
+		if v.Current != nil {
+			summary.CurrentIteration = v.Current.Name
+		}
+		out.Velocity = summary
 	}
 	if r.WIPCount != nil {
 		out.WIP = &jsonWIP{Count: *r.WIPCount}
@@ -111,6 +139,9 @@ func WriteReportPretty(rc RenderContext, r model.StatsResult) error {
 		fmt.Fprintf(w, "  Throughput:  %d issues closed, %d PRs merged\n",
 			r.Throughput.IssuesClosed, r.Throughput.PRsMerged)
 	}
+	if r.Velocity != nil {
+		fmt.Fprintf(w, "  Velocity:    %s\n", FormatVelocitySummary(*r.Velocity))
+	}
 	if r.WIPCount != nil {
 		fmt.Fprintf(w, "  WIP:         %d items in progress\n", *r.WIPCount)
 	}
@@ -120,6 +151,19 @@ func WriteReportPretty(rc RenderContext, r model.StatsResult) error {
 	}
 
 	return nil
+}
+
+// FormatVelocitySummary returns a compact velocity summary for the report dashboard.
+func FormatVelocitySummary(v model.VelocityResult) string {
+	n := len(v.History)
+	if v.Current != nil {
+		n++
+	}
+	if n == 0 {
+		return "no iterations in window"
+	}
+	return fmt.Sprintf("%.1f %s/sprint avg, %.0f%% completion (n=%d)",
+		v.AvgVelocity, v.EffortUnit, v.AvgCompletion, n)
 }
 
 // FormatStatsSummary returns a compact stats summary like "median 3.2d, mean 5.1d, P90 8.1d (n=14, 2 outliers)".

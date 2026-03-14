@@ -25,14 +25,14 @@ var bulkMarkdownTmpl = template.Must(
 // ============================================================
 
 type jsonSingleOutput struct {
-	Repository string          `json:"repository"`
-	Issue      int             `json:"issue"`
-	Title      string          `json:"title"`
-	State      string          `json:"state"`
-	URL        string          `json:"url,omitempty"`
-	Labels     []string        `json:"labels,omitempty"`
+	Repository string            `json:"repository"`
+	Issue      int               `json:"issue"`
+	Title      string            `json:"title"`
+	State      string            `json:"state"`
+	URL        string            `json:"url,omitempty"`
+	Labels     []string          `json:"labels,omitempty"`
 	LeadTime   format.JSONMetric `json:"lead_time"`
-	Warnings   []string        `json:"warnings,omitempty"`
+	Warnings   []string          `json:"warnings,omitempty"`
 }
 
 // WriteSingleJSON writes lead-time metrics for a single issue as JSON.
@@ -67,10 +67,10 @@ type jsonBulkOutput struct {
 }
 
 type jsonBulkItem struct {
-	Number   int             `json:"number"`
-	Title    string          `json:"title"`
-	URL      string          `json:"url,omitempty"`
-	Labels   []string        `json:"labels,omitempty"`
+	Number   int               `json:"number"`
+	Title    string            `json:"title"`
+	URL      string            `json:"url,omitempty"`
+	Labels   []string          `json:"labels,omitempty"`
 	LeadTime format.JSONMetric `json:"lead_time"`
 }
 

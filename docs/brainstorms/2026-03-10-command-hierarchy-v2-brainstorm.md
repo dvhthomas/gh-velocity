@@ -1,7 +1,8 @@
 ---
 title: Command Hierarchy v2 — Group by Question Answered
 date: 2026-03-10
-status: active
+status: completed
+type: brainstorm
 ---
 
 # Command Hierarchy v2: Group by Question Answered

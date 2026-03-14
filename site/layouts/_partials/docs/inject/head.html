@@ -1,8 +1,13 @@
 {{- $favicon := resources.Get "favicon.svg" | fingerprint -}}
 {{- $shelly := resources.Get "images/logo.svg" | fingerprint -}}
 {{- $fontTitle := resources.Get "fonts/press-start-2p.woff2" | fingerprint -}}
-
+{{- $og := resources.Get "images/og.svg" | fingerprint -}}
 <link rel="icon" href="{{ $favicon.RelPermalink }}" type="image/svg+xml">
+<meta property="og:title" content="{{ .Title | default .Site.Title }}">
+<meta property="og:description" content="{{ .Site.Params.description }}">
+<meta property="og:image" content="{{ $og.Permalink }}">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
 
 <style>
   @font-face {

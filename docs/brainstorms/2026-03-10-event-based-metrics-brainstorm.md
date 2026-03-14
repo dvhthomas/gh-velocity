@@ -1,7 +1,8 @@
 ---
 title: Event-Based Metric Data Model
 date: 2026-03-10
-status: decided
+status: completed
+type: brainstorm
 ---
 
 # Event-Based Metric Data Model
