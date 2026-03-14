@@ -41,18 +41,19 @@ To use labels for cycle time:
 
 The label's immutable `createdAt` becomes the cycle time start. The issue's close date becomes the end. No timestamp can be retroactively changed.
 
-## What project board status is still good for
+## What project board status is good for
 
-Project board status remains valuable for **current-state queries** -- things that ask "what is the status right now?" rather than "when did the status change?"
+Project board status is valuable for **current-state queries** and for teams where board discipline is strong:
 
-| Use case | Signal | Reliable? |
-|----------|--------|-----------|
-| Cycle time start (when did work begin?) | Label `createdAt` | Yes -- immutable |
-| Cycle time start (when did work begin?) | Board `updatedAt` | No -- mutable, can produce negative durations |
-| WIP count (how many items are in progress now?) | Board current status | Yes -- current state is accurate |
-| Backlog detection (is this issue still in backlog?) | Board current status | Yes -- current state is accurate |
+| Use case | Signal | Notes |
+|----------|--------|-------|
+| Cycle time start | Label `createdAt` | Immutable — most reliable |
+| Cycle time start | Board `updatedAt` | Works if cards aren't moved retroactively |
+| WIP count | Board current status | Accurate — queries current state |
+| Backlog detection | Board current status | Accurate — queries current state |
+| Effort classification | Board SingleSelect fields (`field:Size/M`) | Works via `field:` matchers |
 
-The takeaway: configure `project_status` for WIP and backlog detection. Configure `match` for cycle time.
+Both approaches are valid. Labels are more robust when boards are tidied retroactively. Project board status works well for teams with disciplined board hygiene. You can use both together — labels for cycle time, board for WIP and effort.
 
 ## Syncing project board status to labels
 
@@ -128,12 +129,9 @@ lifecycle:
     project_status: ["Done", "Shipped"]
 ```
 
-**Project board only (not recommended):**
+**Project board only (works if board hygiene is good):**
 
 ```yaml
-# WARNING: This config produces unreliable cycle times.
-# The project board updatedAt timestamp can be wrong.
-# Add lifecycle.in-progress.match for reliable cycle time.
 project:
   url: "https://github.com/users/yourname/projects/1"
   status_field: "Status"
@@ -143,4 +141,25 @@ lifecycle:
     project_status: ["In progress"]
 ```
 
-Using this last configuration triggers a deprecation warning. The tool still computes cycle time from the board's `updatedAt`, but the results may include negative durations or inaccurate start times. Adding a `match` rule with labels eliminates these problems.
+This works well for teams that move cards promptly and don't tidy the board retroactively. If you see negative cycle times or suspiciously short durations, the board's `updatedAt` timestamps may be stale — add a `match` rule with labels to fix it.
+
+**Project board with `field:` effort matchers:**
+
+```yaml
+project:
+  url: "https://github.com/users/yourname/projects/1"
+  status_field: "Status"
+
+velocity:
+  effort:
+    strategy: attribute
+    attribute:
+      - query: "field:Size/S"
+        value: 2
+      - query: "field:Size/M"
+        value: 3
+      - query: "field:Size/L"
+        value: 5
+```
+
+SingleSelect fields like "Size" on the project board can be used for effort classification via `field:Name/Value` matchers. This requires `project.url` to be set since field values are fetched via the GraphQL API.
