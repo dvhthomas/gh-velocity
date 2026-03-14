@@ -12,6 +12,7 @@ enableGitInfo = true
 
 [params]
   BookTheme = "auto"
+  BookSection = "/"
   BookToC = true
   BookSearch = true
   BookCollapseSection = true
