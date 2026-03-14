@@ -1,0 +1,33 @@
+baseURL = "https://dvhthomas.github.io/gh-velocity/"
+languageCode = "en"
+title = "GitHub Velocity"
+
+# Hugo Book theme
+disableKinds = ["taxonomy"]
+enableGitInfo = true
+
+ignoreLogs = ["warning-goldmark-raw-html"]
+
+# Disable typographer to prevent -- becoming en-dash in flag names like --project-url
+[markup.goldmark.extensions]
+  typographer = false
+
+# Allow raw HTML in markdown (needed for landing page hero layout)
+[markup.goldmark.renderer]
+  unsafe = true
+
+[module]
+[[module.imports]]
+  path = "github.com/alex-shpak/hugo-book"
+
+[params]
+  BookTheme = "auto"
+  BookSection = "/"
+  BookToC = true
+  BookSearch = true
+  BookCollapseSection = true
+  BookDateFormat = "January 2, 2006"
+  BookEditPath = "https://github.com/dvhthomas/gh-velocity/edit/main/site/content"
+  BookComments = false
+
+  description = "GitHub velocity and quality metrics — measure how fast your team ships."

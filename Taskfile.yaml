@@ -144,6 +144,34 @@ tasks:
       - bash scripts/prerelease-analysis.sh
       - echo '✓ All pre-release checks passed — ready to tag'
 
+  # ── Documentation ─────────────────────────────────────────────────
+
+  docs:generate:
+    internal: true
+    deps: [build]
+    cmds:
+      - go run ./cmd/gendocs
+
+  build:site:
+    desc: Build the Hugo documentation site (generate CLI reference + Hugo build)
+    deps: [docs:generate]
+    cmds:
+      - hugo --source site --minify --gc
+      - echo '✓ Site built to site/public/'
+
+  site:
+    desc: Start Hugo dev server with live reload
+    deps: [docs:generate]
+    cmds:
+      - hugo server --source site --buildDrafts --navigateToChanged
+
+  clean:site:
+    desc: Clean generated site output
+    cmds:
+      - rm -rf site/public site/resources
+      - rm -rf site/content/reference/commands/gh-velocity*.md
+      - echo '✓ Site cleaned'
+
   # ── Maintenance ────────────────────────────────────────────────────
 
   clean:

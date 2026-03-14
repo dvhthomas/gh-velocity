@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="2 0 140 22" shape-rendering="crispEdges">
+  <g fill="#22C55E">
+    <!-- === TORTOISE === -->
+    <!-- Shell dome -->
+    <rect x="10" y="0" width="12" height="2"/>
+    <rect x="8" y="2" width="16" height="2"/>
+    <rect x="6" y="4" width="20" height="2"/>
+    <rect x="6" y="6" width="20" height="2"/>
+    <rect x="6" y="8" width="20" height="2"/>
+    <rect x="6" y="10" width="20" height="2"/>
+    <!-- Shell scutes -->
+    <rect x="12" y="4" width="2" height="2" fill="white"/>
+    <rect x="18" y="4" width="2" height="2" fill="white"/>
+    <rect x="10" y="8" width="2" height="2" fill="white"/>
+    <rect x="16" y="8" width="2" height="2" fill="white"/>
+    <rect x="22" y="8" width="2" height="2" fill="white"/>
+    <!-- Body -->
+    <rect x="8" y="12" width="18" height="2"/>
+    <!-- Neck (2px wide, angled up) -->
+    <rect x="26" y="6" width="2" height="2"/>
+    <rect x="26" y="8" width="2" height="2"/>
+    <rect x="28" y="4" width="2" height="2"/>
+    <rect x="28" y="6" width="2" height="2"/>
+    <!-- Head -->
+    <rect x="30" y="2" width="6" height="2"/>
+    <rect x="30" y="4" width="8" height="2"/>
+    <rect x="30" y="6" width="8" height="2"/>
+    <rect x="30" y="8" width="6" height="2"/>
+    <!-- Eye -->
+    <rect x="34" y="4" width="2" height="2" fill="white"/>
+    <!-- Leg stubs -->
+    <rect x="20" y="14" width="4" height="6"/>
+    <rect x="8" y="14" width="4" height="6"/>
+    <!-- Tail -->
+    <rect x="4" y="10" width="4" height="2"/>
+    <rect x="2" y="8" width="4" height="2"/>
+
+    <!-- === VELOCITY 2x pixel italic text, baseline at y=20 (aligned with feet) === -->
+    <!-- v -->
+    <rect x="48" y="6" width="2" height="2"/>
+    <rect x="56" y="6" width="2" height="2"/>
+    <rect x="48" y="8" width="2" height="2"/>
+    <rect x="56" y="8" width="2" height="2"/>
+    <rect x="46" y="10" width="2" height="2"/>
+    <rect x="54" y="10" width="2" height="2"/>
+    <rect x="46" y="12" width="2" height="2"/>
+    <rect x="54" y="12" width="2" height="2"/>
+    <rect x="46" y="14" width="2" height="2"/>
+    <rect x="54" y="14" width="2" height="2"/>
+    <rect x="44" y="16" width="4" height="2"/>
+    <rect x="50" y="16" width="4" height="2"/>
+    <rect x="46" y="18" width="6" height="2"/>
+    <!-- e -->
+    <rect x="64" y="6" width="6" height="2"/>
+    <rect x="62" y="8" width="2" height="2"/>
+    <rect x="68" y="8" width="2" height="2"/>
+    <rect x="62" y="10" width="2" height="2"/>
+    <rect x="68" y="10" width="2" height="2"/>
+    <rect x="60" y="12" width="10" height="2"/>
+    <rect x="60" y="14" width="2" height="2"/>
+    <rect x="60" y="16" width="2" height="2"/>
+    <rect x="66" y="16" width="2" height="2"/>
+    <rect x="60" y="18" width="8" height="2"/>
+    <!-- l -->
+    <rect x="78" y="6" width="2" height="2"/>
+    <rect x="78" y="8" width="2" height="2"/>
+    <rect x="76" y="10" width="2" height="2"/>
+    <rect x="76" y="12" width="2" height="2"/>
+    <rect x="74" y="14" width="2" height="2"/>
+    <rect x="74" y="16" width="2" height="2"/>
+    <rect x="74" y="18" width="6" height="2"/>
+    <!-- o -->
+    <rect x="88" y="6" width="6" height="2"/>
+    <rect x="86" y="8" width="2" height="2"/>
+    <rect x="92" y="8" width="2" height="2"/>
+    <rect x="86" y="10" width="2" height="2"/>
+    <rect x="92" y="10" width="2" height="2"/>
+    <rect x="84" y="12" width="2" height="2"/>
+    <rect x="90" y="12" width="2" height="2"/>
+    <rect x="84" y="14" width="2" height="2"/>
+    <rect x="90" y="14" width="2" height="2"/>
+    <rect x="84" y="16" width="2" height="2"/>
+    <rect x="90" y="16" width="2" height="2"/>
+    <rect x="84" y="18" width="8" height="2"/>
+    <!-- c -->
+    <rect x="102" y="6" width="6" height="2"/>
+    <rect x="100" y="8" width="2" height="2"/>
+    <rect x="100" y="10" width="2" height="2"/>
+    <rect x="98" y="12" width="2" height="2"/>
+    <rect x="98" y="14" width="2" height="2"/>
+    <rect x="98" y="16" width="2" height="2"/>
+    <rect x="98" y="18" width="8" height="2"/>
+    <!-- i -->
+    <rect x="114" y="6" width="2" height="2"/>
+    <rect x="112" y="10" width="2" height="2"/>
+    <rect x="112" y="12" width="2" height="2"/>
+    <rect x="110" y="14" width="2" height="2"/>
+    <rect x="110" y="16" width="2" height="2"/>
+    <rect x="110" y="18" width="2" height="2"/>
+    <!-- t -->
+    <rect x="122" y="6" width="2" height="2"/>
+    <rect x="120" y="8" width="6" height="2"/>
+    <rect x="120" y="10" width="2" height="2"/>
+    <rect x="118" y="12" width="2" height="2"/>
+    <rect x="118" y="14" width="2" height="2"/>
+    <rect x="118" y="16" width="2" height="2"/>
+    <rect x="118" y="18" width="6" height="2"/>
+    <!-- y -->
+    <rect x="132" y="6" width="2" height="2"/>
+    <rect x="138" y="6" width="2" height="2"/>
+    <rect x="130" y="8" width="2" height="2"/>
+    <rect x="138" y="8" width="2" height="2"/>
+    <rect x="130" y="10" width="2" height="2"/>
+    <rect x="136" y="10" width="2" height="2"/>
+    <rect x="128" y="12" width="2" height="2"/>
+    <rect x="136" y="12" width="2" height="2"/>
+    <rect x="128" y="14" width="10" height="2"/>
+    <rect x="134" y="16" width="2" height="2"/>
+    <rect x="128" y="18" width="8" height="2"/>
+  </g>
+</svg>
