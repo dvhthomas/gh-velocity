@@ -12,6 +12,10 @@ ignoreLogs = ["warning-goldmark-raw-html"]
 [markup.goldmark.extensions]
   typographer = false
 
+# Allow raw HTML in markdown (needed for landing page hero layout)
+[markup.goldmark.renderer]
+  unsafe = true
+
 [module]
 [[module.imports]]
   path = "github.com/alex-shpak/hugo-book"
