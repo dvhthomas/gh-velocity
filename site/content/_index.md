@@ -18,12 +18,11 @@ type: docs
 
 ## Get started
 
-| | | |
-|---|---|---|
-| **[Getting Started]({{< relref "getting-started" >}})** | **[Guides]({{< relref "guides" >}})** | **[Concepts]({{< relref "concepts" >}})** |
-| Install, configure, and run your first command in 5 minutes. | Task-oriented help: interpreting results, setting up velocity, CI integration. | How gh-velocity works: metric definitions, statistics, linking strategies. |
-| **[Reference]({{< relref "reference" >}})** | **[Examples]({{< relref "examples" >}})** | |
-| Complete CLI, config, and metric reference documentation. | Real-world configs for popular repositories. | |
+- **[Getting Started]({{< relref "getting-started" >}})** — Install, configure, and run your first command in 5 minutes
+- **[Guides]({{< relref "guides" >}})** — Task-oriented help: interpreting results, setting up velocity, CI integration
+- **[Concepts]({{< relref "concepts" >}})** — How gh-velocity works: metric definitions, statistics, linking strategies
+- **[Reference]({{< relref "reference" >}})** — Complete CLI, config, and metric reference documentation
+- **[Examples]({{< relref "examples" >}})** — Real-world configs for popular repositories
 
 ## Install
 

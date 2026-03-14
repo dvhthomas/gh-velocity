@@ -44,9 +44,8 @@ env:
 
    [Create token](https://github.com/settings/tokens/new?scopes=project&description=gh-velocity) -- this link pre-fills the scope and description.
 
-   {{< hint info >}}
-   Fine-grained PATs do not currently support user-owned projects. Use a classic PAT for user projects, or a GitHub App for organization projects.
-   {{< /hint >}}
+   > [!NOTE]
+   > Fine-grained PATs do not currently support user-owned projects. Use a classic PAT for user projects, or a GitHub App for organization projects.
 
 2. **Add it as a repository secret** named `GH_VELOCITY_TOKEN`:
 
@@ -112,9 +111,8 @@ jobs:
         run: gh velocity report --since 30d --post -f markdown
 ```
 
-{{< hint info >}}
-The `GH_VELOCITY_POST_LIVE` environment variable is required for `--post` to actually write to GitHub. Without it, `--post` runs in dry-run mode. This is a safety net to prevent accidental posts during local testing.
-{{< /hint >}}
+> [!NOTE]
+> The `GH_VELOCITY_POST_LIVE` environment variable is required for `--post` to actually write to GitHub. Without it, `--post` runs in dry-run mode. This is a safety net to prevent accidental posts during local testing.
 
 ### Release metrics comment
 

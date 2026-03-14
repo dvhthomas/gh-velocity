@@ -51,9 +51,8 @@ Which cycle time signal is used depends on your configured strategy (`cycle_time
 | Publish a release | `release.created_at` | Release lag, cadence |
 | Tag without a release | Tag commit date via git refs API | Release lag (less precise) |
 
-{{< hint warning >}}
-**Project board timestamps are mutable.** The GitHub Projects v2 API only exposes `updatedAt` on field values -- the timestamp of the *last* status change, not the original transition. If someone moves a card to "Done" after an issue is already closed, the timestamp reflects that post-closure move, producing negative cycle times. This is a fundamental GitHub API limitation. Use labels for cycle time; use the project board for WIP counts and backlog visibility.
-{{< /hint >}}
+> [!WARNING]
+> **Project board timestamps are mutable.** The GitHub Projects v2 API only exposes `updatedAt` on field values -- the timestamp of the *last* status change, not the original transition. If someone moves a card to "Done" after an issue is already closed, the timestamp reflects that post-closure move, producing negative cycle times. This is a fundamental GitHub API limitation. Use labels for cycle time; use the project board for WIP counts and backlog visibility.
 
 ## What you need to do
 

@@ -53,9 +53,8 @@ To upgrade later:
 gh extension upgrade velocity
 ```
 
-{{< hint info >}}
-`gh extension upgrade` installs the latest stable release. Pre-releases (e.g., `v0.0.2-rc.1`) must be pinned explicitly with `--pin`.
-{{< /hint >}}
+> [!NOTE]
+> `gh extension upgrade` installs the latest stable release. Pre-releases (e.g., `v0.0.2-rc.1`) must be pinned explicitly with `--pin`.
 
 ## First query against a public repo
 
