@@ -34,8 +34,10 @@ gh extension install dvhthomas/gh-velocity
 Then generate a config tailored to your repo:
 
 ```bash
-gh velocity config preflight -R owner/repo --write
+gh velocity config preflight --write
 ```
+
+Run `gh velocity config preflight --help` to see all options — the repo is auto-detected from your git remote.
 
 ---
 
