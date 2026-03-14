@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/bitsbyme/gh-velocity/cmd"
+	cobracmd "github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 )
 
@@ -26,6 +27,10 @@ func main() {
 	root := cmd.NewRootCmd("dev", "")
 	root.DisableAutoGenTag = true
 
+	// Build a map of filename → Short description for front matter.
+	descriptions := map[string]string{}
+	buildDescriptions(root, descriptions)
+
 	// filePrepender injects Hugo front matter into each generated page.
 	filePrepender := func(filename string) string {
 		name := filepath.Base(filename)
@@ -37,12 +42,11 @@ func main() {
 			title = "gh velocity"
 		}
 
-		return fmt.Sprintf(`---
-title: "%s"
-bookToC: true
----
-
-`, title)
+		desc := descriptions[name]
+		if desc != "" {
+			return fmt.Sprintf("---\ntitle: \"%s\"\ndescription: \"%s\"\nbookToC: true\n---\n\n", title, desc)
+		}
+		return fmt.Sprintf("---\ntitle: \"%s\"\nbookToC: true\n---\n\n", title)
 	}
 
 	// linkHandler rewrites links to work with Hugo's URL scheme.
@@ -64,4 +68,15 @@ bookToC: true
 		}
 	}
 	fmt.Printf("Generated %d command reference pages in %s/\n", count, outputDir)
+}
+
+// buildDescriptions walks the command tree and maps cobra/doc filenames to Short descriptions.
+func buildDescriptions(cmd *cobracmd.Command, m map[string]string) {
+	name := strings.ReplaceAll(cmd.CommandPath(), " ", "_")
+	if cmd.Short != "" {
+		m[name] = strings.ReplaceAll(cmd.Short, `"`, `\"`)
+	}
+	for _, sub := range cmd.Commands() {
+		buildDescriptions(sub, m)
+	}
 }

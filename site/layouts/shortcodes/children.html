@@ -1,0 +1,6 @@
+{{- /* Lists child pages of the current section, sorted by weight then title. */ -}}
+<ul>
+{{- range .Page.Pages.ByWeight }}
+  <li><a href="{{ .RelPermalink }}"><strong>{{ .Title }}</strong></a>{{ with .Description }} — {{ . }}{{ end }}</li>
+{{- end }}
+</ul>
