@@ -41,4 +41,4 @@ Run `gh velocity config preflight --help` to see all options — the repo is aut
 
 ---
 
-Maintained by [Dylan Thomas](https://github.com/dvhthomas) · [Source on GitHub](https://github.com/dvhthomas/gh-velocity) · Built with the [Compound Engineering](https://bitsby.me/2026/03/compound-engineering/) methodology
+Maintained by [BitsByD](https://bitsby.me/about) · [Source on GitHub](https://github.com/dvhthomas/gh-velocity)
