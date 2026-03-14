@@ -185,14 +185,14 @@ type PreflightResult struct {
 
 // VelocityHeuristic holds detected signals for velocity configuration.
 type VelocityHeuristic struct {
-	EffortStrategy    string              `json:"effort_strategy"`              // "numeric", "attribute", or "count"
-	IterationStrategy string              `json:"iteration_strategy"`           // "project-field" or "fixed"
-	NumericField      string              `json:"numeric_field,omitempty"`      // project Number field name
-	IterationField    string              `json:"iteration_field,omitempty"`    // project Iteration field name
-	SizingLabels         []SizingLabelMatch  `json:"sizing_labels,omitempty"`          // detected sizing labels
-	SingleSelectField    string              `json:"single_select_field,omitempty"`
-	SingleSelectMatchers []SizingLabelMatch  `json:"single_select_matchers,omitempty"`
-	Evidence             []string            `json:"evidence,omitempty"`               // human-readable evidence
+	EffortStrategy       string             `json:"effort_strategy"`           // "numeric", "attribute", or "count"
+	IterationStrategy    string             `json:"iteration_strategy"`        // "project-field" or "fixed"
+	NumericField         string             `json:"numeric_field,omitempty"`   // project Number field name
+	IterationField       string             `json:"iteration_field,omitempty"` // project Iteration field name
+	SizingLabels         []SizingLabelMatch `json:"sizing_labels,omitempty"`   // detected sizing labels
+	SingleSelectField    string             `json:"single_select_field,omitempty"`
+	SingleSelectMatchers []SizingLabelMatch `json:"single_select_matchers,omitempty"`
+	Evidence             []string           `json:"evidence,omitempty"` // human-readable evidence
 }
 
 // SizingLabelMatch maps a detected sizing label to a fibonacci effort value.

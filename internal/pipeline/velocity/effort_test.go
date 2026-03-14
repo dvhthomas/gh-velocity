@@ -41,10 +41,10 @@ func TestAttributeEvaluator(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		item     model.VelocityItem
-		wantVal  float64
-		wantOK   bool
+		name    string
+		item    model.VelocityItem
+		wantVal float64
+		wantOK  bool
 	}{
 		{
 			name:    "matches first",

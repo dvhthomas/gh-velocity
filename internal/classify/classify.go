@@ -209,4 +209,3 @@ func parseFieldMatcher(value, raw string) (Matcher, error) {
 	}
 	return FieldMatcher{Field: name, Value: val}, nil
 }
-

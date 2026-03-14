@@ -240,8 +240,12 @@ func (c *Client) DiscoverProjectByOwner(ctx context.Context, owner string, numbe
 
 	// The response shape varies by owner type, but the projectV2 field is the same.
 	var resp struct {
-		User         *struct{ ProjectV2 *discoverProjectNode `json:"projectV2"` } `json:"user,omitempty"`
-		Organization *struct{ ProjectV2 *discoverProjectNode `json:"projectV2"` } `json:"organization,omitempty"`
+		User *struct {
+			ProjectV2 *discoverProjectNode `json:"projectV2"`
+		} `json:"user,omitempty"`
+		Organization *struct {
+			ProjectV2 *discoverProjectNode `json:"projectV2"`
+		} `json:"organization,omitempty"`
 	}
 	if err := c.projectClient().DoWithContext(ctx, query, variables, &resp); err != nil {
 		return nil, fmt.Errorf("discover project #%d for %s %s: %w\n  hint: set GH_VELOCITY_TOKEN to a PAT with 'project' scope (see docs/guide.md#token-permissions)", number, ownerType, owner, err)

@@ -93,9 +93,9 @@ func validateAttributeEffort(ctx context.Context, w io.Writer, cfg *config.Confi
 
 	// Build matchers.
 	type matchCount struct {
-		query   string
-		value   float64
-		count   int
+		query string
+		value float64
+		count int
 	}
 	counts := make([]matchCount, len(cfg.Velocity.Effort.Attribute))
 	for i, m := range cfg.Velocity.Effort.Attribute {

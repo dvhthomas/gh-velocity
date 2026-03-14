@@ -36,8 +36,8 @@ type Client struct {
 	projGQL    *ghapi.GraphQLClient // separate client for project queries (GH_VELOCITY_TOKEN)
 	owner      string
 	repo       string
-	repoNodeID string       // cached GraphQL node ID, populated lazily by repoID()
-	cache      *QueryCache  // deduplicates identical API calls within a single invocation
+	repoNodeID string      // cached GraphQL node ID, populated lazily by repoID()
+	cache      *QueryCache // deduplicates identical API calls within a single invocation
 
 	// Search throttle: serializes search API calls with a minimum gap to
 	// avoid triggering GitHub's secondary (abuse) rate limits.

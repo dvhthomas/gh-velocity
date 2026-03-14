@@ -90,8 +90,8 @@ func (r *Runner) CommitsForIssue(ctx context.Context, issueNumber int, ref strin
 
 // Contributor represents a person who contributed commits to a path.
 type Contributor struct {
-	Name   string
-	Email  string
+	Name    string
+	Email   string
 	Commits int
 }
 

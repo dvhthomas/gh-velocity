@@ -215,7 +215,6 @@ func TestClassifier_CategoryNames(t *testing.T) {
 	}
 }
 
-
 func TestNewClassifier_InvalidMatcher(t *testing.T) {
 	categories := []model.CategoryConfig{
 		{Name: "bad", Matchers: []string{"invalid"}},

@@ -28,9 +28,9 @@ type iterationFieldNode struct {
 }
 
 type iterationFieldConfigNode struct {
-	Duration            int                     `json:"duration"`
-	Iterations          []iterationValueNode    `json:"iterations"`
-	CompletedIterations []iterationValueNode    `json:"completedIterations"`
+	Duration            int                  `json:"duration"`
+	Iterations          []iterationValueNode `json:"iterations"`
+	CompletedIterations []iterationValueNode `json:"completedIterations"`
 }
 
 type iterationValueNode struct {

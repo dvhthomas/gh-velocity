@@ -18,11 +18,11 @@ import (
 )
 
 const (
-	DefaultConfigFile        = ".gh-velocity.yml"
-	DefaultWorkflow          = "pr"
-	DefaultHotfixWindowHours = 72
-	MaxConfigFileSize        = 64 * 1024 // 64 KB
-	MaxHotfixWindowHours     = 8760      // 1 year in hours
+	DefaultConfigFile         = ".gh-velocity.yml"
+	DefaultWorkflow           = "pr"
+	DefaultHotfixWindowHours  = 72
+	MaxConfigFileSize         = 64 * 1024 // 64 KB
+	MaxHotfixWindowHours      = 8760      // 1 year in hours
 	DefaultAPIThrottleSeconds = 2
 )
 
@@ -53,7 +53,7 @@ type Config struct {
 
 // VelocityConfig controls how velocity (effort per iteration) is measured.
 type VelocityConfig struct {
-	Unit      string          `yaml:"unit" json:"unit"`           // "issues" or "prs"
+	Unit      string          `yaml:"unit" json:"unit"` // "issues" or "prs"
 	Effort    EffortConfig    `yaml:"effort" json:"effort"`
 	Iteration IterationConfig `yaml:"iteration" json:"iteration"`
 }
@@ -78,10 +78,10 @@ type NumericEffortConfig struct {
 
 // IterationConfig controls how iteration boundaries are determined.
 type IterationConfig struct {
-	Strategy     string              `yaml:"strategy" json:"strategy"` // "project-field" or "fixed"
-	ProjectField string              `yaml:"project_field" json:"project_field"`
+	Strategy     string               `yaml:"strategy" json:"strategy"` // "project-field" or "fixed"
+	ProjectField string               `yaml:"project_field" json:"project_field"`
 	Fixed        FixedIterationConfig `yaml:"fixed" json:"fixed"`
-	Count        int                 `yaml:"count" json:"count"` // default 3; higher values increase API consumption
+	Count        int                  `yaml:"count" json:"count"` // default 3; higher values increase API consumption
 }
 
 // FixedIterationConfig defines calendar-based iteration boundaries.
@@ -233,16 +233,16 @@ func defaults() *Config {
 
 // knownTopLevelKeys lists the YAML keys that map to Config struct fields.
 var knownTopLevelKeys = map[string]bool{
-	"workflow":      true,
-	"scope":         true,
-	"project":       true,
-	"lifecycle":     true,
-	"quality":       true,
-	"discussions":   true,
-	"commit_ref":    true,
-	"cycle_time":    true,
-	"exclude_users": true,
-	"velocity":      true,
+	"workflow":             true,
+	"scope":                true,
+	"project":              true,
+	"lifecycle":            true,
+	"quality":              true,
+	"discussions":          true,
+	"commit_ref":           true,
+	"cycle_time":           true,
+	"exclude_users":        true,
+	"velocity":             true,
 	"api_throttle_seconds": true,
 }
 
@@ -470,4 +470,3 @@ func validateVelocity(v *VelocityConfig, projectURL string) error {
 
 	return nil
 }
-
