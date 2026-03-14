@@ -28,6 +28,11 @@ service-account*.json
 token
 .token
 
+# Hugo site
+site/public/
+site/resources/
+site/content/reference/commands/gh-velocity*.md
+
 # IDE
 .idea/
 .vscode/

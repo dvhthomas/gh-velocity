@@ -139,6 +139,33 @@ tasks:
       - bash scripts/prerelease-analysis.sh
       - echo '✓ All pre-release checks passed — ready to tag'
 
+  # ── Documentation ─────────────────────────────────────────────────
+
+  docs:generate:
+    desc: Auto-generate CLI reference pages from Cobra commands
+    deps: [build]
+    cmds:
+      - go run ./cmd/gendocs
+
+  docs:build:
+    desc: Build the Hugo documentation site
+    deps: [docs:generate]
+    cmds:
+      - hugo --source site --minify --gc
+      - echo '✓ Site built to site/public/'
+
+  docs:serve:
+    desc: Start Hugo dev server with live reload
+    cmds:
+      - hugo server --source site --buildDrafts --navigateToChanged
+
+  docs:clean:
+    desc: Clean generated site output
+    cmds:
+      - rm -rf site/public site/resources
+      - rm -rf site/content/reference/commands/*.md
+      - echo '✓ Docs cleaned'
+
   # ── Maintenance ────────────────────────────────────────────────────
 
   clean:

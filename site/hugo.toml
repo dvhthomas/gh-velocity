@@ -1,0 +1,22 @@
+baseURL = "https://dvhthomas.github.io/gh-velocity/"
+languageCode = "en"
+title = "gh-velocity"
+
+# Hugo Book theme
+disableKinds = ["taxonomy"]
+enableGitInfo = true
+
+[module]
+[[module.imports]]
+  path = "github.com/alex-shpak/hugo-book"
+
+[params]
+  BookTheme = "auto"
+  BookToC = true
+  BookSearch = true
+  BookCollapseSection = true
+  BookDateFormat = "January 2, 2006"
+  BookEditPath = "https://github.com/dvhthomas/gh-velocity/edit/main/site/content"
+  BookComments = false
+
+  description = "GitHub velocity and quality metrics — measure how fast your team ships."
