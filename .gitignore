@@ -39,3 +39,4 @@ site/content/reference/commands/gh-velocity*.md
 *.swp
 *.swo
 *~
+site/.hugo_build.lock
