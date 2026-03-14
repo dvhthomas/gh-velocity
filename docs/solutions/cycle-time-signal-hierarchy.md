@@ -20,9 +20,9 @@ Implemented a 5-level signal hierarchy that detects cycle time start from multip
 
 ### Signal Priority (highest to lowest)
 
-1. **Status change** (Projects v2) — Issue moved out of backlog on a project board. Requires `project.id`/`status_field_id` config. Queries `projectItems → fieldValues` on the issue.
+1. **Label** — An "in-progress" label was applied. Requires `lifecycle.in-progress.match` config. Queries `LABELED_EVENT` from issue timeline. Uses the immutable `createdAt` timestamp — the most reliable cycle start signal.
 
-2. **Label** — An "active" label (e.g., "in-progress") was added. Requires `statuses.active_labels` config. Queries `LABELED_EVENT` from issue timeline.
+2. **Status change** (Projects v2) — Issue moved out of backlog on a project board. Requires `project.id`/`status_field_id` config. Queries `projectItems → fieldValues` on the issue. **Deprecated as a cycle-start signal** — the `updatedAt` timestamp is mutable and can produce negative cycle times. Still used for WIP detection and backlog filtering.
 
 3. **PR created** — Any PR referencing the issue was opened, including drafts and open PRs. Queries both `CLOSED_EVENT` (for closing PR) and `CROSS_REFERENCED_EVENT` (for any referencing PR) from timeline. Earliest PR creation date wins.
 
@@ -51,7 +51,8 @@ The earliest PR creation date from either source is used. This means a draft PR 
 ## Key Design Decisions
 
 - **Priority-based, not earliest-signal.** We pick the highest-priority signal, not the earliest timestamp. This prevents misleading cycle times from stale assignments.
-- **Two status tracking mechanisms.** Projects v2 (board-based) and labels (issue-based) serve different workflows. Both can be active simultaneously — Projects v2 is checked first.
+- **Labels preferred over project board for cycle start.** Label `LABELED_EVENT.createdAt` is immutable. Project board `updatedAt` reflects the last field modification, which can be after issue closure (producing negative cycle times). Labels are checked first; project board is a fallback.
+- **Project board still valuable for current state.** WIP counts and backlog detection read the current status value, not historical timestamps — so project board data remains reliable for those use cases.
 - **Backlog overrides everything.** This is intentional — a backlog status is a stronger signal than any other because it represents a team decision that work is not happening.
 - **End signal is always `issue.closed_at`.** Both lead time and cycle time end when the issue closes. Future extension may add "in a release" as an optional end signal.
 
@@ -72,6 +73,6 @@ The project status uses a separate query to `projectItems → fieldValues` becau
 
 ## Gotchas
 
-- `ProjectV2ItemFieldSingleSelectValue.updatedAt` gives when the status was LAST changed, not when it first left backlog. If an issue moves Backlog → In Progress → In Review, `updatedAt` reflects the In Review transition, not the original departure from Backlog.
+- **`ProjectV2ItemFieldSingleSelectValue.updatedAt` is mutable and unreliable for cycle start.** It gives when the status was LAST changed, not when it first left backlog. If an issue moves Backlog → In Progress → In Review, `updatedAt` reflects the In Review transition. Worse: if a card is moved to "Done" after the issue is closed, `updatedAt` is after `closedAt`, producing negative cycle times. This is why labels are now the preferred signal — `LABELED_EVENT.createdAt` is immutable.
 - `CrossReferencedEvent` includes cross-references from issues too, not just PRs. Must check `source.__typename == "PullRequest"`.
 - Labels are case-sensitive in the config. "In-Progress" won't match "in-progress".
