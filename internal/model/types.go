@@ -163,6 +163,7 @@ type Stats struct {
 	P95           *time.Duration // 95th percentile; nil if N < 2
 	OutlierCutoff *time.Duration // Q3 + 1.5*IQR; values above are outliers
 	OutlierCount  int            // number of values above the cutoff
+	NegativeCount int            // durations < 0 filtered before computation
 }
 
 // ProjectItem represents an item on a GitHub Projects v2 board.

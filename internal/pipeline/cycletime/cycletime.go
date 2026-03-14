@@ -64,6 +64,11 @@ func (p *IssuePipeline) ProcessData() error {
 	input := metrics.CycleTimeInput{Issue: p.Issue, PR: p.PR}
 	p.CycleTime = p.Strategy.Compute(context.Background(), input)
 
+	// Warn on negative cycle time (project board timestamp after close).
+	if p.CycleTime.Duration != nil && *p.CycleTime.Duration < 0 {
+		p.Warnings = append(p.Warnings, "Negative cycle time detected — project board status was updated after issue was closed. The timestamp reflects the last field update, not the original transition. Consider using lifecycle.in-progress.match with label matchers.")
+	}
+
 	// Warn when cycle time is truly N/A (no start signal at all).
 	if p.CycleTime.Start == nil && p.CycleTime.Duration == nil {
 		switch p.StrategyStr {
@@ -198,6 +203,13 @@ func (p *BulkPipeline) ProcessData() error {
 	}
 
 	p.Stats = metrics.ComputeStats(durations)
+
+	// Warn when negative durations were filtered (project board timestamp issue).
+	if p.Stats.NegativeCount > 0 {
+		p.Warnings = append(p.Warnings, fmt.Sprintf(
+			"%d issues had negative cycle times (project board timestamp reflects last update, not transition) — excluded from stats. Consider using lifecycle.in-progress.match with label matchers for reliable timestamps.",
+			p.Stats.NegativeCount))
+	}
 
 	// Warn when all items have no cycle time data.
 	if len(durations) == 0 && len(p.Items) > 0 {

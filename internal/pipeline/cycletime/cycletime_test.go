@@ -1,6 +1,7 @@
 package cycletime
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -156,6 +157,91 @@ func indexStr(s, sub string) int {
 		}
 	}
 	return -1
+}
+
+// negativeDurationStrategy is a test strategy that always returns a negative duration.
+type negativeDurationStrategy struct{}
+
+func (s *negativeDurationStrategy) Name() string { return model.StrategyIssue }
+func (s *negativeDurationStrategy) Compute(_ context.Context, input metrics.CycleTimeInput) model.Metric {
+	if input.Issue == nil || input.Issue.ClosedAt == nil {
+		return model.Metric{}
+	}
+	// Simulate: project board updatedAt is after issue close.
+	start := &model.Event{Time: input.Issue.ClosedAt.Add(time.Hour), Signal: model.SignalStatusChange}
+	end := &model.Event{Time: *input.Issue.ClosedAt, Signal: model.SignalIssueClosed}
+	return model.NewMetric(start, end)
+}
+
+func TestIssuePipelineProcessData_WarnsOnNegativeDuration(t *testing.T) {
+	created := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	closed := time.Date(2026, 1, 3, 12, 0, 0, 0, time.UTC)
+
+	p := &IssuePipeline{
+		Strategy:    &negativeDurationStrategy{},
+		StrategyStr: model.StrategyIssue,
+		Issue: &model.Issue{
+			Number: 42, Title: "Fix bug", State: "closed",
+			CreatedAt: created, ClosedAt: &closed,
+		},
+	}
+
+	_ = p.ProcessData()
+
+	if p.CycleTime.Duration == nil {
+		t.Fatal("expected non-nil (negative) duration")
+	}
+	if *p.CycleTime.Duration >= 0 {
+		t.Errorf("expected negative duration, got %v", *p.CycleTime.Duration)
+	}
+	found := false
+	for _, w := range p.Warnings {
+		if containsStr(w, "Negative cycle time") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected warning about negative cycle time, got: %v", p.Warnings)
+	}
+}
+
+func TestBulkPipelineProcessData_NegativeDurationsFiltered(t *testing.T) {
+	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	closed1 := now.Add(-24 * time.Hour)
+	closed2 := now.Add(-48 * time.Hour)
+
+	p := &BulkPipeline{
+		Owner:       "org",
+		Repo:        "repo",
+		Since:       now.Add(-30 * 24 * time.Hour),
+		Until:       now,
+		Strategy:    &negativeDurationStrategy{},
+		StrategyStr: model.StrategyIssue,
+		issues: []model.Issue{
+			{Number: 1, CreatedAt: now.Add(-72 * time.Hour), ClosedAt: &closed1},
+			{Number: 2, CreatedAt: now.Add(-96 * time.Hour), ClosedAt: &closed2},
+		},
+	}
+
+	_ = p.ProcessData()
+
+	if p.Stats.NegativeCount != 2 {
+		t.Errorf("expected NegativeCount 2, got %d", p.Stats.NegativeCount)
+	}
+	if p.Stats.Count != 0 {
+		t.Errorf("expected Count 0 (all negatives filtered), got %d", p.Stats.Count)
+	}
+	found := false
+	for _, w := range p.Warnings {
+		if containsStr(w, "negative cycle times") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected warning about negative durations, got: %v", p.Warnings)
+	}
 }
 
 func TestPRPipelineProcessData(t *testing.T) {

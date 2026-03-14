@@ -12,14 +12,28 @@ import (
 
 // ComputeStats calculates mean, median, standard deviation, percentiles,
 // and IQR-based outlier detection for a slice of durations.
+// Negative durations are filtered out before computation and counted
+// in Stats.NegativeCount (they indicate data quality issues such as
+// project board timestamps updated after issue closure).
 func ComputeStats(durations []time.Duration) model.Stats {
-	n := len(durations)
+	// Filter out negative durations.
+	var negCount int
+	valid := make([]time.Duration, 0, len(durations))
+	for _, d := range durations {
+		if d < 0 {
+			negCount++
+		} else {
+			valid = append(valid, d)
+		}
+	}
+
+	n := len(valid)
 	if n == 0 {
-		return model.Stats{Count: 0}
+		return model.Stats{Count: 0, NegativeCount: negCount}
 	}
 
 	sorted := make([]time.Duration, n)
-	copy(sorted, durations)
+	copy(sorted, valid)
 	slices.Sort(sorted)
 
 	// Mean
@@ -39,9 +53,10 @@ func ComputeStats(durations []time.Duration) model.Stats {
 	}
 
 	stats := model.Stats{
-		Count:  n,
-		Mean:   &mean,
-		Median: &median,
+		Count:         n,
+		Mean:          &mean,
+		Median:        &median,
+		NegativeCount: negCount,
 	}
 
 	// Sample standard deviation requires N >= 2

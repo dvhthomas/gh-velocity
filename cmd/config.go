@@ -180,19 +180,23 @@ commit_ref:
 #   url: "https://github.com/users/yourname/projects/1"
 #   status_field: "Status"
 
-# Lifecycle stages: map project board columns or labels to workflow stages.
-# Used by the issue cycle time strategy to detect "work started."
+# Lifecycle stages: map labels and/or project board columns to workflow stages.
+# Used by cycle time to detect "work started" and by WIP to filter board items.
 #
-# Option 1: project board columns (requires project.url)
+# match: recommended for cycle time — label timestamps are immutable and reliable.
+# project_status: used for WIP detection and backlog filtering (board column names).
+#
+# Example with both (recommended when using a project board):
 # lifecycle:
 #   backlog:
 #     project_status: ["Backlog", "Triage"]
 #   in-progress:
 #     project_status: ["In progress"]
+#     match: ["label:in-progress", "label:wip"]
 #   done:
 #     project_status: ["Done", "Shipped"]
 #
-# Option 2: label-based (no project board needed)
+# Example with labels only (no project board):
 # lifecycle:
 #   backlog:
 #     match: ["label:backlog"]
