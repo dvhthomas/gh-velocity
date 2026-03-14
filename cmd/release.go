@@ -11,7 +11,6 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	"github.com/bitsbyme/gh-velocity/internal/gitdata"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	"github.com/bitsbyme/gh-velocity/internal/pipeline/release"
@@ -70,13 +69,13 @@ linking strategy discovered for the release.`,
 				}
 				if gitdata.IsShallowClone(wd) {
 					w := "shallow clone detected; commit history is incomplete. Use 'actions/checkout' with fetch-depth: 0 for accurate metrics."
-					log.Warn("%s", w)
+					deps.WarnUnlessJSON("%s", w)
 					preWarnings = append(preWarnings, w)
 				}
 				source = gitdata.NewLocalSource(wd)
 			} else {
 				w := "Using API for git operations (no local checkout)"
-				log.Warn("%s", w)
+				deps.WarnUnlessJSON("%s", w)
 				preWarnings = append(preWarnings, w)
 				source = gitdata.NewAPISource(client)
 			}
@@ -91,7 +90,7 @@ linking strategy discovered for the release.`,
 			// --discover: output scope diagnostic view and return
 			if discoverFlag {
 				for _, warning := range warnings {
-					log.Warn("%s", warning)
+					deps.WarnUnlessJSON("%s", warning)
 				}
 				w := cmd.OutOrStdout()
 				switch deps.Format {

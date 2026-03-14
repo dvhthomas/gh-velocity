@@ -71,6 +71,15 @@ func (d *Deps) NewClient() (*gh.Client, error) {
 	return gh.NewClient(d.Owner, d.Repo, delay)
 }
 
+// WarnUnlessJSON emits a warning to stderr unless JSON format is selected.
+// In JSON mode, warnings are included in the JSON payload — stderr warnings
+// would be noise for agentic consumers.
+func (d *Deps) WarnUnlessJSON(format string, args ...any) {
+	if d.Format != "json" {
+		log.Warn(format, args...)
+	}
+}
+
 // RenderCtx builds a format.RenderContext from Deps and a writer.
 func (d *Deps) RenderCtx(w io.Writer) format.RenderContext {
 	return format.RenderContext{
@@ -102,15 +111,18 @@ func Execute(version, buildTime string) int {
 
 // handleError processes the error from command execution, emitting JSON
 // error output to stderr when --format json is set, and returning the
-// appropriate exit code.
+// appropriate exit code. All errors are wrapped as structured JSON for
+// agentic consumers when JSON format is requested.
 func handleError(root *cobra.Command, err error) int {
 	var appErr *model.AppError
 	if !errors.As(err, &appErr) {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
+		// Wrap non-AppError into a generic AppError for consistent output.
+		appErr = &model.AppError{
+			Code:    "INTERNAL",
+			Message: err.Error(),
+		}
 	}
 
-	// Check if JSON format was requested
 	formatFlag, _ := root.PersistentFlags().GetString("format")
 	if formatFlag == "json" {
 		envelope := model.ErrorEnvelope{Error: appErr}

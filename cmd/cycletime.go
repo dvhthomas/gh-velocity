@@ -135,7 +135,7 @@ func runCycleTimePR(cmd *cobra.Command, prNumber int) error {
 	}
 
 	for _, warn := range p.Warnings {
-		log.Warn("%s", warn)
+		deps.WarnUnlessJSON("%s", warn)
 	}
 
 	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
@@ -186,7 +186,7 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 	}
 
 	for _, warn := range p.Warnings {
-		log.Warn("%s", warn)
+		deps.WarnUnlessJSON("%s", warn)
 	}
 
 	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
@@ -256,7 +256,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		mergedPRs, prErr := client.SearchPRs(ctx, prQuery.Build())
 		if prErr != nil {
 			w := fmt.Sprintf("could not search merged PRs: %v", prErr)
-			log.Warn("%s", w)
+			deps.WarnUnlessJSON("%s", w)
 			preWarnings = append(preWarnings, w)
 		} else {
 			closingPRs = metrics.BuildClosingPRMap(ctx, client, mergedPRs)
@@ -287,7 +287,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	p.Warnings = append(preWarnings, p.Warnings...)
 
 	for _, warn := range p.Warnings {
-		log.Warn("%s", warn)
+		deps.WarnUnlessJSON("%s", warn)
 	}
 
 	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{

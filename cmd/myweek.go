@@ -79,7 +79,7 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 	var warnings []string
 	if isBotLogin(login) {
 		w := fmt.Sprintf("Authenticated as %s — my-week shows activity for the authenticated user", login)
-		log.Warn("%s", w)
+		deps.WarnUnlessJSON("%s", w)
 		warnings = append(warnings, w)
 	}
 
