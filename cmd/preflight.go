@@ -1172,15 +1172,48 @@ func renderVelocityConfig(b *strings.Builder, r *PreflightResult) {
 	case "numeric":
 		b.WriteString("    numeric:\n")
 		b.WriteString(fmt.Sprintf("      project_field: %q\n", vh.NumericField))
+		// If SingleSelect sizing was also detected, show it as a commented-out alternative.
+		if len(vh.SingleSelectMatchers) > 0 {
+			b.WriteString("    # Alternative: use the SingleSelect field instead of the Number field.\n")
+			b.WriteString("    # Change strategy to \"attribute\" and uncomment:\n")
+			b.WriteString("    # attribute:\n")
+			for _, sm := range vh.SingleSelectMatchers {
+				b.WriteString(fmt.Sprintf("    #   - query: %q\n", sm.Query))
+				b.WriteString(fmt.Sprintf("    #     value: %.0f\n", sm.Value))
+			}
+		}
+		// If sizing labels were also detected, show them as a commented-out alternative.
+		if len(vh.SizingLabels) > 0 && len(vh.SingleSelectMatchers) == 0 {
+			b.WriteString("    # Alternative: use sizing labels instead of the Number field.\n")
+			b.WriteString("    # Change strategy to \"attribute\" and uncomment:\n")
+			b.WriteString("    # attribute:\n")
+			for _, sl := range vh.SizingLabels {
+				b.WriteString(fmt.Sprintf("    #   - query: %q\n", sl.Query))
+				b.WriteString(fmt.Sprintf("    #     value: %.0f\n", sl.Value))
+			}
+		}
 	case "attribute":
 		b.WriteString("    attribute:\n")
-		matchers := vh.SizingLabels
+		// Prefer SingleSelect field matchers over label matchers.
 		if len(vh.SingleSelectMatchers) > 0 {
-			matchers = vh.SingleSelectMatchers
-		}
-		for _, sl := range matchers {
-			b.WriteString(fmt.Sprintf("      - query: %q\n", sl.Query))
-			b.WriteString(fmt.Sprintf("        value: %.0f\n", sl.Value))
+			for _, sm := range vh.SingleSelectMatchers {
+				b.WriteString(fmt.Sprintf("      - query: %q\n", sm.Query))
+				b.WriteString(fmt.Sprintf("        value: %.0f\n", sm.Value))
+			}
+			// If sizing labels were also detected, show them as a commented-out alternative.
+			if len(vh.SizingLabels) > 0 {
+				b.WriteString("    # Alternative: use sizing labels instead of the project field.\n")
+				b.WriteString("    # No project board needed with label-based matchers.\n")
+				for _, sl := range vh.SizingLabels {
+					b.WriteString(fmt.Sprintf("    #   - query: %q\n", sl.Query))
+					b.WriteString(fmt.Sprintf("    #     value: %.0f\n", sl.Value))
+				}
+			}
+		} else {
+			for _, sl := range vh.SizingLabels {
+				b.WriteString(fmt.Sprintf("      - query: %q\n", sl.Query))
+				b.WriteString(fmt.Sprintf("        value: %.0f\n", sl.Value))
+			}
 		}
 	}
 
