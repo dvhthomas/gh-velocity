@@ -45,14 +45,18 @@ func (s *IssueStrategy) Compute(ctx context.Context, input CycleTimeInput) model
 		return model.Metric{}
 	}
 
-	// Try project board first (higher fidelity signal).
-	if s.Client != nil && s.ProjectID != "" {
-		return s.computeFromProject(ctx, input)
+	// Try labels first (immutable createdAt timestamps — most reliable).
+	if s.Client != nil && len(s.InProgressMatch) > 0 {
+		m := s.computeFromLabels(ctx, input)
+		if m.Start != nil {
+			return m
+		}
 	}
 
-	// Fall back to label timeline events.
-	if s.Client != nil && len(s.InProgressMatch) > 0 {
-		return s.computeFromLabels(ctx, input)
+	// Fall back to project board status (updatedAt may be unreliable if
+	// the card was moved after issue closure).
+	if s.Client != nil && s.ProjectID != "" {
+		return s.computeFromProject(ctx, input)
 	}
 
 	// No signal source configured.

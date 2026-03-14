@@ -720,7 +720,7 @@ func TestRenderPreflightConfig_LabelMatchersIncludedWithZeroHits(t *testing.T) {
 
 func TestWriteLifecycleMapping_ReadyMapsToBacklog(t *testing.T) {
 	var b strings.Builder
-	writeLifecycleMapping(&b, []string{"Backlog", "Ready", "In progress", "In review", "Done"})
+	writeLifecycleMapping(&b, []string{"Backlog", "Ready", "In progress", "In review", "Done"}, nil)
 	output := b.String()
 
 	// "Ready" should be mapped to backlog alongside "Backlog".
@@ -736,7 +736,7 @@ func TestWriteLifecycleMapping_ReadyMapsToBacklog(t *testing.T) {
 func TestWriteLifecycleMapping_ReadyAloneAsBacklog(t *testing.T) {
 	// When "Ready" is the only backlog-like column.
 	var b strings.Builder
-	writeLifecycleMapping(&b, []string{"Ready", "In progress", "Done"})
+	writeLifecycleMapping(&b, []string{"Ready", "In progress", "Done"}, nil)
 	output := b.String()
 
 	if !strings.Contains(output, "backlog:") {
@@ -744,6 +744,32 @@ func TestWriteLifecycleMapping_ReadyAloneAsBacklog(t *testing.T) {
 	}
 	if !strings.Contains(output, `"Ready"`) {
 		t.Errorf("expected Ready mapped to backlog, got:\n%s", output)
+	}
+}
+
+func TestWriteLifecycleMapping_WithActiveLabels(t *testing.T) {
+	var b strings.Builder
+	writeLifecycleMapping(&b, []string{"Backlog", "In progress", "Done"}, []string{"in-progress"})
+	output := b.String()
+
+	if !strings.Contains(output, `label:in-progress`) {
+		t.Errorf("expected match entry for in-progress label, got:\n%s", output)
+	}
+	if !strings.Contains(output, "project_status:") {
+		t.Errorf("expected project_status to still be present, got:\n%s", output)
+	}
+}
+
+func TestWriteLifecycleMapping_NoActiveLabels_ShowsTip(t *testing.T) {
+	var b strings.Builder
+	writeLifecycleMapping(&b, []string{"Backlog", "In progress", "Done"}, nil)
+	output := b.String()
+
+	if !strings.Contains(output, "Tip:") {
+		t.Errorf("expected tip about adding labels, got:\n%s", output)
+	}
+	if strings.Contains(output, "match:") {
+		t.Errorf("should not emit match when no active labels, got:\n%s", output)
 	}
 }
 

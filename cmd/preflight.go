@@ -1041,8 +1041,10 @@ func renderPreflightConfig(r *PreflightResult) string {
 
 		// Map status options to lifecycle stages
 		b.WriteString("# Lifecycle stages mapped from board columns\n")
+		b.WriteString("# project_status: used for WIP and backlog detection\n")
+		b.WriteString("# match: used for cycle time (label timestamps are more reliable than board timestamps)\n")
 		b.WriteString("lifecycle:\n")
-		writeLifecycleMapping(&b, r.StatusOptions)
+		writeLifecycleMapping(&b, r.StatusOptions, r.ActiveLabels)
 		b.WriteString("\n")
 	} else if len(r.ActiveLabels) > 0 || len(r.BacklogLabels) > 0 {
 		// Label-based lifecycle (no project board).
@@ -1202,7 +1204,9 @@ func printPreflightDiagnostics(r *PreflightResult) {
 }
 
 // writeLifecycleMapping maps project board status options to lifecycle stages.
-func writeLifecycleMapping(b *strings.Builder, options []string) {
+// When activeLabels are detected, it also emits match entries for the in-progress
+// stage so cycle time can use label timestamps (more reliable than board timestamps).
+func writeLifecycleMapping(b *strings.Builder, options []string, activeLabels []string) {
 	backlog := findStatuses(options, "backlog", "to do", "todo", "triage", "new", "ready")
 	inProgress := findStatuses(options, "in progress", "doing", "active", "working")
 	inReview := findStatuses(options, "in review", "review", "pending review")
@@ -1219,7 +1223,27 @@ func writeLifecycleMapping(b *strings.Builder, options []string) {
 		b.WriteString(fmt.Sprintf("  %s:\n    project_status: [%s]\n", name, strings.Join(quoted, ", ")))
 	}
 	writeStage("backlog", backlog)
-	writeStage("in-progress", inProgress)
+
+	// In-progress: emit project_status + match (labels) when available.
+	if len(inProgress) > 0 {
+		quoted := make([]string, len(inProgress))
+		for i, s := range inProgress {
+			quoted[i] = fmt.Sprintf("%q", s)
+		}
+		b.WriteString(fmt.Sprintf("  in-progress:\n    project_status: [%s]\n", strings.Join(quoted, ", ")))
+	} else {
+		b.WriteString("  in-progress:\n")
+	}
+	if len(activeLabels) > 0 {
+		b.WriteString("    match:\n")
+		for _, l := range activeLabels {
+			b.WriteString(fmt.Sprintf("      - \"label:%s\"\n", l))
+		}
+	} else if len(inProgress) > 0 {
+		b.WriteString("    # Tip: add a label like \"in-progress\" for more reliable cycle time timestamps.\n")
+		b.WriteString("    # Label events have immutable timestamps; board status updatedAt can be stale.\n")
+	}
+
 	writeStage("in-review", inReview)
 	writeStage("done", done)
 

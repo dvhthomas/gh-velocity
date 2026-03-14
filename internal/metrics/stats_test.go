@@ -201,6 +201,57 @@ func TestComputeStats_SmallN_NoPercentiles(t *testing.T) {
 	}
 }
 
+func TestComputeStats_NegativeDurationsFiltered(t *testing.T) {
+	durations := []time.Duration{
+		-2 * time.Hour, // negative — should be filtered
+		1 * time.Hour,
+		3 * time.Hour,
+		5 * time.Hour,
+		-1 * time.Second, // negative — should be filtered
+	}
+	stats := ComputeStats(durations)
+
+	if stats.Count != 3 {
+		t.Errorf("expected count 3 (negatives filtered), got %d", stats.Count)
+	}
+	if stats.NegativeCount != 2 {
+		t.Errorf("expected NegativeCount 2, got %d", stats.NegativeCount)
+	}
+	if *stats.Median != 3*time.Hour {
+		t.Errorf("expected median 3h, got %v", *stats.Median)
+	}
+}
+
+func TestComputeStats_AllNegative(t *testing.T) {
+	durations := []time.Duration{
+		-1 * time.Hour,
+		-2 * time.Hour,
+	}
+	stats := ComputeStats(durations)
+
+	if stats.Count != 0 {
+		t.Errorf("expected count 0 (all filtered), got %d", stats.Count)
+	}
+	if stats.NegativeCount != 2 {
+		t.Errorf("expected NegativeCount 2, got %d", stats.NegativeCount)
+	}
+	if stats.Mean != nil {
+		t.Error("expected nil mean when all durations are negative")
+	}
+}
+
+func TestComputeStats_NoNegatives(t *testing.T) {
+	durations := []time.Duration{1 * time.Hour, 2 * time.Hour, 3 * time.Hour}
+	stats := ComputeStats(durations)
+
+	if stats.NegativeCount != 0 {
+		t.Errorf("expected NegativeCount 0, got %d", stats.NegativeCount)
+	}
+	if stats.Count != 3 {
+		t.Errorf("expected count 3, got %d", stats.Count)
+	}
+}
+
 func TestIsOutlier(t *testing.T) {
 	durations := []time.Duration{
 		1 * time.Hour, 2 * time.Hour, 3 * time.Hour,
