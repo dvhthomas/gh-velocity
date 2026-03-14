@@ -1,2 +1,15 @@
 {{- $favicon := resources.Get "favicon.svg" | fingerprint -}}
+{{- $shelly := resources.Get "images/logo.svg" | fingerprint -}}
 <link rel="icon" href="{{ $favicon.RelPermalink }}" type="image/svg+xml">
+<style>
+  .book-article h1::before {
+    content: "";
+    display: inline-block;
+    width: 1.2em;
+    height: 0.9em;
+    margin-right: 0.3em;
+    vertical-align: baseline;
+    background: url("{{ $shelly.RelPermalink }}") no-repeat center / contain;
+    image-rendering: pixelated;
+  }
+</style>

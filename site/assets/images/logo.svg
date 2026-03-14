@@ -15,8 +15,6 @@
     <rect x="10" y="8" width="2" height="2" fill="white"/>
     <rect x="16" y="8" width="2" height="2" fill="white"/>
     <rect x="22" y="8" width="2" height="2" fill="white"/>
-    <rect x="14" y="12" width="2" height="2" fill="white"/>
-    <rect x="20" y="12" width="2" height="2" fill="white"/>
     <!-- Body underside -->
     <rect x="8" y="14" width="18" height="2"/>
     <!-- Neck (2px wide, angled up from body to head) -->
