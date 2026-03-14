@@ -185,6 +185,13 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				return err
 			}
 
+			// Suppress all non-error stderr output in JSON mode — warnings
+			// and debug lines are noise for agentic consumers. Warnings
+			// are embedded in the JSON payload instead.
+			if f == format.JSON {
+				log.SuppressStderr = true
+			}
+
 			// Resolve repo
 			owner, repo, err := resolveRepo(repoFlag)
 			if err != nil {

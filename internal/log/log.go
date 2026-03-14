@@ -9,6 +9,11 @@ import (
 	"strings"
 )
 
+// SuppressStderr disables Warn and Debug output globally. Set to true
+// when --format json is active so that all non-error stderr output is
+// suppressed — warnings are embedded in the JSON payload instead.
+var SuppressStderr bool
+
 // isCI returns true when running inside GitHub Actions.
 func isCI() bool {
 	return os.Getenv("GITHUB_ACTIONS") == "true"
@@ -17,7 +22,11 @@ func isCI() bool {
 // Warn writes a warning message to stderr.
 // In GitHub Actions: ::warning::message
 // Locally: warning: message
+// No-ops when SuppressStderr is true (JSON mode).
 func Warn(format string, args ...any) {
+	if SuppressStderr {
+		return
+	}
 	msg := fmt.Sprintf(format, args...)
 	if isCI() {
 		fmt.Fprintf(os.Stderr, "::warning::%s\n", escapeCI(msg))
@@ -51,7 +60,11 @@ func Notice(format string, args ...any) {
 }
 
 // Debug writes a debug message to stderr (same format in CI and local).
+// No-ops when SuppressStderr is true (JSON mode).
 func Debug(format string, args ...any) {
+	if SuppressStderr {
+		return
+	}
 	msg := fmt.Sprintf(format, args...)
 	fmt.Fprintf(os.Stderr, "[debug] %s\n", msg)
 }

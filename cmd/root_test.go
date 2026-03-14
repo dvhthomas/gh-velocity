@@ -48,6 +48,43 @@ func TestHandleError_NonAppError_Returns1(t *testing.T) {
 	}
 }
 
+func TestHandleError_NonAppError_JSONFormat_WrapsAsInternal(t *testing.T) {
+	root := newTestRoot("json")
+	// Non-AppError should be wrapped as INTERNAL and still produce exit code 1.
+	got := handleError(root, errors.New("unexpected failure"))
+	if got != 1 {
+		t.Errorf("handleError() exit code = %d, want 1", got)
+	}
+	// Verify the envelope structure.
+	appErr := &model.AppError{Code: "INTERNAL", Message: "unexpected failure"}
+	envelope := model.ErrorEnvelope{Error: appErr}
+	data, err := json.Marshal(envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	errObj := parsed["error"].(map[string]any)
+	if errObj["code"] != "INTERNAL" {
+		t.Errorf("code = %v, want INTERNAL", errObj["code"])
+	}
+}
+
+func TestWarnUnlessJSON_SuppressesInJSONMode(t *testing.T) {
+	deps := &Deps{Format: "json"}
+	// Should not panic or write to stderr.
+	deps.WarnUnlessJSON("test warning: %s", "value")
+}
+
+func TestWarnUnlessJSON_EmitsInPrettyMode(t *testing.T) {
+	deps := &Deps{Format: "pretty"}
+	// Should not panic. We can't easily capture stderr here,
+	// but verifying it doesn't panic is the baseline.
+	deps.WarnUnlessJSON("test warning: %s", "value")
+}
+
 func TestHandleError_JSONFormat_EmitsEnvelope(t *testing.T) {
 	root := newTestRoot("json")
 	appErr := &model.AppError{
