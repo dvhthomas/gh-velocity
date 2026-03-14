@@ -3,15 +3,15 @@ title: "GitHub Velocity"
 type: docs
 ---
 
-<div style="text-align: center; margin: 2rem 0;">
-  <img src="/gh-velocity/images/logo-lockup.svg" alt="velocity" style="max-width: 400px; width: 100%;" />
+<div style="text-align: center; margin: 3rem 0 1rem;">
+{{< asset-img src="images/logo-lockup.svg" alt="velocity" style="max-width: 500px; width: 100%; image-rendering: pixelated;" >}}
 </div>
 
-<h2 style="text-align: center; margin-bottom: 0.5rem;">Measure how fast your team ships.</h2>
+<h1 style="text-align: center; margin-bottom: 0.5rem; font-size: 2rem;">Know your team's delivery pace.</h1>
 
-<p style="text-align: center; color: #666; margin-bottom: 2rem;">
-  Velocity, quality, and flow metrics from GitHub data.<br/>
-  A <code>gh</code> CLI extension that posts results where the work happens.
+<p style="text-align: center; color: #666; font-size: 1.15rem; margin-bottom: 2.5rem;">
+  Sprint velocity. Lead time. Cycle time. Defect rate.<br/>
+  Computed from your GitHub data. Posted where the work happens.
 </p>
 
 <p style="text-align: center; margin-bottom: 3rem;">
@@ -30,4 +30,4 @@ Run `gh velocity config preflight --help` to see all options — the repo is aut
 
 ---
 
-Maintained by [BitsByD](https://bitsby.me/about) · [Source on GitHub](https://github.com/dvhthomas/gh-velocity)
+Maintained by [BitsByD](https://bitsby.me/about) · [Source on GitHub](https://github.com/dvhthomas/gh-velocity) · [Meet Shelly]({{< relref "shelly" >}})

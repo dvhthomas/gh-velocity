@@ -1,0 +1,11 @@
+{{- /* Renders a fingerprinted image from site/assets/. Usage: {{< asset-img src="images/logo.svg" alt="Shelly" style="max-width: 300px;" >}} */ -}}
+{{- $src := .Get "src" -}}
+{{- $alt := .Get "alt" | default "" -}}
+{{- $style := .Get "style" | default "" -}}
+{{- $img := resources.Get $src -}}
+{{- if $img -}}
+  {{- $fp := $img | fingerprint -}}
+  <img src="{{ $fp.RelPermalink }}" alt="{{ $alt }}"{{ with $style }} style="{{ . }}"{{ end }} />
+{{- else -}}
+  <!-- asset not found: {{ $src }} -->
+{{- end -}}

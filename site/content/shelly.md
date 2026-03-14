@@ -5,7 +5,7 @@ bookHidden: true
 ---
 
 <div style="text-align: center; margin: 2rem 0;">
-  <img src="/gh-velocity/images/logo.svg" alt="Shelly the velocity tortoise" style="max-width: 300px; width: 100%; image-rendering: pixelated;" />
+{{< asset-img src="images/logo.svg" alt="Shelly the velocity tortoise" style="max-width: 300px; width: 100%; image-rendering: pixelated;" >}}
 </div>
 
 # Meet Shelly
@@ -30,15 +30,15 @@ Shelly is rendered in **#22C55E** (a fresh, optimistic green) on a transparent b
 
 <div style="display: flex; gap: 2rem; flex-wrap: wrap; margin: 2rem 0;">
   <div style="text-align: center;">
-    <img src="/gh-velocity/images/logo.svg" alt="Shelly" style="width: 120px; image-rendering: pixelated;" />
+    {{< asset-img src="images/logo.svg" alt="Shelly" style="width: 120px; image-rendering: pixelated;" >}}
     <div style="font-size: 0.85rem; color: #666;">Mascot</div>
   </div>
   <div style="text-align: center;">
-    <img src="/gh-velocity/images/logo-lockup.svg" alt="velocity lockup" style="width: 300px; image-rendering: pixelated;" />
+    {{< asset-img src="images/logo-lockup.svg" alt="velocity lockup" style="width: 300px; image-rendering: pixelated;" >}}
     <div style="font-size: 0.85rem; color: #666;">Lockup</div>
   </div>
   <div style="text-align: center;">
-    <img src="/gh-velocity/favicon.svg" alt="favicon" style="width: 48px; image-rendering: pixelated;" />
+    {{< asset-img src="favicon.svg" alt="favicon" style="width: 48px; image-rendering: pixelated;" >}}
     <div style="font-size: 0.85rem; color: #666;">Favicon</div>
   </div>
 </div>

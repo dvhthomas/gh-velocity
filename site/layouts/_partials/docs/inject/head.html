@@ -1,0 +1,2 @@
+{{- $favicon := resources.Get "favicon.svg" | fingerprint -}}
+<link rel="icon" href="{{ $favicon.RelPermalink }}" type="image/svg+xml">

@@ -6,6 +6,8 @@ title = "GitHub Velocity"
 disableKinds = ["taxonomy"]
 enableGitInfo = true
 
+ignoreLogs = ["warning-goldmark-raw-html"]
+
 # Disable typographer to prevent -- becoming en-dash in flag names like --project-url
 [markup.goldmark.extensions]
   typographer = false
@@ -23,6 +25,5 @@ enableGitInfo = true
   BookDateFormat = "January 2, 2006"
   BookEditPath = "https://github.com/dvhthomas/gh-velocity/edit/main/site/content"
   BookComments = false
-  BookLogo = "/images/logo.svg"
 
   description = "GitHub velocity and quality metrics — measure how fast your team ships."
