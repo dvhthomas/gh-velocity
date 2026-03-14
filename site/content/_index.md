@@ -3,19 +3,20 @@ title: "GitHub Velocity"
 type: docs
 ---
 
-<div style="text-align: center; margin: 3rem 0 1rem;">
-{{< asset-img src="images/logo-lockup.svg" alt="velocity" style="max-width: 500px; width: 100%; image-rendering: pixelated;" >}}
+<div style="text-align: center; margin: 4rem 0 2rem;">
+{{< asset-img src="images/logo-lockup.svg" alt="velocity" style="max-width: 600px; width: 100%; image-rendering: pixelated;" >}}
 </div>
 
-<h1 style="text-align: center; margin-bottom: 0.5rem; font-size: 2rem;">Know your team's delivery pace.</h1>
+<h1 style="text-align: center; font-size: 2.4rem; margin-bottom: 1rem; line-height: 1.2;">
+  Ship predictably.<br/>Measure what matters.
+</h1>
 
-<p style="text-align: center; color: #666; font-size: 1.15rem; margin-bottom: 2.5rem;">
-  Sprint velocity. Lead time. Cycle time. Defect rate.<br/>
-  Computed from your GitHub data. Posted where the work happens.
+<p style="text-align: center; color: #666; font-size: 1.2rem; max-width: 560px; margin: 0 auto 2.5rem;">
+  gh-velocity computes sprint velocity, lead time, cycle time, and quality metrics from your GitHub issues, PRs, and releases — then posts results right where your team works.
 </p>
 
-<p style="text-align: center; margin-bottom: 3rem;">
-  <a href="{{< relref "getting-started" >}}" style="display: inline-block; background: #22C55E; color: white; padding: 0.75rem 2rem; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 1.1rem;">Get Started</a>
+<p style="text-align: center; margin-bottom: 4rem;">
+  <a href="{{< relref "getting-started" >}}" style="display: inline-block; background: #22C55E; color: white; padding: 0.85rem 2.5rem; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 1.2rem;">Get Started</a>
 </p>
 
 ## In a hurry?
