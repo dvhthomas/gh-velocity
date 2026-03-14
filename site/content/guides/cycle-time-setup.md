@@ -87,7 +87,7 @@ lifecycle:
 
 When both `match` and `project_status` are configured for a lifecycle stage, labels take priority for cycle time. Project board status is used as a fallback if no matching label is found.
 
-If you configure only `project_status` without `match` for the in-progress stage, the tool emits a deprecation warning. Project board timestamps are unreliable for cycle time -- see [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}).
+If you configure only `project_status` without `match` for the in-progress stage, the tool uses project board timestamps for cycle time. This works well with consistent board hygiene. For more robust timestamps, add a `match` rule with labels — see [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}).
 
 Run `gh velocity config discover -R owner/repo` to find your project URL, status field name, and available status values.
 
@@ -123,6 +123,29 @@ lifecycle:
 ```
 
 To automate the label step when moving cards on the board, use a GitHub Actions workflow triggered by `projects_v2_item` events. See [Labels vs. Project Board: Syncing]({{< relref "/concepts/labels-vs-board" >}}) for a ready-to-use workflow.
+
+### Team workflow with project board only (issue strategy, no labels)
+
+If your team uses a project board and moves cards consistently, you can use `project_status` alone for cycle time — no labels needed. This works well for teams with good board discipline where cards are moved promptly and not tidied retroactively.
+
+```yaml
+cycle_time:
+  strategy: issue
+
+project:
+  url: "https://github.com/users/yourname/projects/1"
+  status_field: "Status"
+
+lifecycle:
+  backlog:
+    project_status: ["Backlog", "Triage"]
+  in-progress:
+    project_status: ["In progress"]
+  done:
+    project_status: ["Done", "Shipped"]
+```
+
+If you see negative cycle times or unexpectedly short durations, the board's `updatedAt` timestamps may be stale from retroactive card moves. In that case, add a `match` rule with labels to the `in-progress` stage — see the "project board + labels" pattern above.
 
 ### Team workflow without project board (PR strategy)
 
