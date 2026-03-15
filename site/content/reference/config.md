@@ -7,13 +7,14 @@ weight: 3
 
 Complete reference for `.gh-velocity.yml` fields, types, defaults, and validation rules.
 
-A `.gh-velocity.yml` file is required for all metric commands. Create one in your repository root, or use `--config` to point to an alternate path. Every field within the config is optional -- the tool uses sensible defaults for anything you omit.
+All metric commands require a `.gh-velocity.yml` file. Run `gh velocity config preflight --write` to generate one, or create one manually in your repository root. Use `--config` to point to an alternate path. Every field within the config is optional — the tool uses sensible defaults for anything you omit.
 
 To generate a config tailored to your repository:
 
 ```bash
-gh velocity config preflight -R owner/repo         # preview to stdout
-gh velocity config preflight -R owner/repo --write  # save to .gh-velocity.yml
+gh velocity config preflight             # preview to stdout (from inside your repo)
+gh velocity config preflight --write     # save to .gh-velocity.yml
+gh velocity config preflight -R cli/cli  # analyze a remote repo
 ```
 
 To validate an existing config:
@@ -506,6 +507,9 @@ Several configuration fields (`quality.categories[].match`, `lifecycle.in-progre
 | `label:<name>` | Exact match on issue/PR label name | `label:bug` |
 | `type:<name>` | Match on GitHub Issue Type | `type:Bug` |
 | `title:/<regex>/i` | Case-insensitive regex match on title | `title:/^fix[\(: ]/i` |
+| `field:<Name>/<Value>` | Match a SingleSelect field value on a Projects v2 board | `field:Size/M` |
+
+The `field:` matcher requires `project.url` to be configured. It reads the specified SingleSelect field from the project board and matches items whose field value equals `<Value>`. This is especially useful for effort classification — see [Labels vs. Board]({{< relref "/concepts/labels-vs-board" >}}) for examples.
 
 Matchers are evaluated in config order. For classification (`quality.categories`), the first matching category wins across all categories. For effort (`velocity.effort.attribute`), the first matching rule determines the effort value.
 

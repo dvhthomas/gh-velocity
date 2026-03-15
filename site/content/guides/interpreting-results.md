@@ -17,6 +17,31 @@ gh-velocity produces output in three formats: pretty (default), JSON, and markdo
 
 All commands accept `--format` (or `-f`). If you omit it, you get pretty.
 
+## Three metric states
+
+Every timing metric (lead time, cycle time) can be in one of three states:
+
+| State | Pretty output | JSON | Meaning |
+|-------|--------------|------|---------|
+| **Completed** | `2d 4h` | `"duration_seconds": 187200` | Work started and finished — you have a real measurement |
+| **In progress** | `in progress` | `"started_at": "...", "duration_seconds": null` | Work started but isn't done yet — the clock is still running |
+| **N/A** | `N/A` | `"started_at": null, "duration_seconds": null` | No start signal found — the tool can't measure this item |
+
+N/A usually means your cycle time strategy doesn't have a signal for that issue. See [Cycle Time Setup]({{< relref "cycle-time-setup" >}}) to fix this.
+
+## Output layers
+
+Every command produces up to four layers of output:
+
+| Layer | What it contains | Example |
+|-------|-----------------|---------|
+| **Stats** | Aggregate numbers (mean, median, P90, count) | Lead time median: 5d |
+| **Detail** | Per-item breakdowns | Issue #42: 2d cycle time |
+| **Insights** | Human-readable observations with severity | "Low classification coverage: 60% are unclassified" |
+| **Provenance** | How the output was produced (command, config, scope) | Reproducibility metadata |
+
+The `report` command shows stats only (one line per metric). Standalone commands like `flow cycle-time` and `quality release` show all four layers. In JSON, each layer is a top-level key.
+
 ## Reading pretty output
 
 Pretty output is designed for a terminal. Here is an example from `quality release`:
@@ -150,6 +175,9 @@ Two issues open for 4+ years were closed in the release. The median tells you th
 Outliers are flagged using the IQR method. Multiple outliers in a single release often mean a backlog cleanup happened alongside normal work. Check the outlier issues to see if they are old issues finally closed or genuinely slow work.
 
 ### Cycle time is N/A for most issues
+
+> [!TIP]
+> N/A means "no start signal found" — not "zero." The tool can't measure what it can't see. Check your strategy configuration.
 
 The configured strategy does not have a signal for those issues. Common causes:
 

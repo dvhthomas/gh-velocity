@@ -1,6 +1,6 @@
 baseURL = "https://dvhthomas.github.io/gh-velocity/"
 languageCode = "en"
-title = "GitHub Velocity"
+title = "gh-velocity"
 
 # Hugo Book theme
 disableKinds = ["taxonomy"]
@@ -30,4 +30,4 @@ ignoreLogs = ["warning-goldmark-raw-html"]
   BookEditPath = "https://github.com/dvhthomas/gh-velocity/edit/main/site/content"
   BookComments = false
 
-  description = "GitHub velocity and quality metrics — measure how fast your team ships."
+  description = "Velocity and quality metrics for your repos — measure how fast your team ships."

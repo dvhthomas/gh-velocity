@@ -18,7 +18,10 @@ There are two cycle time strategies. Choose based on your workflow.
 | PRs close issues (most OSS repos) | `pr` | Measures PR review time (created to merged) |
 | Issues only, no labels or PRs | `issue` | Lead time works immediately; add an `in-progress` label for cycle time |
 
-**If you are unsure, start with `pr`.** It works immediately with no extra config.
+Choose based on how your team works. The PR strategy requires zero setup; the issue strategy gives richer data but requires label discipline. See the [signal hierarchy]({{< relref "/reference/metrics/cycle-time" >}}#signal-hierarchy) for how the issue strategy resolves start signals.
+
+> [!TIP]
+> No labels yet? The PR strategy works without any setup — it uses your PR merge times. You can always switch to the issue strategy later when you're ready to add lifecycle labels.
 
 ## The PR strategy
 

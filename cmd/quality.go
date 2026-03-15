@@ -9,7 +9,12 @@ func NewQualityCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "quality",
 		Short: "Quality metrics for releases",
-		Long:  "Quality metrics scoped to releases: defect rate, hotfix detection, category composition.",
+		Long: `Is this release good?
+
+Quality metrics analyze your releases:
+
+  release    Composition, defect rate, timing, and per-issue breakdown
+             for a specific release tag`,
 	}
 	cmd.AddCommand(NewReleaseCmd())
 	return cmd

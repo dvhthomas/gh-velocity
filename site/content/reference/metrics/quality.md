@@ -7,6 +7,12 @@ weight: 5
 
 Quality metrics analyze the composition and health of a release. They answer: "What did this release contain, and how healthy was the release process?"
 
+## What this tells you
+
+Release quality metrics help you understand whether you're shipping improvements or fighting fires. A rising defect rate across releases signals growing technical debt. Frequent hotfixes suggest inadequate testing or overly aggressive release schedules. High release lag means finished work is sitting unreleased, increasing the risk of stale branches and merge conflicts.
+
+For a PM, these metrics answer: "Is our release process healthy?" Track defect rate and composition over multiple releases to spot trends.
+
 ## Per-release defect rate
 
 Defect rate is the proportion of issues in a release classified as bugs.
@@ -46,6 +52,7 @@ Three matcher types are supported:
 | Label | `label:<name>` | `label:bug` |
 | Issue Type | `type:<name>` | `type:Bug` |
 | Title regex | `title:/<regex>/i` | `title:/^fix[\(: ]/i` |
+| Project field | `field:<Name>/<Value>` | `field:Category/Bug` |
 
 Matchers are evaluated in config order. First match wins.
 

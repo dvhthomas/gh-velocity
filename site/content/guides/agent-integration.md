@@ -9,7 +9,14 @@ Every gh-velocity command supports `--format json` for structured output. This m
 
 ## JSON output structure
 
-JSON output includes every field that appears in pretty and markdown formats, plus additional fields for programmatic use:
+Every command produces up to four layers of data (see [Interpreting Results: Output layers]({{< relref "/guides/interpreting-results" >}}#output-layers)):
+
+- **Stats** — aggregate numbers (top-level keys like `lead_time`, `cycle_time`)
+- **Detail** — per-item breakdowns (the `issues` array)
+- **Insights** — observations with severity (the `insights` array)
+- **Provenance** — how the output was produced (the `provenance` object)
+
+The `report` command emits stats only. Standalone commands emit all four layers. Additional details:
 
 - **Durations** are in seconds (divide by 86400 for days)
 - **Ratios** are floats between 0 and 1
@@ -19,6 +26,23 @@ JSON output includes every field that appears in pretty and markdown formats, pl
 ```bash
 gh velocity quality release v1.2.0 --format json | jq 'keys'
 ```
+
+## Metric states in JSON
+
+Timing fields like `cycle_time` and `lead_time` can be in three states. See [Interpreting Results: Three metric states]({{< relref "/guides/interpreting-results" >}}#three-metric-states) for what each means.
+
+```json
+// Completed — has a duration
+{"started_at": "2026-01-20T09:00:00Z", "duration_seconds": 198600}
+
+// In progress — started but no end signal yet
+{"started_at": "2026-01-20T09:00:00Z", "duration_seconds": null}
+
+// N/A — no start signal found
+{"started_at": null, "duration_seconds": null}
+```
+
+Check `started_at` to distinguish "in progress" from "N/A."
 
 ## Extracting data with jq
 
