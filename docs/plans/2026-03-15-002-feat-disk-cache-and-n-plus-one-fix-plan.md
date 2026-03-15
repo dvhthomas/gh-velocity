@@ -154,7 +154,7 @@ Three-level cache logging:
 - [x] Add `--no-cache` persistent flag in `cmd/root.go`, flow through `Deps`
 - [x] Update debug logging: memory hit, disk hit, miss
 - [x] Token-aware cache keys for project queries (include `hasProjectToken` in key)
-- [ ] Unit tests: layered cache behavior, --no-cache bypass, type-safe roundtrip (TODO: outcome-first tests)
+- [x] Unit tests: layered cache behavior, --no-cache bypass, type-safe roundtrip
 
 ### Phase 3: Batch GetProjectStatus (N+1 Fix)
 
@@ -165,8 +165,8 @@ Three-level cache logging:
 - [x] Write individual results to cache for subsequent `GetProjectStatus` hits
 - [x] Add cache-warm calls in BulkPipeline.GatherData() and cycle-time command
 - [x] Cache-warm in `BuildReleaseMetrics()` and `computeMyWeekCycleTime()`
-- [ ] Unit tests: batching, partial failures, empty batches, cache warming (TODO: outcome-first tests)
-- [ ] Integration test: verify batch + individual call produces same results as N individual calls
+- [x] Unit tests: matchProjectStatus, cache key isolation, empty batches, cache warming
+- [x] Integration test: batch cache-warm → GetProjectStatus hits cache (no API call)
 
 ### Phase 4: Validation
 
