@@ -1,5 +1,5 @@
 ---
-title: "Steady"
+title: "gh-velocity"
 type: docs
 ---
 
