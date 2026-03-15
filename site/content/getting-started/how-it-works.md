@@ -5,11 +5,22 @@ weight: 2
 
 # How It Works
 
-`gh-velocity` reads the artifacts your team already produces -- issues, pull requests, labels, releases -- and turns them into metrics. No separate data warehouse, no tracking integration, no per-seat subscription. Everything comes from the GitHub API.
+`gh-velocity` reads the artifacts your team already produces — issues, pull requests, labels, releases — and turns them into metrics. No separate data warehouse, no tracking integration, no per-seat subscription. Everything comes from the GitHub API.
+
+Commands are organized by the question they answer:
+
+| Command group | Question it answers | Examples |
+|---|---|---|
+| `flow` | How fast is work flowing? | `flow lead-time`, `flow cycle-time`, `flow throughput`, `flow velocity` |
+| `quality` | Is this code good? | `quality release` |
+| `status` | What's happening right now? | `status wip`, `status my-week`, `status reviews` |
+| `risk` | Where are structural risks? | `risk bus-factor` |
+| `report` | Give me the full picture | Composite dashboard of flow + quality |
+| `config` | How do I set this up? | `config preflight`, `config validate`, `config show` |
 
 ## The lifecycle of an issue
 
-Every issue follows a lifecycle, and each transition produces a timestamp that maps to a metric:
+Every issue follows a **lifecycle** — the stages it moves through from creation to completion. Each transition produces a timestamp that maps to a metric:
 
 ```
 1. You create an issue             -> lead time clock starts
@@ -21,7 +32,7 @@ Every issue follows a lifecycle, and each transition produces a timestamp that m
    includes this work
 ```
 
-Which cycle time signal is used depends on your configured strategy (`cycle_time.strategy` in [`.gh-velocity.yml`]({{< relref "/getting-started/configuration" >}})). If you are unsure, start with `pr` -- it works immediately with no extra configuration.
+Which cycle time signal is used depends on your configured **strategy** — the data source gh-velocity uses for a given metric. Set `cycle_time.strategy` in your [config file]({{< relref "/getting-started/configuration" >}}). See the [strategy comparison table](#choosing-a-cycle-time-strategy) below to pick the right one for your workflow.
 
 ## The metrics
 
@@ -37,6 +48,14 @@ Which cycle time signal is used depends on your configured strategy (`cycle_time
 **Cadence** is the time between consecutive releases. Combined with composition (bug ratio, feature ratio), it tells you whether you are shipping improvements or fighting fires.
 
 **Hotfix** is a boolean flag. A release is marked as a hotfix when its cadence is shorter than the configured `hotfix_window_hours` (default: 72 hours).
+
+**[Throughput]({{< relref "/reference/metrics/throughput" >}})** counts how many issues or PRs were closed in each time window (typically weekly). It answers "how much are we shipping?" without weighting by size. Useful for spotting trends — a declining throughput over weeks might signal blockers or context-switching overhead.
+
+**[Velocity]({{< relref "/reference/metrics/velocity" >}})** measures **effort** delivered per iteration. Unlike throughput (which just counts items), velocity weights each item by its size — using labels like `size:M`, a numeric project field, or a simple item count. Combined with iteration tracking (via a project board field or fixed-length sprints), it shows whether your team's capacity is stable, growing, or declining.
+
+## Scope: which issues are included
+
+Before computing any metric, gh-velocity applies a **scope** — a filter that determines which issues and PRs are included. You define scope in your config file's `scope.query` field using GitHub search syntax (e.g., `repo:myorg/myrepo label:team-backend`). You can narrow it further at runtime with the `--scope` flag, which is AND'd with your config scope. See [Configuration]({{< relref "/getting-started/configuration" >}}) for details.
 
 ## Start and end signals
 
@@ -68,13 +87,14 @@ Most of this is probably part of your workflow already.
 
 ## Choosing a cycle time strategy
 
-| Your workflow | Recommended strategy | Config | Why |
+The right strategy depends on your workflow. There is no single "best" choice:
+
+| Your workflow | Strategy | Config | Trade-offs |
 |---|---|---|---|
-| Issues with lifecycle labels | `issue` + labels | `lifecycle.in-progress.match: ["label:in-progress"]` | Immutable label timestamps; most reliable |
-| Issues on a project board | `issue` + board + labels | `project.url`, `project.status_field`, `lifecycle.in-progress.project_status` + `match` | Board for WIP/backlog; labels for cycle time timestamps |
-| Issues on a project board (no labels) | `issue` + board only | `project.url`, `project.status_field`, `lifecycle.in-progress.project_status: ["In progress"]` | Works if cards are moved promptly and not tidied retroactively |
-| PRs close issues (most OSS repos) | `pr` | `cycle_time.strategy: pr` | Measures PR review time (created to merged); zero config needed |
-| Issues only, no labels or PRs | `issue` | (none) | Lead time works out of the box; add a label for cycle time |
+| Issues with lifecycle labels | `issue` | `lifecycle.in-progress.match: ["label:in-progress"]` | Most reliable timestamps (labels are immutable). Requires label discipline. |
+| Issues on a project board | `issue` + board | `project.url`, `project.status_field`, `lifecycle.in-progress.project_status` + `match` | Board drives WIP/backlog; labels provide reliable cycle time. Best of both. |
+| PRs close issues (most OSS repos) | `pr` | `cycle_time.strategy: pr` | Zero config needed. Measures PR open-to-merge time, not total work time. |
+| Project board, no labels | `issue` + board only | `project.url`, `lifecycle.in-progress.project_status: ["In progress"]` | Board timestamps are mutable — works if cards are moved promptly (see warning above). |
 
 **Setting up the issue strategy:**
 

@@ -5,130 +5,103 @@ weight: 1
 
 # Quick Start
 
-Install gh-velocity and run your first metrics query in under 5 minutes.
+Install gh-velocity and run your first metrics in under 5 minutes.
 
 ## Prerequisites
 
-You need the [GitHub CLI](https://cli.github.com/) installed and authenticated.
+You need the [GitHub CLI](https://cli.github.com/) installed and authenticated:
 
 ```bash
-# macOS
+# Install (macOS shown — see gh docs for Linux/Windows)
 brew install gh
 
-# Linux
-sudo apt install gh    # Debian/Ubuntu
-sudo dnf install gh    # Fedora
-
-# Windows
-winget install GitHub.cli
-```
-
-Then authenticate:
-
-```bash
+# Authenticate
 gh auth login
 ```
 
-You need at least `repo` scope for private repositories. For public repos, no special scopes are required.
+For private repos you need at least `repo` scope. Public repos work without special scopes.
 
-## Install the extension
+## Install
 
 ```bash
-# Latest stable release
 gh extension install dvhthomas/gh-velocity
-
-# Or pin a specific version
-gh extension install dvhthomas/gh-velocity --pin v0.0.2
 ```
 
-Verify the installation:
+Verify it works:
 
 ```bash
 gh velocity version
 ```
 
-To upgrade later:
+## Generate a config file
 
-```bash
-gh extension upgrade velocity
-```
-
-> [!NOTE]
-> `gh extension upgrade` installs the latest stable release. Pre-releases (e.g., `v0.0.2-rc.1`) must be pinned explicitly with `--pin`.
-
-## First query against a public repo
-
-All metric commands require a [config file]({{< relref "/getting-started/configuration" >}}). When targeting a remote repo with `--repo`, use `--config` to point at an example config (see `docs/examples/` in the repo). From inside your own repo with `.gh-velocity.yml` present, the config is loaded automatically.
-
-Start with a public repo to see what the output looks like:
-
-```bash
-# Release report for the GitHub CLI itself
-gh velocity quality release v2.67.0 -R cli/cli
-```
-
-This takes 10-30 seconds depending on the number of issues. You will see:
-
-- Release metadata (previous tag, cadence, hotfix status)
-- Composition breakdown (bugs, features, other)
-- Per-issue table with [lead time]({{< relref "/reference/metrics/lead-time" >}}), [cycle time]({{< relref "/reference/metrics/cycle-time" >}}), release lag, and outlier flags
-- Aggregate statistics with P90, P95, and outlier counts
-
-Try the same report in JSON to see the full structured data:
-
-```bash
-gh velocity quality release v2.67.0 -R cli/cli -f json | jq '.aggregates.lead_time'
-```
-
-```json
-{
-  "count": 17,
-  "mean_seconds": 24271200,
-  "median_seconds": 5248800,
-  "stddev_seconds": 43981056,
-  "p90_seconds": 134236800,
-  "p95_seconds": 138499200,
-  "outlier_cutoff_seconds": 119448000,
-  "outlier_count": 2
-}
-```
-
-See which [linking strategy]({{< relref "/concepts/linking-strategies" >}}) found each issue:
-
-```bash
-gh velocity quality release v2.67.0 -R cli/cli --discover
-```
-
-This shows what `pr-link`, `commit-ref`, and `changelog` each discovered, and the merged result. Use it to understand how well the strategies cover your workflow.
-
-## Running against your own repo
-
-From inside a local checkout, you can omit `--repo`:
+All metric commands require a `.gh-velocity.yml` file. The `preflight` command analyzes your repo and generates one for you:
 
 ```bash
 cd your-repo
+gh velocity config preflight --write
+```
+
+This inspects your repo's labels, project boards, PRs, and issues, then writes a starter config. You'll see output like:
+
+```
+Analyzing dvhthomas/gh-velocity...
+  Labels: 8 found
+  Projects: 1 board (gh-velocity tracker)
+  PRs (last 30d): 14
+  Issues (last 30d): 22
+
+Wrote .gh-velocity.yml
+```
+
+> [!TIP]
+> How did preflight know which labels to use? It reads your repo's actual labels and recent issues, then suggests matchers based on what it finds. The generated config includes match evidence showing how many issues each matcher would catch — check the comments in `.gh-velocity.yml` to see.
+
+## Run your first report
+
+```bash
+gh velocity report --since 30d
+```
+
+This produces a composite dashboard covering the last 30 days:
+
+- **Lead time** — how long from issue creation to close
+- **Cycle time** — how long from work started to close
+- **Throughput** — how many items closed per week
+- **Velocity** — effort delivered per iteration (if configured)
+
+Each section computes independently. If your config doesn't have everything set up yet (for example, no project board for velocity), those sections are gracefully skipped — you still see the rest.
+
+Try the same report as structured JSON:
+
+```bash
+gh velocity report --since 30d --format json | jq '.lead_time.stats'
+```
+
+## Analyze a specific release
+
+If your repo uses tags for releases:
+
+```bash
 gh velocity quality release v1.0.0
 ```
 
-When run from inside a repo, the tool uses local git for tag listing and commit history. This is faster and enables the `commit-ref` linking strategy.
+This shows release composition (bugs vs features), per-issue timing, and aggregate statistics.
 
-You can also query individual issues without cloning:
+## Analyze remote repos
 
-```bash
-# Works remotely -- uses PR creation date, assignment, or project status
-gh velocity flow cycle-time 42 -R owner/repo
-```
-
-From inside a local checkout, the tool enriches results with commit counts and can use the earliest commit as a fallback cycle time signal:
+You don't need to clone a repo to analyze it. Use `--repo` (short: `-R`):
 
 ```bash
-# From inside a clone -- enriched with commit data
-gh velocity flow cycle-time 42
+gh velocity report --since 30d -R cli/cli
 ```
+
+> [!TIP]
+> When you run from inside a local clone, gh-velocity uses local git for faster tag listing and commit history. It also enables the `commit-ref` [linking strategy]({{< relref "/concepts/linking-strategies" >}}), which can discover issues that aren't linked via PRs.
 
 ## Next steps
 
-- [How It Works]({{< relref "/getting-started/how-it-works" >}}) -- understand how your GitHub workflow maps to metrics
-- [Configuration]({{< relref "/getting-started/configuration" >}}) -- generate a config file tailored to your repo
-- [CI Setup]({{< relref "/getting-started/ci-setup" >}}) -- automate reports with GitHub Actions
-- [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) -- understand what the output means and what "good" looks like
+- [How It Works]({{< relref "/getting-started/how-it-works" >}}) — understand how your GitHub workflow maps to metrics
+- [Configuration]({{< relref "/getting-started/configuration" >}}) — customize your config for lifecycle tracking, quality categories, and velocity
+- [CI Setup]({{< relref "/getting-started/ci-setup" >}}) — automate reports with GitHub Actions
+- [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) — understand what the numbers mean

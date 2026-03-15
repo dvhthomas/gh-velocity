@@ -23,11 +23,12 @@ type: docs
 
 ```bash
 gh extension install dvhthomas/gh-velocity
+cd your-repo
 gh velocity config preflight --write
-gh velocity report
+gh velocity report --since 30d
 ```
 
-Run `gh velocity config preflight --help` to see all options — the repo is auto-detected from your git remote.
+Run these from inside your repo — gh-velocity auto-detects the repo from your git remote. See [Quick Start]({{< relref "/getting-started/quick-start" >}}) for a full walkthrough.
 
 ---
 

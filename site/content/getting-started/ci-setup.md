@@ -25,18 +25,7 @@ env:
 
 ### What each token can do
 
-| Capability | `GITHUB_TOKEN` only | + `GH_VELOCITY_TOKEN` |
-| --- | --- | --- |
-| Lead time, throughput | Yes | Yes |
-| Release quality metrics | Yes | Yes |
-| Bus factor | Yes | Yes |
-| `--post` to issues/PRs | Yes | Yes |
-| `--post` to Discussions | Yes | Yes |
-| **Cycle time (issue strategy)** | **No** -- requires project board | **Yes** |
-| **WIP** | **No** -- requires project board | **Yes** |
-| **Reviews** | Yes | Yes |
-
-**If your config has no `project:` section**, `GITHUB_TOKEN` is all you need. Skip the `GH_VELOCITY_TOKEN` setup entirely.
+See the [token permissions table]({{< relref "/getting-started/configuration" >}}#token-permissions) in the Configuration page for the full breakdown. The key distinction: `GITHUB_TOKEN` handles everything except Projects v2 board access. Add `GH_VELOCITY_TOKEN` only if your config has a `project:` section.
 
 ### Setting up GH_VELOCITY_TOKEN
 
@@ -73,6 +62,17 @@ permissions:
 ```
 
 These are `GITHUB_TOKEN` permissions set in the workflow file. `GH_VELOCITY_TOKEN` only needs the `project` scope -- it inherits read access to public repos automatically.
+
+## Which workflow should you use?
+
+| Your goal | Workflow | Trigger |
+|---|---|---|
+| Regular team dashboard | [Weekly velocity report](#weekly-velocity-report) | `schedule` (cron) |
+| Track release quality over time | [Release metrics comment](#release-metrics-comment) | `release: [published]` |
+| PR-level feedback | [PR lead-time check](#pr-lead-time-check) | `pull_request` |
+| Long-term trend data | [Scheduled trend reports](#scheduled-trend-reports) | `schedule` (cron) |
+
+Start with the **weekly velocity report** — it covers the most ground with the least setup.
 
 ## Example workflows
 

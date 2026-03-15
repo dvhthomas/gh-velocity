@@ -5,27 +5,35 @@ weight: 3
 
 # Configuration
 
-A `.gh-velocity.yml` file is required for all metric commands. This page covers first-time setup. For the full schema reference, see [Configuration Reference]({{< relref "/reference/config" >}}).
+All metric commands require a `.gh-velocity.yml` file. Run `gh velocity config preflight --write` to generate one. This page covers first-time setup; for the full schema, see [Configuration Reference]({{< relref "/reference/config" >}}).
 
 ## Generate a config with preflight
 
 The fastest way to get started is to let preflight inspect your repo and generate a tailored config:
 
 ```bash
-# Preview what preflight detects (dry run)
-gh velocity config preflight -R owner/repo
-
-# Write the config file directly
-gh velocity config preflight -R owner/repo --write
-```
-
-Preflight examines your repo's labels, project boards, and recent activity, then generates a `.gh-velocity.yml` with appropriate category matchers, lifecycle labels, and project board settings.
-
-If you are inside a local checkout, you can omit `--repo`:
-
-```bash
 cd your-repo
 gh velocity config preflight --write
+```
+
+Preflight examines your repo's labels, project boards, and recent activity, then generates a `.gh-velocity.yml` with appropriate **matchers** (patterns like `label:bug` that classify issues), lifecycle labels, and project board settings.
+
+The generated config includes **match evidence** — comments showing how many issues each matcher would catch:
+
+```yaml
+# Match evidence (last 30 days of issues + PRs):
+#   bug / label:bug — 33 matches, e.g. #12893 error parsing "input[title]"...
+#   feature / label:enhancement — 37 matches, e.g. #12862 Remove a book...
+#   chore / label:tech-debt — 0 matches (review this matcher)
+```
+
+> [!TIP]
+> Check these evidence comments before you commit your config. Matchers with 20+ matches are solid. Zero-match matchers may need a different label name — check your repo's actual labels with `gh label list`.
+
+You can also preview what preflight would generate without writing the file (dry run):
+
+```bash
+gh velocity config preflight
 ```
 
 ## Discover project board settings
@@ -70,11 +78,11 @@ quality:
         - "label:enhancement"
 ```
 
-This is equivalent to the defaults. You only need a config file if you want to change something -- but the file itself must exist.
+This is equivalent to what preflight generates for repos with standard labels.
 
 ## What each section does
 
-Here is a brief overview of every config section. See [Configuration Reference]({{< relref "/reference/config" >}}) for the full schema with all options.
+Each config section represents a decision about how gh-velocity should measure your project. Most have sensible defaults — you only need to configure what matters for your workflow. See [Configuration Reference]({{< relref "/reference/config" >}}) for the full schema.
 
 ### `workflow`
 
@@ -93,9 +101,10 @@ scope:
 
 Ordered list of classification categories. The first matching category wins; unmatched issues are classified as "other." Matcher types:
 
-- `label:<name>` -- exact label match
-- `type:<name>` -- GitHub Issue Type
-- `title:/<regex>/i` -- title regex, case-insensitive
+- `label:<name>` — exact label match
+- `type:<name>` — GitHub Issue Type
+- `title:/<regex>/i` — title regex, case-insensitive
+- `field:<Name>/<Value>` — GitHub Projects v2 SingleSelect field value (e.g., `field:Size/M`). See [Labels vs. Board]({{< relref "/concepts/labels-vs-board" >}})
 
 ```yaml
 quality:
@@ -150,6 +159,23 @@ lifecycle:
   in-progress:
     project_status: ["In progress"]
     match: ["label:in-progress", "label:wip"]
+```
+
+### `velocity`
+
+How to measure effort per iteration. Three effort strategies: `count` (just count items), `attribute` (labels like `size:M` with point values), or `numeric` (a project board number field). See [Velocity Setup]({{< relref "/guides/velocity-setup" >}}) for a walkthrough.
+
+```yaml
+velocity:
+  effort:
+    strategy: attribute
+    attribute:
+      - query: "label:size/S"
+        value: 1
+      - query: "label:size/M"
+        value: 3
+      - query: "label:size/L"
+        value: 5
 ```
 
 ### `commit_ref`

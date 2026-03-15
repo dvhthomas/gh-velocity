@@ -76,6 +76,25 @@
     display: none;
   }
 
+  /* Shelly Says: style TIP callouts with mascot */
+  .book-hint.tip {
+    position: relative;
+    padding-top: 2.2em;
+  }
+  .book-hint.tip::before {
+    content: "Shelly says";
+    position: absolute;
+    top: 0.5em;
+    left: 1em;
+    font-family: var(--font-title);
+    font-size: 0.55rem;
+    color: var(--color-brand);
+    letter-spacing: 0.02em;
+    padding-left: 1.6em;
+    background: url("{{ $shelly.RelPermalink }}") no-repeat left center / 1.2em;
+    image-rendering: pixelated;
+  }
+
   /* Brand color accent on links */
   .book-article a { color: var(--color-brand); }
   .book-article a:hover { color: #16A34A; }
