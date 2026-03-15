@@ -168,6 +168,22 @@ gh velocity report --since 30d --format markdown | tee report.md | \
   gh issue create --title "Weekly metrics" --body-file -
 ```
 
+## Prep for a 1:1 with my-week
+
+Get a personal summary of your recent activity — issues closed, PRs merged, reviews done — plus what's on your plate:
+
+```bash
+gh velocity status my-week
+```
+
+Customize the lookback period:
+
+```bash
+gh velocity status my-week --since 14d
+```
+
+The output includes cycle time for issues you closed, making it easy to discuss delivery speed with your manager.
+
 ## Next steps
 
 - [Agent Integration]({{< relref "agent-integration" >}}) -- more jq patterns for programmatic use
