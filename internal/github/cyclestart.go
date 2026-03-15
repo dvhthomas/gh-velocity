@@ -2,11 +2,14 @@ package github
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/classify"
+	"github.com/bitsbyme/gh-velocity/internal/log"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -145,6 +148,39 @@ type ProjectStatus struct {
 // Returns an empty ProjectStatus if the issue is not in the project or
 // no matching status field is found.
 func (c *Client) GetProjectStatus(ctx context.Context, issueNumber int, projectID, statusFieldID, backlogStatus string) (*ProjectStatus, error) {
+	key := projectStatusCacheKey(c.owner, c.repo, issueNumber, projectID, statusFieldID, backlogStatus)
+	v, err := c.cache.DoJSON(key, "project-status",
+		func() (any, error) {
+			return c.fetchProjectStatus(ctx, issueNumber, projectID, statusFieldID, backlogStatus)
+		},
+		func(raw json.RawMessage) (any, error) {
+			var ps ProjectStatus
+			return &ps, json.Unmarshal(raw, &ps)
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*ProjectStatus), nil
+}
+
+// projectStatusCacheKey builds a cache key for project status lookups.
+// Includes a token flag to prevent cross-token cache poisoning.
+func projectStatusCacheKey(owner, repo string, number int, projectID, statusFieldID, backlogStatus string) string {
+	return CacheKey("project-status", owner, repo, fmt.Sprintf("%d", number), projectID, statusFieldID, backlogStatus, hasProjectToken())
+}
+
+// hasProjectToken returns "1" if GH_VELOCITY_TOKEN is set, "0" otherwise.
+// Used in cache keys to prevent cross-token cache poisoning.
+func hasProjectToken() string {
+	if os.Getenv("GH_VELOCITY_TOKEN") != "" {
+		return "1"
+	}
+	return "0"
+}
+
+// fetchProjectStatus makes the actual GraphQL call to get an issue's project status.
+func (c *Client) fetchProjectStatus(ctx context.Context, issueNumber int, projectID, statusFieldID, backlogStatus string) (*ProjectStatus, error) {
 	query := `query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     issue(number: $number) {
@@ -178,8 +214,13 @@ func (c *Client) GetProjectStatus(ctx context.Context, issueNumber int, projectI
 		return nil, fmt.Errorf("get project status for issue #%d: %w", issueNumber, err)
 	}
 
-	for _, item := range resp.Repository.Issue.ProjectItems.Nodes {
-		// If a specific project ID is configured, only check that project.
+	return matchProjectStatus(resp.Repository.Issue.ProjectItems.Nodes, projectID, statusFieldID, backlogStatus), nil
+}
+
+// matchProjectStatus extracts a ProjectStatus from raw project item nodes.
+// Shared by single and batch fetchers.
+func matchProjectStatus(items []projectItemNode, projectID, statusFieldID, backlogStatus string) *ProjectStatus {
+	for _, item := range items {
 		if projectID != "" && item.Project.ID != projectID {
 			continue
 		}
@@ -188,18 +229,14 @@ func (c *Client) GetProjectStatus(ctx context.Context, issueNumber int, projectI
 			if fv.Typename != "ProjectV2ItemFieldSingleSelectValue" {
 				continue
 			}
-			// Match by field ID if configured, otherwise check all single-select fields.
 			if statusFieldID != "" && (fv.Field == nil || fv.Field.ID != statusFieldID) {
 				continue
 			}
 
 			if fv.Name == backlogStatus {
-				// Issue is explicitly in backlog — work has not started
-				// (or was moved back). Cycle time should be suppressed.
-				return &ProjectStatus{InBacklog: true}, nil
+				return &ProjectStatus{InBacklog: true}
 			}
 
-			// Status is not backlog — work has started.
 			if fv.UpdatedAt != nil {
 				return &ProjectStatus{
 					CycleStart: &CycleStart{
@@ -207,13 +244,117 @@ func (c *Client) GetProjectStatus(ctx context.Context, issueNumber int, projectI
 						Signal: "status-change",
 						Detail: fmt.Sprintf("%s → %s", backlogStatus, fv.Name),
 					},
-				}, nil
+				}
 			}
 		}
 	}
 
-	// Issue not found in the project or no matching status field.
-	return &ProjectStatus{}, nil
+	return &ProjectStatus{}
+}
+
+// BatchGetProjectStatuses fetches project status for multiple issues in batched
+// GraphQL queries using aliases. Results are written to the cache so subsequent
+// individual GetProjectStatus calls hit cache instead of making API calls.
+// Batch size: 20 issues per query (matching FetchIssues convention).
+func (c *Client) BatchGetProjectStatuses(ctx context.Context, numbers []int, projectID, statusFieldID, backlogStatus string) {
+	const batchSize = 20
+	if len(numbers) == 0 {
+		return
+	}
+
+	for i := 0; i < len(numbers); i += batchSize {
+		end := min(i+batchSize, len(numbers))
+		batch := numbers[i:end]
+
+		results, err := c.fetchProjectStatusBatch(ctx, batch, projectID, statusFieldID, backlogStatus)
+		if err != nil {
+			log.Debug("batch project status failed: %v", err)
+			// Individual GetProjectStatus calls will still work as fallback.
+			continue
+		}
+
+		// Warm cache with individual results.
+		for num, ps := range results {
+			key := projectStatusCacheKey(c.owner, c.repo, num, projectID, statusFieldID, backlogStatus)
+			c.cache.Set(key, ps)
+
+			// Also write to disk cache.
+			if c.cache.disk != nil {
+				if raw, err := json.Marshal(ps); err == nil {
+					c.cache.disk.Set(key, "project-status", raw)
+				}
+			}
+		}
+	}
+
+	log.Debug("batch project status: warmed cache for %d issues", len(numbers))
+}
+
+// fetchProjectStatusBatch fetches project status for a batch of issues via
+// GraphQL aliases (one alias per issue number in a single query).
+func (c *Client) fetchProjectStatusBatch(ctx context.Context, numbers []int, projectID, statusFieldID, backlogStatus string) (map[int]*ProjectStatus, error) {
+	var fragments strings.Builder
+	for _, num := range numbers {
+		fragments.WriteString(fmt.Sprintf(`
+    issue%d: issue(number: %d) {
+      projectItems(first: 20) {
+        nodes {
+          project { id }
+          fieldValues(first: 20) {
+            nodes {
+              __typename
+              ... on ProjectV2ItemFieldSingleSelectValue {
+                name
+                updatedAt
+                field { ... on ProjectV2SingleSelectField { id } }
+              }
+            }
+          }
+        }
+      }
+    }`, num, num))
+	}
+
+	query := fmt.Sprintf(`query($owner: String!, $repo: String!) {
+  repository(owner: $owner, name: $repo) {%s
+  }
+}`, fragments.String())
+
+	variables := map[string]any{
+		"owner": c.owner,
+		"repo":  c.repo,
+	}
+
+	var resp struct {
+		Repository map[string]json.RawMessage
+	}
+	if err := c.projectClient().DoWithContext(ctx, query, variables, &resp); err != nil {
+		return nil, fmt.Errorf("batch project status: %w", err)
+	}
+
+	result := make(map[int]*ProjectStatus, len(numbers))
+	for _, num := range numbers {
+		alias := fmt.Sprintf("issue%d", num)
+		raw, ok := resp.Repository[alias]
+		if !ok {
+			result[num] = &ProjectStatus{}
+			continue
+		}
+
+		var issueResp struct {
+			ProjectItems struct {
+				Nodes []projectItemNode `json:"nodes"`
+			} `json:"projectItems"`
+		}
+		if err := json.Unmarshal(raw, &issueResp); err != nil {
+			result[num] = &ProjectStatus{}
+			continue
+		}
+
+		result[num] = matchProjectStatus(issueResp.ProjectItems.Nodes, projectID, statusFieldID, backlogStatus)
+	}
+
+	return result, nil
 }
 
 // labeledEventResponse is the GraphQL response for label timeline queries.

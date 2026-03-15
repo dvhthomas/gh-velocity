@@ -131,6 +131,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 		SearchQuery: issueQuery.Build(),
 		SearchURL:   issueQuery.URL(),
 	}
+	setCycleTimeBatchParams(cyclePipeline, strat)
 
 	throughputPipeline := &throughput.Pipeline{
 		Client:     client,

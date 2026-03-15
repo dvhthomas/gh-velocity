@@ -6,6 +6,7 @@ import (
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
 	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
+	cycletimepipe "github.com/bitsbyme/gh-velocity/internal/pipeline/cycletime"
 )
 
 // buildCycleTimeStrategy creates the appropriate CycleTimeStrategy based on config.
@@ -47,5 +48,15 @@ func buildCycleTimeStrategy(ctx context.Context, deps *Deps, client *gh.Client) 
 		}
 
 		return strat
+	}
+}
+
+// setCycleTimeBatchParams populates BulkPipeline project board fields from the
+// strategy, enabling batch pre-fetch of project statuses in GatherData.
+func setCycleTimeBatchParams(p *cycletimepipe.BulkPipeline, strat metrics.CycleTimeStrategy) {
+	if is, ok := strat.(*metrics.IssueStrategy); ok && is.ProjectID != "" {
+		p.ProjectID = is.ProjectID
+		p.StatusFieldID = is.StatusFieldID
+		p.BacklogStatus = is.BacklogStatus
 	}
 }

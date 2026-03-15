@@ -164,6 +164,12 @@ type BulkPipeline struct {
 	SearchURL   string
 	ClosingPRs  map[int]*model.PR // pre-fetched by cmd layer for PR strategy
 
+	// Project board params (for batch pre-fetch of project statuses).
+	// Set by the cmd layer when issue strategy + project board is configured.
+	ProjectID     string
+	StatusFieldID string
+	BacklogStatus []string
+
 	// GatherData output
 	issues []model.Issue
 
@@ -173,13 +179,28 @@ type BulkPipeline struct {
 	Warnings []string
 }
 
-// GatherData fetches issues from GitHub search.
+// GatherData fetches issues from GitHub search and pre-fetches project
+// statuses in batch (if project board is configured) to avoid N+1 queries.
 func (p *BulkPipeline) GatherData(ctx context.Context) error {
 	issues, err := p.Client.SearchIssues(ctx, p.SearchQuery)
 	if err != nil {
 		return err
 	}
 	p.issues = issues
+
+	// Batch pre-fetch project statuses to warm cache (avoids N+1).
+	if p.ProjectID != "" && len(issues) > 0 {
+		numbers := make([]int, len(issues))
+		for i, issue := range issues {
+			numbers[i] = issue.Number
+		}
+		backlog := ""
+		if len(p.BacklogStatus) > 0 {
+			backlog = p.BacklogStatus[0]
+		}
+		p.Client.BatchGetProjectStatuses(ctx, numbers, p.ProjectID, p.StatusFieldID, backlog)
+	}
+
 	return nil
 }
 
