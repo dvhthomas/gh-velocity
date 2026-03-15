@@ -1,0 +1,30 @@
+name: Velocity Showcase
+
+on:
+  schedule:
+    # Daily at 05:00 UTC (before work day — analyze results each morning)
+    - cron: "0 5 * * *"
+  workflow_dispatch: # Allow manual runs
+
+permissions:
+  contents: read
+  pull-requests: read
+  discussions: write
+
+jobs:
+  showcase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build -o gh-velocity .
+
+      - name: Run showcase
+        env:
+          GH_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
+        run: scripts/showcase.sh

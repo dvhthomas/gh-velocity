@@ -3,8 +3,9 @@ gh-velocity
 dist/
 *.exe
 
-# Generated output (task gen:configs, etc.)
+# Generated output (task gen:configs, showcase, etc.)
 output/
+tmp/
 
 # Test
 coverage.out
