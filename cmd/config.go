@@ -39,6 +39,13 @@ func newConfigShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show",
 		Short: "Display resolved configuration with defaults applied",
+		Long: `Display the fully resolved configuration with all defaults applied.
+
+This shows the effective config that commands will use — including default
+values for any keys you have not set in your .gh-velocity.yml. Use this
+to verify that your config is interpreted the way you expect.
+
+The JSON output (-f json) is useful for debugging or piping into other tools.`,
 		Example: `  gh velocity config show
   gh velocity config show -f json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -111,6 +118,18 @@ func newConfigValidateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Validate configuration and report errors",
+		Long: `Validate a .gh-velocity.yml file and report any errors.
+
+Checks include: YAML syntax, known top-level keys, matcher syntax
+(label:, type:, title:, field: patterns), project URL format, numeric
+ranges (e.g., hotfix_window_hours), and category name requirements.
+
+Use --velocity to additionally verify that velocity-specific config
+(effort strategy, iteration strategy, project field names) is correctly
+configured against your actual GitHub project board.
+
+This command does not make API calls (except with --velocity, which
+queries the project board to validate field names).`,
 		Example: `  gh velocity config validate
   gh velocity config validate --velocity`,
 		RunE: func(cmd *cobra.Command, args []string) error {

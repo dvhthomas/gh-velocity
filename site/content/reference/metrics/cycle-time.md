@@ -9,6 +9,12 @@ Cycle time measures how long active work took on an issue. Unlike [lead time]({{
 
 gh-velocity supports two strategies for detecting when work starts. Choose the one that fits your workflow.
 
+## What it tells you
+
+Cycle time reveals how long your team's active work takes, stripped of backlog wait time. A low, consistent cycle time means your team delivers quickly once work begins. High variability suggests inconsistent scope or frequent context-switching.
+
+Comparing cycle time to [lead time]({{< relref "lead-time" >}}) shows how much of total elapsed time is spent working versus waiting. If lead time is 30 days but cycle time is 3 days, 90% of the time is spent in backlog — a signal to improve prioritization, not development speed.
+
 ## Strategies
 
 ### Issue strategy (`cycle_time.strategy: issue`)
@@ -38,13 +44,7 @@ Label timestamps (`LABELED_EVENT.createdAt`) are immutable and record the exact 
 #### Configuration
 
 ```yaml
-# Recommended: labels for cycle time
-lifecycle:
-  in-progress:
-    match: ["label:in-progress", "label:wip"]
-
-# Optional: project board for WIP/backlog detection
-# Labels still take priority for cycle time
+# Labels for cycle time + project board for WIP/backlog
 project:
   url: "https://github.com/users/yourname/projects/1"
   status_field: "Status"
@@ -54,6 +54,14 @@ lifecycle:
     project_status: ["Backlog", "Triage"]
   in-progress:
     project_status: ["In progress"]
+    match: ["label:in-progress", "label:wip"]   # labels take priority for cycle time
+```
+
+For label-only cycle time (no project board), you just need:
+
+```yaml
+lifecycle:
+  in-progress:
     match: ["label:in-progress"]
 ```
 
@@ -99,6 +107,23 @@ No other configuration is needed. The tool discovers PR-to-issue links through G
 | `issue-closed` | issue | `issue.closed_at` | Issue was closed |
 | `pr-created` | pr | `pr.created_at` | Closing PR was opened |
 | `pr-merged` | pr | `pr.merged_at` | Closing PR was merged |
+
+## How cycle start signals are resolved {#signal-hierarchy}
+
+When using the issue strategy, the tool resolves the cycle start signal using a priority hierarchy. The first available signal wins:
+
+| Priority | Signal | Source | Config required |
+|----------|--------|--------|-----------------|
+| 1 (highest) | In-progress label | `LABELED_EVENT.createdAt` (immutable) | `lifecycle.in-progress.match` |
+| 2 | Project board status change | `ProjectV2ItemFieldSingleSelectValue.updatedAt` | `project.url` + `project.status_field` + `lifecycle.in-progress.project_status` |
+| 3 | PR created | `PullRequest.createdAt` (including drafts) | None — uses GitHub cross-references |
+| 4 | First assigned | Issue timeline `AssignedEvent.createdAt` | None — automatic |
+| 5 (lowest) | First commit mentioning issue | Commit date from local git history | Local clone required |
+
+**Backlog suppression:** If an issue is currently in backlog (matches `lifecycle.backlog.project_status` or backlog labels), cycle time is N/A regardless of other signals. This prevents issues that were started and then deprioritized from showing misleading cycle times.
+
+> [!TIP]
+> If cycle time shows N/A for an issue despite having a PR, check whether the issue is in a backlog state. Backlog suppression intentionally overrides all other signals.
 
 ## Deprecated: `project-board` strategy
 
