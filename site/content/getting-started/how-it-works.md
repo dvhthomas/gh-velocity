@@ -187,28 +187,28 @@ quality:
 
 `gh-velocity` is constrained to the GitHub API. Here is what that means in practice.
 
-{{< details "What works well" >}}
+{{% details "What works well" %}}
 - **Issue lifecycle**: Creation and closure dates are precise. Lead time is reliable.
 - **PR merge timestamps**: The search API returns exact merge dates.
 - **Closing references**: GitHub tracks which PRs close which issues via the `closingIssuesReferences` GraphQL field.
 - **Release metadata**: Tags, release dates, and release bodies are all available via the REST API.
 - **Labels**: Issue labels are the basis for classification. Consistent labeling gives you accurate composition metrics.
-{{< /details >}}
+{{% /details %}}
 
-{{< details "What has limits" >}}
+{{% details "What has limits" %}}
 - **Cycle time depends on your strategy.** With no signal for a given issue, cycle time is N/A. The tool warns you when this happens.
 - **Project board timestamps are unreliable for cycle time.** See the warning above.
 - **The PR search API caps at 1000 results.** Rare outside the largest monorepos.
 - **Tag ordering is by API default, not semver.** Use `--since` to specify the previous tag if your tag history is non-linear.
 - **"Closed" is not "merged."** Issues can be closed without a PR being merged. The tool treats closure as the end event regardless of cause.
-{{< /details >}}
+{{% /details %}}
 
-{{< details "What is not possible" >}}
+{{% details "What is not possible" %}}
 - **Project board transition history.** There is no API for field change history. This is why labels are recommended.
 - **Work-in-progress duration as separate phases.** Without transition history, you cannot measure time-in-review or time-in-backlog from the board alone.
 - **Developer-level attribution.** The tool measures issue and release velocity, not individual performance. This is intentional.
 - **Cross-repo tracking.** Each invocation targets a single repository.
-{{< /details >}}
+{{% /details %}}
 
 ## Next steps
 
