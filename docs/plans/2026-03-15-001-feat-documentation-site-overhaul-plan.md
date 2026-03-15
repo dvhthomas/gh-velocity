@@ -1,7 +1,7 @@
 ---
 title: "feat: Documentation site overhaul for clarity, consistency, and completeness"
 type: feat
-status: active
+status: completed
 date: 2026-03-15
 origin: docs/brainstorms/2026-03-15-documentation-overhaul-brainstorm.md
 ---
@@ -241,26 +241,26 @@ Authors write `> TIP:` in markdown. CSS targets these blockquotes to prepend the
 
 ### Functional Requirements
 
-- [ ] Every implemented command has an auto-generated reference page in `reference/commands/` (via enriched Go docs + `task build:site`)
-- [ ] Quick-start flow starts with local repo, uses `report --since 30d` as first command
-- [ ] `field:Name/Value` matcher type documented in config reference and configuration page
-- [ ] Cycle time docs explain all three strategies without recommending one default
-- [ ] Config requirement stated consistently across all pages: "All metric commands require a `.gh-velocity.yml`"
-- [ ] Token permissions table exists in one canonical location; other pages link to it
-- [ ] Three-state metric output (N/A, in progress, duration) documented in Interpreting Results
-- [ ] Four-layer output shape (stats, detail, insights, provenance) documented in Interpreting Results and Agent Integration
-- [ ] Cycle time signal hierarchy (5 levels + backlog suppression) documented in cycle-time reference
-- [ ] Shelly Says (`> TIP:`) callouts render with Shelly SVG styling
-- [ ] All terminology from brainstorm Section C has inline definitions on first use per section
-- [ ] Commands reference `_index.md` has a brief intro explaining the command hierarchy
-- [ ] Landing page "In a hurry?" uses local repo flow
+- [x] Every implemented command has an auto-generated reference page in `reference/commands/` (via enriched Go docs + `task build:site`)
+- [x] Quick-start flow starts with local repo, uses `report --since 30d` as first command
+- [x] `field:Name/Value` matcher type documented in config reference and configuration page
+- [x] Cycle time docs explain all three strategies without recommending one default
+- [x] Config requirement stated consistently across all pages: "All metric commands require a `.gh-velocity.yml`"
+- [x] Token permissions table exists in one canonical location; other pages link to it
+- [x] Three-state metric output (N/A, in progress, duration) documented in Interpreting Results
+- [x] Four-layer output shape (stats, detail, insights, provenance) documented in Interpreting Results and Agent Integration
+- [x] Cycle time signal hierarchy (5 levels + backlog suppression) documented in cycle-time reference
+- [x] Shelly Says (`> TIP:`) callouts render with Shelly SVG styling
+- [x] All terminology from brainstorm Section C has inline definitions on first use per section
+- [x] Commands reference `_index.md` has a brief intro explaining the command hierarchy
+- [x] Landing page "In a hurry?" uses local repo flow
 
 ### Non-Functional Requirements
 
-- [ ] Hugo site builds without warnings (`task build:site`)
-- [ ] No broken `relref` links (Hugo build catches these)
-- [ ] Writing style is direct, friendly, and uses progressive disclosure
-- [ ] Pages are as long as they need to be and no longer (not verbose for verbosity's sake)
+- [x] Hugo site builds without warnings (`task build:site`)
+- [x] No broken `relref` links (Hugo build catches these)
+- [x] Writing style is direct, friendly, and uses progressive disclosure
+- [x] Pages are as long as they need to be and no longer (not verbose for verbosity's sake)
 
 ## Dependencies & Prerequisites
 
