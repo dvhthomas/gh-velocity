@@ -392,11 +392,7 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights
 	}
 
 	// Lookback search URLs
-	out.Lookback.SearchURLs = jsonMyWeekSearchURLs{
-		IssuesClosed: urls.IssuesClosed,
-		PRsMerged:    urls.PRsMerged,
-		PRsReviewed:  urls.PRsReviewed,
-	}
+	out.Lookback.SearchURLs = jsonMyWeekSearchURLs(urls)
 
 	// Lookback
 	for _, iss := range r.IssuesClosed {

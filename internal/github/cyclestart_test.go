@@ -1,6 +1,7 @@
 package github
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -20,7 +21,9 @@ func TestMatchProjectStatus_InBacklog(t *testing.T) {
 						Typename:  "ProjectV2ItemFieldSingleSelectValue",
 						Name:      "Backlog",
 						UpdatedAt: &ts,
-						Field:     &struct{ ID string `json:"id"` }{ID: "PVTSSF_status"},
+						Field: &struct {
+							ID string `json:"id"`
+						}{ID: "PVTSSF_status"},
 					},
 				},
 			},
@@ -51,7 +54,9 @@ func TestMatchProjectStatus_ActiveStatus(t *testing.T) {
 						Typename:  "ProjectV2ItemFieldSingleSelectValue",
 						Name:      "In Progress",
 						UpdatedAt: &ts,
-						Field:     &struct{ ID string `json:"id"` }{ID: "PVTSSF_status"},
+						Field: &struct {
+							ID string `json:"id"`
+						}{ID: "PVTSSF_status"},
 					},
 				},
 			},
@@ -88,7 +93,9 @@ func TestMatchProjectStatus_WrongProject(t *testing.T) {
 						Typename:  "ProjectV2ItemFieldSingleSelectValue",
 						Name:      "In Progress",
 						UpdatedAt: &ts,
-						Field:     &struct{ ID string `json:"id"` }{ID: "PVTSSF_status"},
+						Field: &struct {
+							ID string `json:"id"`
+						}{ID: "PVTSSF_status"},
 					},
 				},
 			},
@@ -116,7 +123,9 @@ func TestMatchProjectStatus_WrongField(t *testing.T) {
 						Typename:  "ProjectV2ItemFieldSingleSelectValue",
 						Name:      "In Progress",
 						UpdatedAt: &ts,
-						Field:     &struct{ ID string `json:"id"` }{ID: "PVTSSF_other"},
+						Field: &struct {
+							ID string `json:"id"`
+						}{ID: "PVTSSF_other"},
 					},
 				},
 			},
@@ -151,7 +160,9 @@ func TestMatchProjectStatus_SkipsNonSingleSelect(t *testing.T) {
 						Typename:  "ProjectV2ItemFieldTextValue",
 						Name:      "In Progress",
 						UpdatedAt: &ts,
-						Field:     &struct{ ID string `json:"id"` }{ID: "PVTSSF_status"},
+						Field: &struct {
+							ID string `json:"id"`
+						}{ID: "PVTSSF_status"},
 					},
 				},
 			},
@@ -205,7 +216,7 @@ func TestBatchGetProjectStatuses_CacheWarming(t *testing.T) {
 
 	// Now GetProjectStatus should hit cache without making any API call.
 	// (Since we have no real gql client, an API call would panic.)
-	got, err := c.GetProjectStatus(nil, 42, "PVT_proj1", "PVTSSF_status", "Backlog")
+	got, err := c.GetProjectStatus(context.TODO(), 42, "PVT_proj1", "PVTSSF_status", "Backlog")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,6 +237,6 @@ func TestBatchGetProjectStatuses_EmptyBatch(t *testing.T) {
 	}
 
 	// Empty batch should not panic.
-	c.BatchGetProjectStatuses(nil, nil, "PVT_proj1", "PVTSSF_status", "Backlog")
-	c.BatchGetProjectStatuses(nil, []int{}, "PVT_proj1", "PVTSSF_status", "Backlog")
+	c.BatchGetProjectStatuses(context.TODO(), nil, "PVT_proj1", "PVTSSF_status", "Backlog")
+	c.BatchGetProjectStatuses(context.TODO(), []int{}, "PVT_proj1", "PVTSSF_status", "Backlog")
 }
