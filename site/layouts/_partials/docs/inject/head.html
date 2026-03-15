@@ -1,6 +1,6 @@
 {{- $favicon := resources.Get "favicon.svg" | fingerprint -}}
 {{- $shelly := resources.Get "images/logo.svg" | fingerprint -}}
-{{- $fontTitle := resources.Get "fonts/press-start-2p.woff2" | fingerprint -}}
+{{- $fontTitle := resources.Get "fonts/fredoka.woff2" | fingerprint -}}
 {{- $og := resources.Get "images/og.png" | fingerprint -}}
 <link rel="icon" href="{{ $favicon.RelPermalink }}" type="image/svg+xml">
 <meta property="og:title" content="{{ .Title | default .Site.Title }}">
@@ -11,31 +11,32 @@
 
 <style>
   @font-face {
-    font-family: 'Press Start 2P';
+    font-family: 'Fredoka';
     src: url('{{ $fontTitle.RelPermalink }}') format('woff2');
-    font-weight: 400;
+    font-weight: 600;
     font-style: normal;
     font-display: swap;
   }
 
   :root {
-    --font-title: 'Press Start 2P', monospace;
+    --font-title: 'Fredoka', ui-rounded, system-ui, sans-serif;
     --font-heading: ui-rounded, 'Hiragino Maru Gothic ProN', system-ui, sans-serif;
     --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     --font-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
     --color-brand: #22C55E;
   }
 
-  /* Page titles: 8-bit pixel font (h1 only) */
+  /* Page titles: rounded display font (h1 only) */
   .book-article h1,
   .book-brand span {
     font-family: var(--font-title);
-    font-size: 1.4rem;
-    line-height: 1.6;
+    font-size: 1.8rem;
+    font-weight: 600;
+    line-height: 1.4;
   }
-  .book-brand span { font-size: 0.7rem; }
+  .book-brand span { font-size: 1rem; }
 
-  /* Section headings: Space Grotesk (swap to system rounded via CSS var above) */
+  /* Section headings: system rounded */
   .book-article h2,
   .book-article h3 {
     font-family: var(--font-heading);
@@ -66,7 +67,7 @@
     width: 1.4em;
     height: 1em;
     margin-right: 0.3em;
-    vertical-align: baseline;
+    vertical-align: -0.15em;
     background: url("{{ $shelly.RelPermalink }}") no-repeat center / contain;
     image-rendering: pixelated;
   }
