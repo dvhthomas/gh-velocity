@@ -1,5 +1,5 @@
 ---
-title: "GitHub Velocity"
+title: "gh-velocity"
 type: docs
 ---
 
