@@ -164,7 +164,7 @@ Three-level cache logging:
 - [x] Factor out `matchProjectStatus` logic from `GetProjectStatus` for reuse
 - [x] Write individual results to cache for subsequent `GetProjectStatus` hits
 - [x] Add cache-warm calls in BulkPipeline.GatherData() and cycle-time command
-- [ ] Cache-warm in `BuildReleaseMetrics()` and `computeMyWeekCycleTime()` (TODO: requires reading those call sites)
+- [x] Cache-warm in `BuildReleaseMetrics()` and `computeMyWeekCycleTime()`
 - [ ] Unit tests: batching, partial failures, empty batches, cache warming (TODO: outcome-first tests)
 - [ ] Integration test: verify batch + individual call produces same results as N individual calls
 
