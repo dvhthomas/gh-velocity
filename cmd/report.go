@@ -322,7 +322,8 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 		fmt.Fprintln(rc.Writer)
 
 		if leadOK && leadPipeline.Stats.Count > 0 {
-			if err := writeDetail(rc, func() error {
+			summary := fmt.Sprintf("Lead Time (%d issues)", leadPipeline.Stats.Count)
+			if err := writeDetail(rc, summary, func() error {
 				return leadtime.WriteBulkMarkdown(rc, repo, since, until, leadPipeline.Items, leadPipeline.Stats, leadPipeline.SearchURL)
 			}, func() error {
 				return leadtime.WriteBulkPretty(rc, repo, since, until, leadPipeline.Items, leadPipeline.Stats, leadPipeline.SearchURL)
@@ -332,7 +333,8 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 		}
 
 		if cycleOK && cyclePipeline.Stats.Count > 0 {
-			if err := writeDetail(rc, func() error {
+			summary := fmt.Sprintf("Cycle Time (%d items)", cyclePipeline.Stats.Count)
+			if err := writeDetail(rc, summary, func() error {
 				return cycletimepipe.WriteBulkMarkdown(rc, repo, since, until, cfg.CycleTime.Strategy, cyclePipeline.Items, cyclePipeline.Stats, cyclePipeline.SearchURL)
 			}, func() error {
 				return cycletimepipe.WriteBulkPretty(rc, repo, since, until, cfg.CycleTime.Strategy, cyclePipeline.Items, cyclePipeline.Stats, cyclePipeline.SearchURL)
@@ -342,7 +344,9 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 		}
 
 		if throughputOK && throughputPipeline.Result.IssuesClosed+throughputPipeline.Result.PRsMerged > 0 {
-			if err := writeDetail(rc, func() error {
+			total := throughputPipeline.Result.IssuesClosed + throughputPipeline.Result.PRsMerged
+			summary := fmt.Sprintf("Throughput (%d items)", total)
+			if err := writeDetail(rc, summary, func() error {
 				return throughput.WriteMarkdown(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL)
 			}, func() error {
 				return throughput.WritePretty(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL)
@@ -352,7 +356,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 		}
 
 		if velocityOK && velocityPipeline != nil {
-			if err := writeDetail(rc, func() error {
+			if err := writeDetail(rc, "Velocity", func() error {
 				return velocity.WriteMarkdown(rc.Writer, velocityPipeline.Result)
 			}, func() error {
 				return velocity.WritePretty(rc.Writer, velocityPipeline.Result, false)
@@ -377,11 +381,18 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 }
 
 // writeDetail dispatches to the markdown or pretty renderer based on format.
-func writeDetail(rc format.RenderContext, md, pretty func() error) error {
-	if rc.Format == format.Markdown {
-		return md()
+// For markdown, wraps content in a collapsible <details> section.
+func writeDetail(rc format.RenderContext, summary string, md, pretty func() error) error {
+	if rc.Format != format.Markdown {
+		return pretty()
 	}
-	return pretty()
+	fmt.Fprintf(rc.Writer, "<details>\n<summary>%s</summary>\n\n", summary)
+	if err := md(); err != nil {
+		return err
+	}
+	fmt.Fprintln(rc.Writer, "</details>")
+	fmt.Fprintln(rc.Writer)
+	return nil
 }
 
 // writeReportArtifacts writes report output in all formats to the given
