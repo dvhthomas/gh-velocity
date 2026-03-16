@@ -28,3 +28,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
         run: scripts/showcase.sh
+
+      - name: Upload showcase artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: showcase-${{ github.run_id }}
+          path: tmp/showcase/
+          retention-days: 30

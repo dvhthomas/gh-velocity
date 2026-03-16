@@ -219,6 +219,7 @@ EOF
     # ── 3. Report ───────────────────────────────────────────────
     REPORT=$(run_cmd "report" $BINARY report --since "$SINCE" --config "$CONFIG" -R "$repo" --debug -f markdown)
     if [[ -n "$REPORT" ]]; then
+      echo "$REPORT" > "$TMP_DIR/$slug-report.md"
       {
         echo "### Composite Report"
         echo ""
@@ -235,18 +236,37 @@ EOF
       } >> "$COMMENT_FILE"
     fi
 
+    # Also save JSON report.
+    REPORT_JSON=$(run_cmd "report-json" $BINARY report --since "$SINCE" --config "$CONFIG" -R "$repo" --debug -f json)
+    if [[ -n "$REPORT_JSON" ]]; then
+      echo "$REPORT_JSON" > "$TMP_DIR/$slug-report.json"
+    fi
+
     # ── 4. Individual commands ──────────────────────────────────
     declare -a COMMANDS=(
-      "flow lead-time|Lead Time"
-      "flow cycle-time|Cycle Time"
-      "flow throughput|Throughput"
-      "flow velocity|Velocity"
+      "flow lead-time|Lead Time|lead-time"
+      "flow cycle-time|Cycle Time|cycle-time"
+      "flow throughput|Throughput|throughput"
+      "flow velocity|Velocity|velocity"
     )
 
     for cmd_entry in "${COMMANDS[@]}"; do
-      IFS='|' read -r cmd cmd_label <<< "$cmd_entry"
+      IFS='|' read -r cmd cmd_label cmd_slug <<< "$cmd_entry"
+
+      # Markdown output (for Discussion comment + artifact).
       # shellcheck disable=SC2086
       CMD_OUTPUT=$(run_cmd "$cmd_label" $BINARY $cmd --since "$SINCE" --config "$CONFIG" -R "$repo" --debug -f markdown)
+
+      if [[ -n "$CMD_OUTPUT" ]]; then
+        echo "$CMD_OUTPUT" > "$TMP_DIR/$slug-$cmd_slug.md"
+      fi
+
+      # JSON output (artifact only).
+      # shellcheck disable=SC2086
+      CMD_JSON=$(run_cmd "$cmd_label-json" $BINARY $cmd --since "$SINCE" --config "$CONFIG" -R "$repo" --debug -f json)
+      if [[ -n "$CMD_JSON" ]]; then
+        echo "$CMD_JSON" > "$TMP_DIR/$slug-$cmd_slug.json"
+      fi
 
       {
         echo "<details>"
