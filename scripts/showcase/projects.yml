@@ -1,0 +1,28 @@
+# Projects to include in the velocity showcase.
+# Each config becomes a preflight + report run.
+#
+# Fields:
+#   name:    display name (required)
+#   repo:    owner/repo (optional, used with -R flag)
+#   project: GitHub Projects board URL (optional, used with --project-url flag)
+
+configs:
+  - name: cli/cli
+    repo: cli/cli
+  - name: kubernetes/kubernetes
+    repo: kubernetes/kubernetes
+  - name: hashicorp/terraform
+    repo: hashicorp/terraform
+  - name: astral-sh/uv
+    repo: astral-sh/uv
+  - name: facebook/react
+    repo: facebook/react
+  - name: dvhthomas/gh-velocity
+    repo: dvhthomas/gh-velocity
+  - name: microsoft/ebpf-for-windows
+    repo: microsoft/ebpf-for-windows
+    project: https://github.com/orgs/microsoft/projects/2098
+  - name: github/roadmap
+    repo: github/roadmap
+  - name: grafana/k6
+    repo: grafana/k6
