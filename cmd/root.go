@@ -44,6 +44,7 @@ type Deps struct {
 	IsTTY        bool             // true when stdout is a terminal
 	TermWidth    int              // terminal width in columns (0 = unknown)
 	Debug        bool             // true when --debug is set
+	NoCache      bool             // true when --no-cache is set (disables disk cache)
 	Now          func() time.Time // returns current time; override via GH_VELOCITY_NOW for testing
 }
 
@@ -68,7 +69,7 @@ func (d *Deps) NewClient() (*gh.Client, error) {
 	if d.Config != nil {
 		delay = d.Config.APIThrottleDuration()
 	}
-	return gh.NewClient(d.Owner, d.Repo, delay)
+	return gh.NewClient(d.Owner, d.Repo, delay, gh.ClientOptions{NoCache: d.NoCache})
 }
 
 // WarnUnlessJSON emits a warning to stderr unless JSON format is selected.
@@ -149,6 +150,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 		postFlag    bool
 		newPostFlag bool
 		debugFlag   bool
+		noCacheFlag bool
 	)
 
 	root := &cobra.Command{
@@ -278,6 +280,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				IsTTY:        isTTY,
 				TermWidth:    termWidth,
 				Debug:        debugFlag,
+				NoCache:      noCacheFlag,
 				Now:          nowFunc(),
 			}
 
@@ -293,6 +296,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 	root.PersistentFlags().BoolVar(&newPostFlag, "new-post", false, "Force a new post (skip idempotent update; implies --post)")
 	root.PersistentFlags().StringVar(&scopeFlag, "scope", "", "Additional GitHub search qualifier(s) ANDed with config scope")
 	root.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Print diagnostic info to stderr")
+	root.PersistentFlags().BoolVar(&noCacheFlag, "no-cache", false, "Disable disk cache (in-memory deduplication still active)")
 
 	root.AddCommand(NewVersionCmd(version, buildTime))
 	root.AddCommand(NewConfigCmd())

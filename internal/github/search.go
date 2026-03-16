@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -161,26 +162,26 @@ func rateLimitError(err error) error {
 // Results are cached per-process: identical queries return cached results.
 func (c *Client) SearchIssues(ctx context.Context, query string) ([]model.Issue, error) {
 	key := CacheKey("search-issues", query)
-	hit := true
-	v, err := c.cache.Do(key, func() (any, error) {
-		hit = false
-		items, err := c.searchPaginated(ctx, query)
-		if err != nil {
-			return nil, fmt.Errorf("search issues: %w", err)
-		}
-		issues := make([]model.Issue, 0, len(items))
-		for _, item := range items {
-			issues = append(issues, searchItemToIssue(item))
-		}
-		return issues, nil
-	})
+	v, err := c.cache.DoJSON(key, "search-issues",
+		func() (any, error) {
+			items, err := c.searchPaginated(ctx, query)
+			if err != nil {
+				return nil, fmt.Errorf("search issues: %w", err)
+			}
+			issues := make([]model.Issue, 0, len(items))
+			for _, item := range items {
+				issues = append(issues, searchItemToIssue(item))
+			}
+			log.Debug("cache miss: search-issues key=%s (%d results)", key[:8], len(issues))
+			return issues, nil
+		},
+		func(raw json.RawMessage) (any, error) {
+			var issues []model.Issue
+			return issues, json.Unmarshal(raw, &issues)
+		},
+	)
 	if err != nil {
 		return nil, err
-	}
-	if hit {
-		log.Debug("cache hit: search-issues key=%s", key[:8])
-	} else {
-		log.Debug("cache miss: search-issues key=%s (%d results)", key[:8], len(v.([]model.Issue)))
 	}
 	return v.([]model.Issue), nil
 }
@@ -191,26 +192,26 @@ func (c *Client) SearchIssues(ctx context.Context, query string) ([]model.Issue,
 // Results are cached per-process: identical queries return cached results.
 func (c *Client) SearchPRs(ctx context.Context, query string) ([]model.PR, error) {
 	key := CacheKey("search-prs", query)
-	hit := true
-	v, err := c.cache.Do(key, func() (any, error) {
-		hit = false
-		items, err := c.searchPaginated(ctx, query)
-		if err != nil {
-			return nil, fmt.Errorf("search PRs: %w", err)
-		}
-		prs := make([]model.PR, 0, len(items))
-		for _, item := range items {
-			prs = append(prs, searchItemToPR(item))
-		}
-		return prs, nil
-	})
+	v, err := c.cache.DoJSON(key, "search-prs",
+		func() (any, error) {
+			items, err := c.searchPaginated(ctx, query)
+			if err != nil {
+				return nil, fmt.Errorf("search PRs: %w", err)
+			}
+			prs := make([]model.PR, 0, len(items))
+			for _, item := range items {
+				prs = append(prs, searchItemToPR(item))
+			}
+			log.Debug("cache miss: search-prs key=%s (%d results)", key[:8], len(prs))
+			return prs, nil
+		},
+		func(raw json.RawMessage) (any, error) {
+			var prs []model.PR
+			return prs, json.Unmarshal(raw, &prs)
+		},
+	)
 	if err != nil {
 		return nil, err
-	}
-	if hit {
-		log.Debug("cache hit: search-prs key=%s", key[:8])
-	} else {
-		log.Debug("cache miss: search-prs key=%s (%d results)", key[:8], len(v.([]model.PR)))
 	}
 	return v.([]model.PR), nil
 }

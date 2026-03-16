@@ -131,6 +131,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 		SearchQuery: issueQuery.Build(),
 		SearchURL:   issueQuery.URL(),
 	}
+	setCycleTimeBatchParams(cyclePipeline, strat)
 
 	throughputPipeline := &throughput.Pipeline{
 		Client:     client,
@@ -266,6 +267,8 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 				PRsMerged:    throughputPipeline.Result.PRsMerged,
 			}
 		}
+		// Surface partial-failure warnings (e.g., PR search rate-limited).
+		result.Warnings = append(result.Warnings, throughputPipeline.Warnings...)
 	}
 
 	if velocityOK && velocityPipeline != nil {

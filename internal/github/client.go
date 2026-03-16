@@ -47,10 +47,17 @@ type Client struct {
 
 }
 
+// ClientOptions configures optional behavior for a Client.
+type ClientOptions struct {
+	// NoCache disables the disk cache. The in-memory singleflight cache
+	// remains active to prevent redundant API calls within a single invocation.
+	NoCache bool
+}
+
 // NewClient creates a Client for the given owner/repo.
 // searchDelay is the minimum gap between search API calls to avoid triggering
 // GitHub's secondary rate limits. Pass 0 to disable throttling.
-func NewClient(owner, repo string, searchDelay time.Duration) (*Client, error) {
+func NewClient(owner, repo string, searchDelay time.Duration, opts ...ClientOptions) (*Client, error) {
 	rest, err := ghapi.DefaultRESTClient()
 	if err != nil {
 		return nil, fmt.Errorf("github: create REST client: %w", err)
@@ -59,13 +66,27 @@ func NewClient(owner, repo string, searchDelay time.Duration) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("github: create GraphQL client: %w", err)
 	}
+
+	cache := NewQueryCache(10 * time.Minute)
+
+	// Set up disk cache unless disabled.
+	var opt ClientOptions
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+	if !opt.NoCache {
+		if dir := DefaultCacheDir(); dir != "" {
+			cache.disk = NewDiskCache(dir, 5*time.Minute)
+		}
+	}
+
 	return &Client{
 		rest:        rest,
 		gql:         gql,
 		projGQL:     projectGQL(),
 		owner:       owner,
 		repo:        repo,
-		cache:       NewQueryCache(10 * time.Minute),
+		cache:       cache,
 		searchDelay: searchDelay,
 	}, nil
 }

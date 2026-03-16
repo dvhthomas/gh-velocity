@@ -18,10 +18,7 @@ func (p Provenance) MarshalJSON() ([]byte, error) {
 	if p.Command == "" {
 		return []byte("null"), nil
 	}
-	return json.Marshal(provenanceJSON{
-		Command: p.Command,
-		Config:  p.Config,
-	})
+	return json.Marshal(provenanceJSON(p))
 }
 
 // WritePretty writes provenance as indented text to w.

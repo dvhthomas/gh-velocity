@@ -47,6 +47,19 @@ func BuildReleaseMetrics(ctx context.Context, input ReleaseInput) (model.Release
 	var issueMetrics []model.IssueMetrics
 	var leadTimes, cycleTimes, releaseLags []time.Duration
 
+	// Batch pre-fetch project statuses to warm cache (avoids N+1).
+	if is, ok := input.CycleTimeStrategy.(*IssueStrategy); ok && is.ProjectID != "" && len(input.IssueCommits) > 0 {
+		numbers := make([]int, 0, len(input.IssueCommits))
+		for num := range input.IssueCommits {
+			numbers = append(numbers, num)
+		}
+		backlog := ""
+		if len(is.BacklogStatus) > 0 {
+			backlog = is.BacklogStatus[0]
+		}
+		is.Client.BatchGetProjectStatuses(ctx, numbers, is.ProjectID, is.StatusFieldID, backlog)
+	}
+
 	for issueNum, issueCommitList := range input.IssueCommits {
 		issue, ok := input.Issues[issueNum]
 		if !ok {
