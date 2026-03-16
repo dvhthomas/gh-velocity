@@ -216,8 +216,17 @@ EOF
   # Skip commands if no config was generated.
   if [[ -f "$CONFIG" ]]; then
 
-    # ── 3. Report ───────────────────────────────────────────────
-    REPORT=$(run_cmd "report" $BINARY report --since "$SINCE" --config "$CONFIG" -R "$repo" --debug -f markdown)
+    # ── 3. Report (markdown + JSON) ─────────────────────────────
+    # The report command already computes lead-time, cycle-time,
+    # throughput, and velocity concurrently. Running individual flow
+    # commands would duplicate all API calls. We run report twice
+    # (markdown for Discussion, JSON for artifact) — the disk cache
+    # ensures the second run is near-instant.
+    #
+    # Per-repo timeout prevents one slow repo from blocking the rest.
+    REPO_TIMEOUT=600  # 10 minutes
+
+    REPORT=$(run_cmd "report-md" timeout "$REPO_TIMEOUT" $BINARY report --since "$SINCE" --config "$CONFIG" -R "$repo" --debug -f markdown)
     if [[ -n "$REPORT" ]]; then
       echo "$REPORT" > "$TMP_DIR/$slug-report.md"
       {
@@ -231,57 +240,16 @@ EOF
       {
         echo "### Composite Report"
         echo ""
-        echo "*Report failed*"
+        echo "*Report failed or timed out*"
         echo ""
       } >> "$COMMENT_FILE"
     fi
 
-    # Also save JSON report.
-    REPORT_JSON=$(run_cmd "report-json" $BINARY report --since "$SINCE" --config "$CONFIG" -R "$repo" --debug -f json)
+    # JSON report — should be fast thanks to disk cache from the markdown run.
+    REPORT_JSON=$(run_cmd "report-json" timeout "$REPO_TIMEOUT" $BINARY report --since "$SINCE" --config "$CONFIG" -R "$repo" --debug -f json)
     if [[ -n "$REPORT_JSON" ]]; then
       echo "$REPORT_JSON" > "$TMP_DIR/$slug-report.json"
     fi
-
-    # ── 4. Individual commands ──────────────────────────────────
-    declare -a COMMANDS=(
-      "flow lead-time|Lead Time|lead-time"
-      "flow cycle-time|Cycle Time|cycle-time"
-      "flow throughput|Throughput|throughput"
-      "flow velocity|Velocity|velocity"
-    )
-
-    for cmd_entry in "${COMMANDS[@]}"; do
-      IFS='|' read -r cmd cmd_label cmd_slug <<< "$cmd_entry"
-
-      # Markdown output (for Discussion comment + artifact).
-      # shellcheck disable=SC2086
-      CMD_OUTPUT=$(run_cmd "$cmd_label" $BINARY $cmd --since "$SINCE" --config "$CONFIG" -R "$repo" --debug -f markdown)
-
-      if [[ -n "$CMD_OUTPUT" ]]; then
-        echo "$CMD_OUTPUT" > "$TMP_DIR/$slug-$cmd_slug.md"
-      fi
-
-      # JSON output (artifact only).
-      # shellcheck disable=SC2086
-      CMD_JSON=$(run_cmd "$cmd_label-json" $BINARY $cmd --since "$SINCE" --config "$CONFIG" -R "$repo" --debug -f json)
-      if [[ -n "$CMD_JSON" ]]; then
-        echo "$CMD_JSON" > "$TMP_DIR/$slug-$cmd_slug.json"
-      fi
-
-      {
-        echo "<details>"
-        echo "<summary>$cmd_label</summary>"
-        echo ""
-        if [[ -n "$CMD_OUTPUT" ]]; then
-          echo "$CMD_OUTPUT"
-        else
-          echo "*Not available*"
-        fi
-        echo ""
-        echo "</details>"
-        echo ""
-      } >> "$COMMENT_FILE"
-    done
 
   fi
 
@@ -296,10 +264,9 @@ EOF
   # Truncate if approaching GitHub's 65536 char limit.
   COMMENT_SIZE=${#COMMENT_BODY}
   if [[ "$COMMENT_SIZE" -gt 60000 ]]; then
-    warn "Comment for $repo is ${COMMENT_SIZE} chars. Truncating individual commands."
-    # Re-read without <details> sections (keep header + config + report).
-    COMMENT_BODY=$(sed '/<details>/,/<\/details>/d' "$COMMENT_FILE")
-    COMMENT_BODY+=$'\n\n*Individual command output truncated (comment size limit).*\n'
+    warn "Comment for $repo is ${COMMENT_SIZE} chars. Truncating."
+    COMMENT_BODY="${COMMENT_BODY:0:59000}"
+    COMMENT_BODY+=$'\n\n*Output truncated (comment size limit).*\n'
   fi
 
   if [[ "$DRY_RUN" == "true" ]]; then
