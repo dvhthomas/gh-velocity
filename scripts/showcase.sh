@@ -54,6 +54,34 @@ if ! command -v jq &>/dev/null; then
   exit 1
 fi
 
+# Verify we can create discussions before doing any expensive work.
+# A dry run skips this check since it won't post anything.
+if [[ "$DRY_RUN" != "true" ]]; then
+  echo "Checking discussion write permissions..."
+  PERM_CHECK=$(gh api graphql \
+    -f query='query($owner: String!, $repo: String!) {
+      repository(owner: $owner, name: $repo) {
+        id
+        discussionCategories(first: 1) { nodes { id } }
+      }
+    }' \
+    -f owner="$SHOWCASE_OWNER" \
+    -f repo="$SHOWCASE_REPO" 2>&1) || true
+
+  if echo "$PERM_CHECK" | jq -e '.errors' &>/dev/null; then
+    echo "ERROR: Cannot access repository discussions. Check that GH_TOKEN has the 'repo' or 'discussion:write' scope." >&2
+    echo "$PERM_CHECK" | jq -r '.errors[].message' >&2
+    exit 1
+  fi
+
+  if [[ -z "$(echo "$PERM_CHECK" | jq -r '.data.repository.discussionCategories.nodes[0].id // empty')" ]]; then
+    echo "ERROR: No discussion categories found. Create a 'Velocity Reports' category via Settings > Discussions > Categories." >&2
+    exit 1
+  fi
+
+  echo "Discussion permissions OK"
+fi
+
 # ── Helpers ─────────────────────────────────────────────────────────
 # GitHub Actions log grouping (no-ops when not in CI).
 group()    { echo "::group::$1" 2>/dev/null || true; }
@@ -150,6 +178,12 @@ else
 
   DISC_ID=$(echo "$DISC_RESPONSE" | jq -r '.data.createDiscussion.discussion.id')
   DISC_URL=$(echo "$DISC_RESPONSE" | jq -r '.data.createDiscussion.discussion.url')
+
+  if [[ -z "$DISC_ID" || "$DISC_ID" == "null" ]]; then
+    err "Failed to create Discussion. Response:"
+    echo "$DISC_RESPONSE" >&2
+    exit 1
+  fi
 fi
 
 echo "Discussion: $DISC_URL"
