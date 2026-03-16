@@ -216,19 +216,19 @@ EOF
   # Skip commands if no config was generated.
   if [[ -f "$CONFIG" ]]; then
 
-    # ── 3. Report (markdown + JSON) ─────────────────────────────
-    # The report command already computes lead-time, cycle-time,
-    # throughput, and velocity concurrently. Running individual flow
-    # commands would duplicate all API calls. We run report twice
-    # (markdown for Discussion, JSON for artifact) — the disk cache
-    # ensures the second run is near-instant.
+    # ── 3. Report ───────────────────────────────────────────────
+    # Single data-gathering pass: report computes lead-time, cycle-time,
+    # throughput, and velocity concurrently. --artifact-dir writes both
+    # JSON and markdown as a pure rendering step (zero extra API calls).
+    # stdout gets markdown for the Discussion comment.
     #
     # Per-repo timeout prevents one slow repo from blocking the rest.
     REPO_TIMEOUT=600  # 10 minutes
+    ARTIFACT_DIR="$TMP_DIR/$slug"
+    mkdir -p "$ARTIFACT_DIR"
 
-    REPORT=$(run_cmd "report-md" timeout "$REPO_TIMEOUT" $BINARY report --since "$SINCE" --config "$CONFIG" -R "$repo" --debug -f markdown)
+    REPORT=$(run_cmd "report" timeout "$REPO_TIMEOUT" $BINARY report --since "$SINCE" --config "$CONFIG" -R "$repo" --debug -f markdown --artifact-dir "$ARTIFACT_DIR")
     if [[ -n "$REPORT" ]]; then
-      echo "$REPORT" > "$TMP_DIR/$slug-report.md"
       {
         echo "### Composite Report"
         echo ""
@@ -243,12 +243,6 @@ EOF
         echo "*Report failed or timed out*"
         echo ""
       } >> "$COMMENT_FILE"
-    fi
-
-    # JSON report — should be fast thanks to disk cache from the markdown run.
-    REPORT_JSON=$(run_cmd "report-json" timeout "$REPO_TIMEOUT" $BINARY report --since "$SINCE" --config "$CONFIG" -R "$repo" --debug -f json)
-    if [[ -n "$REPORT_JSON" ]]; then
-      echo "$REPORT_JSON" > "$TMP_DIR/$slug-report.json"
     fi
 
   fi

@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/bitsbyme/gh-velocity/internal/classify"
@@ -24,6 +26,7 @@ import (
 func NewReportCmd() *cobra.Command {
 	var (
 		sinceFlag, untilFlag string
+		artifactDir          string
 	)
 
 	cmd := &cobra.Command{
@@ -45,20 +48,24 @@ unavailable.`,
   gh velocity report --since 14d --until 2026-03-01
 
   # Remote repo, JSON for CI dashboards
-  gh velocity report --since 30d -R cli/cli -f json`,
+  gh velocity report --since 30d -R cli/cli -f json
+
+  # Write all formats to a directory (single data-gathering pass)
+  gh velocity report --since 30d --artifact-dir ./out`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runReport(cmd, sinceFlag, untilFlag)
+			return runReport(cmd, sinceFlag, untilFlag, artifactDir)
 		},
 	}
 
 	cmd.Flags().StringVar(&sinceFlag, "since", "", "Start of date window (default: 30d)")
 	cmd.Flags().StringVar(&untilFlag, "until", "", "End of date window (default: now)")
+	cmd.Flags().StringVar(&artifactDir, "artifact-dir", "", "Write report in all formats (json, markdown) to this directory")
 
 	return cmd
 }
 
-func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
+func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string) error {
 	ctx := cmd.Context()
 	deps := DepsFromContext(ctx)
 	if deps == nil {
@@ -306,7 +313,50 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string) error {
 	if fmtErr != nil {
 		return fmtErr
 	}
-	return postFn()
+	if err := postFn(); err != nil {
+		return err
+	}
+
+	// Write artifacts — pure rendering from the already-computed result.
+	if artifactDir != "" {
+		if err := writeReportArtifacts(deps, artifactDir, result); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// writeReportArtifacts writes report output in all formats to the given
+// directory. This is a pure rendering step — no API calls.
+func writeReportArtifacts(deps *Deps, dir string, result model.StatsResult) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("creating artifact dir: %w", err)
+	}
+
+	// JSON
+	jsonFile, err := os.Create(filepath.Join(dir, "report.json"))
+	if err != nil {
+		return fmt.Errorf("creating report.json: %w", err)
+	}
+	defer jsonFile.Close()
+	if err := format.WriteReportJSON(jsonFile, result); err != nil {
+		return fmt.Errorf("writing report.json: %w", err)
+	}
+
+	// Markdown
+	mdFile, err := os.Create(filepath.Join(dir, "report.md"))
+	if err != nil {
+		return fmt.Errorf("creating report.md: %w", err)
+	}
+	defer mdFile.Close()
+	rctx := deps.RenderCtx(mdFile)
+	if err := format.WriteReportMarkdown(rctx, result); err != nil {
+		return fmt.Errorf("writing report.md: %w", err)
+	}
+
+	log.Debug("artifacts written to %s (report.json, report.md)", dir)
+	return nil
 }
 
 // computeQuality computes defect rate from closed issues using the classifier.
