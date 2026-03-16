@@ -32,15 +32,15 @@ fi
 
 # Repo definitions: slug|owner/repo|extra_preflight_flags
 REPOS=(
-  "cli-cli|cli/cli|"
-  "kubernetes-kubernetes|kubernetes/kubernetes|"
-  "hashicorp-terraform|hashicorp/terraform|"
-  "astral-sh-uv|astral-sh/uv|"
-  "facebook-react|facebook/react|"
   "dvhthomas-gh-velocity|dvhthomas/gh-velocity|"
-  "microsoft-ebpf-for-windows|microsoft/ebpf-for-windows|--project-url https://github.com/orgs/microsoft/projects/2098"
-  "github-roadmap|github/roadmap|"
-  "grafana-k6|grafana/k6|"
+  # "cli-cli|cli/cli|"
+  # "kubernetes-kubernetes|kubernetes/kubernetes|"
+  # "hashicorp-terraform|hashicorp/terraform|"
+  # "astral-sh-uv|astral-sh/uv|"
+  # "facebook-react|facebook/react|"
+  # "microsoft-ebpf-for-windows|microsoft/ebpf-for-windows|--project-url https://github.com/orgs/microsoft/projects/2098"
+  # "github-roadmap|github/roadmap|"
+  # "grafana-k6|grafana/k6|"
 )
 
 # ── Preflight checks ───────────────────────────────────────────────
