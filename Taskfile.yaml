@@ -100,6 +100,12 @@ tasks:
     cmds:
       - bash scripts/e2e-configs.sh
 
+  showcase:
+    desc: Run velocity showcase against OSS repos and post to Discussions (use --dry-run to preview)
+    deps: [build]
+    cmds:
+      - bash scripts/showcase.sh {{.CLI_ARGS}}
+
   test:integration:
     desc: Run integration tests using the installed gh velocity extension
     deps: [install]
