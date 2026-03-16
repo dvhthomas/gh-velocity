@@ -27,6 +27,7 @@ func NewReportCmd() *cobra.Command {
 	var (
 		sinceFlag, untilFlag string
 		artifactDir          string
+		summaryOnly          bool
 	)
 
 	cmd := &cobra.Command{
@@ -54,18 +55,19 @@ unavailable.`,
   gh velocity report --since 30d --artifact-dir ./out`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runReport(cmd, sinceFlag, untilFlag, artifactDir)
+			return runReport(cmd, sinceFlag, untilFlag, artifactDir, summaryOnly)
 		},
 	}
 
 	cmd.Flags().StringVar(&sinceFlag, "since", "", "Start of date window (default: 30d)")
 	cmd.Flags().StringVar(&untilFlag, "until", "", "End of date window (default: now)")
 	cmd.Flags().StringVar(&artifactDir, "artifact-dir", "", "Write report in all formats (json, markdown) to this directory")
+	cmd.Flags().BoolVar(&summaryOnly, "summary-only", false, "Show only the summary dashboard table, omit per-item detail sections")
 
 	return cmd
 }
 
-func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string) error {
+func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, summaryOnly bool) error {
 	ctx := cmd.Context()
 	deps := DepsFromContext(ctx)
 	if deps == nil {
@@ -313,6 +315,53 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string) err
 	if fmtErr != nil {
 		return fmtErr
 	}
+
+	// Detail sections: append per-item tables after the summary unless --summary-only.
+	if !summaryOnly && deps.Format != format.JSON {
+		rc := deps.RenderCtx(w)
+		fmt.Fprintln(rc.Writer)
+
+		if leadOK && leadPipeline.Stats.Count > 0 {
+			if err := writeDetail(rc, func() error {
+				return leadtime.WriteBulkMarkdown(rc, repo, since, until, leadPipeline.Items, leadPipeline.Stats, leadPipeline.SearchURL)
+			}, func() error {
+				return leadtime.WriteBulkPretty(rc, repo, since, until, leadPipeline.Items, leadPipeline.Stats, leadPipeline.SearchURL)
+			}); err != nil {
+				return err
+			}
+		}
+
+		if cycleOK && cyclePipeline.Stats.Count > 0 {
+			if err := writeDetail(rc, func() error {
+				return cycletimepipe.WriteBulkMarkdown(rc, repo, since, until, cfg.CycleTime.Strategy, cyclePipeline.Items, cyclePipeline.Stats, cyclePipeline.SearchURL)
+			}, func() error {
+				return cycletimepipe.WriteBulkPretty(rc, repo, since, until, cfg.CycleTime.Strategy, cyclePipeline.Items, cyclePipeline.Stats, cyclePipeline.SearchURL)
+			}); err != nil {
+				return err
+			}
+		}
+
+		if throughputOK && throughputPipeline.Result.IssuesClosed+throughputPipeline.Result.PRsMerged > 0 {
+			if err := writeDetail(rc, func() error {
+				return throughput.WriteMarkdown(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL)
+			}, func() error {
+				return throughput.WritePretty(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL)
+			}); err != nil {
+				return err
+			}
+		}
+
+		if velocityOK && velocityPipeline != nil {
+			if err := writeDetail(rc, func() error {
+				return velocity.WriteMarkdown(rc.Writer, velocityPipeline.Result)
+			}, func() error {
+				return velocity.WritePretty(rc.Writer, velocityPipeline.Result, false)
+			}); err != nil {
+				return err
+			}
+		}
+	}
+
 	if err := postFn(); err != nil {
 		return err
 	}
@@ -325,6 +374,14 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string) err
 	}
 
 	return nil
+}
+
+// writeDetail dispatches to the markdown or pretty renderer based on format.
+func writeDetail(rc format.RenderContext, md, pretty func() error) error {
+	if rc.Format == format.Markdown {
+		return md()
+	}
+	return pretty()
 }
 
 // writeReportArtifacts writes report output in all formats to the given
