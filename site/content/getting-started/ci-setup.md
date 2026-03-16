@@ -29,12 +29,16 @@ See the [token permissions table]({{< relref "/getting-started/configuration" >}
 
 ### Setting up GH_VELOCITY_TOKEN
 
-1. **Create a classic PAT** with `project` (read-only) scope:
+1. **Create a classic PAT** with the following scopes:
 
-   [Create token](https://github.com/settings/tokens/new?scopes=project&description=gh-velocity) -- this link pre-fills the scope and description.
+   - `project` (read-only) -- required for Projects v2 board access
+   - `public_repo` -- required if your workflow creates Discussions via GraphQL (e.g., the showcase workflow or `--post` to Discussions)
+   - `write:discussion` -- required for posting comments to Discussions
+
+   [Create token](https://github.com/settings/tokens/new?scopes=project,public_repo,write:discussion&description=gh-velocity) -- this link pre-fills the scopes and description.
 
    > [!NOTE]
-   > Fine-grained PATs do not currently support user-owned projects. Use a classic PAT for user projects, or a GitHub App for organization projects.
+   > Fine-grained PATs do not currently support user-owned projects or the `createDiscussion` GraphQL mutation. Use a classic PAT for these features.
 
 2. **Add it as a repository secret** named `GH_VELOCITY_TOKEN`:
 
@@ -61,7 +65,7 @@ permissions:
   discussions: write      # --post bulk reports as Discussions
 ```
 
-These are `GITHUB_TOKEN` permissions set in the workflow file. `GH_VELOCITY_TOKEN` only needs the `project` scope -- it inherits read access to public repos automatically.
+These are `GITHUB_TOKEN` permissions set in the workflow file. `GH_VELOCITY_TOKEN` needs `project` (board access), `public_repo` (Discussion creation via GraphQL), and `write:discussion` (posting comments to Discussions).
 
 ## Which workflow should you use?
 
