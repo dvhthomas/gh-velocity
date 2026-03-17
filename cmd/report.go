@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/bitsbyme/gh-velocity/internal/classify"
@@ -249,6 +250,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 			result.Warnings = append(result.Warnings, fmt.Sprintf("lead time: %v", err))
 		} else {
 			result.LeadTime = &leadPipeline.Stats
+			result.LeadTimeInsights = leadPipeline.Insights
 		}
 	}
 
@@ -259,6 +261,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 		} else {
 			result.CycleTime = &cyclePipeline.Stats
 			result.CycleTimeStrategy = cfg.CycleTime.Strategy
+			result.CycleTimeInsights = cyclePipeline.Insights
 		}
 	}
 	// Always surface strategy so format layer can show N/A context.
@@ -275,6 +278,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 				IssuesClosed: throughputPipeline.Result.IssuesClosed,
 				PRsMerged:    throughputPipeline.Result.PRsMerged,
 			}
+			result.ThroughputInsights = throughputPipeline.Insights
 		}
 		// Surface partial-failure warnings (e.g., PR search rate-limited).
 		result.Warnings = append(result.Warnings, throughputPipeline.Warnings...)
@@ -289,9 +293,11 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 		}
 	}
 
-	// Quality: defect rate from categories (reuses lead time's closed issues)
+	// Quality: defect rate + insights from categories (reuses lead time's closed issues)
 	if leadOK && len(cfg.Quality.Categories) > 0 {
-		result.Quality = computeQuality(leadPipeline.Items, cfg.Quality.Categories)
+		q, qInsights := computeQualityWithInsights(leadPipeline.Items, cfg.Quality.Categories, cfg.Quality.HotfixWindowHours)
+		result.Quality = q
+		result.QualityInsights = qInsights
 	}
 
 	// TODO(PR C): WIP from project board or active_labels config
@@ -324,9 +330,9 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 		if leadOK && leadPipeline.Stats.Count > 0 {
 			summary := fmt.Sprintf("Lead Time (%d issues)", leadPipeline.Stats.Count)
 			if err := writeDetail(rc, summary, func() error {
-				return leadtime.WriteBulkMarkdown(rc, repo, since, until, leadPipeline.Items, leadPipeline.Stats, leadPipeline.SearchURL)
+				return leadtime.WriteBulkMarkdown(rc, repo, since, until, leadPipeline.Items, leadPipeline.Stats, leadPipeline.SearchURL, leadPipeline.Insights)
 			}, func() error {
-				return leadtime.WriteBulkPretty(rc, repo, since, until, leadPipeline.Items, leadPipeline.Stats, leadPipeline.SearchURL)
+				return leadtime.WriteBulkPretty(rc, repo, since, until, leadPipeline.Items, leadPipeline.Stats, leadPipeline.SearchURL, leadPipeline.Insights)
 			}); err != nil {
 				return err
 			}
@@ -335,9 +341,9 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 		if cycleOK && cyclePipeline.Stats.Count > 0 {
 			summary := fmt.Sprintf("Cycle Time (%d items)", cyclePipeline.Stats.Count)
 			if err := writeDetail(rc, summary, func() error {
-				return cycletimepipe.WriteBulkMarkdown(rc, repo, since, until, cfg.CycleTime.Strategy, cyclePipeline.Items, cyclePipeline.Stats, cyclePipeline.SearchURL)
+				return cycletimepipe.WriteBulkMarkdown(rc, repo, since, until, cfg.CycleTime.Strategy, cyclePipeline.Items, cyclePipeline.Stats, cyclePipeline.SearchURL, cyclePipeline.Insights)
 			}, func() error {
-				return cycletimepipe.WriteBulkPretty(rc, repo, since, until, cfg.CycleTime.Strategy, cyclePipeline.Items, cyclePipeline.Stats, cyclePipeline.SearchURL)
+				return cycletimepipe.WriteBulkPretty(rc, repo, since, until, cfg.CycleTime.Strategy, cyclePipeline.Items, cyclePipeline.Stats, cyclePipeline.SearchURL, cyclePipeline.Insights)
 			}); err != nil {
 				return err
 			}
@@ -347,9 +353,9 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 			total := throughputPipeline.Result.IssuesClosed + throughputPipeline.Result.PRsMerged
 			summary := fmt.Sprintf("Throughput (%d items)", total)
 			if err := writeDetail(rc, summary, func() error {
-				return throughput.WriteMarkdown(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL)
+				return throughput.WriteMarkdown(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL, throughputPipeline.Insights)
 			}, func() error {
-				return throughput.WritePretty(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL)
+				return throughput.WritePretty(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL, throughputPipeline.Insights)
 			}); err != nil {
 				return err
 			}
@@ -372,7 +378,17 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 
 	// Write artifacts — pure rendering from the already-computed result.
 	if artifactDir != "" {
-		if err := writeReportArtifacts(deps, artifactDir, result); err != nil {
+		var sections []artifactSection
+		if leadOK && leadPipeline.Stats.Count > 0 {
+			sections = append(sections, leadTimeArtifact(leadPipeline))
+		}
+		if cycleOK && cyclePipeline.Stats.Count > 0 {
+			sections = append(sections, cycleTimeArtifact(cyclePipeline, cfg.CycleTime.Strategy))
+		}
+		if throughputOK {
+			sections = append(sections, throughputArtifact(throughputPipeline))
+		}
+		if err := writeReportArtifacts(deps, artifactDir, result, sections); err != nil {
 			return err
 		}
 	}
@@ -395,9 +411,57 @@ func writeDetail(rc format.RenderContext, summary string, md, pretty func() erro
 	return nil
 }
 
+// artifactSection describes a per-section artifact that can be written as JSON and Markdown.
+type artifactSection struct {
+	Name      string                                   // filename stem, e.g. "flow-lead-time"
+	WriteJSON func(w *os.File) error                   // writes JSON to the file
+	WriteMD   func(w *os.File, rc format.RenderContext) error // writes Markdown to the file
+}
+
+// leadTimeArtifact creates an artifactSection for the lead-time pipeline.
+func leadTimeArtifact(p *leadtime.BulkPipeline) artifactSection {
+	repo := p.Owner + "/" + p.Repo
+	return artifactSection{
+		Name: "flow-lead-time",
+		WriteJSON: func(w *os.File) error {
+			return leadtime.WriteBulkJSON(w, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL, p.Warnings, p.Insights)
+		},
+		WriteMD: func(w *os.File, rc format.RenderContext) error {
+			return leadtime.WriteBulkMarkdown(rc, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL, p.Insights)
+		},
+	}
+}
+
+// cycleTimeArtifact creates an artifactSection for the cycle-time pipeline.
+func cycleTimeArtifact(p *cycletimepipe.BulkPipeline, strategy string) artifactSection {
+	repo := p.Owner + "/" + p.Repo
+	return artifactSection{
+		Name: "flow-cycle-time",
+		WriteJSON: func(w *os.File) error {
+			return cycletimepipe.WriteBulkJSON(w, repo, p.Since, p.Until, strategy, p.Items, p.Stats, p.SearchURL, p.Warnings, p.Insights)
+		},
+		WriteMD: func(w *os.File, rc format.RenderContext) error {
+			return cycletimepipe.WriteBulkMarkdown(rc, repo, p.Since, p.Until, strategy, p.Items, p.Stats, p.SearchURL, p.Insights)
+		},
+	}
+}
+
+// throughputArtifact creates an artifactSection for the throughput pipeline.
+func throughputArtifact(p *throughput.Pipeline) artifactSection {
+	return artifactSection{
+		Name: "flow-throughput",
+		WriteJSON: func(w *os.File) error {
+			return throughput.WriteJSON(w, p.Result, p.SearchURL, p.Warnings, p.Insights)
+		},
+		WriteMD: func(w *os.File, rc format.RenderContext) error {
+			return throughput.WriteMarkdown(w, p.Result, p.SearchURL, p.Insights)
+		},
+	}
+}
+
 // writeReportArtifacts writes report output in all formats to the given
-// directory. This is a pure rendering step — no API calls.
-func writeReportArtifacts(deps *Deps, dir string, result model.StatsResult) error {
+// directory, plus per-section artifacts. This is a pure rendering step — no API calls.
+func writeReportArtifacts(deps *Deps, dir string, result model.StatsResult, sections []artifactSection) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("creating artifact dir: %w", err)
 	}
@@ -412,46 +476,106 @@ func writeReportArtifacts(deps *Deps, dir string, result model.StatsResult) erro
 		return fmt.Errorf("writing report.json: %w", err)
 	}
 
-	// Markdown
+	// Markdown — full composite: Key Findings + metrics table + detail sections.
 	mdFile, err := os.Create(filepath.Join(dir, "report.md"))
 	if err != nil {
 		return fmt.Errorf("creating report.md: %w", err)
 	}
 	defer mdFile.Close()
 	rctx := deps.RenderCtx(mdFile)
+	rctx.Format = format.Markdown
 	if err := format.WriteReportMarkdown(rctx, result); err != nil {
 		return fmt.Errorf("writing report.md: %w", err)
 	}
+	// Append detail sections as collapsible blocks.
+	for _, s := range sections {
+		fmt.Fprintf(mdFile, "\n<details>\n<summary>%s</summary>\n\n", s.Name)
+		if err := s.WriteMD(mdFile, rctx); err != nil {
+			return fmt.Errorf("writing %s detail in report.md: %w", s.Name, err)
+		}
+		fmt.Fprintln(mdFile, "</details>")
+		fmt.Fprintln(mdFile)
+	}
 
-	log.Debug("artifacts written to %s (report.json, report.md)", dir)
+	// Per-section artifacts.
+	for _, s := range sections {
+		jf, err := os.Create(filepath.Join(dir, s.Name+".json"))
+		if err != nil {
+			return fmt.Errorf("creating %s.json: %w", s.Name, err)
+		}
+		if err := s.WriteJSON(jf); err != nil {
+			jf.Close()
+			return fmt.Errorf("writing %s.json: %w", s.Name, err)
+		}
+		jf.Close()
+
+		mf, err := os.Create(filepath.Join(dir, s.Name+".md"))
+		if err != nil {
+			return fmt.Errorf("creating %s.md: %w", s.Name, err)
+		}
+		mrc := deps.RenderCtx(mf)
+		if err := s.WriteMD(mf, mrc); err != nil {
+			mf.Close()
+			return fmt.Errorf("writing %s.md: %w", s.Name, err)
+		}
+		mf.Close()
+	}
+
+	names := []string{"report.json", "report.md"}
+	for _, s := range sections {
+		names = append(names, s.Name+".json", s.Name+".md")
+	}
+	log.Debug("artifacts written to %s (%s)", dir, strings.Join(names, ", "))
 	return nil
 }
 
-// computeQuality computes defect rate from closed issues using the classifier.
-// Issues classified as "bug" are counted as defects.
-func computeQuality(items []leadtime.BulkItem, categories []model.CategoryConfig) *model.StatsQuality {
+// computeQualityWithInsights computes defect rate and quality insights from closed issues.
+// Issues classified as "bug" are counted as defects. Returns both the quality stats
+// and insight observations about defect rate, bug fix speed, category distribution, and hotfixes.
+func computeQualityWithInsights(items []leadtime.BulkItem, categories []model.CategoryConfig, hotfixWindowHours float64) (*model.StatsQuality, []model.Insight) {
 	if len(items) == 0 {
-		return nil
+		return nil, nil
 	}
 	classifier, err := classify.NewClassifier(categories)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
+
+	// Classify all items and build ItemRef slices for insight generation.
 	bugCount := 0
+	var insightItems []metrics.ItemRef
 	for _, item := range items {
 		result := classifier.Classify(classify.Input{
 			Labels:    item.Issue.Labels,
 			IssueType: item.Issue.IssueType,
 			Title:     item.Issue.Title,
 		})
-		if result.Category() == "bug" {
+		cat := result.Category()
+		if cat == "bug" {
 			bugCount++
 		}
+		dur := item.Metric.Duration
+		if dur != nil {
+			insightItems = append(insightItems, metrics.ItemRef{
+				Number:   item.Issue.Number,
+				Title:    item.Issue.Title,
+				Duration: *dur,
+				Category: cat,
+			})
+		}
 	}
+
 	defectRate := float64(bugCount) / float64(len(items))
-	return &model.StatsQuality{
+	quality := &model.StatsQuality{
 		BugCount:    bugCount,
 		TotalIssues: len(items),
 		DefectRate:  defectRate,
 	}
+
+	hwh := int(hotfixWindowHours)
+	if hwh <= 0 {
+		hwh = metrics.HotfixMaxHours
+	}
+	insights := metrics.GenerateQualityInsights(*quality, insightItems, hwh)
+	return quality, insights
 }

@@ -56,10 +56,16 @@ func WriteSingleJSON(w io.Writer, repo string, issueNumber int, title, state, is
 // Bulk JSON
 // ============================================================
 
+type jsonBulkInsight struct {
+	Type    string `json:"type"`
+	Message string `json:"message"`
+}
+
 type jsonBulkOutput struct {
 	Repository string            `json:"repository"`
 	Window     format.JSONWindow `json:"window"`
 	SearchURL  string            `json:"search_url"`
+	Insights   []jsonBulkInsight `json:"insights,omitempty"`
 	Items      []jsonBulkItem    `json:"items"`
 	Stats      format.JSONStats  `json:"stats"`
 	Capped     bool              `json:"capped,omitempty"`
@@ -75,7 +81,11 @@ type jsonBulkItem struct {
 }
 
 // WriteBulkJSON writes bulk lead-time results as JSON.
-func WriteBulkJSON(w io.Writer, repo string, since, until time.Time, items []BulkItem, stats model.Stats, searchURL string, warnings []string) error {
+func WriteBulkJSON(w io.Writer, repo string, since, until time.Time, items []BulkItem, stats model.Stats, searchURL string, warnings []string, insights []model.Insight) error {
+	var jsonIns []jsonBulkInsight
+	for _, ins := range insights {
+		jsonIns = append(jsonIns, jsonBulkInsight{Type: ins.Type, Message: ins.Message})
+	}
 	out := jsonBulkOutput{
 		Repository: repo,
 		Window: format.JSONWindow{
@@ -83,6 +93,7 @@ func WriteBulkJSON(w io.Writer, repo string, since, until time.Time, items []Bul
 			Until: until.UTC().Format(time.RFC3339),
 		},
 		SearchURL: searchURL,
+		Insights:  jsonIns,
 		Items:     make([]jsonBulkItem, 0, len(items)),
 		Stats:     format.StatsToJSON(stats),
 		Capped:    len(items) >= 1000,
@@ -112,6 +123,7 @@ type bulkTemplateData struct {
 	Repository string
 	Since      time.Time
 	Until      time.Time
+	Insights   []string
 	Items      []bulkItemRow
 	Summary    string
 	SearchURL  string
@@ -127,12 +139,17 @@ type bulkItemRow struct {
 }
 
 // WriteBulkMarkdown writes bulk lead-time results as markdown.
-func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.Time, items []BulkItem, stats model.Stats, searchURL string) error {
+func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.Time, items []BulkItem, stats model.Stats, searchURL string, insights []model.Insight) error {
 	sorted := sortByCloseDateDesc(items)
+	var insightMsgs []string
+	for _, ins := range insights {
+		insightMsgs = append(insightMsgs, ins.Message)
+	}
 	data := bulkTemplateData{
 		Repository: repo,
 		Since:      since,
 		Until:      until,
+		Insights:   insightMsgs,
 		Summary:    format.FormatStatsSummary(stats),
 		SearchURL:  searchURL,
 	}
@@ -158,11 +175,12 @@ func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.T
 // ============================================================
 
 // WriteBulkPretty writes bulk lead-time results as a formatted table.
-func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Time, items []BulkItem, stats model.Stats, searchURL string) error {
+func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Time, items []BulkItem, stats model.Stats, searchURL string, insights []model.Insight) error {
 	sorted := sortByCloseDateDesc(items)
 
 	fmt.Fprintf(rc.Writer, "Lead Time: %s (%s – %s UTC)\n\n",
 		repo, since.UTC().Format(time.DateOnly), until.UTC().Format(time.DateOnly))
+	model.WriteInsightsPretty(rc.Writer, insights)
 
 	if len(sorted) == 0 {
 		fmt.Fprintln(rc.Writer, "  No issues closed in this period.")

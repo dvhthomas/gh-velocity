@@ -118,16 +118,24 @@ func sortedStringKeys(m map[string]string) []string {
 var reportMarkdownTmpl = mustParseTemplate("report.md.tmpl")
 
 type reportTemplateData struct {
-	Repository string
-	Since      time.Time
-	Until      time.Time
-	LeadTime   string
-	CycleTime  string
-	Throughput string
-	Velocity   string
-	WIP        string
-	Quality    string
-	Warnings   []string
+	Repository    string
+	Since         time.Time
+	Until         time.Time
+	LeadTime      string
+	CycleTime     string
+	Throughput    string
+	Velocity      string
+	WIP           string
+	Quality       string
+	Warnings      []string
+	HasInsights   bool
+	InsightGroups []insightGroup
+}
+
+// insightGroup represents a section's insights for the Key Findings block.
+type insightGroup struct {
+	Section  string
+	Messages []string
 }
 
 func renderReportMarkdown(w io.Writer, r model.StatsResult) error {
@@ -157,6 +165,8 @@ func renderReportMarkdown(w io.Writer, r model.StatsResult) error {
 			r.Quality.BugCount, r.Quality.TotalIssues, r.Quality.DefectRate*100)
 	}
 	data.Warnings = r.Warnings
+	data.InsightGroups = buildInsightGroups(r)
+	data.HasInsights = len(data.InsightGroups) > 0
 	return reportMarkdownTmpl.Execute(w, data)
 }
 

@@ -98,6 +98,8 @@ out=$($BINARY flow lead-time --since 7d -R cli/cli --config "$CLI_CONFIG" -f jso
 echo "$out" | jq '.stats.count' 2>/dev/null | sed 's/^/    count: /'
 echo "$out" | jq -e '.stats' >/dev/null 2>&1 && pass "flow lead-time bulk json" || fail "flow lead-time bulk json"
 echo "$out" | jq -e '.window.since' >/dev/null 2>&1 && pass "flow lead-time bulk has window" || fail "flow lead-time bulk has window"
+# Insight schema check: when present, insights array has type+message objects
+echo "$out" | jq -e '.insights // empty | .[0].type' >/dev/null 2>&1 && pass "flow lead-time bulk json insights have type" || pass "flow lead-time bulk json insights absent (no data)"
 
 out=$($BINARY flow lead-time --since 7d -R cli/cli --config "$CLI_CONFIG" 2>&1)
 show "$out"
@@ -186,6 +188,9 @@ echo "$out" | jq '.lead_time.count' 2>/dev/null | sed 's/^/    lead_time count: 
 echo "$out" | jq -e '.lead_time' >/dev/null 2>&1 && pass "report json has lead_time" || fail "report json has lead_time"
 echo "$out" | jq -e '.throughput' >/dev/null 2>&1 && pass "report json has throughput" || fail "report json has throughput"
 echo "$out" | jq -e '.window.since' >/dev/null 2>&1 && pass "report json has window" || fail "report json has window"
+# Insight schema: insights arrays have type+message objects when present
+echo "$out" | jq -e '.lead_time.insights // empty | .[0].type' >/dev/null 2>&1 && pass "report json lead_time insights have type field" || pass "report json lead_time insights absent (no data)"
+echo "$out" | jq -e '.throughput.insights // empty | .[0].type' >/dev/null 2>&1 && pass "report json throughput insights have type field" || pass "report json throughput insights absent (no data)"
 
 out=$($BINARY report --since 7d -R cli/cli --config "$CLI_CONFIG" -f markdown 2>/dev/null)
 show "$out"

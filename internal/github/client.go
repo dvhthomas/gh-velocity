@@ -45,6 +45,14 @@ type Client struct {
 	searchDelay    time.Duration // minimum gap between search API calls
 	searchLastCall time.Time     // last time a search call was issued
 
+	// Shared rate-limit pause: when one goroutine hits a secondary rate limit,
+	// all goroutines wait until this time before making the next API call.
+	// Protected by searchMu.
+	rateLimitUntil time.Time
+
+	// SecondaryBackoff is the wait duration when a secondary rate limit is hit.
+	// Defaults to 60s. Override in tests for fast execution.
+	SecondaryBackoff time.Duration
 }
 
 // ClientOptions configures optional behavior for a Client.
@@ -81,17 +89,19 @@ func NewClient(owner, repo string, searchDelay time.Duration, opts ...ClientOpti
 	}
 
 	return &Client{
-		rest:        rest,
-		gql:         gql,
-		projGQL:     projectGQL(),
-		owner:       owner,
-		repo:        repo,
-		cache:       cache,
-		searchDelay: searchDelay,
+		rest:             rest,
+		gql:              gql,
+		projGQL:          projectGQL(),
+		owner:            owner,
+		repo:             repo,
+		cache:            cache,
+		searchDelay:      searchDelay,
+		SecondaryBackoff: DefaultSecondaryBackoff,
 	}, nil
 }
 
-// throttleSearch enforces a minimum gap between search API calls.
+// throttleSearch enforces a minimum gap between search API calls and
+// respects shared rate-limit pauses set by other goroutines.
 // Concurrent goroutines serialize through the mutex, ensuring only one
 // search call is in-flight at a time with spacing between them.
 // Returns a context error if the context is cancelled during the wait.
@@ -99,12 +109,21 @@ func (c *Client) throttleSearch(ctx context.Context) error {
 	c.searchMu.Lock()
 	defer c.searchMu.Unlock()
 
-	if c.searchDelay <= 0 {
-		return nil
+	// Determine the longest wait needed: normal throttle delay vs shared rate-limit pause.
+	var wait time.Duration
+
+	if c.searchDelay > 0 {
+		if elapsed := time.Since(c.searchLastCall); elapsed < c.searchDelay {
+			wait = c.searchDelay - elapsed
+		}
 	}
 
-	elapsed := time.Since(c.searchLastCall)
-	if wait := c.searchDelay - elapsed; wait > 0 {
+	// If another goroutine hit a secondary rate limit, respect the shared pause.
+	if rlWait := time.Until(c.rateLimitUntil); rlWait > wait {
+		wait = rlWait
+	}
+
+	if wait > 0 {
 		log.Debug("throttle: waiting %s before next search call", wait.Round(time.Millisecond))
 		select {
 		case <-time.After(wait):
@@ -114,6 +133,18 @@ func (c *Client) throttleSearch(ctx context.Context) error {
 	}
 	c.searchLastCall = time.Now()
 	return nil
+}
+
+// setRateLimitPause records a shared rate-limit pause that all goroutines
+// will respect in throttleSearch. Called when any goroutine detects a
+// secondary rate limit, so other goroutines avoid piling on.
+func (c *Client) setRateLimitPause(d time.Duration) {
+	c.searchMu.Lock()
+	defer c.searchMu.Unlock()
+	until := time.Now().Add(d)
+	if until.After(c.rateLimitUntil) {
+		c.rateLimitUntil = until
+	}
 }
 
 // projectClient returns the project-specific GraphQL client if available,

@@ -289,12 +289,11 @@ func (p *Pipeline) ProcessData() error {
 		iv := p.computeIteration(*current, nil)
 		// Compute cycle position for current iteration.
 		totalDays := int(current.EndDate.Sub(current.StartDate).Hours() / 24)
-		dayOfCycle := max(
+		dayOfCycle := min(
 			// 1-indexed: day 1 = first day
-			int(p.Now.Sub(current.StartDate).Hours()/24)+1, 1)
-		if dayOfCycle > totalDays {
-			dayOfCycle = totalDays
-		}
+			max(
+
+				int(p.Now.Sub(current.StartDate).Hours()/24)+1, 1), totalDays)
 		iv.DayOfCycle = dayOfCycle
 		iv.TotalDays = totalDays
 		p.Result.Current = &iv
@@ -352,27 +351,27 @@ func (p *Pipeline) generateInsights() {
 	if totalNotAssessed > 0 && totalItems > 0 {
 		pct := float64(totalNotAssessed) / float64(totalItems) * 100
 		if pct >= 100 {
-			r.Insights = append(r.Insights, model.Insight{Message: fmt.Sprintf("All %d items lack effort estimates — velocity will be 0 until estimates are added.", totalNotAssessed)})
+			r.Insights = append(r.Insights, model.Insight{Type: "not_assessed", Message: fmt.Sprintf("All %d items lack effort estimates — velocity will be 0 until estimates are added.", totalNotAssessed)})
 		} else if pct >= 50 {
-			r.Insights = append(r.Insights, model.Insight{Message: fmt.Sprintf("%.0f%% of items (%d/%d) lack effort estimates — velocity may be understated.", pct, totalNotAssessed, totalItems)})
+			r.Insights = append(r.Insights, model.Insight{Type: "not_assessed", Message: fmt.Sprintf("%.0f%% of items (%d/%d) lack effort estimates — velocity may be understated.", pct, totalNotAssessed, totalItems)})
 		}
 	}
 
 	// High completion rate.
 	if r.Current != nil && r.Current.CompletionPct >= 100 && r.Current.ItemsTotal > 0 {
-		r.Insights = append(r.Insights, model.Insight{Message: "Current iteration is 100% complete — all committed work is done."})
+		r.Insights = append(r.Insights, model.Insight{Type: "high_completion", Message: "Current iteration is 100% complete — all committed work is done."})
 	}
 
 	// Zero velocity across all history.
 	if len(r.History) > 0 && r.AvgVelocity == 0 {
-		r.Insights = append(r.Insights, model.Insight{Message: fmt.Sprintf("Zero velocity across %d iteration(s) — check effort strategy or date range.", len(r.History))})
+		r.Insights = append(r.Insights, model.Insight{Type: "zero_velocity", Message: fmt.Sprintf("Zero velocity across %d iteration(s) — check effort strategy or date range.", len(r.History))})
 	}
 
 	// High variability.
 	if r.AvgVelocity > 0 && r.StdDev > 0 {
 		cv := r.StdDev / r.AvgVelocity
 		if cv > 0.5 {
-			r.Insights = append(r.Insights, model.Insight{Message: fmt.Sprintf("High velocity variability (CV=%.1f) — sprint commitments may be inconsistent.", cv)})
+			r.Insights = append(r.Insights, model.Insight{Type: "high_variability", Message: fmt.Sprintf("High velocity variability (CV=%.1f) — sprint commitments may be inconsistent.", cv)})
 		}
 	}
 }

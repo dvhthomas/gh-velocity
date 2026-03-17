@@ -217,6 +217,12 @@ type StatsResult struct {
 	WIPCount          *int
 	Quality           *StatsQuality
 	Warnings          []string
+
+	// Per-section insights (velocity insights live on VelocityResult.Insights).
+	LeadTimeInsights   []Insight
+	CycleTimeInsights  []Insight
+	ThroughputInsights []Insight
+	QualityInsights    []Insight
 }
 
 // StatsThroughput holds throughput counts.
@@ -277,8 +283,10 @@ type StatsQuality struct {
 }
 
 // Insight is a human-readable observation derived from the data.
+// Type identifies the rule that fired (e.g., "outlier_detection", "skew_warning").
 // Message may contain inline markdown (links, bold, code).
 type Insight struct {
+	Type    string // rule identifier for agent filtering/routing
 	Message string
 }
 

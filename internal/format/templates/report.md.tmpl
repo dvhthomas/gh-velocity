@@ -1,4 +1,15 @@
 ## Report: {{.Repository}} ({{date .Since}} – {{date .Until}} UTC)
+{{- if .HasInsights}}
+
+**Key Findings:**
+{{- range .InsightGroups}}
+
+*{{.Section}}:*
+{{- range .Messages}}
+- {{.}}
+{{- end}}
+{{- end}}
+{{- end}}
 
 | Metric | Value |
 | --- | --- |
