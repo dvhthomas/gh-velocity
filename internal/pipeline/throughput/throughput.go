@@ -80,10 +80,10 @@ func (p *Pipeline) generateInsights() {
 func (p *Pipeline) Render(rc format.RenderContext) error {
 	switch rc.Format {
 	case format.JSON:
-		return WriteJSON(rc.Writer, p.Result, p.SearchURL, p.Warnings)
+		return WriteJSON(rc.Writer, p.Result, p.SearchURL, p.Warnings, p.Insights)
 	case format.Markdown:
-		return WriteMarkdown(rc.Writer, p.Result, p.SearchURL)
+		return WriteMarkdown(rc.Writer, p.Result, p.SearchURL, p.Insights)
 	default:
-		return WritePretty(rc.Writer, p.Result, p.SearchURL)
+		return WritePretty(rc.Writer, p.Result, p.SearchURL, p.Insights)
 	}
 }

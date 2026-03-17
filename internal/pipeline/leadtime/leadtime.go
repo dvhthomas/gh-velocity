@@ -151,10 +151,10 @@ func (p *BulkPipeline) Render(rc format.RenderContext) error {
 	repo := p.Owner + "/" + p.Repo
 	switch rc.Format {
 	case format.JSON:
-		return WriteBulkJSON(rc.Writer, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL, p.Warnings)
+		return WriteBulkJSON(rc.Writer, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL, p.Warnings, p.Insights)
 	case format.Markdown:
-		return WriteBulkMarkdown(rc, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL)
+		return WriteBulkMarkdown(rc, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL, p.Insights)
 	default:
-		return WriteBulkPretty(rc, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL)
+		return WriteBulkPretty(rc, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL, p.Insights)
 	}
 }

@@ -1,4 +1,11 @@
 ## Cycle Time: {{.Repository}} ({{date .Since}} – {{date .Until}} UTC) [{{.Strategy}}]
+{{- if .Insights}}
+
+**Insights:**
+{{- range .Insights}}
+- {{.}}
+{{- end}}
+{{- end}}
 {{if .Items}}
 | Issue | Title | Labels | Started (UTC) | Closed (UTC) | Cycle Time |
 | ---: | --- | --- | --- | --- | --- |

@@ -21,18 +21,28 @@ var markdownTmpl = template.Must(
 
 // --- JSON ---
 
+type jsonThroughputInsight struct {
+	Type    string `json:"type"`
+	Message string `json:"message"`
+}
+
 type jsonOutput struct {
-	Repository string            `json:"repository"`
-	Window     format.JSONWindow `json:"window"`
-	SearchURL  string            `json:"search_url"`
-	Issues     int               `json:"issues_closed"`
-	PRs        int               `json:"prs_merged"`
-	Total      int               `json:"total"`
-	Warnings   []string          `json:"warnings,omitempty"`
+	Repository string                 `json:"repository"`
+	Window     format.JSONWindow      `json:"window"`
+	SearchURL  string                 `json:"search_url"`
+	Insights   []jsonThroughputInsight `json:"insights,omitempty"`
+	Issues     int                    `json:"issues_closed"`
+	PRs        int                    `json:"prs_merged"`
+	Total      int                    `json:"total"`
+	Warnings   []string               `json:"warnings,omitempty"`
 }
 
 // WriteJSON writes throughput as JSON.
-func WriteJSON(w io.Writer, r model.ThroughputResult, searchURL string, warnings []string) error {
+func WriteJSON(w io.Writer, r model.ThroughputResult, searchURL string, warnings []string, insights []model.Insight) error {
+	var jsonIns []jsonThroughputInsight
+	for _, ins := range insights {
+		jsonIns = append(jsonIns, jsonThroughputInsight{Type: ins.Type, Message: ins.Message})
+	}
 	out := jsonOutput{
 		Repository: r.Repository,
 		Window: format.JSONWindow{
@@ -40,6 +50,7 @@ func WriteJSON(w io.Writer, r model.ThroughputResult, searchURL string, warnings
 			Until: r.Until.UTC().Format(time.RFC3339),
 		},
 		SearchURL: searchURL,
+		Insights:  jsonIns,
 		Issues:    r.IssuesClosed,
 		PRs:       r.PRsMerged,
 		Total:     r.IssuesClosed + r.PRsMerged,
@@ -56,6 +67,7 @@ type templateData struct {
 	Repository string
 	Since      time.Time
 	Until      time.Time
+	Insights   []string
 	Issues     int
 	PRs        int
 	Total      int
@@ -63,11 +75,16 @@ type templateData struct {
 }
 
 // WriteMarkdown writes throughput as markdown.
-func WriteMarkdown(w io.Writer, r model.ThroughputResult, searchURL string) error {
+func WriteMarkdown(w io.Writer, r model.ThroughputResult, searchURL string, insights []model.Insight) error {
+	var insightMsgs []string
+	for _, ins := range insights {
+		insightMsgs = append(insightMsgs, ins.Message)
+	}
 	return markdownTmpl.Execute(w, templateData{
 		Repository: r.Repository,
 		Since:      r.Since,
 		Until:      r.Until,
+		Insights:   insightMsgs,
 		Issues:     r.IssuesClosed,
 		PRs:        r.PRsMerged,
 		Total:      r.IssuesClosed + r.PRsMerged,
@@ -78,9 +95,10 @@ func WriteMarkdown(w io.Writer, r model.ThroughputResult, searchURL string) erro
 // --- Pretty ---
 
 // WritePretty writes throughput as formatted text.
-func WritePretty(w io.Writer, r model.ThroughputResult, searchURL string) error {
+func WritePretty(w io.Writer, r model.ThroughputResult, searchURL string, insights []model.Insight) error {
 	fmt.Fprintf(w, "Throughput: %s (%s – %s UTC)\n\n",
 		r.Repository, r.Since.UTC().Format(time.DateOnly), r.Until.UTC().Format(time.DateOnly))
+	model.WriteInsightsPretty(w, insights)
 	fmt.Fprintf(w, "  Issues closed: %d\n", r.IssuesClosed)
 	fmt.Fprintf(w, "  PRs merged:    %d\n", r.PRsMerged)
 	fmt.Fprintf(w, "  Total:         %d\n", r.IssuesClosed+r.PRsMerged)

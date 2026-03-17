@@ -1,4 +1,11 @@
 ## Lead Time: {{.Repository}} ({{date .Since}} – {{date .Until}} UTC)
+{{- if .Insights}}
+
+**Insights:**
+{{- range .Insights}}
+- {{.}}
+{{- end}}
+{{- end}}
 {{if .Items}}
 | Issue | Title | Labels | Created (UTC) | Closed (UTC) | Lead Time |
 | ---: | --- | --- | --- | --- | --- |

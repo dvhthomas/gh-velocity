@@ -1,4 +1,11 @@
 ## Throughput: {{.Repository}} ({{date .Since}} – {{date .Until}} UTC)
+{{- if .Insights}}
+
+**Insights:**
+{{- range .Insights}}
+- {{.}}
+{{- end}}
+{{- end}}
 
 | Metric | Count |
 | --- | --- |
