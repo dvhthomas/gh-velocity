@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -81,6 +82,60 @@ func TestWriteReportArtifacts_CreatesPerSectionFiles(t *testing.T) {
 		if info.Size() == 0 {
 			t.Errorf("expected file %s to be non-empty", f)
 		}
+	}
+}
+
+func TestWriteReportArtifacts_ReportMDIncludesDetailSections(t *testing.T) {
+	dir := t.TempDir()
+	deps := &Deps{Format: format.Markdown}
+
+	now := time.Now()
+	since := now.Add(-7 * 24 * time.Hour)
+	dur := 48 * time.Hour
+
+	result := model.StatsResult{
+		Repository: "test/repo",
+		Since:      since,
+		Until:      now,
+		LeadTime:   &model.Stats{Count: 5, Mean: &dur, Median: &dur},
+		Throughput: &model.StatsThroughput{IssuesClosed: 10, PRsMerged: 5},
+	}
+
+	leadPipeline := &leadtime.BulkPipeline{
+		Owner: "test", Repo: "repo",
+		Since: since, Until: now,
+		Items: []leadtime.BulkItem{
+			{
+				Issue:  model.Issue{Number: 1, Title: "Test issue", CreatedAt: since, ClosedAt: &now},
+				Metric: model.Metric{Duration: &dur},
+			},
+		},
+		Stats: *result.LeadTime,
+	}
+
+	sections := []artifactSection{
+		leadTimeArtifact(leadPipeline),
+	}
+
+	if err := writeReportArtifacts(deps, dir, result, sections); err != nil {
+		t.Fatalf("writeReportArtifacts failed: %v", err)
+	}
+
+	// report.md should contain: the summary table AND the detail section.
+	data, err := os.ReadFile(filepath.Join(dir, "report.md"))
+	if err != nil {
+		t.Fatalf("reading report.md: %v", err)
+	}
+	content := string(data)
+
+	if !strings.Contains(content, "## Report:") {
+		t.Error("report.md missing summary header")
+	}
+	if !strings.Contains(content, "<details>") {
+		t.Error("report.md missing detail sections (<details> block)")
+	}
+	if !strings.Contains(content, "Lead Time") {
+		t.Error("report.md missing lead time detail")
 	}
 }
 

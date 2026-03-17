@@ -476,15 +476,25 @@ func writeReportArtifacts(deps *Deps, dir string, result model.StatsResult, sect
 		return fmt.Errorf("writing report.json: %w", err)
 	}
 
-	// Markdown
+	// Markdown — full composite: Key Findings + metrics table + detail sections.
 	mdFile, err := os.Create(filepath.Join(dir, "report.md"))
 	if err != nil {
 		return fmt.Errorf("creating report.md: %w", err)
 	}
 	defer mdFile.Close()
 	rctx := deps.RenderCtx(mdFile)
+	rctx.Format = format.Markdown
 	if err := format.WriteReportMarkdown(rctx, result); err != nil {
 		return fmt.Errorf("writing report.md: %w", err)
+	}
+	// Append detail sections as collapsible blocks.
+	for _, s := range sections {
+		fmt.Fprintf(mdFile, "\n<details>\n<summary>%s</summary>\n\n", s.Name)
+		if err := s.WriteMD(mdFile, rctx); err != nil {
+			return fmt.Errorf("writing %s detail in report.md: %w", s.Name, err)
+		}
+		fmt.Fprintln(mdFile, "</details>")
+		fmt.Fprintln(mdFile)
 	}
 
 	// Per-section artifacts.
