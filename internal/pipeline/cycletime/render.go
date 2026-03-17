@@ -254,6 +254,7 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 	fmt.Fprintf(rc.Writer, "Cycle Time: %s (%s – %s UTC) [%s]\n\n",
 		repo, since.UTC().Format(time.DateOnly), until.UTC().Format(time.DateOnly), strategy)
 	model.WriteInsightsPretty(rc.Writer, insights)
+	fmt.Fprintf(rc.Writer, "  Summary: %s\n\n", format.FormatStatsSummary(stats))
 
 	if len(sorted) == 0 {
 		fmt.Fprintln(rc.Writer, "  No issues closed in this period.")
@@ -282,12 +283,7 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 		tp.AddField(format.FormatMetricDuration(item.Metric))
 		tp.EndRow()
 	}
-	if err := tp.Render(); err != nil {
-		return err
-	}
-
-	fmt.Fprintf(rc.Writer, "\n%s\n", format.FormatStatsSummary(stats))
-	return nil
+	return tp.Render()
 }
 
 // --- Helpers ---

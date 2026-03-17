@@ -6,14 +6,19 @@
 - {{.}}
 {{- end}}
 {{- end}}
+
+**Summary:** {{.Summary}}
 {{if .Items}}
+<details>
+<summary>Details ({{len .Items}} issues)</summary>
+
 | Issue | Title | Labels | Started (UTC) | Closed (UTC) | Cycle Time |
 | ---: | --- | --- | --- | --- | --- |
 {{- range .Items}}
 | {{.Link}} | {{.Title}} | {{.Labels}} | {{.Started}} | {{.Closed}} | {{.CycleTime}} |
 {{- end}}
 
-**Summary:** {{.Summary}}
+</details>
 {{- else}}
 _No issues closed in this period._
 {{- if .SearchURL}}
