@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/bitsbyme/gh-velocity/internal/classify"
@@ -377,7 +378,17 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 
 	// Write artifacts — pure rendering from the already-computed result.
 	if artifactDir != "" {
-		if err := writeReportArtifacts(deps, artifactDir, result); err != nil {
+		var sections []artifactSection
+		if leadOK && leadPipeline.Stats.Count > 0 {
+			sections = append(sections, leadTimeArtifact(leadPipeline))
+		}
+		if cycleOK && cyclePipeline.Stats.Count > 0 {
+			sections = append(sections, cycleTimeArtifact(cyclePipeline, cfg.CycleTime.Strategy))
+		}
+		if throughputOK {
+			sections = append(sections, throughputArtifact(throughputPipeline))
+		}
+		if err := writeReportArtifacts(deps, artifactDir, result, sections); err != nil {
 			return err
 		}
 	}
@@ -400,9 +411,57 @@ func writeDetail(rc format.RenderContext, summary string, md, pretty func() erro
 	return nil
 }
 
+// artifactSection describes a per-section artifact that can be written as JSON and Markdown.
+type artifactSection struct {
+	Name      string                                   // filename stem, e.g. "flow-lead-time"
+	WriteJSON func(w *os.File) error                   // writes JSON to the file
+	WriteMD   func(w *os.File, rc format.RenderContext) error // writes Markdown to the file
+}
+
+// leadTimeArtifact creates an artifactSection for the lead-time pipeline.
+func leadTimeArtifact(p *leadtime.BulkPipeline) artifactSection {
+	repo := p.Owner + "/" + p.Repo
+	return artifactSection{
+		Name: "flow-lead-time",
+		WriteJSON: func(w *os.File) error {
+			return leadtime.WriteBulkJSON(w, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL, p.Warnings, p.Insights)
+		},
+		WriteMD: func(w *os.File, rc format.RenderContext) error {
+			return leadtime.WriteBulkMarkdown(rc, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL, p.Insights)
+		},
+	}
+}
+
+// cycleTimeArtifact creates an artifactSection for the cycle-time pipeline.
+func cycleTimeArtifact(p *cycletimepipe.BulkPipeline, strategy string) artifactSection {
+	repo := p.Owner + "/" + p.Repo
+	return artifactSection{
+		Name: "flow-cycle-time",
+		WriteJSON: func(w *os.File) error {
+			return cycletimepipe.WriteBulkJSON(w, repo, p.Since, p.Until, strategy, p.Items, p.Stats, p.SearchURL, p.Warnings, p.Insights)
+		},
+		WriteMD: func(w *os.File, rc format.RenderContext) error {
+			return cycletimepipe.WriteBulkMarkdown(rc, repo, p.Since, p.Until, strategy, p.Items, p.Stats, p.SearchURL, p.Insights)
+		},
+	}
+}
+
+// throughputArtifact creates an artifactSection for the throughput pipeline.
+func throughputArtifact(p *throughput.Pipeline) artifactSection {
+	return artifactSection{
+		Name: "flow-throughput",
+		WriteJSON: func(w *os.File) error {
+			return throughput.WriteJSON(w, p.Result, p.SearchURL, p.Warnings, p.Insights)
+		},
+		WriteMD: func(w *os.File, rc format.RenderContext) error {
+			return throughput.WriteMarkdown(w, p.Result, p.SearchURL, p.Insights)
+		},
+	}
+}
+
 // writeReportArtifacts writes report output in all formats to the given
-// directory. This is a pure rendering step — no API calls.
-func writeReportArtifacts(deps *Deps, dir string, result model.StatsResult) error {
+// directory, plus per-section artifacts. This is a pure rendering step — no API calls.
+func writeReportArtifacts(deps *Deps, dir string, result model.StatsResult, sections []artifactSection) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("creating artifact dir: %w", err)
 	}
@@ -428,7 +487,35 @@ func writeReportArtifacts(deps *Deps, dir string, result model.StatsResult) erro
 		return fmt.Errorf("writing report.md: %w", err)
 	}
 
-	log.Debug("artifacts written to %s (report.json, report.md)", dir)
+	// Per-section artifacts.
+	for _, s := range sections {
+		jf, err := os.Create(filepath.Join(dir, s.Name+".json"))
+		if err != nil {
+			return fmt.Errorf("creating %s.json: %w", s.Name, err)
+		}
+		if err := s.WriteJSON(jf); err != nil {
+			jf.Close()
+			return fmt.Errorf("writing %s.json: %w", s.Name, err)
+		}
+		jf.Close()
+
+		mf, err := os.Create(filepath.Join(dir, s.Name+".md"))
+		if err != nil {
+			return fmt.Errorf("creating %s.md: %w", s.Name, err)
+		}
+		mrc := deps.RenderCtx(mf)
+		if err := s.WriteMD(mf, mrc); err != nil {
+			mf.Close()
+			return fmt.Errorf("writing %s.md: %w", s.Name, err)
+		}
+		mf.Close()
+	}
+
+	names := []string{"report.json", "report.md"}
+	for _, s := range sections {
+		names = append(names, s.Name+".json", s.Name+".md")
+	}
+	log.Debug("artifacts written to %s (%s)", dir, strings.Join(names, ", "))
 	return nil
 }
 
