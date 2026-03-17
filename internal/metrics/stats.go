@@ -84,6 +84,8 @@ func ComputeStats(durations []time.Duration) model.Stats {
 	if n >= 4 {
 		q1 := percentile(sorted, 25)
 		q3 := percentile(sorted, 75)
+		stats.Q1 = &q1
+		stats.Q3 = &q3
 		iqr := q3 - q1
 		cutoff := q3 + time.Duration(float64(iqr)*1.5)
 		stats.OutlierCutoff = &cutoff

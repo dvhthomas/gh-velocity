@@ -48,19 +48,97 @@ In practice: if most issues in a release close in 5-15 days, an issue that took 
 
 Outlier detection requires at least 4 data points. Flagged issues appear with `OUTLIER` in pretty and markdown output, and `lead_time_outlier: true` in JSON output.
 
-## Standard deviation
+## Standard deviation and predictability (CV)
 
-Standard deviation measures how spread out your durations are. The tool uses sample standard deviation (N-1 denominator).
+Standard deviation measures how spread out your durations are. Think of it as "on average, how far is each item from the mean?" A small standard deviation means items cluster tightly; a large one means they are all over the map. The tool uses sample standard deviation (divides by N-1, not N).
 
-The raw number is hard to interpret on its own. The useful signal is the ratio of standard deviation to mean:
+But the raw standard deviation is hard to interpret on its own. If someone tells you "the standard deviation of our lead times is 20 days," your follow-up question should be "20 days compared to what?" A 20-day spread when your mean is 5 days is chaotic. A 20-day spread when your mean is 200 days is rock-solid.
 
-- **stddev / mean < 0.5**: Your delivery times are fairly consistent.
-- **stddev / mean near 1.0**: Significant variability. Some issues take much longer than others.
-- **stddev / mean > 1.0**: Highly variable. Predicting delivery time for any single issue is unreliable.
+### Coefficient of variation (CV)
 
-High variability is not inherently bad -- it often reflects a mix of quick fixes and longer projects. But if you are trying to make delivery more predictable, reducing this ratio is a concrete goal.
+The **coefficient of variation** answers "compared to what?" by dividing:
 
-Standard deviation requires at least 2 data points.
+```
+CV = standard deviation / mean
+```
+
+The result is a dimensionless ratio. A CV of 0.3 means the standard deviation is 30% of the mean. A CV of 2.0 means the standard deviation is twice the mean.
+
+**Why CV instead of raw standard deviation?** Issue durations naturally span a huge range. A backlog might contain a 20-minute typo fix and a 3-month platform migration, and both close in the same sprint. Standard deviation alone cannot tell you whether the spread in your data is "a lot" or "normal for the scale." CV normalizes the spread so you can compare across time windows, across teams, and across repositories -- even when the absolute durations are very different.
+
+An analogy: imagine two pizza delivery services. Service A delivers in 25-35 minutes (mean 30, stddev 5, CV 0.17). Service B delivers in 10-60 minutes (mean 30, stddev 18, CV 0.60). Both have the same mean, but Service B is far less predictable. CV captures this; raw standard deviation alone might mislead you if the means differed.
+
+### How to read the predictability label
+
+gh-velocity translates CV into a plain-language **predictability** label so you do not have to remember thresholds:
+
+| CV | Label | What it tells you |
+|----|-------|-------------------|
+| < 0.5 | _(not shown)_ | Delivery times are consistent. If someone asks "how long will this take?" the median is a solid answer. |
+| 0.5 -- 1.0 | **moderate** | Noticeable variation. Most items land near the median, but some take 2-3x longer. Worth investigating the slow ones. |
+| > 1.0 | **low** | The spread exceeds the average itself. Predicting any single item's duration is unreliable. The median is a better anchor than the mean, but expect surprises. |
+
+### When is high variability OK?
+
+High variability is not automatically bad. Consider two scenarios:
+
+1. **Mixed-size backlog** (bugs + features + epics): A team closing 1-hour hotfixes and 3-week features in the same window will naturally have a high CV. This is expected. The insight to take away is: "don't quote the mean as a delivery estimate."
+
+2. **Uniform sprint work** (all items are roughly story-point sized): If you expect items to take 2-5 days each, a CV of 1.5 means something is off. Some items are ballooning. The insight to take away is: "investigate the slow outliers."
+
+The predictability label helps you spot the second scenario without doing arithmetic.
+
+### Worked example
+
+From a real repository (the astral-sh/uv report above):
+
+| Measure | Value |
+|---------|-------|
+| Mean lead time | 5h 56m |
+| Median lead time | 2h 35m |
+| Standard deviation | 8h 33m |
+| CV | 1.4 |
+| Predictability | low |
+
+The CV of 1.4 means the spread is 1.4 times the mean. In plain terms: the "typical" issue takes about 2.5 hours (median), but the variation is so large that some items take 10x longer. The tool surfaces this as:
+
+> Delivery times vary widely (CV 1.4) -- the median is a more reliable estimate than the mean.
+
+If you looked only at the mean (6 hours), you might set expectations that most items take half a day. The median (2.5 hours) is closer to what people actually experience. The CV tells you the mean is distorted.
+
+### A more extreme example
+
+From cli/cli v2.67.0:
+
+| Measure | Value |
+|---------|-------|
+| Mean lead time | 280 days |
+| Median lead time | 60 days |
+| Standard deviation | ~1,300 days |
+| CV | ~4.6 |
+| Predictability | low |
+
+A CV of 4.6 means the standard deviation is nearly five times the mean. Two issues that had been open for 4+ years were closed alongside recent work. The mean (280 days) is wildly misleading. The median (60 days) is the number to quote. The predictability label "low" tells you this at a glance.
+
+### CV in JSON output
+
+JSON output includes both the raw CV value and the label:
+
+```json
+{
+  "cv": 1.4,
+  "predictability": "low"
+}
+```
+
+You can use these in scripts or dashboards. For example, to alert when predictability drops:
+
+```bash
+gh velocity flow lead-time --since 30d --format json | \
+  jq -r 'if .stats.cv > 1.0 then "WARNING: low predictability (CV \(.stats.cv))" else "OK" end'
+```
+
+Standard deviation and CV require at least 2 data points.
 
 ## See also
 

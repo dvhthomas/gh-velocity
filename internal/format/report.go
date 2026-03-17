@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/model"
@@ -166,6 +167,7 @@ func WriteReportPretty(rc RenderContext, r model.StatsResult) error {
 	if r.CycleTime != nil {
 		fmt.Fprintf(w, "  Cycle Time:  %s\n", FormatStatsSummary(*r.CycleTime))
 	} else if r.CycleTimeStrategy != "" {
+
 		switch r.CycleTimeStrategy {
 		case model.StrategyIssue:
 			fmt.Fprintf(w, "  Cycle Time:  not available (configure lifecycle.in-progress with project_status or match)\n")
@@ -236,7 +238,8 @@ func buildInsightGroups(r model.StatsResult) []insightGroup {
 	return groups
 }
 
-// FormatStatsSummary returns a compact stats summary like "median 3.2d, mean 5.1d, P90 8.1d (n=14, 2 outliers)".
+// FormatStatsSummary returns a compact one-line stats summary for table cells:
+// "median 43d 20h, P90 446d 20h, predictability: low (n=21)".
 func FormatStatsSummary(s model.Stats) string {
 	if s.Count == 0 {
 		return "no data"
@@ -245,22 +248,74 @@ func FormatStatsSummary(s model.Stats) string {
 	if s.Median != nil {
 		result += fmt.Sprintf("median %s", FormatDuration(*s.Median))
 	}
-	if s.Mean != nil {
-		if result != "" {
-			result += ", "
-		}
-		result += fmt.Sprintf("mean %s", FormatDuration(*s.Mean))
-	}
 	if s.P90 != nil {
 		if result != "" {
 			result += ", "
 		}
 		result += fmt.Sprintf("P90 %s", FormatDuration(*s.P90))
 	}
-	suffix := fmt.Sprintf("n=%d", s.Count)
-	if s.OutlierCount > 0 {
-		suffix += fmt.Sprintf(", %d outliers", s.OutlierCount)
+	if label := PredictabilityLabel(ComputeCV(s)); label != "" {
+		if result != "" {
+			result += ", "
+		}
+		result += fmt.Sprintf("predictability: %s", label)
 	}
-	result += fmt.Sprintf(" (%s)", suffix)
+	result += fmt.Sprintf(" (n=%d)", s.Count)
 	return result
+}
+
+// FormatStatsDetail returns a bullet list of stats for detail sections.
+// Each entry is a line like "**Median:** 43d 20h". Suitable for markdown
+// (with "- " prefix) or pretty-text (with aligned labels).
+func FormatStatsDetail(s model.Stats) []string {
+	if s.Count == 0 {
+		return []string{"No data"}
+	}
+	var lines []string
+	if s.Median != nil {
+		lines = append(lines, fmt.Sprintf("**Median:** %s", FormatDuration(*s.Median)))
+	}
+	if s.Mean != nil {
+		lines = append(lines, fmt.Sprintf("**Mean:** %s", FormatDuration(*s.Mean)))
+	}
+	if s.P90 != nil {
+		lines = append(lines, fmt.Sprintf("**P90:** %s", FormatDuration(*s.P90)))
+	}
+	cv := ComputeCV(s)
+	if label := PredictabilityLabel(cv); label != "" {
+		lines = append(lines, fmt.Sprintf("**Predictability:** %s (CV %.1f)", label, *cv))
+	}
+	sampleSize := fmt.Sprintf("%d", s.Count)
+	if s.OutlierCount > 0 {
+		sampleSize += fmt.Sprintf(" (%d outliers)", s.OutlierCount)
+	}
+	lines = append(lines, fmt.Sprintf("**Sample size:** %s", sampleSize))
+	return lines
+}
+
+// ComputeCV returns the coefficient of variation (stddev/mean) for stats,
+// or nil if insufficient data.
+func ComputeCV(s model.Stats) *float64 {
+	if s.StdDev == nil || s.Mean == nil || *s.Mean == 0 {
+		return nil
+	}
+	cv := float64(*s.StdDev) / float64(*s.Mean)
+	cv = math.Round(cv*10) / 10 // one decimal place
+	return &cv
+}
+
+// PredictabilityLabel returns a human-readable predictability label based on CV.
+// Returns "" for high predictability (CV < 0.5) or nil CV.
+func PredictabilityLabel(cv *float64) string {
+	if cv == nil {
+		return ""
+	}
+	switch {
+	case *cv > 1.0:
+		return "low"
+	case *cv >= 0.5:
+		return "moderate"
+	default:
+		return ""
+	}
 }

@@ -51,8 +51,12 @@ type JSONStats struct {
 	StdDevSeconds        *int64        `json:"stddev_seconds,omitempty"`
 	P90Seconds           *int64        `json:"p90_seconds,omitempty"`
 	P95Seconds           *int64        `json:"p95_seconds,omitempty"`
+	Q1Seconds            *int64        `json:"q1_seconds,omitempty"`
+	Q3Seconds            *int64        `json:"q3_seconds,omitempty"`
 	OutlierCutoffSeconds *int64        `json:"outlier_cutoff_seconds,omitempty"`
 	OutlierCount         int           `json:"outlier_count,omitempty"`
+	CV                   *float64      `json:"cv,omitempty"`
+	Predictability       string        `json:"predictability,omitempty"`
 	Insights             []jsonInsight `json:"insights,omitempty"`
 }
 
@@ -67,6 +71,7 @@ func DurationToSeconds(d *time.Duration) *int64 {
 
 // StatsToJSON converts model.Stats to its JSON representation.
 func StatsToJSON(s model.Stats) JSONStats {
+	cv := ComputeCV(s)
 	return JSONStats{
 		Count:                s.Count,
 		MeanSeconds:          DurationToSeconds(s.Mean),
@@ -74,7 +79,11 @@ func StatsToJSON(s model.Stats) JSONStats {
 		StdDevSeconds:        DurationToSeconds(s.StdDev),
 		P90Seconds:           DurationToSeconds(s.P90),
 		P95Seconds:           DurationToSeconds(s.P95),
+		Q1Seconds:            DurationToSeconds(s.Q1),
+		Q3Seconds:            DurationToSeconds(s.Q3),
 		OutlierCutoffSeconds: DurationToSeconds(s.OutlierCutoff),
 		OutlierCount:         s.OutlierCount,
+		CV:                   cv,
+		Predictability:       PredictabilityLabel(cv),
 	}
 }
