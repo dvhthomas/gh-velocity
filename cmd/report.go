@@ -329,9 +329,9 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 		if leadOK && leadPipeline.Stats.Count > 0 {
 			summary := fmt.Sprintf("Lead Time (%d issues)", leadPipeline.Stats.Count)
 			if err := writeDetail(rc, summary, func() error {
-				return leadtime.WriteBulkMarkdown(rc, repo, since, until, leadPipeline.Items, leadPipeline.Stats, leadPipeline.SearchURL)
+				return leadtime.WriteBulkMarkdown(rc, repo, since, until, leadPipeline.Items, leadPipeline.Stats, leadPipeline.SearchURL, leadPipeline.Insights)
 			}, func() error {
-				return leadtime.WriteBulkPretty(rc, repo, since, until, leadPipeline.Items, leadPipeline.Stats, leadPipeline.SearchURL)
+				return leadtime.WriteBulkPretty(rc, repo, since, until, leadPipeline.Items, leadPipeline.Stats, leadPipeline.SearchURL, leadPipeline.Insights)
 			}); err != nil {
 				return err
 			}
@@ -340,9 +340,9 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 		if cycleOK && cyclePipeline.Stats.Count > 0 {
 			summary := fmt.Sprintf("Cycle Time (%d items)", cyclePipeline.Stats.Count)
 			if err := writeDetail(rc, summary, func() error {
-				return cycletimepipe.WriteBulkMarkdown(rc, repo, since, until, cfg.CycleTime.Strategy, cyclePipeline.Items, cyclePipeline.Stats, cyclePipeline.SearchURL)
+				return cycletimepipe.WriteBulkMarkdown(rc, repo, since, until, cfg.CycleTime.Strategy, cyclePipeline.Items, cyclePipeline.Stats, cyclePipeline.SearchURL, cyclePipeline.Insights)
 			}, func() error {
-				return cycletimepipe.WriteBulkPretty(rc, repo, since, until, cfg.CycleTime.Strategy, cyclePipeline.Items, cyclePipeline.Stats, cyclePipeline.SearchURL)
+				return cycletimepipe.WriteBulkPretty(rc, repo, since, until, cfg.CycleTime.Strategy, cyclePipeline.Items, cyclePipeline.Stats, cyclePipeline.SearchURL, cyclePipeline.Insights)
 			}); err != nil {
 				return err
 			}
@@ -352,9 +352,9 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 			total := throughputPipeline.Result.IssuesClosed + throughputPipeline.Result.PRsMerged
 			summary := fmt.Sprintf("Throughput (%d items)", total)
 			if err := writeDetail(rc, summary, func() error {
-				return throughput.WriteMarkdown(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL)
+				return throughput.WriteMarkdown(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL, throughputPipeline.Insights)
 			}, func() error {
-				return throughput.WritePretty(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL)
+				return throughput.WritePretty(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL, throughputPipeline.Insights)
 			}); err != nil {
 				return err
 			}
