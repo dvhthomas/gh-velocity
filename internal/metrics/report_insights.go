@@ -49,7 +49,7 @@ func GenerateStatsInsights(stats model.Stats, section string, items []ItemRef) [
 	if stats.OutlierCount >= OutlierMinCount && stats.OutlierCutoff != nil {
 		insights = append(insights, model.Insight{
 			Type:    "outlier_detection",
-			Message: fmt.Sprintf("%d outliers above %s threshold — consider investigating long-lived items.", stats.OutlierCount, fmtDur(*stats.OutlierCutoff)),
+			Message: fmt.Sprintf("%d outliers above the %s IQR threshold (Q3 + 1.5×IQR) — consider investigating long-lived items.", stats.OutlierCount, fmtDur(*stats.OutlierCutoff)),
 		})
 	}
 
