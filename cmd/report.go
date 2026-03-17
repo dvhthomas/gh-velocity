@@ -249,6 +249,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 			result.Warnings = append(result.Warnings, fmt.Sprintf("lead time: %v", err))
 		} else {
 			result.LeadTime = &leadPipeline.Stats
+			result.LeadTimeInsights = leadPipeline.Insights
 		}
 	}
 
@@ -259,6 +260,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 		} else {
 			result.CycleTime = &cyclePipeline.Stats
 			result.CycleTimeStrategy = cfg.CycleTime.Strategy
+			result.CycleTimeInsights = cyclePipeline.Insights
 		}
 	}
 	// Always surface strategy so format layer can show N/A context.
@@ -275,6 +277,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 				IssuesClosed: throughputPipeline.Result.IssuesClosed,
 				PRsMerged:    throughputPipeline.Result.PRsMerged,
 			}
+			result.ThroughputInsights = throughputPipeline.Insights
 		}
 		// Surface partial-failure warnings (e.g., PR search rate-limited).
 		result.Warnings = append(result.Warnings, throughputPipeline.Warnings...)
@@ -289,9 +292,11 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 		}
 	}
 
-	// Quality: defect rate from categories (reuses lead time's closed issues)
+	// Quality: defect rate + insights from categories (reuses lead time's closed issues)
 	if leadOK && len(cfg.Quality.Categories) > 0 {
-		result.Quality = computeQuality(leadPipeline.Items, cfg.Quality.Categories)
+		q, qInsights := computeQualityWithInsights(leadPipeline.Items, cfg.Quality.Categories, cfg.Quality.HotfixWindowHours)
+		result.Quality = q
+		result.QualityInsights = qInsights
 	}
 
 	// TODO(PR C): WIP from project board or active_labels config
@@ -427,31 +432,53 @@ func writeReportArtifacts(deps *Deps, dir string, result model.StatsResult) erro
 	return nil
 }
 
-// computeQuality computes defect rate from closed issues using the classifier.
-// Issues classified as "bug" are counted as defects.
-func computeQuality(items []leadtime.BulkItem, categories []model.CategoryConfig) *model.StatsQuality {
+// computeQualityWithInsights computes defect rate and quality insights from closed issues.
+// Issues classified as "bug" are counted as defects. Returns both the quality stats
+// and insight observations about defect rate, bug fix speed, category distribution, and hotfixes.
+func computeQualityWithInsights(items []leadtime.BulkItem, categories []model.CategoryConfig, hotfixWindowHours float64) (*model.StatsQuality, []model.Insight) {
 	if len(items) == 0 {
-		return nil
+		return nil, nil
 	}
 	classifier, err := classify.NewClassifier(categories)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
+
+	// Classify all items and build ItemRef slices for insight generation.
 	bugCount := 0
+	var insightItems []metrics.ItemRef
 	for _, item := range items {
 		result := classifier.Classify(classify.Input{
 			Labels:    item.Issue.Labels,
 			IssueType: item.Issue.IssueType,
 			Title:     item.Issue.Title,
 		})
-		if result.Category() == "bug" {
+		cat := result.Category()
+		if cat == "bug" {
 			bugCount++
 		}
+		dur := item.Metric.Duration
+		if dur != nil {
+			insightItems = append(insightItems, metrics.ItemRef{
+				Number:   item.Issue.Number,
+				Title:    item.Issue.Title,
+				Duration: *dur,
+				Category: cat,
+			})
+		}
 	}
+
 	defectRate := float64(bugCount) / float64(len(items))
-	return &model.StatsQuality{
+	quality := &model.StatsQuality{
 		BugCount:    bugCount,
 		TotalIssues: len(items),
 		DefectRate:  defectRate,
 	}
+
+	hwh := int(hotfixWindowHours)
+	if hwh <= 0 {
+		hwh = metrics.HotfixMaxHours
+	}
+	insights := metrics.GenerateQualityInsights(*quality, insightItems, hwh)
+	return quality, insights
 }

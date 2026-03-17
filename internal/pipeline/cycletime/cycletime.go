@@ -177,6 +177,7 @@ type BulkPipeline struct {
 	Items    []BulkItem
 	Stats    model.Stats
 	Warnings []string
+	Insights []model.Insight
 }
 
 // GatherData fetches issues from GitHub search and pre-fetches project
@@ -241,7 +242,28 @@ func (p *BulkPipeline) ProcessData() error {
 			p.Warnings = append(p.Warnings, "Cycle time unavailable — no issues had a closing PR. Ensure PRs reference issues with 'closes #N'")
 		}
 	}
+
+	p.generateInsights()
 	return nil
+}
+
+// generateInsights derives human-readable observations from the computed stats.
+func (p *BulkPipeline) generateInsights() {
+	var statsPtr *model.Stats
+	if p.Stats.Count > 0 {
+		statsPtr = &p.Stats
+	}
+	items := make([]metrics.ItemRef, 0, len(p.Items))
+	for _, bi := range p.Items {
+		if bi.Metric.Duration != nil {
+			items = append(items, metrics.ItemRef{
+				Number:   bi.Issue.Number,
+				Title:    bi.Issue.Title,
+				Duration: *bi.Metric.Duration,
+			})
+		}
+	}
+	p.Insights = metrics.GenerateCycleTimeInsights(statsPtr, p.StrategyStr, items)
 }
 
 // Render writes the bulk cycle time results in the requested format.

@@ -9,6 +9,7 @@ import (
 
 	"github.com/bitsbyme/gh-velocity/internal/format"
 	gh "github.com/bitsbyme/gh-velocity/internal/github"
+	"github.com/bitsbyme/gh-velocity/internal/metrics"
 	"github.com/bitsbyme/gh-velocity/internal/model"
 )
 
@@ -31,6 +32,7 @@ type Pipeline struct {
 	// ProcessData output
 	Result   model.ThroughputResult
 	Warnings []string
+	Insights []model.Insight
 }
 
 // GatherData fetches issue and PR counts from GitHub search.
@@ -65,7 +67,13 @@ func (p *Pipeline) ProcessData() error {
 		IssuesClosed: p.issueCount,
 		PRsMerged:    p.prCount,
 	}
+	p.generateInsights()
 	return nil
+}
+
+// generateInsights derives human-readable observations from throughput counts.
+func (p *Pipeline) generateInsights() {
+	p.Insights = metrics.GenerateThroughputInsights(p.Result.IssuesClosed, p.Result.PRsMerged, nil)
 }
 
 // Render writes the throughput result in the requested format.

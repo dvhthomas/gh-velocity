@@ -101,6 +101,7 @@ type BulkPipeline struct {
 	Items    []BulkItem
 	Stats    model.Stats
 	Warnings []string
+	Insights []model.Insight
 }
 
 // GatherData fetches issues from GitHub search.
@@ -126,7 +127,23 @@ func (p *BulkPipeline) ProcessData() error {
 	}
 
 	p.Stats = metrics.ComputeStats(durations)
+	p.generateInsights()
 	return nil
+}
+
+// generateInsights derives human-readable observations from the computed stats.
+func (p *BulkPipeline) generateInsights() {
+	items := make([]metrics.ItemRef, 0, len(p.Items))
+	for _, bi := range p.Items {
+		if bi.Metric.Duration != nil {
+			items = append(items, metrics.ItemRef{
+				Number:   bi.Issue.Number,
+				Title:    bi.Issue.Title,
+				Duration: *bi.Metric.Duration,
+			})
+		}
+	}
+	p.Insights = metrics.GenerateStatsInsights(p.Stats, "Lead Time", items)
 }
 
 // Render writes the bulk lead time results in the requested format.
