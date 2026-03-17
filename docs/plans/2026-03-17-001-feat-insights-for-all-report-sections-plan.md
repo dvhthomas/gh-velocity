@@ -1,7 +1,7 @@
 ---
 title: "feat: insights for all report sections"
 type: feat
-status: active
+status: completed
 date: 2026-03-17
 origin: docs/brainstorms/2026-03-17-insights-for-all-report-sections-brainstorm.md
 ---
