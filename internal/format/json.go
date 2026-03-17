@@ -45,14 +45,15 @@ func MetricToJSON(m model.Metric) JSONMetric {
 }
 
 type JSONStats struct {
-	Count                int    `json:"count"`
-	MeanSeconds          *int64 `json:"mean_seconds"`
-	MedianSeconds        *int64 `json:"median_seconds"`
-	StdDevSeconds        *int64 `json:"stddev_seconds,omitempty"`
-	P90Seconds           *int64 `json:"p90_seconds,omitempty"`
-	P95Seconds           *int64 `json:"p95_seconds,omitempty"`
-	OutlierCutoffSeconds *int64 `json:"outlier_cutoff_seconds,omitempty"`
-	OutlierCount         int    `json:"outlier_count,omitempty"`
+	Count                int           `json:"count"`
+	MeanSeconds          *int64        `json:"mean_seconds"`
+	MedianSeconds        *int64        `json:"median_seconds"`
+	StdDevSeconds        *int64        `json:"stddev_seconds,omitempty"`
+	P90Seconds           *int64        `json:"p90_seconds,omitempty"`
+	P95Seconds           *int64        `json:"p95_seconds,omitempty"`
+	OutlierCutoffSeconds *int64        `json:"outlier_cutoff_seconds,omitempty"`
+	OutlierCount         int           `json:"outlier_count,omitempty"`
+	Insights             []jsonInsight `json:"insights,omitempty"`
 }
 
 // DurationToSeconds converts a duration pointer to seconds.
