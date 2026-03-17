@@ -1,7 +1,7 @@
 ---
 title: "Fix First-Run Experience and Strategy Completeness"
 type: fix
-status: active
+status: completed
 date: 2026-03-12
 origin: docs/brainstorms/2026-03-12-strategy-completeness-audit-brainstorm.md
 ---

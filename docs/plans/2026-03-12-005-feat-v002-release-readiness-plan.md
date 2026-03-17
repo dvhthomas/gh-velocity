@@ -1,7 +1,7 @@
 ---
 title: "v0.0.2 Release Readiness"
 type: feat
-status: active
+status: completed
 date: 2026-03-12
 ---
 

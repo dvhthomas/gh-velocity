@@ -1,7 +1,7 @@
 ---
 title: "Hugo Documentation Site for gh-velocity"
 date: 2026-03-14
-status: active
+status: completed
 type: brainstorm
 ---
 

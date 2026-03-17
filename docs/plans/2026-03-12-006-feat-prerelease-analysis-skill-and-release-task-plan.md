@@ -1,7 +1,7 @@
 ---
 title: "Pre-Release Analysis Skill and Release Task"
 type: feat
-status: active
+status: abandoned
 date: 2026-03-12
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "feat: Metrics Pipeline Interface, Config Required, and Empty Messaging"
 type: feat
-status: active
+status: completed
 date: 2026-03-12
 origin: docs/brainstorms/2026-03-12-metric-pipeline-interface-brainstorm.md
 supersedes: docs/plans/2026-03-12-001-feat-metrics-architecture-and-ux-plan.md
