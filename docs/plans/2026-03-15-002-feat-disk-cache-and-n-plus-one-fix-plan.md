@@ -1,7 +1,7 @@
 ---
 title: "feat: Disk cache and N+1 project status fix"
 type: feat
-status: active
+status: completed
 date: 2026-03-15
 origin: docs/brainstorms/2026-03-15-showcase-improvements-roadmap-brainstorm.md
 ---
