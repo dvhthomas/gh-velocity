@@ -28,7 +28,7 @@ type DiskCache struct {
 
 // diskEntry wraps cached data with metadata for type-safe deserialization.
 type diskEntry struct {
-	Type      string          `json:"type"`       // cache key prefix (e.g., "search-issues")
+	Type      string          `json:"type"` // cache key prefix (e.g., "search-issues")
 	CreatedAt time.Time       `json:"created_at"`
 	Data      json.RawMessage `json:"data"`
 }
