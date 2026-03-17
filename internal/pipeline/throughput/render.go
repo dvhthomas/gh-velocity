@@ -27,14 +27,14 @@ type jsonThroughputInsight struct {
 }
 
 type jsonOutput struct {
-	Repository string                 `json:"repository"`
-	Window     format.JSONWindow      `json:"window"`
-	SearchURL  string                 `json:"search_url"`
+	Repository string                  `json:"repository"`
+	Window     format.JSONWindow       `json:"window"`
+	SearchURL  string                  `json:"search_url"`
 	Insights   []jsonThroughputInsight `json:"insights,omitempty"`
-	Issues     int                    `json:"issues_closed"`
-	PRs        int                    `json:"prs_merged"`
-	Total      int                    `json:"total"`
-	Warnings   []string               `json:"warnings,omitempty"`
+	Issues     int                     `json:"issues_closed"`
+	PRs        int                     `json:"prs_merged"`
+	Total      int                     `json:"total"`
+	Warnings   []string                `json:"warnings,omitempty"`
 }
 
 // WriteJSON writes throughput as JSON.

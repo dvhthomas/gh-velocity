@@ -289,12 +289,11 @@ func (p *Pipeline) ProcessData() error {
 		iv := p.computeIteration(*current, nil)
 		// Compute cycle position for current iteration.
 		totalDays := int(current.EndDate.Sub(current.StartDate).Hours() / 24)
-		dayOfCycle := max(
+		dayOfCycle := min(
 			// 1-indexed: day 1 = first day
-			int(p.Now.Sub(current.StartDate).Hours()/24)+1, 1)
-		if dayOfCycle > totalDays {
-			dayOfCycle = totalDays
-		}
+			max(
+
+				int(p.Now.Sub(current.StartDate).Hours()/24)+1, 1), totalDays)
 		iv.DayOfCycle = dayOfCycle
 		iv.TotalDays = totalDays
 		p.Result.Current = &iv

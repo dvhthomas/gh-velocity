@@ -42,12 +42,12 @@ type jsonStatsOutput struct {
 }
 
 type jsonVelocitySummary struct {
-	AvgVelocity      float64      `json:"avg_velocity"`
-	AvgCompletionPct float64      `json:"avg_completion_pct"`
-	StdDev           float64      `json:"std_dev"`
-	EffortUnit       string       `json:"effort_unit"`
-	IterationCount   int          `json:"iteration_count"`
-	CurrentIteration string       `json:"current_iteration,omitempty"`
+	AvgVelocity      float64       `json:"avg_velocity"`
+	AvgCompletionPct float64       `json:"avg_completion_pct"`
+	StdDev           float64       `json:"std_dev"`
+	EffortUnit       string        `json:"effort_unit"`
+	IterationCount   int           `json:"iteration_count"`
+	CurrentIteration string        `json:"current_iteration,omitempty"`
 	Insights         []jsonInsight `json:"insights,omitempty"`
 }
 

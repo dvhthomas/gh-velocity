@@ -9,8 +9,8 @@ import (
 )
 
 // helpers
-func dur(days int) time.Duration       { return time.Duration(days) * 24 * time.Hour }
-func durH(hours int) time.Duration     { return time.Duration(hours) * time.Hour }
+func dur(days int) time.Duration            { return time.Duration(days) * 24 * time.Hour }
+func durH(hours int) time.Duration          { return time.Duration(hours) * time.Hour }
 func ptrDur(d time.Duration) *time.Duration { return &d }
 
 // assertInsights checks insight count and optional substring match.
@@ -123,7 +123,7 @@ func TestGenerateStatsInsights(t *testing.T) {
 			wantCount: 0,
 		},
 		{
-			name: "fastest/slowest callout with enough items",
+			name:  "fastest/slowest callout with enough items",
 			stats: model.Stats{Count: 5, Mean: ptrDur(dur(10)), Median: ptrDur(dur(8))},
 			items: []ItemRef{
 				{Number: 1, Title: "Quick fix", Duration: durH(2)},
@@ -137,7 +137,7 @@ func TestGenerateStatsInsights(t *testing.T) {
 			wantType:   "fastest_slowest",
 		},
 		{
-			name: "per-category comparison with two categories",
+			name:  "per-category comparison with two categories",
 			stats: model.Stats{Count: 6, Mean: ptrDur(dur(10)), Median: ptrDur(dur(8))},
 			items: []ItemRef{
 				{Number: 1, Title: "Bug 1", Duration: dur(2), Category: "bug"},
@@ -152,18 +152,18 @@ func TestGenerateStatsInsights(t *testing.T) {
 			wantType:   "category_comparison",
 		},
 		{
-			name: "per-category skipped with single category",
+			name:  "per-category skipped with single category",
 			stats: model.Stats{Count: 3, Mean: ptrDur(dur(5)), Median: ptrDur(dur(5))},
 			items: []ItemRef{
 				{Number: 1, Title: "A", Duration: dur(3), Category: "bug"},
 				{Number: 2, Title: "B", Duration: dur(5), Category: "bug"},
 				{Number: 3, Title: "C", Duration: dur(7), Category: "bug"},
 			},
-			wantCount:  1, // fastest/slowest only (count >= MinItemsForInsight)
-			wantType:   "fastest_slowest",
+			wantCount: 1, // fastest/slowest only (count >= MinItemsForInsight)
+			wantType:  "fastest_slowest",
 		},
 		{
-			name: "per-category skipped when items have no category",
+			name:  "per-category skipped when items have no category",
 			stats: model.Stats{Count: 4, Mean: ptrDur(dur(5)), Median: ptrDur(dur(5))},
 			items: []ItemRef{
 				{Number: 1, Title: "A", Duration: dur(3)},
@@ -171,8 +171,8 @@ func TestGenerateStatsInsights(t *testing.T) {
 				{Number: 3, Title: "C", Duration: dur(7)},
 				{Number: 4, Title: "D", Duration: dur(9)},
 			},
-			wantCount:  1, // fastest/slowest only
-			wantType:   "fastest_slowest",
+			wantCount: 1, // fastest/slowest only
+			wantType:  "fastest_slowest",
 		},
 		{
 			name: "multiple rules fire together",
@@ -234,17 +234,17 @@ func TestGenerateCycleTimeInsights(t *testing.T) {
 			wantType:   "no_data",
 		},
 		{
-			name:     "PR strategy with data shows review turnaround",
-			stats:    &model.Stats{Count: 10, Mean: ptrDur(durH(4)), Median: ptrDur(durH(2))},
-			strategy: model.StrategyPR,
+			name:       "PR strategy with data shows review turnaround",
+			stats:      &model.Stats{Count: 10, Mean: ptrDur(durH(4)), Median: ptrDur(durH(2))},
+			strategy:   model.StrategyPR,
 			wantCount:  1,
 			wantSubstr: "review turnaround",
 			wantType:   "strategy_callout",
 		},
 		{
-			name:     "issue strategy with data has no strategy callout",
-			stats:    &model.Stats{Count: 10, Mean: ptrDur(dur(5)), Median: ptrDur(dur(3))},
-			strategy: model.StrategyIssue,
+			name:      "issue strategy with data has no strategy callout",
+			stats:     &model.Stats{Count: 10, Mean: ptrDur(dur(5)), Median: ptrDur(dur(3))},
+			strategy:  model.StrategyIssue,
 			wantCount: 0,
 		},
 		{
@@ -286,8 +286,8 @@ func TestGenerateThroughputInsights(t *testing.T) {
 		wantType     string
 	}{
 		{
-			name:      "zero activity fires",
-			wantCount: 1,
+			name:       "zero activity fires",
+			wantCount:  1,
 			wantSubstr: "No issues closed or PRs merged",
 			wantType:   "zero_activity",
 		},
@@ -352,13 +352,13 @@ func TestGenerateThroughputInsights(t *testing.T) {
 
 func TestGenerateQualityInsights(t *testing.T) {
 	tests := []struct {
-		name             string
-		quality          model.StatsQuality
-		items            []ItemRef
+		name              string
+		quality           model.StatsQuality
+		items             []ItemRef
 		hotfixWindowHours int
-		wantCount        int
-		wantSubstr       string
-		wantType         string
+		wantCount         int
+		wantSubstr        string
+		wantType          string
 	}{
 		{
 			name:      "empty quality no insights",

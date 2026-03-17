@@ -219,10 +219,10 @@ type StatsResult struct {
 	Warnings          []string
 
 	// Per-section insights (velocity insights live on VelocityResult.Insights).
-	LeadTimeInsights    []Insight
-	CycleTimeInsights   []Insight
-	ThroughputInsights  []Insight
-	QualityInsights     []Insight
+	LeadTimeInsights   []Insight
+	CycleTimeInsights  []Insight
+	ThroughputInsights []Insight
+	QualityInsights    []Insight
 }
 
 // StatsThroughput holds throughput counts.
