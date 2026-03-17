@@ -79,7 +79,7 @@ func TestGenerateStatsInsights(t *testing.T) {
 			wantCount: 0,
 		},
 		{
-			name: "outliers at threshold fires",
+			name: "outliers at threshold fires with median multiple",
 			stats: model.Stats{
 				Count:         10,
 				OutlierCount:  2,
@@ -88,7 +88,7 @@ func TestGenerateStatsInsights(t *testing.T) {
 				Median:        ptrDur(dur(5)),
 			},
 			wantCount:  1,
-			wantSubstr: "2 outliers",
+			wantSubstr: "2 items took",
 			wantType:   "outlier_detection",
 		},
 		{
@@ -192,6 +192,40 @@ func TestGenerateStatsInsights(t *testing.T) {
 			},
 			wantCount: 4, // outlier + skew + fastest/slowest + category
 		},
+		{
+			name: "predictability low fires when CV > 1.0",
+			stats: model.Stats{
+				Count:  10,
+				Mean:   ptrDur(dur(10)),
+				Median: ptrDur(dur(5)),
+				StdDev: ptrDur(dur(15)), // CV = 15/10 = 1.5
+			},
+			wantCount:  1,
+			wantSubstr: "vary widely",
+			wantType:   "predictability",
+		},
+		{
+			name: "predictability moderate fires when CV 0.5-1.0",
+			stats: model.Stats{
+				Count:  10,
+				Mean:   ptrDur(dur(10)),
+				Median: ptrDur(dur(8)),
+				StdDev: ptrDur(dur(7)), // CV = 7/10 = 0.7
+			},
+			wantCount:  1,
+			wantSubstr: "Moderate delivery",
+			wantType:   "predictability",
+		},
+		{
+			name: "predictability silent when CV < 0.5",
+			stats: model.Stats{
+				Count:  10,
+				Mean:   ptrDur(dur(10)),
+				Median: ptrDur(dur(9)),
+				StdDev: ptrDur(dur(3)), // CV = 3/10 = 0.3
+			},
+			wantCount: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -258,7 +292,7 @@ func TestGenerateCycleTimeInsights(t *testing.T) {
 			},
 			strategy:   model.StrategyIssue,
 			wantCount:  2, // outlier + skew
-			wantSubstr: "outlier",
+			wantSubstr: "3 items took",
 		},
 	}
 

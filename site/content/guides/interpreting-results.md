@@ -130,7 +130,7 @@ There are no universal benchmarks. What matters is your trend over time and whet
 
 - **Median under 30 days** for most product teams. This means a typical issue goes from creation to close within a month.
 - **P95 under 90 days**. If your P95 is over 90 days, old issues are being closed alongside new work, which is normal but worth understanding.
-- **Low stddev relative to the mean**. If `stddev / mean > 1`, delivery times are highly variable. Consistent teams have lower relative standard deviation.
+- **Predictability label is not "low"**. The predictability label is derived from the coefficient of variation (CV = stddev / mean). A "low" label means individual item durations are hard to predict. See [Understanding Statistics]({{< relref "/concepts/statistics#standard-deviation-and-predictability-cv" >}}) for details.
 
 ### [Cycle time]({{< relref "/reference/metrics/cycle-time" >}})
 

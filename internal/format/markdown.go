@@ -12,6 +12,11 @@ const maxTitleLength = 200
 // htmlPolicy strips all HTML tags from content.
 var htmlPolicy = bluemonday.StrictPolicy()
 
+// StripMarkdownBold removes **bold** markers from a string for plain-text output.
+func StripMarkdownBold(s string) string {
+	return strings.ReplaceAll(s, "**", "")
+}
+
 // SanitizeMarkdown sanitizes third-party text for safe insertion into markdown tables.
 // It strips HTML tags, escapes markdown-breaking characters, removes newlines,
 // and truncates to maxTitleLength.

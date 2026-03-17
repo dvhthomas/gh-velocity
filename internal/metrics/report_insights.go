@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"fmt"
+	"math"
 	"slices"
 	"sort"
 	"strings"
@@ -45,14 +46,36 @@ func GenerateStatsInsights(stats model.Stats, section string, items []ItemRef) [
 		return nil
 	}
 
-	// Outlier detection.
-	if stats.OutlierCount >= OutlierMinCount && stats.OutlierCutoff != nil {
+	// Outlier detection — express in terms of median multiples, not IQR jargon.
+	if stats.OutlierCount >= OutlierMinCount && stats.OutlierCutoff != nil && stats.Median != nil && *stats.Median > 0 {
+		multiple := int(math.Round(float64(*stats.OutlierCutoff) / float64(*stats.Median)))
+		if multiple < 2 {
+			multiple = 2
+		}
 		insights = append(insights, model.Insight{
 			Type: "outlier_detection",
 			Message: fmt.Sprintf(
-				"%d outliers above %s — the IQR outlier threshold, meaning these items took significantly longer than the middle 50%% of the data.",
-				stats.OutlierCount, fmtDur(*stats.OutlierCutoff)),
+				"%d items took %dx longer than the median (%s).",
+				stats.OutlierCount, multiple, fmtDur(*stats.Median)),
 		})
+	}
+
+	// Predictability — surface CV when delivery times vary notably.
+	if stats.StdDev != nil && stats.Mean != nil && *stats.Mean > 0 {
+		cv := float64(*stats.StdDev) / float64(*stats.Mean)
+		cv = math.Round(cv*10) / 10
+		switch {
+		case cv > 1.0:
+			insights = append(insights, model.Insight{
+				Type:    "predictability",
+				Message: fmt.Sprintf("Delivery times vary widely (CV %.1f) — the median is a more reliable estimate than the mean.", cv),
+			})
+		case cv >= 0.5:
+			insights = append(insights, model.Insight{
+				Type:    "predictability",
+				Message: fmt.Sprintf("Moderate delivery time variability (CV %.1f) — some items take significantly longer than others.", cv),
+			})
+		}
 	}
 
 	// Skew warning.

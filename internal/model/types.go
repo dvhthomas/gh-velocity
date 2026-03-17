@@ -161,6 +161,8 @@ type Stats struct {
 	StdDev        *time.Duration // sample standard deviation; nil if N < 2
 	P90           *time.Duration // 90th percentile; nil if N < 2
 	P95           *time.Duration // 95th percentile; nil if N < 2
+	Q1            *time.Duration // 25th percentile; nil if N < 4
+	Q3            *time.Duration // 75th percentile; nil if N < 4
 	OutlierCutoff *time.Duration // Q3 + 1.5*IQR; values above are outliers
 	OutlierCount  int            // number of values above the cutoff
 	NegativeCount int            // durations < 0 filtered before computation

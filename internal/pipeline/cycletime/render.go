@@ -193,6 +193,7 @@ type bulkTemplateData struct {
 	Strategy   string
 	Insights   []string
 	Items      []bulkItemRow
+	Detail     []string
 	Summary    string
 	SearchURL  string
 }
@@ -219,6 +220,7 @@ func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.T
 		Until:      until,
 		Strategy:   strategy,
 		Insights:   insightMsgs,
+		Detail:     format.FormatStatsDetail(stats),
 		Summary:    format.FormatStatsSummary(stats),
 		SearchURL:  searchURL,
 	}
@@ -254,7 +256,11 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 	fmt.Fprintf(rc.Writer, "Cycle Time: %s (%s – %s UTC) [%s]\n\n",
 		repo, since.UTC().Format(time.DateOnly), until.UTC().Format(time.DateOnly), strategy)
 	model.WriteInsightsPretty(rc.Writer, insights)
-	fmt.Fprintf(rc.Writer, "  Summary: %s\n\n", format.FormatStatsSummary(stats))
+	fmt.Fprintln(rc.Writer, "  Summary:")
+	for _, line := range format.FormatStatsDetail(stats) {
+		fmt.Fprintf(rc.Writer, "    %s\n", format.StripMarkdownBold(line))
+	}
+	fmt.Fprintln(rc.Writer)
 
 	if len(sorted) == 0 {
 		fmt.Fprintln(rc.Writer, "  No issues closed in this period.")

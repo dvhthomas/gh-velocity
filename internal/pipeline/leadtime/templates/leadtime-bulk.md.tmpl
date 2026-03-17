@@ -7,7 +7,10 @@
 {{- end}}
 {{- end}}
 
-**Summary:** {{.Summary}}
+**Summary:**
+{{- range .Detail}}
+- {{.}}
+{{- end}}
 {{if .Items}}
 <details>
 <summary>Details ({{len .Items}} issues)</summary>
