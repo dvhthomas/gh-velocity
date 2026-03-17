@@ -80,7 +80,11 @@ func (c *Client) searchPaginated(ctx context.Context, query string) ([]searchIss
 			kind, wait := rateLimitDetect(err)
 			if kind != rateLimitNone {
 				if kind == rateLimitSecondary {
+					// Use the client's configurable backoff for secondary limits.
+					wait = c.SecondaryBackoff
 					log.Warn("GitHub secondary rate limit hit; waiting %s before retry", wait)
+					// Signal all other goroutines to pause too.
+					c.setRateLimitPause(wait)
 				} else {
 					log.Warn("search rate-limited; waiting %s before retry", wait)
 				}

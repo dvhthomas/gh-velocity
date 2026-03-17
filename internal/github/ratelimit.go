@@ -10,6 +10,10 @@ import (
 	ghapi "github.com/cli/go-gh/v2/pkg/api"
 )
 
+// DefaultSecondaryBackoff is the wait duration when a secondary rate limit is hit.
+// GitHub's secondary lockout is typically 1-5 minutes; 60s is at the aggressive end.
+const DefaultSecondaryBackoff = 60 * time.Second
+
 // rateLimitKind classifies which type of rate limit was hit.
 type rateLimitKind int
 
