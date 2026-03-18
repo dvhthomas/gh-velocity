@@ -238,6 +238,11 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 			// Resolve scope: merge config scope + --scope flag.
 			resolvedScope := scope.MergeScope(cfg.Scope.Query, scopeFlag)
 
+			// Warn if config scope contains a repo: qualifier that conflicts with -R.
+			if configRepo, conflict := scope.DetectRepoConflict(cfg.Scope.Query, owner+"/"+repo); conflict {
+				log.Warn("config scope includes \"repo:%s\" but -R targets %s/%s — config scope overrides -R flag", configRepo, owner, repo)
+			}
+
 			// Dry-run is the default for --post. Mutations only happen when
 			// GH_VELOCITY_POST_LIVE=true is explicitly set. This prevents
 			// tests, agents, and accidental runs from mutating GitHub state.
