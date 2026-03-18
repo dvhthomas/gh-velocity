@@ -1,10 +1,14 @@
 package format
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/microcosm-cc/bluemonday"
 )
+
+// markdownLinkRe matches [text](url) patterns.
+var markdownLinkRe = regexp.MustCompile(`\[([^\]]+)\]\([^)]+\)`)
 
 // maxTitleLength is the maximum length for titles in markdown table cells.
 const maxTitleLength = 200
@@ -15,6 +19,11 @@ var htmlPolicy = bluemonday.StrictPolicy()
 // StripMarkdownBold removes **bold** markers from a string for plain-text output.
 func StripMarkdownBold(s string) string {
 	return strings.ReplaceAll(s, "**", "")
+}
+
+// StripMarkdownLinks removes [text](url) links, keeping only the text.
+func StripMarkdownLinks(s string) string {
+	return markdownLinkRe.ReplaceAllString(s, "$1")
 }
 
 // SanitizeMarkdown sanitizes third-party text for safe insertion into markdown tables.

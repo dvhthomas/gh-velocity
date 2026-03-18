@@ -14,22 +14,22 @@
 | Metric | Value |
 | --- | --- |
 {{- if .LeadTime}}
-| Lead Time | {{.LeadTime}} |
+| {{docLink "Lead Time" "/reference/metrics/lead-time/"}} | {{.LeadTime}} |
 {{- end}}
 {{- if .CycleTime}}
-| Cycle Time | {{.CycleTime}} |
+| {{docLink "Cycle Time" "/reference/metrics/cycle-time/"}} | {{.CycleTime}} |
 {{- end}}
 {{- if .Throughput}}
-| Throughput | {{.Throughput}} |
+| {{docLink "Throughput" "/reference/metrics/throughput/"}} | {{.Throughput}} |
 {{- end}}
 {{- if .Velocity}}
-| Velocity | {{.Velocity}} |
+| {{docLink "Velocity" "/reference/metrics/velocity/"}} | {{.Velocity}} |
 {{- end}}
 {{- if .WIP}}
 | WIP | {{.WIP}} |
 {{- end}}
 {{- if .Quality}}
-| Quality | {{.Quality}} |
+| {{docLink "Quality" "/reference/metrics/quality/"}} | {{.Quality}} |
 {{- end}}
 {{- if .Warnings}}
 

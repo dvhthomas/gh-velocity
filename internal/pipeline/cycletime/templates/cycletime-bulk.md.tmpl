@@ -13,7 +13,7 @@
 {{- end}}
 {{if .Items}}
 <details>
-<summary>Details ({{len .Items}} issues)</summary>
+<summary>Details ({{.DetailCount}}{{if ne .DetailCount .TotalCount}} of {{.TotalCount}}{{end}} issues)</summary>
 
 | Issue | Title | Labels | Started (UTC) | Closed (UTC) | Cycle Time |
 | ---: | --- | --- | --- | --- | --- |

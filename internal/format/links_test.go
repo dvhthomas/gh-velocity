@@ -166,6 +166,68 @@ func TestFormatLabels(t *testing.T) {
 	}
 }
 
+func TestDocLink(t *testing.T) {
+	got := DocLink("CV", "/concepts/statistics/#cv")
+	want := "[CV](https://dvhthomas.github.io/gh-velocity/concepts/statistics/#cv)"
+	if got != want {
+		t.Errorf("DocLink() = %q, want %q", got, want)
+	}
+}
+
+func TestLinkStatTerms(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "wraps CV in insight message",
+			input: "Delivery times vary widely (CV 2.7)",
+			want:  "Delivery times vary widely ([CV](https://dvhthomas.github.io/gh-velocity/concepts/statistics/#coefficient-of-variation-cv) 2.7)",
+		},
+		{
+			name:  "no CV in message",
+			input: "Mean 10d vs median 5d",
+			want:  "Mean 10d vs median 5d",
+		},
+		{
+			name:  "only first CV is linked",
+			input: "(CV 1.0) and (CV 2.0)",
+			want:  "([CV](https://dvhthomas.github.io/gh-velocity/concepts/statistics/#coefficient-of-variation-cv) 1.0) and (CV 2.0)",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := LinkStatTerms(tt.input)
+			if got != tt.want {
+				t.Errorf("LinkStatTerms() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestStripMarkdownLinks(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"link with text", "[CV](url) is 2.7", "CV is 2.7"},
+		{"issue link", "[#123](url) took 5d", "#123 took 5d"},
+		{"no links", "no links here", "no links here"},
+		{"multiple links", "[a](url1) and [b](url2)", "a and b"},
+		{"nested brackets", "[[not a link]]", "[[not a link]]"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := StripMarkdownLinks(tt.input)
+			if got != tt.want {
+				t.Errorf("StripMarkdownLinks(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRenderContext(t *testing.T) {
 	var buf bytes.Buffer
 	rc := RenderContext{

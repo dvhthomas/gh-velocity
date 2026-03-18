@@ -52,6 +52,9 @@ var funcMap = template.FuncMap{
 		return fmt.Sprintf("%.0f%%", f*100)
 	},
 	"join": strings.Join,
+	"docLink": func(text, anchor string) string {
+		return DocLink(text, anchor)
+	},
 }
 
 // mustParseTemplate parses a named template from the embedded filesystem.
@@ -166,6 +169,12 @@ func renderReportMarkdown(w io.Writer, r model.StatsResult) error {
 	}
 	data.Warnings = r.Warnings
 	data.InsightGroups = buildInsightGroups(r)
+	// Apply doc links to stat terms in markdown output.
+	for i := range data.InsightGroups {
+		for j := range data.InsightGroups[i].Messages {
+			data.InsightGroups[i].Messages[j] = LinkStatTerms(data.InsightGroups[i].Messages[j])
+		}
+	}
 	data.HasInsights = len(data.InsightGroups) > 0
 	return reportMarkdownTmpl.Execute(w, data)
 }
