@@ -1115,3 +1115,140 @@ func TestVerifyConfig_IssueStrategyNoLifecycle(t *testing.T) {
 		t.Error("expected warning about missing lifecycle.in-progress for cycle time")
 	}
 }
+
+func TestNormalizeLabel(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"in-progress", "in progress"},
+		{"in progress", "in progress"},
+		{"In_Progress", "in progress"},
+		{"IN-PROGRESS", "in progress"},
+		{"review me!", "review me"},
+		{"Review Me!", "review me"},
+		{"wip", "wip"},
+		{"do-not-merge", "do not merge"},
+		{"needs-triage:", "needs triage"},
+		{"  spaces  ", "spaces"},
+		{"multiple---dashes", "multiple dashes"},
+		{"alpha", "alpha"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := normalizeLabel(tt.input)
+			if got != tt.want {
+				t.Errorf("normalizeLabel(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestClassifyLabels_FuzzyLifecycle(t *testing.T) {
+	tests := []struct {
+		name            string
+		labels          []string
+		wantActive      []string // expected ActiveLabels
+		wantBacklog     []string // expected BacklogLabels
+		wantNoActive    bool     // expect no active labels
+		wantNoBacklog   bool     // expect no backlog labels
+	}{
+		{
+			name:       "in progress with space detected as active",
+			labels:     []string{"in progress"},
+			wantActive: []string{"in progress"},
+		},
+		{
+			name:       "in-progress hyphenated detected as active",
+			labels:     []string{"in-progress"},
+			wantActive: []string{"in-progress"},
+		},
+		{
+			name:       "review me! with punctuation detected as active",
+			labels:     []string{"review me!"},
+			wantActive: []string{"review me!"},
+		},
+		{
+			name:       "in design detected as active",
+			labels:     []string{"in design"},
+			wantActive: []string{"in design"},
+		},
+		{
+			name:       "preview detected as active",
+			labels:     []string{"Public Preview"},
+			wantActive: []string{"Public Preview"},
+		},
+		{
+			name:        "new detected as backlog",
+			labels:      []string{"new"},
+			wantBacklog: []string{"new"},
+		},
+		{
+			name:        "triage detected as backlog",
+			labels:      []string{"triage"},
+			wantBacklog: []string{"triage"},
+		},
+		{
+			name:         "do-not-merge/needs-review filtered by ignore prefix",
+			labels:       []string{"do-not-merge/needs-review"},
+			wantNoActive: true,
+		},
+		{
+			name:         "needs-triage filtered by ignore prefix",
+			labels:       []string{"needs-triage"},
+			wantNoActive: true,
+		},
+		{
+			name:         "random label not detected",
+			labels:       []string{"priority:high", "component:ui"},
+			wantNoActive:  true,
+			wantNoBacklog: true,
+		},
+		{
+			name:       "pipeline detection — multiple lifecycle labels",
+			labels:     []string{"new", "confirmed", "in progress", "review me!", "shipped"},
+			wantActive: []string{"in progress", "review me!"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := &PreflightResult{}
+			classifyLabels(result, tt.labels)
+
+			if tt.wantNoActive && len(result.ActiveLabels) > 0 {
+				t.Errorf("expected no active labels, got %v", result.ActiveLabels)
+			}
+			if tt.wantNoBacklog && len(result.BacklogLabels) > 0 {
+				t.Errorf("expected no backlog labels, got %v", result.BacklogLabels)
+			}
+
+			for _, want := range tt.wantActive {
+				found := false
+				for _, got := range result.ActiveLabels {
+					if got == want {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("expected %q in ActiveLabels, got %v", want, result.ActiveLabels)
+				}
+			}
+
+			for _, want := range tt.wantBacklog {
+				found := false
+				for _, got := range result.BacklogLabels {
+					if got == want {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("expected %q in BacklogLabels, got %v", want, result.BacklogLabels)
+				}
+			}
+		})
+	}
+}
