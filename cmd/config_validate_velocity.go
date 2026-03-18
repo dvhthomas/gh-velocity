@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/classify"
-	"github.com/bitsbyme/gh-velocity/internal/config"
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/model"
-	"github.com/bitsbyme/gh-velocity/internal/pipeline/velocity"
-	"github.com/bitsbyme/gh-velocity/internal/scope"
+	"github.com/dvhthomas/gh-velocity/internal/classify"
+	"github.com/dvhthomas/gh-velocity/internal/config"
+	gh "github.com/dvhthomas/gh-velocity/internal/github"
+	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline/velocity"
+	"github.com/dvhthomas/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
 )
 

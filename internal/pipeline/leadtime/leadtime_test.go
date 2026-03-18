@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // ============================================================

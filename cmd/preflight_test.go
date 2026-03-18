@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bitsbyme/gh-velocity/internal/config"
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/config"
+	gh "github.com/dvhthomas/gh-velocity/internal/github"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 func TestMatchesWord(t *testing.T) {

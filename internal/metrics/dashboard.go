@@ -3,7 +3,7 @@ package metrics
 import (
 	"context"
 
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // PRLinker can fetch the issues linked to a set of PRs.

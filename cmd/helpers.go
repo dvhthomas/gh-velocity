@@ -3,10 +3,10 @@ package cmd
 import (
 	"context"
 
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/metrics"
-	"github.com/bitsbyme/gh-velocity/internal/model"
-	cycletimepipe "github.com/bitsbyme/gh-velocity/internal/pipeline/cycletime"
+	gh "github.com/dvhthomas/gh-velocity/internal/github"
+	"github.com/dvhthomas/gh-velocity/internal/metrics"
+	"github.com/dvhthomas/gh-velocity/internal/model"
+	cycletimepipe "github.com/dvhthomas/gh-velocity/internal/pipeline/cycletime"
 )
 
 // buildCycleTimeStrategy creates the appropriate CycleTimeStrategy based on config.

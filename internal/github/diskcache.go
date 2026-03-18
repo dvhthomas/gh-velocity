@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/log"
 )
 
 // cacheVersion is the cache directory version. Bump this when the cache

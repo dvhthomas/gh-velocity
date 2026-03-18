@@ -9,7 +9,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/format"
+	"github.com/dvhthomas/gh-velocity/internal/format"
 )
 
 //go:embed templates/*.md.tmpl

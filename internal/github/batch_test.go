@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 	ghapi "github.com/cli/go-gh/v2/pkg/api"
 )
 

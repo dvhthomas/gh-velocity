@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bitsbyme/gh-velocity/internal/config"
-	"github.com/bitsbyme/gh-velocity/internal/dateutil"
-	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/model"
-	"github.com/bitsbyme/gh-velocity/internal/pipeline/velocity"
-	"github.com/bitsbyme/gh-velocity/internal/posting"
+	"github.com/dvhthomas/gh-velocity/internal/config"
+	"github.com/dvhthomas/gh-velocity/internal/dateutil"
+	"github.com/dvhthomas/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline/velocity"
+	"github.com/dvhthomas/gh-velocity/internal/posting"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )

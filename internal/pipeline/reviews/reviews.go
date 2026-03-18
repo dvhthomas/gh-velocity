@@ -6,10 +6,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/format"
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/model"
-	"github.com/bitsbyme/gh-velocity/internal/scope"
+	"github.com/dvhthomas/gh-velocity/internal/format"
+	gh "github.com/dvhthomas/gh-velocity/internal/github"
+	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/scope"
 )
 
 // StaleThreshold is the duration after which a PR awaiting review

@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bitsbyme/gh-velocity/cmd"
+	"github.com/dvhthomas/gh-velocity/cmd"
 	cobracmd "github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 )

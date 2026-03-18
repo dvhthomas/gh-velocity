@@ -3,7 +3,7 @@ package metrics
 import (
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // Staleness thresholds (hardcoded — add flags only if users need overrides).

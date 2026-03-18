@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/bitsbyme/gh-velocity/cmd"
+	"github.com/dvhthomas/gh-velocity/cmd"
 )
 
 // Version and BuildTime are set via ldflags at build time.

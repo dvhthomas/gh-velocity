@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bitsbyme/gh-velocity/internal/config"
+	"github.com/dvhthomas/gh-velocity/internal/config"
 )
 
 func TestExampleConfigsParse(t *testing.T) {

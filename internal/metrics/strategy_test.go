@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 var testNow = time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)

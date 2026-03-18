@@ -1,4 +1,4 @@
-module github.com/bitsbyme/gh-velocity
+module github.com/dvhthomas/gh-velocity
 
 go 1.25.8
 

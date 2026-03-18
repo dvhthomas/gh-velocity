@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"github.com/bitsbyme/gh-velocity/internal/model"
-	"github.com/bitsbyme/gh-velocity/internal/pipeline"
-	"github.com/bitsbyme/gh-velocity/internal/pipeline/reviews"
+	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline/reviews"
 	"github.com/spf13/cobra"
 )
 

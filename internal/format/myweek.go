@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // formatAge returns a human-readable age string.

@@ -3,11 +3,11 @@ package cmd
 import (
 	"os"
 
-	"github.com/bitsbyme/gh-velocity/internal/dateutil"
-	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/model"
-	"github.com/bitsbyme/gh-velocity/internal/pipeline"
-	"github.com/bitsbyme/gh-velocity/internal/pipeline/busfactor"
+	"github.com/dvhthomas/gh-velocity/internal/dateutil"
+	"github.com/dvhthomas/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline/busfactor"
 	"github.com/spf13/cobra"
 )
 

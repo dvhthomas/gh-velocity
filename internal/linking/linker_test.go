@@ -3,7 +3,7 @@ package linking
 import (
 	"testing"
 
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 func TestExtractIssueNumbers(t *testing.T) {

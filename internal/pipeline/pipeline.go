@@ -10,7 +10,7 @@ package pipeline
 import (
 	"context"
 
-	"github.com/bitsbyme/gh-velocity/internal/format"
+	"github.com/dvhthomas/gh-velocity/internal/format"
 )
 
 // Pipeline defines the three-phase lifecycle every metric command follows.

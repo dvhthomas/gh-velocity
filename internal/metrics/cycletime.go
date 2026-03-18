@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	gh "github.com/dvhthomas/gh-velocity/internal/github"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // CycleTimeStrategy computes cycle time for a single work item.

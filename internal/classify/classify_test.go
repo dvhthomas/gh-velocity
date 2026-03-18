@@ -3,7 +3,7 @@ package classify
 import (
 	"testing"
 
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 func TestLabelMatcher(t *testing.T) {
