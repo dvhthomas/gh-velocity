@@ -256,7 +256,8 @@ func GenerateThroughputInsights(issuesClosed, prsMerged int, categoryDist map[st
 }
 
 // GenerateQualityInsights produces quality-specific insights.
-func GenerateQualityInsights(quality model.StatsQuality, items []ItemRef, hotfixWindowHours int) []model.Insight {
+// defectRateThreshold is the configured threshold for the "high defect rate" insight (e.g. 0.20 = 20%).
+func GenerateQualityInsights(quality model.StatsQuality, items []ItemRef, hotfixWindowHours int, defectRateThreshold float64) []model.Insight {
 	var insights []model.Insight
 
 	if quality.TotalIssues == 0 {
@@ -270,10 +271,10 @@ func GenerateQualityInsights(quality model.StatsQuality, items []ItemRef, hotfix
 			Type:    "defect_rate_review",
 			Message: fmt.Sprintf("%.0f%% defect rate — may reflect issue template naming rather than actual bugs. Review category matchers.", quality.DefectRate*100),
 		})
-	case quality.DefectRate > DefectRateHigh:
+	case quality.DefectRate > defectRateThreshold:
 		insights = append(insights, model.Insight{
 			Type:    "defect_rate_high",
-			Message: fmt.Sprintf("%.0f%% of closed issues are bugs (above %.0f%% threshold).", quality.DefectRate*100, DefectRateHigh*100),
+			Message: fmt.Sprintf("%.0f%% of closed issues are bugs (above configured %.0f%% threshold).", quality.DefectRate*100, defectRateThreshold*100),
 		})
 	}
 

@@ -81,6 +81,7 @@ The JSON output (-f json) is useful for debugging or piping into other tools.`,
 			fmt.Fprintf(w, "lifecycle.in-review.query:    %s\n", cfg.Lifecycle.InReview.Query)
 			fmt.Fprintf(w, "lifecycle.done.query:         %s\n", cfg.Lifecycle.Done.Query)
 			fmt.Fprintf(w, "quality.hotfix_window_hours:  %g\n", cfg.Quality.HotfixWindowHours)
+			fmt.Fprintf(w, "quality.defect_rate_threshold: %g\n", cfg.Quality.DefectRateThreshold)
 			fmt.Fprintf(w, "quality.categories:\n")
 			for _, cat := range cfg.Quality.Categories {
 				fmt.Fprintf(w, "  - %s: %v\n", cat.Name, cat.Matchers)
@@ -180,6 +181,7 @@ quality:
       match:
         - "label:enhancement"
   hotfix_window_hours: 72
+  # defect_rate_threshold: 0.20  # fraction (0-1); insight fires when defect rate exceeds this
 
 # Commit message scanning
 # "closes" matches: fixes #N, closes #N, resolves #N (default)

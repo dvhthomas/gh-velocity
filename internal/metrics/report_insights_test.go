@@ -500,13 +500,14 @@ func TestGenerateThroughputInsights(t *testing.T) {
 
 func TestGenerateQualityInsights(t *testing.T) {
 	tests := []struct {
-		name              string
-		quality           model.StatsQuality
-		items             []ItemRef
-		hotfixWindowHours int
-		wantCount         int
-		wantSubstr        string
-		wantType          string
+		name                string
+		quality             model.StatsQuality
+		items               []ItemRef
+		hotfixWindowHours   int
+		defectRateThreshold float64 // 0 means use default (0.20)
+		wantCount           int
+		wantSubstr          string
+		wantType            string
 	}{
 		{
 			name:      "empty quality no insights",
@@ -592,6 +593,20 @@ func TestGenerateQualityInsights(t *testing.T) {
 			},
 			wantCount: 0,
 		},
+		{
+			name:                "custom threshold 15% fires at 20% defect rate",
+			quality:             model.StatsQuality{BugCount: 4, TotalIssues: 20, DefectRate: 0.20},
+			defectRateThreshold: 0.15,
+			wantCount:           1,
+			wantSubstr:          "configured 15%",
+			wantType:            "defect_rate_high",
+		},
+		{
+			name:                "custom threshold 30% silent at 20% defect rate",
+			quality:             model.StatsQuality{BugCount: 4, TotalIssues: 20, DefectRate: 0.20},
+			defectRateThreshold: 0.30,
+			wantCount:           0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -600,7 +615,11 @@ func TestGenerateQualityInsights(t *testing.T) {
 			if h == 0 {
 				h = HotfixMaxHours // use default
 			}
-			got := GenerateQualityInsights(tt.quality, tt.items, h)
+			threshold := tt.defectRateThreshold
+			if threshold == 0 {
+				threshold = DefectRateHigh // use default
+			}
+			got := GenerateQualityInsights(tt.quality, tt.items, h, threshold)
 			assertInsights(t, got, tt.wantCount, tt.wantSubstr)
 			if tt.wantType != "" {
 				assertHasType(t, got, tt.wantType)
