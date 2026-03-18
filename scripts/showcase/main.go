@@ -370,12 +370,39 @@ func buildComment(name, status, showcaseTime, configPath, preflightErr, reportMa
 	return b.String()
 }
 
+// truncateAtDetailBoundary removes trailing <details> sections from body
+// until it fits within maxLen, preserving complete sections rather than
+// cutting mid-content. Falls back to byte truncation if no sections remain.
+func truncateAtDetailBoundary(body string, maxLen int) string {
+	const detailOpen = "<details>"
+	const detailClose = "</details>"
+	for len(body) > maxLen {
+		// Find the last complete <details>...</details> block.
+		closeIdx := strings.LastIndex(body, detailClose)
+		if closeIdx < 0 {
+			break // no detail sections left, fall back to byte truncation
+		}
+		// Search backward from the close tag to find its opening tag.
+		openIdx := strings.LastIndex(body[:closeIdx], detailOpen)
+		if openIdx < 0 {
+			break
+		}
+		// Remove this detail section (and any trailing whitespace).
+		after := strings.TrimLeft(body[closeIdx+len(detailClose):], "\n\r ")
+		body = body[:openIdx] + after
+	}
+	if len(body) > maxLen {
+		body = body[:maxLen]
+	}
+	return strings.TrimRight(body, "\n\r ") + "\n\n*Output truncated — some detail sections removed (comment size limit).*\n"
+}
+
 // postComment posts the comment to the Discussion, truncating if needed.
 func postComment(ctx context.Context, dryRun bool, name, discID, body string) {
 	// Truncate if approaching GitHub's 65536 char limit.
 	if len(body) > 60000 {
-		ghActionsWarning(fmt.Sprintf("Comment for %s is %d chars. Truncating.", name, len(body)))
-		body = body[:59000] + "\n\n*Output truncated (comment size limit).*\n"
+		ghActionsWarning(fmt.Sprintf("Comment for %s is %d chars. Truncating at detail boundaries.", name, len(body)))
+		body = truncateAtDetailBoundary(body, 60000)
 	}
 
 	if dryRun {
