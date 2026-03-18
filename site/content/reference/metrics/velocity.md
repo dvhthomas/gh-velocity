@@ -221,6 +221,15 @@ Velocity  dvhthomas/gh-velocity
 - `gh velocity flow velocity --iterations 3` -- override iteration count
 - `gh velocity flow velocity --verbose` -- show not-assessed item numbers
 
+## Insights
+
+| Insight | When it fires | What it means |
+|---------|--------------|---------------|
+| **Not assessed** | Items lack effort estimates | Some or all items have no effort value. With attribute strategy, check your matchers. With numeric strategy, check that the project field is populated. |
+| **High completion** | Current iteration is 100% complete | All committed work is done — the team may have capacity for more. |
+| **Zero velocity** | Zero effort completed across all iterations | Either the effort strategy is misconfigured, or no work was completed. Run `config validate --velocity` to diagnose. |
+| **High variability** | Velocity CV > 1.0 across iterations | Sprint commitments vary significantly between iterations. Consider stabilizing scope or adjusting iteration length. |
+
 ## See also
 
 - [Setting Up Velocity]({{< relref "/guides/velocity-setup" >}}) -- step-by-step guide to effort strategies, iteration strategies, and validation

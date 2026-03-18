@@ -213,6 +213,17 @@ Release v1.2.0 (2026-03-01)
 - `gh velocity quality release <tag> --discover` -- show which linking strategies found each issue
 - `gh velocity quality release <tag> --since <prev-tag>` -- specify previous tag explicitly
 
+## Insights
+
+| Insight | When it fires | What it means |
+|---------|--------------|---------------|
+| **Bug ratio high** | Bug ratio exceeds configured threshold (default 20%) | A high proportion of closed work is bug fixes. Adjust the threshold with `quality.bug_ratio_threshold` if your team's baseline differs. |
+| **Bug ratio review** | Bug ratio exceeds 60% | More likely a classification issue than a real bug rate. Review your category matchers — title regex patterns or broad label matches may be over-counting bugs. |
+| **Bug fix speed** | 2+ bugs and 2+ non-bugs with duration data | Compares median resolution time between bugs and other work. Bugs faster than features suggests good triage; bugs slower suggests debugging bottlenecks. |
+| **Hotfix count** | Items resolved within the hotfix window (default 72h) | Counts issues closed very quickly after creation. High counts may indicate reactive firefighting or a healthy rapid-response process, depending on context. |
+
+The `bug_ratio_threshold` and `hotfix_window_hours` are configurable in `.gh-velocity.yml` under the `quality` section.
+
 ## See also
 
 - [Linking Strategies]({{< relref "/concepts/linking-strategies" >}}) -- how the tool finds which issues belong to a release

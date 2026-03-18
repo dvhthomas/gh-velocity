@@ -190,6 +190,15 @@ Cycle time uses the same aggregation as lead time: mean, median, std dev, P90, P
 | `project.url` | Project board URL (required for board fallback) |
 | `project.status_field` | Status field name on the board (required for board fallback) |
 
+## Insights
+
+Cycle time shares the same statistical insights as [lead time]({{< relref "/reference/metrics/lead-time" >}}#insights) (noise detection, outliers, predictability, skew, fastest/slowest, category comparison). It also adds:
+
+| Insight | When it fires | What it means |
+|---------|--------------|---------------|
+| **No data** | No cycle time measurements available | Strategy-specific guidance: issue strategy needs `lifecycle.in-progress` config; PR strategy needs closing PRs linked to issues. |
+| **Strategy callout** | PR strategy with data | States what the metric measures ("first PR to issue close") so the reader knows the methodology. |
+
 ## See also
 
 - [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) -- step-by-step guide to choosing and configuring a strategy
