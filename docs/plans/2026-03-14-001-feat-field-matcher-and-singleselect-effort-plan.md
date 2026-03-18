@@ -1,7 +1,7 @@
 ---
 title: "feat: field: matcher for SingleSelect effort strategy"
 type: feat
-status: active
+status: completed
 date: 2026-03-14
 origin: https://github.com/dvhthomas/gh-velocity/issues/56
 ---

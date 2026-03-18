@@ -54,6 +54,49 @@ out=$($BINARY config validate 2>&1)
 show "$out"
 [[ "$out" == *"valid"* ]] && pass "config validate" || fail "config validate"
 
+# field: matcher config parsing
+FIELD_CONFIG=$(mktemp)
+cat > "$FIELD_CONFIG" <<'YAML'
+project:
+  url: https://github.com/users/test/projects/1
+velocity:
+  effort:
+    strategy: attribute
+    attribute:
+      - query: "field:Size/S"
+        value: 1
+      - query: "field:Size/M"
+        value: 3
+      - query: "field:Size/L"
+        value: 5
+quality:
+  categories:
+    - name: bug
+      match: ["label:bug"]
+YAML
+out=$($BINARY config validate --config "$FIELD_CONFIG" 2>&1)
+show "$out"
+[[ "$out" == *"valid"* ]] && pass "config validate field: matchers" || fail "config validate field: matchers"
+rm -f "$FIELD_CONFIG"
+
+# field: matcher without project.url should fail
+FIELD_NO_URL=$(mktemp)
+cat > "$FIELD_NO_URL" <<'YAML'
+velocity:
+  effort:
+    strategy: attribute
+    attribute:
+      - query: "field:Size/M"
+        value: 3
+quality:
+  categories:
+    - name: bug
+      match: ["label:bug"]
+YAML
+out=$($BINARY config validate --config "$FIELD_NO_URL" 2>&1) || true
+[[ "$out" == *"project.url is required"* ]] && pass "config validate field: requires project.url" || fail "config validate field: requires project.url"
+rm -f "$FIELD_NO_URL"
+
 # ── config discover ───────────────────────────────────────────────
 echo ""
 echo "config discover (dvhthomas/gh-velocity)"
