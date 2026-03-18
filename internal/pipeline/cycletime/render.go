@@ -187,15 +187,17 @@ func WriteBulkJSON(w io.Writer, repo string, since, until time.Time, strategy st
 // ============================================================
 
 type bulkTemplateData struct {
-	Repository string
-	Since      time.Time
-	Until      time.Time
-	Strategy   string
-	Insights   []string
-	Items      []bulkItemRow
-	Detail     []string
-	Summary    string
-	SearchURL  string
+	Repository  string
+	Since       time.Time
+	Until       time.Time
+	Strategy    string
+	Insights    []string
+	Items       []bulkItemRow
+	Detail      []string
+	Summary     string
+	SearchURL   string
+	DetailCount int // items with cycle time data (shown in table)
+	TotalCount  int // total items including those without data
 }
 
 type bulkItemRow struct {
@@ -208,6 +210,8 @@ type bulkItemRow struct {
 }
 
 // WriteBulkMarkdown writes bulk cycle-time results as markdown.
+// Items without cycle time data (Duration == nil) are filtered from the detail
+// table to avoid cluttering it with N/A rows.
 func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.Time, strategy string, items []BulkItem, stats model.Stats, searchURL string, insights []model.Insight) error {
 	sorted := sortByCloseDateDesc(items)
 	var insightMsgs []string
@@ -223,8 +227,13 @@ func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.T
 		Detail:     format.FormatStatsDetail(stats),
 		Summary:    format.FormatStatsSummary(stats),
 		SearchURL:  searchURL,
+		TotalCount: len(sorted),
 	}
 	for _, item := range sorted {
+		// Filter out items without cycle time data.
+		if item.Metric.Duration == nil {
+			continue
+		}
 		startedStr := "N/A"
 		if item.Metric.Start != nil {
 			startedStr = item.Metric.Start.Time.UTC().Format(time.DateOnly)
@@ -242,6 +251,7 @@ func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.T
 			CycleTime: format.FormatMetricDuration(item.Metric),
 		})
 	}
+	data.DetailCount = len(data.Items)
 	return bulkMarkdownTmpl.Execute(rc.Writer, data)
 }
 
@@ -273,6 +283,10 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 	tp := format.NewTable(rc.Writer, rc.IsTTY, rc.Width)
 	tp.AddHeader([]string{"#", "Title", "Labels", "Started", "Closed", "Cycle Time"})
 	for _, item := range sorted {
+		// Filter out items without cycle time data.
+		if item.Metric.Duration == nil {
+			continue
+		}
 		startedStr := "N/A"
 		if item.Metric.Start != nil {
 			startedStr = item.Metric.Start.Time.UTC().Format(time.DateOnly)

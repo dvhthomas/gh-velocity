@@ -15,10 +15,26 @@ import (
 const (
 	SkewThreshold      = 3.0 // mean/median ratio to trigger skew warning
 	DefectRateHigh     = 0.20
+	DefectRateSuspicious = 0.60 // above this, suggest reviewing category matchers
 	OutlierMinCount    = 2
+	OutlierMultipleCap = 100 // cap the "Nx longer" message to avoid absurd numbers
 	MismatchRatio      = 3.0 // PR:issue ratio to flag mismatch
 	HotfixMaxHours     = 72
 	MinItemsForInsight = 3 // need ≥3 items for statistical insights
+
+	// Noise detection thresholds.
+	NoiseMinCount    = 3
+	NoiseMaxDuration = 60 * time.Second
+
+	// Low-median diagnostic thresholds.
+	LowMedianThreshold = time.Hour
+	LowMedianMinCount  = 10
+
+	// Extreme median threshold.
+	ExtremeMedianThreshold = 365 * 24 * time.Hour
+
+	// Fastest/slowest minimum duration to avoid picking spam.
+	FastestSlotMinDuration = time.Minute
 )
 
 // ItemRef is a minimal representation of an issue/PR for insight generation.
@@ -46,17 +62,53 @@ func GenerateStatsInsights(stats model.Stats, section string, items []ItemRef) [
 		return nil
 	}
 
-	// Outlier detection — express in terms of median multiples, not IQR jargon.
+	// Noise detection — many sub-minute items suggest spam/automation.
+	var noiseDetected bool
+	if len(items) > 0 {
+		var noiseCount int
+		for _, item := range items {
+			if item.Duration > 0 && item.Duration < NoiseMaxDuration {
+				noiseCount++
+			}
+		}
+		if noiseCount >= NoiseMinCount {
+			noiseDetected = true
+			insights = append(insights, model.Insight{
+				Type:    "noise_detection",
+				Message: fmt.Sprintf("%d issues closed in under 60 seconds — consider narrowing scope to exclude noise (e.g., `scope: '-label:invalid'`).", noiseCount),
+			})
+		}
+	}
+
+	// Outlier detection — express in terms of median multiples, capped at 100x.
 	if stats.OutlierCount >= OutlierMinCount && stats.OutlierCutoff != nil && stats.Median != nil && *stats.Median > 0 {
 		multiple := int(math.Round(float64(*stats.OutlierCutoff) / float64(*stats.Median)))
 		if multiple < 2 {
 			multiple = 2
 		}
+		if multiple > OutlierMultipleCap {
+			insights = append(insights, model.Insight{
+				Type: "outlier_detection",
+				Message: fmt.Sprintf(
+					"%d items took %dx+ longer than the median (%s).",
+					stats.OutlierCount, OutlierMultipleCap, fmtDur(*stats.Median)),
+			})
+		} else {
+			insights = append(insights, model.Insight{
+				Type: "outlier_detection",
+				Message: fmt.Sprintf(
+					"%d items took %dx longer than the median (%s).",
+					stats.OutlierCount, multiple, fmtDur(*stats.Median)),
+			})
+		}
+	}
+
+	// Low-median diagnostic — median under 1h with enough data suggests noise distortion.
+	// Suppressed when noise_detection already fired (same root cause).
+	if !noiseDetected && stats.Median != nil && *stats.Median < LowMedianThreshold && stats.Count > LowMedianMinCount {
 		insights = append(insights, model.Insight{
-			Type: "outlier_detection",
-			Message: fmt.Sprintf(
-				"%d items took %dx longer than the median (%s).",
-				stats.OutlierCount, multiple, fmtDur(*stats.Median)),
+			Type:    "low_median",
+			Message: fmt.Sprintf("Median is %s — likely distorted by noise issues closed in seconds.", fmtDur(*stats.Median)),
 		})
 	}
 
@@ -123,6 +175,14 @@ func GenerateStatsInsights(stats model.Stats, section string, items []ItemRef) [
 					fastest.Name, fmtDur(fastest.Median), slowest.Name, fmtDur(slowest.Median)),
 			})
 		}
+	}
+
+	// Extreme median — flag when median exceeds 1 year (likely backlog cleanup).
+	if stats.Median != nil && *stats.Median > ExtremeMedianThreshold {
+		insights = append(insights, model.Insight{
+			Type:    "extreme_median",
+			Message: fmt.Sprintf("Median is %s — likely includes backlog cleanup alongside recent work.", fmtDur(*stats.Median)),
+		})
 	}
 
 	return insights
@@ -225,8 +285,14 @@ func GenerateQualityInsights(quality model.StatsQuality, items []ItemRef, hotfix
 		return nil
 	}
 
-	// Defect rate threshold.
-	if quality.DefectRate > DefectRateHigh {
+	// Defect rate threshold — >60% suggests category matcher issues, not real bugs.
+	switch {
+	case quality.DefectRate > DefectRateSuspicious:
+		insights = append(insights, model.Insight{
+			Type:    "defect_rate_review",
+			Message: fmt.Sprintf("%.0f%% defect rate — may reflect issue template naming rather than actual bugs. Review category matchers.", quality.DefectRate*100),
+		})
+	case quality.DefectRate > DefectRateHigh:
 		insights = append(insights, model.Insight{
 			Type:    "defect_rate_high",
 			Message: fmt.Sprintf("%.0f%% defect rate — above typical 20%% threshold.", quality.DefectRate*100),
@@ -335,18 +401,27 @@ func ComputeCategoryMedians(items []ItemRef) []CategoryMedian {
 // --- helpers ---
 
 // findExtremes returns the items with the minimum and maximum duration.
+// Items with duration < FastestSlotMinDuration are excluded to avoid
+// picking spam/noise as the "fastest" item.
 func findExtremes(items []ItemRef) (*ItemRef, *ItemRef) {
-	if len(items) == 0 {
+	// Filter out sub-minute items.
+	var eligible []ItemRef
+	for _, item := range items {
+		if item.Duration >= FastestSlotMinDuration {
+			eligible = append(eligible, item)
+		}
+	}
+	if len(eligible) == 0 {
 		return nil, nil
 	}
-	fastest := &items[0]
-	slowest := &items[0]
-	for i := range items {
-		if items[i].Duration < fastest.Duration {
-			fastest = &items[i]
+	fastest := &eligible[0]
+	slowest := &eligible[0]
+	for i := range eligible {
+		if eligible[i].Duration < fastest.Duration {
+			fastest = &eligible[i]
 		}
-		if items[i].Duration > slowest.Duration {
-			slowest = &items[i]
+		if eligible[i].Duration > slowest.Duration {
+			slowest = &eligible[i]
 		}
 	}
 	return fastest, slowest

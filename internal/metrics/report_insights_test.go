@@ -226,6 +226,122 @@ func TestGenerateStatsInsights(t *testing.T) {
 			},
 			wantCount: 0,
 		},
+		// --- Noise detection ---
+		{
+			name:  "noise detection fires when >= 3 sub-60s items",
+			stats: model.Stats{Count: 5, Mean: ptrDur(dur(5)), Median: ptrDur(dur(5))},
+			items: []ItemRef{
+				{Number: 1, Title: "Spam 1", Duration: 10 * time.Second},
+				{Number: 2, Title: "Spam 2", Duration: 20 * time.Second},
+				{Number: 3, Title: "Spam 3", Duration: 30 * time.Second},
+				{Number: 4, Title: "Real 1", Duration: dur(5)},
+				{Number: 5, Title: "Real 2", Duration: dur(10)},
+			},
+			wantSubstr: "closed in under 60 seconds",
+			wantType:   "noise_detection",
+			wantCount:  2, // noise_detection + fastest_slowest
+		},
+		{
+			name:  "noise detection silent when < 3 sub-60s items",
+			stats: model.Stats{Count: 4, Mean: ptrDur(dur(5)), Median: ptrDur(dur(5))},
+			items: []ItemRef{
+				{Number: 1, Title: "Spam 1", Duration: 10 * time.Second},
+				{Number: 2, Title: "Spam 2", Duration: 20 * time.Second},
+				{Number: 3, Title: "Real 1", Duration: dur(5)},
+				{Number: 4, Title: "Real 2", Duration: dur(10)},
+			},
+			wantCount: 1, // fastest_slowest only
+			wantType:  "fastest_slowest",
+		},
+		// --- Outlier multiplier cap ---
+		{
+			name: "outlier multiplier capped at 100x",
+			stats: model.Stats{
+				Count:         50,
+				Mean:          ptrDur(dur(100)),
+				Median:        ptrDur(time.Minute), // 1 minute median
+				OutlierCount:  10,
+				OutlierCutoff: ptrDur(dur(200)), // 200 days / 1 min >> 100x
+			},
+			wantSubstr: "100x+",
+			wantType:   "outlier_detection",
+			wantCount:  3, // outlier_detection + low_median + skew_warning
+		},
+		// --- Low-median diagnostic ---
+		{
+			name: "low-median fires when median < 1h and count > 10",
+			stats: model.Stats{
+				Count:  50,
+				Mean:   ptrDur(durH(1)), // mean=1h, median=30s → ratio=120, skew fires
+				Median: ptrDur(30 * time.Second),
+			},
+			wantSubstr: "likely distorted by noise",
+			wantType:   "low_median",
+			wantCount:  2, // low_median + skew_warning
+		},
+		{
+			name: "low-median suppressed when noise detection fires",
+			stats: model.Stats{
+				Count:  50,
+				Mean:   ptrDur(durH(1)),
+				Median: ptrDur(30 * time.Second),
+			},
+			items: []ItemRef{
+				{Number: 1, Title: "Spam 1", Duration: 10 * time.Second},
+				{Number: 2, Title: "Spam 2", Duration: 20 * time.Second},
+				{Number: 3, Title: "Spam 3", Duration: 30 * time.Second},
+				{Number: 4, Title: "Real", Duration: dur(5)},
+			},
+			wantSubstr: "closed in under 60 seconds",
+			wantType:   "noise_detection",
+			wantCount:  2, // noise_detection + skew_warning (fastest/slowest skipped: only 1 eligible item)
+		},
+		// --- Fastest/slowest min-duration filter ---
+		{
+			name:  "fastest/slowest skips sub-minute items",
+			stats: model.Stats{Count: 4, Mean: ptrDur(dur(5)), Median: ptrDur(dur(5))},
+			items: []ItemRef{
+				{Number: 1, Title: "Spam", Duration: 10 * time.Second},
+				{Number: 2, Title: "Also spam", Duration: 30 * time.Second},
+				{Number: 3, Title: "Real fast", Duration: dur(2)},
+				{Number: 4, Title: "Real slow", Duration: dur(10)},
+			},
+			wantSubstr: "Real fast",
+			wantType:   "fastest_slowest",
+			wantCount:  1,
+		},
+		{
+			name:  "fastest/slowest returns nil when all sub-minute",
+			stats: model.Stats{Count: 3, Mean: ptrDur(30 * time.Second), Median: ptrDur(20 * time.Second)},
+			items: []ItemRef{
+				{Number: 1, Title: "A", Duration: 10 * time.Second},
+				{Number: 2, Title: "B", Duration: 20 * time.Second},
+				{Number: 3, Title: "C", Duration: 30 * time.Second},
+			},
+			wantCount: 1, // noise_detection fires (3 sub-60s)
+			wantType:  "noise_detection",
+		},
+		// --- Extreme median ---
+		{
+			name: "extreme median fires when > 365 days",
+			stats: model.Stats{
+				Count:  10,
+				Mean:   ptrDur(dur(500)),
+				Median: ptrDur(dur(500)),
+			},
+			wantSubstr: "backlog cleanup",
+			wantType:   "extreme_median",
+			wantCount:  1,
+		},
+		{
+			name: "extreme median silent when <= 365 days",
+			stats: model.Stats{
+				Count:  10,
+				Mean:   ptrDur(dur(100)),
+				Median: ptrDur(dur(100)),
+			},
+			wantCount: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -410,6 +526,13 @@ func TestGenerateQualityInsights(t *testing.T) {
 			name:      "normal defect rate silent",
 			quality:   model.StatsQuality{BugCount: 2, TotalIssues: 20, DefectRate: 0.10},
 			wantCount: 0,
+		},
+		{
+			name:       "defect rate >60% fires review insight instead of high",
+			quality:    model.StatsQuality{BugCount: 35, TotalIssues: 45, DefectRate: 0.78},
+			wantCount:  1,
+			wantSubstr: "Review category matchers",
+			wantType:   "defect_rate_review",
 		},
 		{
 			name:              "bug fix speed comparison",
