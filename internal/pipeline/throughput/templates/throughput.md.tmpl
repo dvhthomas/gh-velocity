@@ -1,4 +1,4 @@
-## Throughput: {{.Repository}} ({{date .Since}} – {{date .Until}} UTC)
+### Throughput: {{.Repository}} ({{date .Since}} – {{date .Until}} UTC)
 {{- if .Insights}}
 
 **Insights:**
@@ -12,6 +12,16 @@
 | Issues closed | {{.Issues}} |
 | PRs merged | {{.PRs}} |
 | Total | {{.Total}} |
+{{- if .Categories}}
+
+**Category Breakdown:**
+
+| Category | Count | Percentage |
+| --- | ---: | ---: |
+{{- range .Categories}}
+| {{.Name}} | {{.Count}} | {{.Pct}}% |
+{{- end}}
+{{- end}}
 {{- if and (eq .Total 0) .SearchURL}}
 
 _No activity in this period._ [Verify]({{.SearchURL}})

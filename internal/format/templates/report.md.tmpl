@@ -1,15 +1,17 @@
 ## Report: {{.Repository}} ({{date .Since}} – {{date .Until}} UTC)
 {{- if .HasInsights}}
 
-**Key Findings:**
+### Key Findings
 {{- range .InsightGroups}}
 
-*{{.Section}}:*
+#### {{.Section}}
 {{- range .Messages}}
 - {{.}}
 {{- end}}
 {{- end}}
 {{- end}}
+
+### Summary
 
 | Metric | Value |
 | --- | --- |
@@ -27,6 +29,8 @@
 {{- end}}
 {{- if .WIP}}
 | WIP | {{.WIP}} |
+{{- else if .HasData}}
+| WIP | not configured |
 {{- end}}
 {{- if .Quality}}
 | {{docLink "Quality" "/reference/metrics/quality/"}} | {{.Quality}} |

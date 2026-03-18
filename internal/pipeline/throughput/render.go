@@ -63,6 +63,13 @@ func WriteJSON(w io.Writer, r model.ThroughputResult, searchURL string, warnings
 
 // --- Markdown ---
 
+// CategoryRow holds a single row of the category breakdown table.
+type CategoryRow struct {
+	Name  string
+	Count int
+	Pct   int
+}
+
 type templateData struct {
 	Repository string
 	Since      time.Time
@@ -72,13 +79,19 @@ type templateData struct {
 	PRs        int
 	Total      int
 	SearchURL  string
+	Categories []CategoryRow
 }
 
 // WriteMarkdown writes throughput as markdown.
 func WriteMarkdown(w io.Writer, r model.ThroughputResult, searchURL string, insights []model.Insight) error {
+	return WriteMarkdownWithCategories(w, r, searchURL, insights, nil)
+}
+
+// WriteMarkdownWithCategories writes throughput as markdown with an optional category breakdown.
+func WriteMarkdownWithCategories(w io.Writer, r model.ThroughputResult, searchURL string, insights []model.Insight, categories []CategoryRow) error {
 	var insightMsgs []string
 	for _, ins := range insights {
-		insightMsgs = append(insightMsgs, ins.Message)
+		insightMsgs = append(insightMsgs, format.LinkStatTerms(ins.Message))
 	}
 	return markdownTmpl.Execute(w, templateData{
 		Repository: r.Repository,
@@ -89,6 +102,7 @@ func WriteMarkdown(w io.Writer, r model.ThroughputResult, searchURL string, insi
 		PRs:        r.PRsMerged,
 		Total:      r.IssuesClosed + r.PRsMerged,
 		SearchURL:  searchURL,
+		Categories: categories,
 	})
 }
 
