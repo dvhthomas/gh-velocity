@@ -203,7 +203,7 @@ func TestLinkStatTerms(t *testing.T) {
 		{
 			name:  "threshold linked",
 			input: "26% of closed issues are bugs (above 20% threshold).",
-			want:  "26% of closed issues are bugs (above 20% [threshold](https://dvhthomas.github.io/gh-velocity/reference/metrics/quality/#per-release-defect-rate)).",
+			want:  "26% of closed issues are bugs (above 20% [threshold](https://dvhthomas.github.io/gh-velocity/reference/metrics/quality/#per-release-bug-ratio)).",
 		},
 	}
 	for _, tt := range tests {

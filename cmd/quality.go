@@ -13,7 +13,7 @@ func NewQualityCmd() *cobra.Command {
 
 Quality metrics analyze your releases:
 
-  release    Composition, defect rate, timing, and per-issue breakdown
+  release    Composition, bug ratio, timing, and per-issue breakdown
              for a specific release tag`,
 	}
 	cmd.AddCommand(NewReleaseCmd())

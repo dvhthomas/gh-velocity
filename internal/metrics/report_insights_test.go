@@ -504,7 +504,7 @@ func TestGenerateQualityInsights(t *testing.T) {
 		quality             model.StatsQuality
 		items               []ItemRef
 		hotfixWindowHours   int
-		defectRateThreshold float64 // 0 means use default (0.20)
+		bugRatioThreshold float64 // 0 means use default (0.20)
 		wantCount           int
 		wantSubstr          string
 		wantType            string
@@ -515,27 +515,27 @@ func TestGenerateQualityInsights(t *testing.T) {
 			wantCount: 0,
 		},
 		{
-			name:       "high defect rate fires",
-			quality:    model.StatsQuality{BugCount: 8, TotalIssues: 20, DefectRate: 0.40},
+			name:       "high bug ratio fires",
+			quality:    model.StatsQuality{BugCount: 8, TotalIssues: 20, BugRatio: 0.40},
 			wantCount:  1,
 			wantSubstr: "40%",
-			wantType:   "defect_rate_high",
+			wantType:   "bug_ratio_high",
 		},
 		{
-			name:      "normal defect rate silent",
-			quality:   model.StatsQuality{BugCount: 2, TotalIssues: 20, DefectRate: 0.10},
+			name:      "normal bug ratio silent",
+			quality:   model.StatsQuality{BugCount: 2, TotalIssues: 20, BugRatio: 0.10},
 			wantCount: 0,
 		},
 		{
-			name:       "defect rate >60% fires review insight instead of high",
-			quality:    model.StatsQuality{BugCount: 35, TotalIssues: 45, DefectRate: 0.78},
+			name:       "bug ratio >60% fires review insight instead of high",
+			quality:    model.StatsQuality{BugCount: 35, TotalIssues: 45, BugRatio: 0.78},
 			wantCount:  1,
 			wantSubstr: "Review category matchers",
-			wantType:   "defect_rate_review",
+			wantType:   "bug_ratio_review",
 		},
 		{
 			name:              "bug fix speed comparison",
-			quality:           model.StatsQuality{BugCount: 3, TotalIssues: 6, DefectRate: 0.50},
+			quality:           model.StatsQuality{BugCount: 3, TotalIssues: 6, BugRatio: 0.50},
 			hotfixWindowHours: 72,
 			items: []ItemRef{
 				{Number: 1, Title: "Bug A", Duration: dur(1), Category: "bug"},
@@ -545,13 +545,13 @@ func TestGenerateQualityInsights(t *testing.T) {
 				{Number: 5, Title: "Feat B", Duration: dur(15), Category: "feature"},
 				{Number: 6, Title: "Feat C", Duration: dur(20), Category: "feature"},
 			},
-			wantCount:  3, // defect_rate_high + bug_fix_speed + hotfix (3 bugs < 72h)
+			wantCount:  3, // bug_ratio_high + bug_fix_speed + hotfix (3 bugs < 72h)
 			wantSubstr: "Bug fixes",
 			wantType:   "bug_fix_speed",
 		},
 		{
 			name:              "category distribution shows percentages",
-			quality:           model.StatsQuality{BugCount: 2, TotalIssues: 10, DefectRate: 0.20},
+			quality:           model.StatsQuality{BugCount: 2, TotalIssues: 10, BugRatio: 0.20},
 			hotfixWindowHours: 72,
 			items: []ItemRef{
 				{Number: 1, Duration: dur(5), Category: "bug"},
@@ -565,11 +565,11 @@ func TestGenerateQualityInsights(t *testing.T) {
 				{Number: 9, Duration: dur(5), Category: "chore"},
 				{Number: 10, Duration: dur(5), Category: "chore"},
 			},
-			wantCount: 0, // category_distribution removed; defect rate exactly 20% not above threshold; all dur(5d) > 72h
+			wantCount: 0, // category_distribution removed; bug ratio exactly 20% not above threshold; all dur(5d) > 72h
 		},
 		{
 			name:              "hotfix detection finds fast items",
-			quality:           model.StatsQuality{BugCount: 2, TotalIssues: 5, DefectRate: 0.40},
+			quality:           model.StatsQuality{BugCount: 2, TotalIssues: 5, BugRatio: 0.40},
 			hotfixWindowHours: 72,
 			items: []ItemRef{
 				{Number: 1, Title: "Hotfix 1", Duration: durH(1), Category: "bug"},
@@ -578,13 +578,13 @@ func TestGenerateQualityInsights(t *testing.T) {
 				{Number: 4, Title: "Normal 2", Duration: dur(5), Category: "feature"},
 				{Number: 5, Title: "Normal 3", Duration: dur(7), Category: "chore"},
 			},
-			wantCount:  3, // defect_rate_high + bug_fix_speed + hotfix
+			wantCount:  3, // bug_ratio_high + bug_fix_speed + hotfix
 			wantSubstr: "2 items resolved within",
 			wantType:   "hotfix_count",
 		},
 		{
 			name:              "no hotfixes when all items exceed window",
-			quality:           model.StatsQuality{BugCount: 0, TotalIssues: 3, DefectRate: 0},
+			quality:           model.StatsQuality{BugCount: 0, TotalIssues: 3, BugRatio: 0},
 			hotfixWindowHours: 72,
 			items: []ItemRef{
 				{Number: 1, Duration: dur(10)},
@@ -594,17 +594,17 @@ func TestGenerateQualityInsights(t *testing.T) {
 			wantCount: 0,
 		},
 		{
-			name:                "custom threshold 15% fires at 20% defect rate",
-			quality:             model.StatsQuality{BugCount: 4, TotalIssues: 20, DefectRate: 0.20},
-			defectRateThreshold: 0.15,
+			name:                "custom threshold 15% fires at 20% bug ratio",
+			quality:             model.StatsQuality{BugCount: 4, TotalIssues: 20, BugRatio: 0.20},
+			bugRatioThreshold: 0.15,
 			wantCount:           1,
 			wantSubstr:          "configured 15%",
-			wantType:            "defect_rate_high",
+			wantType:            "bug_ratio_high",
 		},
 		{
-			name:                "custom threshold 30% silent at 20% defect rate",
-			quality:             model.StatsQuality{BugCount: 4, TotalIssues: 20, DefectRate: 0.20},
-			defectRateThreshold: 0.30,
+			name:                "custom threshold 30% silent at 20% bug ratio",
+			quality:             model.StatsQuality{BugCount: 4, TotalIssues: 20, BugRatio: 0.20},
+			bugRatioThreshold: 0.30,
 			wantCount:           0,
 		},
 	}
@@ -615,9 +615,9 @@ func TestGenerateQualityInsights(t *testing.T) {
 			if h == 0 {
 				h = HotfixMaxHours // use default
 			}
-			threshold := tt.defectRateThreshold
+			threshold := tt.bugRatioThreshold
 			if threshold == 0 {
-				threshold = DefectRateHigh // use default
+				threshold = BugRatioHigh // use default
 			}
 			got := GenerateQualityInsights(tt.quality, tt.items, h, threshold)
 			assertInsights(t, got, tt.wantCount, tt.wantSubstr)

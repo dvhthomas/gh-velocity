@@ -403,7 +403,7 @@ scope:
 
 # Issue/PR classification — first matching category wins; unmatched = "other".
 # Matchers: label:<name>, type:<name>, title:/<regex>/i
-# Note: defect rate in reports counts issues classified as "bug".
+# Note: bug ratio in reports counts issues classified as "bug".
 # If you name your bug category differently, use "bug" as the name.
 quality:
   categories:
@@ -1139,14 +1139,14 @@ Cycle time is N/A when the configured strategy has no signal for that issue:
 3. **Check the verify URL**: Bulk commands show a "Verify:" link — open it in GitHub to see what the search returns.
 4. **Check for activity**: A repo with no closed issues or merged PRs in the window will show empty results. That's correct.
 
-### Defect rate shows 0%
+### Bug ratio shows 0%
 
-The report's defect rate counts issues classified as "bug". If you name your bug category differently (e.g., "defect", "incident"), rename it to "bug" in your config:
+The report's bug ratio counts issues classified as "bug". If you name your bug category differently (e.g., "defect", "incident"), rename it to "bug" in your config:
 
 ```yaml
 quality:
   categories:
-    - name: bug        # must be "bug" for defect rate
+    - name: bug        # must be "bug" for bug ratio
       match:
         - "label:defect"
         - "label:incident"

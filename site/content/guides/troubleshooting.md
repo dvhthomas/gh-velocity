@@ -95,14 +95,14 @@ Fix: Add `lifecycle.in-progress.match` with label matchers. Label timestamps are
 2. **Check your scope.** Run with `--debug` to see the GitHub search query being sent. Bulk commands show a "Verify:" link -- open it in GitHub to see what the search returns.
 3. **Check for activity.** A repo with no closed issues or merged PRs in the window produces empty results. That is correct behavior.
 
-### Defect rate shows 0%
+### Bug ratio shows 0%
 
-The report's defect rate counts issues classified as "bug". If you name your bug category differently (e.g., "defect", "incident"), rename it to `bug` in your config:
+The report's bug ratio counts issues classified as "bug". If you name your bug category differently (e.g., "defect", "incident"), rename it to `bug` in your config:
 
 ```yaml
 quality:
   categories:
-    - name: bug        # must be "bug" for defect rate
+    - name: bug        # must be "bug" for bug ratio
       match:
         - "label:defect"
         - "label:incident"

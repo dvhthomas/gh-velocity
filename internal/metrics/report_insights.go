@@ -13,8 +13,8 @@ import (
 // Insight thresholds — named constants for testability and discoverability.
 const (
 	SkewThreshold      = 3.0 // mean/median ratio to trigger skew warning
-	DefectRateHigh     = 0.20
-	DefectRateSuspicious = 0.60 // above this, suggest reviewing category matchers
+	BugRatioHigh     = 0.20
+	BugRatioSuspicious = 0.60 // above this, suggest reviewing category matchers
 	OutlierMinCount    = 2
 	OutlierMultipleCap = 100 // cap the "Nx longer" message to avoid absurd numbers
 	MismatchRatio      = 3.0 // PR:issue ratio to flag mismatch
@@ -256,25 +256,25 @@ func GenerateThroughputInsights(issuesClosed, prsMerged int, categoryDist map[st
 }
 
 // GenerateQualityInsights produces quality-specific insights.
-// defectRateThreshold is the configured threshold for the "high defect rate" insight (e.g. 0.20 = 20%).
-func GenerateQualityInsights(quality model.StatsQuality, items []ItemRef, hotfixWindowHours int, defectRateThreshold float64) []model.Insight {
+// bugRatioThreshold is the configured threshold for the "high bug ratio" insight (e.g. 0.20 = 20%).
+func GenerateQualityInsights(quality model.StatsQuality, items []ItemRef, hotfixWindowHours int, bugRatioThreshold float64) []model.Insight {
 	var insights []model.Insight
 
 	if quality.TotalIssues == 0 {
 		return nil
 	}
 
-	// Defect rate threshold — >60% suggests category matcher issues, not real bugs.
+	// Bug ratio threshold — >60% suggests category matcher issues, not real bugs.
 	switch {
-	case quality.DefectRate > DefectRateSuspicious:
+	case quality.BugRatio > BugRatioSuspicious:
 		insights = append(insights, model.Insight{
-			Type:    "defect_rate_review",
-			Message: fmt.Sprintf("%.0f%% defect rate — may reflect issue template naming rather than actual bugs. Review category matchers.", quality.DefectRate*100),
+			Type:    "bug_ratio_review",
+			Message: fmt.Sprintf("%.0f%% bug ratio — may reflect issue template naming rather than actual bugs. Review category matchers.", quality.BugRatio*100),
 		})
-	case quality.DefectRate > defectRateThreshold:
+	case quality.BugRatio > bugRatioThreshold:
 		insights = append(insights, model.Insight{
-			Type:    "defect_rate_high",
-			Message: fmt.Sprintf("%.0f%% of closed issues are bugs (above configured %.0f%% threshold).", quality.DefectRate*100, defectRateThreshold*100),
+			Type:    "bug_ratio_high",
+			Message: fmt.Sprintf("%.0f%% of closed issues are bugs (above configured %.0f%% threshold).", quality.BugRatio*100, bugRatioThreshold*100),
 		})
 	}
 

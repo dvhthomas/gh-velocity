@@ -203,7 +203,7 @@ DEFECT_RATE=$(gh velocity quality release "$TAG" --format json | \
   jq '.composition.bug_ratio')
 
 if (( $(echo "$DEFECT_RATE > 0.5" | bc -l) )); then
-  echo "High defect rate: $DEFECT_RATE"
+  echo "High bug ratio: $DEFECT_RATE"
   # Take action: notify, block release, etc.
 fi
 ```

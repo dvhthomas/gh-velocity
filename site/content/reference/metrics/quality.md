@@ -9,16 +9,16 @@ Quality metrics analyze the composition and health of a release. They answer: "W
 
 ## What this tells you
 
-Release quality metrics help you understand whether you're shipping improvements or fighting fires. A rising defect rate across releases signals growing technical debt. Frequent hotfixes suggest inadequate testing or overly aggressive release schedules. High release lag means finished work is sitting unreleased, increasing the risk of stale branches and merge conflicts.
+Release quality metrics help you understand whether you're shipping improvements or fighting fires. A rising bug ratio across releases signals growing technical debt. Frequent hotfixes suggest inadequate testing or overly aggressive release schedules. High release lag means finished work is sitting unreleased, increasing the risk of stale branches and merge conflicts.
 
-For a PM, these metrics answer: "Is our release process healthy?" Track defect rate and composition over multiple releases to spot trends.
+For a PM, these metrics answer: "Is our release process healthy?" Track bug ratio and composition over multiple releases to spot trends.
 
-## Per-release defect rate
+## Per-release bug ratio
 
-Defect rate is the proportion of issues in a release classified as bugs.
+Bug ratio is the proportion of issues in a release classified as bugs.
 
 ```
-defect_rate = bug_count / total_issues
+bug_ratio = bug_count / total_issues
 ```
 
 "Bug" classification depends on your `quality.categories` configuration. The tool looks for a category named `"bug"` in the classification results. If you name your bug category differently, use `"bug"` as the `name` field in your config.
@@ -37,7 +37,7 @@ A release with 20 issues, 4 of which are classified as "bug":
 }
 ```
 
-Defect rate: 20%.
+Bug ratio: 20%.
 
 ## Category composition
 
@@ -160,7 +160,7 @@ Individual issues are flagged with `lead_time_outlier: true` and/or `cycle_time_
 | Config field | Type | Default | Description |
 |---|---|---|---|
 | `quality.categories` | list | bug + feature | Ordered classification categories |
-| `quality.categories[].name` | string | -- | Category name (use `"bug"` for defect rate) |
+| `quality.categories[].name` | string | -- | Category name (use `"bug"` for bug ratio) |
 | `quality.categories[].match` | list | -- | Matcher patterns for this category |
 | `quality.hotfix_window_hours` | number | `72` | Releases within this window of the previous release are flagged as hotfixes |
 
@@ -216,7 +216,7 @@ Release v1.2.0 (2026-03-01)
 ## See also
 
 - [Linking Strategies]({{< relref "/concepts/linking-strategies" >}}) -- how the tool finds which issues belong to a release
-- [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) -- what healthy defect rates and composition look like
+- [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) -- what healthy bug ratios and composition look like
 - [Understanding Statistics]({{< relref "/concepts/statistics" >}}) -- outlier detection, percentiles, and median vs. mean
 - [Configuration Reference: quality]({{< relref "/reference/config" >}}#quality) -- category matchers and hotfix window
-- [Troubleshooting: Defect rate shows 0%]({{< relref "/guides/troubleshooting" >}}#defect-rate-shows-0) -- common configuration fix
+- [Troubleshooting: Bug ratio shows 0%]({{< relref "/guides/troubleshooting" >}}#defect-rate-shows-0) -- common configuration fix

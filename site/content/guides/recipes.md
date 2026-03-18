@@ -17,11 +17,11 @@ echo "v1.9.0 median lead time: $(jq -r '.aggregates.lead_time.median_seconds / 8
 echo "v2.0.0 median lead time: $(jq -r '.aggregates.lead_time.median_seconds / 86400 | round | "\(.)d"' v2.json)"
 ```
 
-Compare defect rates:
+Compare bug ratios:
 
 ```bash
-echo "v1.9.0 defect rate: $(jq -r '.composition.bug_ratio * 100 | round | "\(.)%"' v1.json)"
-echo "v2.0.0 defect rate: $(jq -r '.composition.bug_ratio * 100 | round | "\(.)%"' v2.json)"
+echo "v1.9.0 bug ratio: $(jq -r '.composition.bug_ratio * 100 | round | "\(.)%"' v1.json)"
+echo "v2.0.0 bug ratio: $(jq -r '.composition.bug_ratio * 100 | round | "\(.)%"' v2.json)"
 ```
 
 ## Find your slowest issues

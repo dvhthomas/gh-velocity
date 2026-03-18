@@ -21,8 +21,8 @@ const (
 	DefaultConfigFile         = ".gh-velocity.yml"
 	DefaultWorkflow           = "pr"
 	DefaultHotfixWindowHours    = 72
-	DefaultDefectRateThreshold  = 0.20
-	MaxDefectRateThreshold      = 0.60 // above this is suspicious (data quality issue, not real defect rate)
+	DefaultBugRatioThreshold  = 0.20
+	MaxBugRatioThreshold      = 0.60 // above this is suspicious (data quality issue, not real bug ratio)
 	MaxConfigFileSize           = 64 * 1024 // 64 KB
 	MaxHotfixWindowHours        = 8760      // 1 year in hours
 	DefaultAPIThrottleSeconds   = 2
@@ -142,7 +142,7 @@ type CommitRefConfig struct {
 type QualityConfig struct {
 	Categories         []model.CategoryConfig `yaml:"categories" json:"categories"`
 	HotfixWindowHours  float64                `yaml:"hotfix_window_hours" json:"hotfix_window_hours"`
-	DefectRateThreshold float64               `yaml:"defect_rate_threshold" json:"defect_rate_threshold"`
+	BugRatioThreshold float64               `yaml:"bug_ratio_threshold" json:"bug_ratio_threshold"`
 }
 
 type DiscussionsConfig struct {
@@ -190,8 +190,8 @@ func Parse(data []byte) (*Config, error) {
 	}
 
 	// Apply defaults for fields that YAML zeros when parent key is present.
-	if cfg.Quality.DefectRateThreshold == 0 {
-		cfg.Quality.DefectRateThreshold = DefaultDefectRateThreshold
+	if cfg.Quality.BugRatioThreshold == 0 {
+		cfg.Quality.BugRatioThreshold = DefaultBugRatioThreshold
 	}
 
 	if err := validate(cfg); err != nil {
@@ -226,7 +226,7 @@ func defaults() *Config {
 				{Name: "feature", Matchers: []string{"label:enhancement"}},
 			},
 			HotfixWindowHours:   DefaultHotfixWindowHours,
-			DefectRateThreshold: DefaultDefectRateThreshold,
+			BugRatioThreshold: DefaultBugRatioThreshold,
 		},
 		Velocity: VelocityConfig{
 			Unit: "issues",
@@ -306,13 +306,13 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("config: quality.hotfix_window_hours must be at most %d, got %v", MaxHotfixWindowHours, cfg.Quality.HotfixWindowHours)
 	}
 
-	// defect_rate_threshold: must be in (0, MaxDefectRateThreshold).
-	if cfg.Quality.DefectRateThreshold <= 0 || cfg.Quality.DefectRateThreshold >= 1.0 {
-		return fmt.Errorf("config: quality.defect_rate_threshold must be between 0 and 1 exclusive, got %v", cfg.Quality.DefectRateThreshold)
+	// bug_ratio_threshold: must be in (0, MaxBugRatioThreshold).
+	if cfg.Quality.BugRatioThreshold <= 0 || cfg.Quality.BugRatioThreshold >= 1.0 {
+		return fmt.Errorf("config: quality.bug_ratio_threshold must be between 0 and 1 exclusive, got %v", cfg.Quality.BugRatioThreshold)
 	}
-	if cfg.Quality.DefectRateThreshold >= MaxDefectRateThreshold {
-		return fmt.Errorf("config: quality.defect_rate_threshold must be less than %.0f%% (the suspicious threshold that indicates a data quality issue), got %.0f%%",
-			MaxDefectRateThreshold*100, cfg.Quality.DefectRateThreshold*100)
+	if cfg.Quality.BugRatioThreshold >= MaxBugRatioThreshold {
+		return fmt.Errorf("config: quality.bug_ratio_threshold must be less than %.0f%% (the suspicious threshold that indicates a data quality issue), got %.0f%%",
+			MaxBugRatioThreshold*100, cfg.Quality.BugRatioThreshold*100)
 	}
 
 	// cycle_time.strategy: must be a known value.
