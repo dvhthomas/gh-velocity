@@ -561,6 +561,7 @@ func computeQualityWithInsights(items []leadtime.BulkItem, categories []model.Ca
 				Title:    item.Issue.Title,
 				Duration: *dur,
 				Category: cat,
+				URL:      item.Issue.URL,
 			})
 		}
 	}

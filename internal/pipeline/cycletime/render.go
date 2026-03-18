@@ -216,7 +216,7 @@ func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.T
 	sorted := sortByCloseDateDesc(items)
 	var insightMsgs []string
 	for _, ins := range insights {
-		insightMsgs = append(insightMsgs, ins.Message)
+		insightMsgs = append(insightMsgs, format.LinkStatTerms(ins.Message))
 	}
 	data := bulkTemplateData{
 		Repository: repo,
@@ -268,7 +268,7 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 	model.WriteInsightsPretty(rc.Writer, insights)
 	fmt.Fprintln(rc.Writer, "  Summary:")
 	for _, line := range format.FormatStatsDetail(stats) {
-		fmt.Fprintf(rc.Writer, "    %s\n", format.StripMarkdownBold(line))
+		fmt.Fprintf(rc.Writer, "    %s\n", format.StripMarkdownLinks(format.StripMarkdownBold(line)))
 	}
 	fmt.Fprintln(rc.Writer)
 

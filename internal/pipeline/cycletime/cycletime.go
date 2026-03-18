@@ -260,6 +260,7 @@ func (p *BulkPipeline) generateInsights() {
 				Number:   bi.Issue.Number,
 				Title:    bi.Issue.Title,
 				Duration: *bi.Metric.Duration,
+				URL:      bi.Issue.URL,
 			})
 		}
 	}

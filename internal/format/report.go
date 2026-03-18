@@ -283,7 +283,7 @@ func FormatStatsDetail(s model.Stats) []string {
 	}
 	cv := ComputeCV(s)
 	if label := PredictabilityLabel(cv); label != "" {
-		lines = append(lines, fmt.Sprintf("**Predictability:** %s (CV %.1f)", label, *cv))
+		lines = append(lines, fmt.Sprintf("**Predictability:** %s (%s %.1f)", label, DocLink("CV", "/concepts/statistics/#coefficient-of-variation-cv"), *cv))
 	}
 	sampleSize := fmt.Sprintf("%d", s.Count)
 	if s.OutlierCount > 0 {
