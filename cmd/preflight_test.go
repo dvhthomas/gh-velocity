@@ -1253,31 +1253,51 @@ func TestClassifyLabels_FuzzyLifecycle(t *testing.T) {
 	}
 }
 
-func TestClassifyLabels_SpamDetection(t *testing.T) {
+func TestClassifyLabels_NoiseDetection(t *testing.T) {
 	tests := []struct {
-		name     string
-		labels   []string
-		wantSpam []string
+		name      string
+		labels    []string
+		wantNoise []string
 	}{
 		{
-			name:     "suspected-spam detected",
-			labels:   []string{"suspected-spam", "bug"},
-			wantSpam: []string{"suspected-spam"},
+			name:      "suspected-spam detected",
+			labels:    []string{"suspected-spam", "bug"},
+			wantNoise: []string{"suspected-spam"},
 		},
 		{
-			name:     "spam exact match",
-			labels:   []string{"spam"},
-			wantSpam: []string{"spam"},
+			name:      "spam exact match",
+			labels:    []string{"spam"},
+			wantNoise: []string{"spam"},
 		},
 		{
-			name:     "antispam detected",
-			labels:   []string{"antispam"},
-			wantSpam: []string{"antispam"},
+			name:      "duplicate detected",
+			labels:    []string{"duplicate", "bug"},
+			wantNoise: []string{"duplicate"},
 		},
 		{
-			name:     "no spam labels",
-			labels:   []string{"bug", "enhancement", "in-progress"},
-			wantSpam: nil,
+			name:      "triage/duplicate detected",
+			labels:    []string{"triage/duplicate"},
+			wantNoise: []string{"triage/duplicate"},
+		},
+		{
+			name:      "invalid detected",
+			labels:    []string{"invalid"},
+			wantNoise: []string{"invalid"},
+		},
+		{
+			name:      "Resolution: Invalid detected",
+			labels:    []string{"Resolution: Invalid"},
+			wantNoise: []string{"Resolution: Invalid"},
+		},
+		{
+			name:      "multiple noise labels",
+			labels:    []string{"suspected-spam", "duplicate", "invalid", "bug"},
+			wantNoise: []string{"suspected-spam", "duplicate", "invalid"},
+		},
+		{
+			name:      "no noise labels",
+			labels:    []string{"bug", "enhancement", "in-progress"},
+			wantNoise: nil,
 		},
 	}
 
@@ -1285,24 +1305,24 @@ func TestClassifyLabels_SpamDetection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := &PreflightResult{}
 			classifyLabels(result, tt.labels)
-			if len(result.SpamLabels) != len(tt.wantSpam) {
-				t.Errorf("SpamLabels = %v, want %v", result.SpamLabels, tt.wantSpam)
+			if len(result.NoiseLabels) != len(tt.wantNoise) {
+				t.Errorf("NoiseLabels = %v, want %v", result.NoiseLabels, tt.wantNoise)
 				return
 			}
-			for i, want := range tt.wantSpam {
-				if result.SpamLabels[i] != want {
-					t.Errorf("SpamLabels[%d] = %q, want %q", i, result.SpamLabels[i], want)
+			for i, want := range tt.wantNoise {
+				if result.NoiseLabels[i] != want {
+					t.Errorf("NoiseLabels[%d] = %q, want %q", i, result.NoiseLabels[i], want)
 				}
 			}
 		})
 	}
 }
 
-func TestRenderPreflightConfig_SpamExclusion(t *testing.T) {
+func TestRenderPreflightConfig_NoiseExclusion(t *testing.T) {
 	r := &PreflightResult{
 		Repo:       "cli/cli",
 		Strategy:   "issue",
-		SpamLabels: []string{"suspected-spam"},
+		NoiseLabels: []string{"suspected-spam", "duplicate", "invalid"},
 		Categories: map[string][]string{
 			"bug": {"bug"},
 		},
@@ -1311,7 +1331,13 @@ func TestRenderPreflightConfig_SpamExclusion(t *testing.T) {
 	if !strings.Contains(config, "-label:suspected-spam") {
 		t.Errorf("expected scope to contain -label:suspected-spam, got:\n%s", config)
 	}
-	if !strings.Contains(config, "Excluded 1 spam/noise label") {
-		t.Errorf("expected comment about excluded spam labels, got:\n%s", config)
+	if !strings.Contains(config, "-label:duplicate") {
+		t.Errorf("expected scope to contain -label:duplicate, got:\n%s", config)
+	}
+	if !strings.Contains(config, "-label:invalid") {
+		t.Errorf("expected scope to contain -label:invalid, got:\n%s", config)
+	}
+	if !strings.Contains(config, "Excluded 3 noise label") {
+		t.Errorf("expected comment about excluded noise labels, got:\n%s", config)
 	}
 }

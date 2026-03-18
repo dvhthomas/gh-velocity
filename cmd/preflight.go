@@ -165,7 +165,7 @@ type PreflightResult struct {
 	Categories       map[string][]string `json:"categories,omitempty"`
 	ActiveLabels     []string            `json:"active_labels"`
 	BacklogLabels    []string            `json:"backlog_labels"`
-	SpamLabels       []string            `json:"spam_labels,omitempty"`
+	NoiseLabels       []string            `json:"noise_labels,omitempty"`
 	ProjectURL       string              `json:"project_url,omitempty"`
 	StatusOptions    []string            `json:"status_options,omitempty"`
 	Strategy         string              `json:"strategy"`
@@ -341,8 +341,8 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 		result.Hints = append(result.Hints, "No recent activity found in the last 30 days — metrics may be empty initially")
 	}
 
-	if len(result.SpamLabels) > 0 {
-		result.Hints = append(result.Hints, fmt.Sprintf("Detected spam/noise labels %v — excluding from scope to avoid distorting metrics", result.SpamLabels))
+	if len(result.NoiseLabels) > 0 {
+		result.Hints = append(result.Hints, fmt.Sprintf("Detected noise labels %v — excluding from scope to avoid distorting metrics", result.NoiseLabels))
 	}
 
 	// 5a. Discover issue types (concurrent when both paths available)
@@ -700,6 +700,10 @@ var statusPatterns = map[string][]string{
 	"preview":   {"preview", "beta", "alpha", "canary"},
 }
 
+// noisePatterns matches labels that indicate non-work issues which should be excluded
+// from scope to avoid distorting metrics. Uses word-boundary matching.
+var noisePatterns = []string{"spam", "duplicate", "invalid"}
+
 // ignorePrefixes lists label prefixes that indicate non-category/non-status labels.
 // Labels starting with these are skipped during classification.
 var ignorePrefixes = []string{
@@ -771,9 +775,10 @@ func classifyLabels(result *PreflightResult, labels []string) {
 			result.BacklogLabels = append(result.BacklogLabels, label)
 		}
 
-		// Spam/noise labels: detect labels containing "spam" to suggest scope exclusion.
-		if strings.Contains(lower, "spam") {
-			result.SpamLabels = append(result.SpamLabels, label)
+		// Noise labels: detect labels that indicate non-work issues (spam, duplicates, invalid).
+		// These distort metrics when counted as real throughput or bug ratio.
+		if matchesWordAny(lower, noisePatterns) {
+			result.NoiseLabels = append(result.NoiseLabels, label)
 		}
 	}
 }
@@ -1007,16 +1012,16 @@ func renderPreflightConfig(r *PreflightResult) string {
 	b.WriteString("# Scope: which issues/PRs to analyze (GitHub search syntax).\n")
 	b.WriteString("# Override per-run with: --scope 'label:\"priority:high\"'\n")
 	b.WriteString("scope:\n")
-	if len(r.SpamLabels) > 0 {
+	if len(r.NoiseLabels) > 0 {
 		// Build scope query with spam label exclusions.
 		var parts []string
 		parts = append(parts, fmt.Sprintf("repo:%s", r.Repo))
-		for _, sl := range r.SpamLabels {
+		for _, sl := range r.NoiseLabels {
 			parts = append(parts, fmt.Sprintf("-label:%s", sl))
 		}
 		b.WriteString(fmt.Sprintf("  query: %q\n", strings.Join(parts, " ")))
-		b.WriteString(fmt.Sprintf("  # Excluded %d spam/noise label(s) detected in this repo: %s\n",
-			len(r.SpamLabels), strings.Join(r.SpamLabels, ", ")))
+		b.WriteString(fmt.Sprintf("  # Excluded %d noise label(s) detected in this repo: %s\n",
+			len(r.NoiseLabels), strings.Join(r.NoiseLabels, ", ")))
 	} else {
 		b.WriteString(fmt.Sprintf("  query: \"repo:%s\"\n", r.Repo))
 	}
