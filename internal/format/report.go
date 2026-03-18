@@ -184,6 +184,8 @@ func WriteReportPretty(rc RenderContext, r model.StatsResult) error {
 	}
 	if r.WIPCount != nil {
 		fmt.Fprintf(w, "  WIP:         %d items in progress\n", *r.WIPCount)
+	} else {
+		fmt.Fprintf(w, "  WIP:         not configured\n")
 	}
 	if r.Quality != nil {
 		fmt.Fprintf(w, "  Quality:     %d bugs / %d issues (%.0f%% defect rate)\n",

@@ -354,8 +354,13 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 		if throughputOK && throughputPipeline.Result.IssuesClosed+throughputPipeline.Result.PRsMerged > 0 {
 			total := throughputPipeline.Result.IssuesClosed + throughputPipeline.Result.PRsMerged
 			summary := fmt.Sprintf("Throughput (%d items)", total)
+			// Convert quality categories to throughput categories for the breakdown table.
+			var tpCats []throughput.CategoryRow
+			for _, c := range qualDetail.Categories {
+				tpCats = append(tpCats, throughput.CategoryRow{Name: c.Name, Count: c.Count, Pct: c.Pct})
+			}
 			if err := writeDetail(rc, summary, func() error {
-				return throughput.WriteMarkdown(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL, throughputPipeline.Insights)
+				return throughput.WriteMarkdownWithCategories(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL, throughputPipeline.Insights, tpCats)
 			}, func() error {
 				return throughput.WritePretty(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL, throughputPipeline.Insights)
 			}); err != nil {

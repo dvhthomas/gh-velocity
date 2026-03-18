@@ -132,6 +132,7 @@ type reportTemplateData struct {
 	Quality       string
 	Warnings      []string
 	HasInsights   bool
+	HasData       bool // true when any section has data (for "not configured" rows)
 	InsightGroups []insightGroup
 }
 
@@ -176,6 +177,7 @@ func renderReportMarkdown(w io.Writer, r model.StatsResult) error {
 		}
 	}
 	data.HasInsights = len(data.InsightGroups) > 0
+	data.HasData = data.LeadTime != "" || data.CycleTime != "" || data.Throughput != "" || data.Velocity != "" || data.Quality != ""
 	return reportMarkdownTmpl.Execute(w, data)
 }
 

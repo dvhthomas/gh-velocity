@@ -29,6 +29,8 @@
 {{- end}}
 {{- if .WIP}}
 | WIP | {{.WIP}} |
+{{- else if .HasData}}
+| WIP | not configured |
 {{- end}}
 {{- if .Quality}}
 | {{docLink "Quality" "/reference/metrics/quality/"}} | {{.Quality}} |
