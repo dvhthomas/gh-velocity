@@ -682,10 +682,17 @@ var categoryPatterns = map[string][]string{
 	"docs":    {"documentation", "docs"},
 }
 
-// statusPatterns maps status buckets to their matching patterns.
+// statusPatterns maps lifecycle stages to their matching keyword patterns.
+// normalizeLabel is applied before matching so patterns use normalized form.
 var statusPatterns = map[string][]string{
-	"active":  {"in-progress", "in progress", "wip"},
-	"backlog": {"backlog", "icebox", "deferred", "wishlist"},
+	"active":    {"in progress", "progress", "working", "active", "wip", "doing"},
+	"in-review": {"review", "reviewing"},
+	"ready":     {"confirmed", "accepted", "triaged", "ready", "approved"},
+	"in-design": {"design", "designing", "planning"},
+	"blocked":   {"blocked", "waiting", "on hold", "stalled"},
+	"backlog":   {"backlog", "icebox", "deferred", "wishlist", "new", "triage", "needs triage", "intake", "todo", "to do"},
+	"done":      {"shipped", "released", "done", "resolved", "completed"},
+	"preview":   {"preview", "beta", "alpha", "canary"},
 }
 
 // ignorePrefixes lists label prefixes that indicate non-category/non-status labels.
@@ -696,8 +703,31 @@ var ignorePrefixes = []string{
 	"needs-",       // triage/process labels
 }
 
+// normalizeLabel normalizes a label for fuzzy matching:
+// lowercase, strip trailing punctuation, normalize separators to single space.
+func normalizeLabel(s string) string {
+	s = strings.ToLower(s)
+	s = strings.TrimRight(s, "!?:.")
+	// Replace separators (-_) with space, collapse multiple spaces.
+	var b strings.Builder
+	prevSpace := false
+	for _, r := range s {
+		if r == '-' || r == '_' || r == ' ' {
+			if !prevSpace {
+				b.WriteRune(' ')
+				prevSpace = true
+			}
+		} else {
+			b.WriteRune(r)
+			prevSpace = false
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
 // classifyLabels sorts repo labels into quality categories and status buckets.
 // Each label is assigned to the first matching category only (first-match-wins).
+// Uses normalizeLabel for fuzzy lifecycle detection (handles punctuation, separators).
 func classifyLabels(result *PreflightResult, labels []string) {
 	// Category order determines priority for first-match-wins.
 	// Includes "docs" for label discovery even though it's not a baseline output category.
@@ -710,7 +740,7 @@ func classifyLabels(result *PreflightResult, labels []string) {
 			continue
 		}
 
-		// Quality categories: first match wins
+		// Quality categories: first match wins (uses word-boundary matching)
 		for _, cat := range categoryOrder {
 			if matchesWordAny(lower, categoryPatterns[cat]) {
 				if result.Categories == nil {
@@ -721,14 +751,26 @@ func classifyLabels(result *PreflightResult, labels []string) {
 			}
 		}
 
-		// Status labels: independent of categories
-		if matchesWordAny(lower, statusPatterns["active"]) {
-			result.ActiveLabels = append(result.ActiveLabels, label)
+		// Status labels: use normalizeLabel for fuzzy matching.
+		// "in progress", "in-progress", "In_Progress", "review me!" all match.
+		normalized := normalizeLabel(label)
+
+		// Active/in-progress labels (includes in-review, in-design, preview as active work)
+		for _, stage := range []string{"active", "in-review", "in-design", "preview"} {
+			if containsAnyKeyword(normalized, statusPatterns[stage]) {
+				result.ActiveLabels = append(result.ActiveLabels, label)
+				break
+			}
 		}
-		if matchesWordAny(lower, statusPatterns["backlog"]) {
+		if containsAnyKeyword(normalized, statusPatterns["backlog"]) {
 			result.BacklogLabels = append(result.BacklogLabels, label)
 		}
 	}
+}
+
+// containsAnyKeyword returns true if normalized label matches any keyword at a word boundary.
+func containsAnyKeyword(normalized string, keywords []string) bool {
+	return matchesWordAny(normalized, keywords)
 }
 
 // hasIgnorePrefix returns true if label starts with any ignore prefix.
