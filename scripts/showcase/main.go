@@ -207,10 +207,6 @@ func main() {
 	ghActionsEndGroup()
 
 	// ── Process each repo ────────────────────────────────────────
-	type indexEntry struct {
-		Repo   string
-		Status string
-	}
 	var index []indexEntry
 	successCount := 0
 
@@ -272,8 +268,17 @@ func main() {
 		}
 	}
 
+	// ── Print summary with links ────────────────────────────────
 	log.Println()
-	log.Printf("Showcase complete: %s", discURL)
+	log.Printf("Showcase complete: %d/%d repos succeeded", successCount, len(configs))
+	log.Printf("Discussion: %s", discURL)
+
+	if link := workflowRunLink(); link != "" {
+		log.Printf("Artifacts:  %s", link)
+	}
+
+	// Write GitHub Actions job summary with clickable links.
+	writeJobSummary(discURL, index)
 }
 
 // loadConfigs reads the YAML config list.
@@ -506,6 +511,38 @@ func ghActionsError(msg string) {
 		fmt.Printf("::error::%s\n", msg)
 	}
 	log.Printf("ERROR: %s", msg)
+}
+
+// writeJobSummary appends a markdown summary to $GITHUB_STEP_SUMMARY.
+// This shows up as a clickable summary on the Actions run page.
+func writeJobSummary(discURL string, index []indexEntry) {
+	summaryPath := os.Getenv("GITHUB_STEP_SUMMARY")
+	if summaryPath == "" {
+		return
+	}
+	f, err := os.OpenFile(summaryPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		log.Printf("Warning: could not write job summary: %v", err)
+		return
+	}
+	defer f.Close()
+
+	fmt.Fprintln(f, "## Velocity Showcase")
+	fmt.Fprintln(f)
+	fmt.Fprintf(f, "**Discussion:** %s\n\n", discURL)
+	if link := workflowRunLink(); link != "" {
+		fmt.Fprintf(f, "**Artifacts:** %s\n\n", link)
+	}
+	fmt.Fprintln(f, "| Repo | Status |")
+	fmt.Fprintln(f, "|------|--------|")
+	for _, e := range index {
+		fmt.Fprintf(f, "| %s | `%s` |\n", e.Repo, e.Status)
+	}
+}
+
+type indexEntry struct {
+	Repo   string
+	Status string
 }
 
 func workflowRunLink() string {
