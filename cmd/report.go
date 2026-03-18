@@ -15,6 +15,7 @@ import (
 	"github.com/bitsbyme/gh-velocity/internal/model"
 	cycletimepipe "github.com/bitsbyme/gh-velocity/internal/pipeline/cycletime"
 	"github.com/bitsbyme/gh-velocity/internal/pipeline/leadtime"
+	qualitypipe "github.com/bitsbyme/gh-velocity/internal/pipeline/quality"
 	"github.com/bitsbyme/gh-velocity/internal/pipeline/throughput"
 	"github.com/bitsbyme/gh-velocity/internal/pipeline/velocity"
 	"github.com/bitsbyme/gh-velocity/internal/posting"
@@ -294,10 +295,11 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 	}
 
 	// Quality: defect rate + insights from categories (reuses lead time's closed issues)
+	var qualDetail qualityResult
 	if leadOK && len(cfg.Quality.Categories) > 0 {
-		q, qInsights := computeQualityWithInsights(leadPipeline.Items, cfg.Quality.Categories, cfg.Quality.HotfixWindowHours)
-		result.Quality = q
-		result.QualityInsights = qInsights
+		qualDetail = computeQualityWithInsights(leadPipeline.Items, cfg.Quality.Categories, cfg.Quality.HotfixWindowHours)
+		result.Quality = qualDetail.Quality
+		result.QualityInsights = qualDetail.Insights
 	}
 
 	// TODO(PR C): WIP from project board or active_labels config
@@ -366,6 +368,26 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 				return velocity.WriteMarkdown(rc.Writer, velocityPipeline.Result)
 			}, func() error {
 				return velocity.WritePretty(rc.Writer, velocityPipeline.Result, false)
+			}); err != nil {
+				return err
+			}
+		}
+
+		if qualDetail.Quality != nil && len(qualDetail.Items) > 0 {
+			summary := fmt.Sprintf("Quality (%d issues)", qualDetail.Quality.TotalIssues)
+			detail := qualitypipe.Detail{
+				Repository: repo,
+				Since:      since,
+				Until:      until,
+				Quality:    *qualDetail.Quality,
+				Insights:   qualDetail.Insights,
+				Items:      qualDetail.Items,
+				Categories: qualDetail.Categories,
+			}
+			if err := writeDetail(rc, summary, func() error {
+				return qualitypipe.WriteMarkdown(rc, detail)
+			}, func() error {
+				return qualitypipe.WritePretty(rc.Writer, detail)
 			}); err != nil {
 				return err
 			}
@@ -532,18 +554,27 @@ func writeReportArtifacts(deps *Deps, dir string, result model.StatsResult, sect
 // computeQualityWithInsights computes defect rate and quality insights from closed issues.
 // Issues classified as "bug" are counted as defects. Returns both the quality stats
 // and insight observations about defect rate, bug fix speed, category distribution, and hotfixes.
-func computeQualityWithInsights(items []leadtime.BulkItem, categories []model.CategoryConfig, hotfixWindowHours float64) (*model.StatsQuality, []model.Insight) {
+// qualityResult holds quality computation output including per-item classification.
+type qualityResult struct {
+	Quality    *model.StatsQuality
+	Insights   []model.Insight
+	Items      []qualitypipe.QualityItem
+	Categories []qualitypipe.CategoryRow
+}
+
+func computeQualityWithInsights(items []leadtime.BulkItem, categories []model.CategoryConfig, hotfixWindowHours float64) qualityResult {
 	if len(items) == 0 {
-		return nil, nil
+		return qualityResult{}
 	}
 	classifier, err := classify.NewClassifier(categories)
 	if err != nil {
-		return nil, nil
+		return qualityResult{}
 	}
 
 	// Classify all items and build ItemRef slices for insight generation.
 	bugCount := 0
 	var insightItems []metrics.ItemRef
+	var qualityItems []qualitypipe.QualityItem
 	for _, item := range items {
 		result := classifier.Classify(classify.Input{
 			Labels:    item.Issue.Labels,
@@ -563,6 +594,13 @@ func computeQualityWithInsights(items []leadtime.BulkItem, categories []model.Ca
 				Category: cat,
 				URL:      item.Issue.URL,
 			})
+			qualityItems = append(qualityItems, qualitypipe.QualityItem{
+				Number:   item.Issue.Number,
+				Title:    item.Issue.Title,
+				URL:      item.Issue.URL,
+				Category: cat,
+				LeadTime: format.FormatDuration(*dur),
+			})
 		}
 	}
 
@@ -578,5 +616,10 @@ func computeQualityWithInsights(items []leadtime.BulkItem, categories []model.Ca
 		hwh = metrics.HotfixMaxHours
 	}
 	insights := metrics.GenerateQualityInsights(*quality, insightItems, hwh)
-	return quality, insights
+	return qualityResult{
+		Quality:    quality,
+		Insights:   insights,
+		Items:      qualityItems,
+		Categories: qualitypipe.BuildCategories(qualityItems),
+	}
 }

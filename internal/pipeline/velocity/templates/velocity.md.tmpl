@@ -1,8 +1,8 @@
-## Velocity: {{ .Repository }} ({{ .Unit }})
+### Velocity: {{ .Repository }} ({{ .Unit }})
 {{ if .Insights }}
 {{ range .Insights }}- {{ . }}
 {{ end }}{{ end }}{{ if .Current }}
-### Current: {{ .Current.Name }} ({{ date .Current.Start }} – {{ date .Current.End }})
+#### Current: {{ .Current.Name }} ({{ date .Current.Start }} – {{ date .Current.End }})
 {{ if gt .Current.TotalDays 0 }}
 Day {{ .Current.DayOfCycle }} of {{ .Current.TotalDays }}
 {{ end }}
@@ -15,7 +15,7 @@ Day {{ .Current.DayOfCycle }} of {{ .Current.TotalDays }}
 {{ if gt .Current.NotAssessed 0 }}| Not assessed | {{ .Current.NotAssessed }} {{ notAssessedHint .EffortStrategy }} |
 {{ end }}
 {{ end }}{{ if .History }}
-### History
+#### History
 
 | Iteration | Velocity | Committed | Done% | Items | Trend |
 |-----------|----------|-----------|-------|-------|-------|

@@ -1,0 +1,31 @@
+### Quality: {{.Repository}} ({{date .Since}} – {{date .Until}} UTC)
+{{- if .Insights}}
+
+**Insights:**
+{{- range .Insights}}
+- {{.}}
+{{- end}}
+{{- end}}
+
+**Category Breakdown:**
+
+| Category | Count | Percentage |
+| --- | ---: | ---: |
+{{- range .Categories}}
+| {{.Name}} | {{.Count}} | {{.Pct}}% |
+{{- end}}
+
+Defect rate: {{.DefectRate}}% ({{.BugCount}} bugs / {{.TotalIssues}} issues)
+{{- if .Items}}
+
+<details>
+<summary>Details ({{len .Items}} issues)</summary>
+
+| Issue | Title | Category | Lead Time |
+| ---: | --- | --- | --- |
+{{- range .Items}}
+| {{.Link}} | {{.Title}} | {{.Category}} | {{.LeadTime}} |
+{{- end}}
+
+</details>
+{{- end}}
