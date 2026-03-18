@@ -69,10 +69,12 @@ func DocLink(text, anchor string) string {
 	return fmt.Sprintf("[%s](%s%s)", text, DocSiteURL, anchor)
 }
 
-// LinkStatTerms wraps known statistical terms in insight messages with doc links.
+// LinkStatTerms wraps known terms in insight messages with doc links.
 // Only call this for markdown output — pretty callers should not use this.
 func LinkStatTerms(msg string) string {
 	msg = strings.Replace(msg, "(CV ", "("+DocLink("CV", "/concepts/statistics/#coefficient-of-variation-cv")+" ", 1)
+	msg = strings.Replace(msg, "(hotfix window)", "("+DocLink("hotfix window", "/reference/metrics/quality/#hotfix-detection")+")", 1)
+	msg = strings.Replace(msg, "threshold)", DocLink("threshold", "/reference/metrics/quality/#defect-rate")+")", 1)
 	return msg
 }
 

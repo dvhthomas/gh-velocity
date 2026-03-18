@@ -195,6 +195,16 @@ func TestLinkStatTerms(t *testing.T) {
 			input: "(CV 1.0) and (CV 2.0)",
 			want:  "([CV](https://dvhthomas.github.io/gh-velocity/concepts/statistics/#coefficient-of-variation-cv) 1.0) and (CV 2.0)",
 		},
+		{
+			name:  "hotfix window linked",
+			input: "73 items resolved within 72h of creation (hotfix window).",
+			want:  "73 items resolved within 72h of creation ([hotfix window](https://dvhthomas.github.io/gh-velocity/reference/metrics/quality/#hotfix-detection)).",
+		},
+		{
+			name:  "threshold linked",
+			input: "26% of closed issues are bugs (above 20% threshold).",
+			want:  "26% of closed issues are bugs (above 20% [threshold](https://dvhthomas.github.io/gh-velocity/reference/metrics/quality/#defect-rate)).",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

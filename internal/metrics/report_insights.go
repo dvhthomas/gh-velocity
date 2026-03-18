@@ -273,7 +273,7 @@ func GenerateQualityInsights(quality model.StatsQuality, items []ItemRef, hotfix
 	case quality.DefectRate > DefectRateHigh:
 		insights = append(insights, model.Insight{
 			Type:    "defect_rate_high",
-			Message: fmt.Sprintf("%.0f%% of closed issues are bugs — review if this matches expectations.", quality.DefectRate*100),
+			Message: fmt.Sprintf("%.0f%% of closed issues are bugs (above %.0f%% threshold).", quality.DefectRate*100, DefectRateHigh*100),
 		})
 	}
 
@@ -314,7 +314,7 @@ func GenerateQualityInsights(quality model.StatsQuality, items []ItemRef, hotfix
 		if hotfixCount > 0 {
 			insights = append(insights, model.Insight{
 				Type:    "hotfix_count",
-				Message: fmt.Sprintf("%d items resolved within %dh of creation (hotfix_window_hours config).", hotfixCount, hotfixWindowHours),
+				Message: fmt.Sprintf("%d items resolved within %dh of creation (hotfix window).", hotfixCount, hotfixWindowHours),
 			})
 		}
 	}
