@@ -110,7 +110,7 @@ func TestGenerateStatsInsights(t *testing.T) {
 				Median: ptrDur(dur(10)),
 			},
 			wantCount:  1,
-			wantSubstr: "right skew",
+			wantSubstr: "pulling the average up",
 			wantType:   "skew_warning",
 		},
 		{
@@ -388,7 +388,7 @@ func TestGenerateCycleTimeInsights(t *testing.T) {
 			stats:      &model.Stats{Count: 10, Mean: ptrDur(durH(4)), Median: ptrDur(durH(2))},
 			strategy:   model.StrategyPR,
 			wantCount:  1,
-			wantSubstr: "review turnaround",
+			wantSubstr: "first PR to issue close",
 			wantType:   "strategy_callout",
 		},
 		{
@@ -464,13 +464,11 @@ func TestGenerateThroughputInsights(t *testing.T) {
 			wantCount:    0,
 		},
 		{
-			name:         "per-category distribution with multiple categories",
+			name:         "per-category distribution removed (data not insight)",
 			issuesClosed: 10,
 			prsMerged:    5,
 			categoryDist: map[string]int{"bug": 4, "feature": 5, "chore": 1},
-			wantCount:    1,
-			wantSubstr:   "bug",
-			wantType:     "category_distribution",
+			wantCount:    0,
 		},
 		{
 			name:         "per-category skipped with single category",
@@ -546,7 +544,7 @@ func TestGenerateQualityInsights(t *testing.T) {
 				{Number: 5, Title: "Feat B", Duration: dur(15), Category: "feature"},
 				{Number: 6, Title: "Feat C", Duration: dur(20), Category: "feature"},
 			},
-			wantCount:  4, // defect_rate_high + bug_fix_speed + category_distribution + hotfix (3 bugs < 72h)
+			wantCount:  3, // defect_rate_high + bug_fix_speed + hotfix (3 bugs < 72h)
 			wantSubstr: "Bug fixes",
 			wantType:   "bug_fix_speed",
 		},
@@ -566,9 +564,7 @@ func TestGenerateQualityInsights(t *testing.T) {
 				{Number: 9, Duration: dur(5), Category: "chore"},
 				{Number: 10, Duration: dur(5), Category: "chore"},
 			},
-			wantCount:  1, // only category_distribution (defect rate exactly 20%, not above; all dur(5d) > 72h)
-			wantSubstr: "50% feature",
-			wantType:   "category_distribution",
+			wantCount: 0, // category_distribution removed; defect rate exactly 20% not above threshold; all dur(5d) > 72h
 		},
 		{
 			name:              "hotfix detection finds fast items",
@@ -581,8 +577,8 @@ func TestGenerateQualityInsights(t *testing.T) {
 				{Number: 4, Title: "Normal 2", Duration: dur(5), Category: "feature"},
 				{Number: 5, Title: "Normal 3", Duration: dur(7), Category: "chore"},
 			},
-			wantCount:  4, // defect_rate_high + bug_fix_speed + category_distribution + hotfix
-			wantSubstr: "2 hotfixes",
+			wantCount:  3, // defect_rate_high + bug_fix_speed + hotfix
+			wantSubstr: "2 items resolved within",
 			wantType:   "hotfix_count",
 		},
 		{

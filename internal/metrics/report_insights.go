@@ -5,7 +5,6 @@ import (
 	"math"
 	"slices"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/bitsbyme/gh-velocity/internal/model"
@@ -137,7 +136,7 @@ func GenerateStatsInsights(stats model.Stats, section string, items []ItemRef) [
 		if ratio > SkewThreshold {
 			insights = append(insights, model.Insight{
 				Type:    "skew_warning",
-				Message: fmt.Sprintf("Mean %s vs median %s — heavy right skew from %d outliers.", fmtDur(*stats.Mean), fmtDur(*stats.Median), stats.OutlierCount),
+				Message: fmt.Sprintf("Mean (%s) is much higher than median (%s) — a few slow items are pulling the average up.", fmtDur(*stats.Mean), fmtDur(*stats.Median)),
 			})
 		}
 	}
@@ -217,18 +216,11 @@ func GenerateCycleTimeInsights(stats *model.Stats, strategy string, items []Item
 	// Shared stats insights (outlier, skew, fastest/slowest, category).
 	insights := GenerateStatsInsights(*stats, "Cycle Time", items)
 
-	// PR strategy callout.
+	// PR strategy callout — state what the metric measures, no judgment.
 	if strategy == model.StrategyPR && stats.Median != nil {
-		speed := "moderate"
-		medianHours := stats.Median.Hours()
-		if medianHours < 4 {
-			speed = "fast"
-		} else if medianHours > 48 {
-			speed = "slow"
-		}
 		insights = append(insights, model.Insight{
 			Type:    "strategy_callout",
-			Message: fmt.Sprintf("PR cycle time median %s — %s review turnaround.", fmtDur(*stats.Median), speed),
+			Message: fmt.Sprintf("Cycle time is measured from first PR to issue close (median %s).", fmtDur(*stats.Median)),
 		})
 	}
 
@@ -260,21 +252,6 @@ func GenerateThroughputInsights(issuesClosed, prsMerged int, categoryDist map[st
 		})
 	}
 
-	// Per-category distribution.
-	if len(categoryDist) >= 2 {
-		total := 0
-		for _, c := range categoryDist {
-			total += c
-		}
-		if total > 0 {
-			parts := formatCategoryDist(categoryDist, total)
-			insights = append(insights, model.Insight{
-				Type:    "category_distribution",
-				Message: fmt.Sprintf("%d items: %s.", total, strings.Join(parts, ", ")),
-			})
-		}
-	}
-
 	return insights
 }
 
@@ -296,7 +273,7 @@ func GenerateQualityInsights(quality model.StatsQuality, items []ItemRef, hotfix
 	case quality.DefectRate > DefectRateHigh:
 		insights = append(insights, model.Insight{
 			Type:    "defect_rate_high",
-			Message: fmt.Sprintf("%.0f%% defect rate — above typical 20%% threshold.", quality.DefectRate*100),
+			Message: fmt.Sprintf("%.0f%% of closed issues are bugs (above %.0f%% threshold).", quality.DefectRate*100, DefectRateHigh*100),
 		})
 	}
 
@@ -325,26 +302,7 @@ func GenerateQualityInsights(quality model.StatsQuality, items []ItemRef, hotfix
 		}
 	}
 
-	// Category distribution.
-	catCounts := make(map[string]int)
-	for _, item := range items {
-		if item.Category != "" {
-			catCounts[item.Category]++
-		}
-	}
-	if len(catCounts) >= 2 {
-		total := 0
-		for _, c := range catCounts {
-			total += c
-		}
-		parts := formatCategoryDist(catCounts, total)
-		insights = append(insights, model.Insight{
-			Type:    "category_distribution",
-			Message: fmt.Sprintf("%d items: %s.", total, strings.Join(parts, ", ")),
-		})
-	}
-
-	// Hotfix detection.
+	// Hotfix detection — items resolved within the configured window.
 	if hotfixWindowHours > 0 {
 		window := time.Duration(hotfixWindowHours) * time.Hour
 		var hotfixCount int
@@ -356,7 +314,7 @@ func GenerateQualityInsights(quality model.StatsQuality, items []ItemRef, hotfix
 		if hotfixCount > 0 {
 			insights = append(insights, model.Insight{
 				Type:    "hotfix_count",
-				Message: fmt.Sprintf("%d hotfixes (resolved within %dh of creation).", hotfixCount, hotfixWindowHours),
+				Message: fmt.Sprintf("%d items resolved within %dh of creation (hotfix window).", hotfixCount, hotfixWindowHours),
 			})
 		}
 	}
@@ -490,25 +448,3 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen-1] + "…"
 }
 
-// formatCategoryDist builds sorted "N% name" parts from a category count map.
-func formatCategoryDist(dist map[string]int, total int) []string {
-	type catPct struct {
-		name string
-		pct  int
-	}
-	var cats []catPct
-	for name, count := range dist {
-		cats = append(cats, catPct{name: name, pct: count * 100 / total})
-	}
-	sort.Slice(cats, func(i, j int) bool {
-		if cats[i].pct != cats[j].pct {
-			return cats[i].pct > cats[j].pct
-		}
-		return cats[i].name < cats[j].name
-	})
-	parts := make([]string, len(cats))
-	for i, c := range cats {
-		parts[i] = fmt.Sprintf("%d%% %s", c.pct, c.name)
-	}
-	return parts
-}
