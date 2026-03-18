@@ -116,6 +116,27 @@ Issues classified as "other" did not match any category in `quality.categories`.
 2. Adding more matchers to your categories (e.g., `type:Bug` for GitHub Issue Types, `title:/^fix/i` for title patterns). See [Configuration Reference: matcher syntax]({{< relref "/reference/config" >}}#matcher-syntax) for all matcher types.
 3. Running `gh velocity config preflight` to discover available labels
 
+### Lead time median is suspiciously low (minutes instead of days)
+
+If the median lead time is in minutes while the mean is in months, the data likely includes spam or duplicate issues that were closed instantly. The "issues closed in under 60 seconds" insight confirms this.
+
+**Fix:** Regenerate your config to auto-detect noise labels:
+
+```bash
+gh velocity config preflight -R owner/repo --write
+```
+
+The preflight detects labels matching `spam`, `duplicate`, and `invalid` and adds scope exclusions:
+
+```yaml
+scope:
+  query: "repo:owner/repo -label:duplicate -label:invalid -label:suspected-spam"
+```
+
+If your repo has noise labels with different names, add them manually to the scope query.
+
+See [Interpreting Results: Why noise exclusion matters]({{< relref "interpreting-results" >}}#why-noise-exclusion-matters) for a detailed before/after comparison.
+
 ### Tag ordering is unexpected
 
 Tags are returned in the order GitHub's API provides, which is usually creation date. The tool picks the tag immediately before your target tag in this list. If your tag history is non-linear (e.g., you tagged a hotfix on an older branch), use `--since` to specify the previous tag explicitly:
