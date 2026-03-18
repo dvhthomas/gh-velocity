@@ -117,6 +117,21 @@ Lead Time
 - `gh velocity quality release <tag>` -- per-issue and aggregate lead time within a release
 - `gh velocity report` -- aggregate lead time across a time window
 
+## Insights
+
+The lead time section generates these automated observations:
+
+| Insight | When it fires | What it means |
+|---------|--------------|---------------|
+| **Noise detection** | 3+ issues closed in under 60 seconds | Spam, duplicates, or bot closures are distorting metrics. Regenerate config with `preflight --write` to auto-exclude noise labels. |
+| **Low median** | Median under 1 hour with 10+ items (and no noise detected) | Similar to noise detection but subtler — fast closures are pulling the median down. |
+| **Outlier detection** | 2+ items exceed the IQR-based cutoff | A few slow items are much longer than typical. Often old issues finally closed alongside recent work. |
+| **Predictability** | CV > 0.5 | Delivery times vary significantly. CV > 1.0 means the median is a more reliable estimate than the mean. |
+| **Skew warning** | Mean > 3x median | The distribution is right-skewed — a few very slow items inflate the average. |
+| **Extreme median** | Median exceeds 1 year | Likely a backlog cleanup rather than normal delivery. Consider narrowing the time window. |
+| **Fastest/slowest** | 3+ items | Links to the fastest and slowest issues for quick investigation. |
+| **Category comparison** | 2+ categories with data | Compares median duration across categories (e.g., bugs vs features). |
+
 ## See also
 
 - [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) -- what healthy lead time looks like and common patterns

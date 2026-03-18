@@ -82,6 +82,13 @@ Activity (last 30 days)
 - `gh velocity report --since 30d` -- activity summary including throughput counts
 - `gh velocity flow lead-time --since 30d` -- closed issue count as context
 
+## Insights
+
+| Insight | When it fires | What it means |
+|---------|--------------|---------------|
+| **Zero activity** | 0 issues closed and 0 PRs merged | No work completed in this window. Check your date range and scope. |
+| **Issue/PR mismatch** | PRs merged but 0 issues closed, or PR:issue ratio > 3:1 | PRs may not be linked to issues. This affects cycle time measurement and issue-based metrics. |
+
 ## See also
 
 - [Velocity]({{< relref "/reference/metrics/velocity" >}}) -- effort-weighted, iteration-aligned output metric
