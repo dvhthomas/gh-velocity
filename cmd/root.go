@@ -158,6 +158,7 @@ func handleError(root *cobra.Command, err error) int {
 func NewRootCmd(version, buildTime string) *cobra.Command {
 	var (
 		resultsFlag []string
+		writeToFlag string
 		repoFlag    string
 		configFlag  string
 		scopeFlag   string
@@ -201,11 +202,53 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				return err
 			}
 
+			// --write-to validation: fail fast before any API calls.
+			if writeToFlag != "" {
+				for _, f := range results {
+					if f == format.Pretty {
+						return &model.AppError{
+							Code:    model.ErrConfigInvalid,
+							Message: "--write-to does not support pretty format (terminal-only)",
+						}
+					}
+				}
+				if err := os.MkdirAll(writeToFlag, 0o755); err != nil {
+					return &model.AppError{
+						Code:    model.ErrConfigInvalid,
+						Message: fmt.Sprintf("cannot create --write-to directory %q: %v", writeToFlag, err),
+					}
+				}
+			}
+
+			// Multi-format requires --write-to.
+			if len(results) > 1 && writeToFlag == "" {
+				return &model.AppError{
+					Code:    model.ErrConfigInvalid,
+					Message: "multiple --results formats require --write-to <dir>",
+				}
+			}
+
+			// --post requires markdown in the results list.
+			if postFlag {
+				hasMarkdown := false
+				for _, f := range results {
+					if f == format.Markdown {
+						hasMarkdown = true
+						break
+					}
+				}
+				if !hasMarkdown {
+					return &model.AppError{
+						Code:    model.ErrConfigInvalid,
+						Message: fmt.Sprintf("--post requires markdown in --results (got: %v)", resultsFlag),
+					}
+				}
+			}
+
 			// Suppress warnings on stderr when JSON is the sole result
-			// format going to stdout — warnings are embedded in the JSON
-			// payload instead. When --write-to is set (Phase 2), stdout
-			// is empty so stderr is always safe.
-			suppressWarn := len(results) == 1 && results[0] == format.JSON
+			// format going to stdout. When --write-to is set, stdout is
+			// empty so stderr is always safe — no suppression needed.
+			suppressWarn := len(results) == 1 && results[0] == format.JSON && writeToFlag == ""
 
 			// Resolve repo
 			owner, repo, err := resolveRepo(repoFlag)
@@ -270,6 +313,9 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				log.Debug("local repo:   %v", hasLocal)
 				log.Debug("config:       %s", configPath)
 				log.Debug("results:      %v", resultsFlag)
+				if writeToFlag != "" {
+					log.Debug("write-to:     %s", writeToFlag)
+				}
 				log.Debug("scope:        %s", resolvedScope)
 				log.Debug("strategy:     %s", cfg.CycleTime.Strategy)
 				if cfg.Project.URL != "" {
@@ -288,6 +334,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				Config: cfg,
 				Output: OutputConfig{
 					Results:      results,
+					WriteTo:      writeToFlag,
 					SuppressWarn: suppressWarn,
 				},
 				Post:         postFlag,
@@ -311,6 +358,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 	}
 
 	root.PersistentFlags().StringSliceVarP(&resultsFlag, "results", "r", []string{"pretty"}, "Output format(s): json, pretty, markdown (comma-separated)")
+	root.PersistentFlags().StringVar(&writeToFlag, "write-to", "", "Write result files to this directory (silences stdout)")
 	root.PersistentFlags().StringVarP(&repoFlag, "repo", "R", "", "Repository in owner/name format")
 	root.PersistentFlags().StringVar(&configFlag, "config", "", "Path to config file (default: .gh-velocity.yml)")
 	root.PersistentFlags().BoolVar(&postFlag, "post", false, "Post output to GitHub (dry-run by default; set GH_VELOCITY_POST_LIVE=true for live)")

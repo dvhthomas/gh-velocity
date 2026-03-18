@@ -96,16 +96,11 @@ Default window is the last 30 days.`,
 				return err
 			}
 
-			w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+			return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 				Command: "throughput",
 				Context: dateutil.FormatContext(sinceFlag, untilFlag),
 				Target:  posting.DiscussionTarget,
 			})
-			rc := deps.RenderCtx(w)
-			if err := p.Render(rc); err != nil {
-				return err
-			}
-			return postFn()
 		},
 	}
 

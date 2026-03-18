@@ -138,17 +138,12 @@ func runCycleTimePR(cmd *cobra.Command, prNumber int) error {
 		deps.Warn("%s", warn)
 	}
 
-	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+	return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 		Command: "cycle-time",
 		Context: "pr-" + strconv.Itoa(prNumber),
 		Target:  posting.PRComment,
 		Number:  prNumber,
 	})
-	rc := deps.RenderCtx(w)
-	if err := p.Render(rc); err != nil {
-		return err
-	}
-	return postFn()
 }
 
 // runCycleTimeIssue computes cycle time for an issue using the configured strategy.
@@ -189,17 +184,12 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 		deps.Warn("%s", warn)
 	}
 
-	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+	return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 		Command: "cycle-time",
 		Context: strconv.Itoa(issueNumber),
 		Target:  posting.IssueComment,
 		Number:  issueNumber,
 	})
-	rc := deps.RenderCtx(w)
-	if err := p.Render(rc); err != nil {
-		return err
-	}
-	return postFn()
 }
 
 // runCycleTimeBulk computes cycle time for all issues closed in a date window.
@@ -291,14 +281,9 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		deps.Warn("%s", warn)
 	}
 
-	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+	return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 		Command: "cycle-time",
 		Context: dateutil.FormatContext(sinceStr, untilStr),
 		Target:  posting.DiscussionTarget,
 	})
-	rc := deps.RenderCtx(w)
-	if err := p.Render(rc); err != nil {
-		return err
-	}
-	return postFn()
 }

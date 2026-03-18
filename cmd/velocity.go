@@ -129,16 +129,11 @@ Run 'gh velocity config preflight' to get suggested configuration.`,
 			}
 			p.Result.Provenance = buildVelocityProvenance(cmd, deps, cfg)
 
-			w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+			return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 				Command: "velocity",
 				Context: dateutil.FormatContext(sinceFlag, untilFlag),
 				Target:  posting.DiscussionTarget,
 			})
-			rc := deps.RenderCtx(w)
-			if err := p.Render(rc); err != nil {
-				return err
-			}
-			return postFn()
 		},
 	}
 

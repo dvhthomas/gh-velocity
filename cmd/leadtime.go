@@ -97,17 +97,12 @@ func runLeadTimeSingle(cmd *cobra.Command, arg string) error {
 		return err
 	}
 
-	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+	return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 		Command: "lead-time",
 		Context: strconv.Itoa(issueNumber),
 		Target:  posting.IssueComment,
 		Number:  issueNumber,
 	})
-	rc := deps.RenderCtx(w)
-	if err := p.Render(rc); err != nil {
-		return err
-	}
-	return postFn()
 }
 
 // runLeadTimeBulk computes lead time for all issues closed in a date window.
@@ -167,14 +162,9 @@ func runLeadTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		return err
 	}
 
-	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+	return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 		Command: "lead-time",
 		Context: dateutil.FormatContext(sinceStr, untilStr),
 		Target:  posting.DiscussionTarget,
 	})
-	rc := deps.RenderCtx(w)
-	if err := p.Render(rc); err != nil {
-		return err
-	}
-	return postFn()
 }

@@ -269,3 +269,68 @@ func newTestRoot(resultFormat string) *cobra.Command {
 	cmd.PersistentFlags().StringSlice("results", []string{resultFormat}, "")
 	return cmd
 }
+
+func TestMultiFormatWithoutWriteTo_Errors(t *testing.T) {
+	root := NewRootCmd("test", "now")
+	root.SetArgs([]string{
+		"--results", "md,json",
+		"--repo", "owner/repo",
+		"--config", "../docs/examples/cli-cli.yml",
+		"report", "--since", "7d",
+	})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error for multi-format without --write-to")
+	}
+	var appErr *model.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected AppError, got %T: %v", err, err)
+	}
+	if appErr.Code != model.ErrConfigInvalid {
+		t.Errorf("expected code %q, got %q", model.ErrConfigInvalid, appErr.Code)
+	}
+}
+
+func TestPrettyWithWriteTo_Errors(t *testing.T) {
+	root := NewRootCmd("test", "now")
+	root.SetArgs([]string{
+		"--results", "pretty",
+		"--write-to", t.TempDir(),
+		"--repo", "owner/repo",
+		"--config", "../docs/examples/cli-cli.yml",
+		"report", "--since", "7d",
+	})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error for pretty + --write-to")
+	}
+	var appErr *model.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected AppError, got %T: %v", err, err)
+	}
+	if appErr.Code != model.ErrConfigInvalid {
+		t.Errorf("expected code %q, got %q", model.ErrConfigInvalid, appErr.Code)
+	}
+}
+
+func TestPostWithoutMarkdown_Errors(t *testing.T) {
+	root := NewRootCmd("test", "now")
+	root.SetArgs([]string{
+		"--results", "json",
+		"--post",
+		"--repo", "owner/repo",
+		"--config", "../docs/examples/cli-cli.yml",
+		"report", "--since", "7d",
+	})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error for --post without markdown in results")
+	}
+	var appErr *model.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected AppError, got %T: %v", err, err)
+	}
+	if appErr.Code != model.ErrConfigInvalid {
+		t.Errorf("expected code %q, got %q", model.ErrConfigInvalid, appErr.Code)
+	}
+}

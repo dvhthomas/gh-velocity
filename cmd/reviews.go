@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"github.com/dvhthomas/gh-velocity/internal/model"
-	"github.com/dvhthomas/gh-velocity/internal/pipeline"
 	"github.com/dvhthomas/gh-velocity/internal/pipeline/reviews"
 	"github.com/spf13/cobra"
 )
@@ -56,6 +55,12 @@ func runReviews(cmd *cobra.Command) error {
 		Now:    deps.Now(),
 	}
 
-	rc := deps.RenderCtx(cmd.OutOrStdout())
-	return pipeline.RunPipeline(ctx, p, rc)
+	if err := p.GatherData(ctx); err != nil {
+		return err
+	}
+	if err := p.ProcessData(); err != nil {
+		return err
+	}
+
+	return renderPipelineSimple(cmd, deps, p)
 }

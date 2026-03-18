@@ -6,7 +6,6 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/dateutil"
 	"github.com/dvhthomas/gh-velocity/internal/log"
 	"github.com/dvhthomas/gh-velocity/internal/model"
-	"github.com/dvhthomas/gh-velocity/internal/pipeline"
 	"github.com/dvhthomas/gh-velocity/internal/pipeline/busfactor"
 	"github.com/spf13/cobra"
 )
@@ -89,6 +88,11 @@ func runBusFactor(cmd *cobra.Command, sinceStr string) error {
 		MinCommits: busFactorMinCommits,
 	}
 
-	rc := deps.RenderCtx(cmd.OutOrStdout())
-	return pipeline.RunPipeline(ctx, p, rc)
+	if err := p.GatherData(ctx); err != nil {
+		return err
+	}
+	if err := p.ProcessData(); err != nil {
+		return err
+	}
+	return renderPipelineSimple(cmd, deps, p)
 }
