@@ -1252,3 +1252,66 @@ func TestClassifyLabels_FuzzyLifecycle(t *testing.T) {
 		})
 	}
 }
+
+func TestClassifyLabels_SpamDetection(t *testing.T) {
+	tests := []struct {
+		name     string
+		labels   []string
+		wantSpam []string
+	}{
+		{
+			name:     "suspected-spam detected",
+			labels:   []string{"suspected-spam", "bug"},
+			wantSpam: []string{"suspected-spam"},
+		},
+		{
+			name:     "spam exact match",
+			labels:   []string{"spam"},
+			wantSpam: []string{"spam"},
+		},
+		{
+			name:     "antispam detected",
+			labels:   []string{"antispam"},
+			wantSpam: []string{"antispam"},
+		},
+		{
+			name:     "no spam labels",
+			labels:   []string{"bug", "enhancement", "in-progress"},
+			wantSpam: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := &PreflightResult{}
+			classifyLabels(result, tt.labels)
+			if len(result.SpamLabels) != len(tt.wantSpam) {
+				t.Errorf("SpamLabels = %v, want %v", result.SpamLabels, tt.wantSpam)
+				return
+			}
+			for i, want := range tt.wantSpam {
+				if result.SpamLabels[i] != want {
+					t.Errorf("SpamLabels[%d] = %q, want %q", i, result.SpamLabels[i], want)
+				}
+			}
+		})
+	}
+}
+
+func TestRenderPreflightConfig_SpamExclusion(t *testing.T) {
+	r := &PreflightResult{
+		Repo:       "cli/cli",
+		Strategy:   "issue",
+		SpamLabels: []string{"suspected-spam"},
+		Categories: map[string][]string{
+			"bug": {"bug"},
+		},
+	}
+	config := renderPreflightConfig(r)
+	if !strings.Contains(config, "-label:suspected-spam") {
+		t.Errorf("expected scope to contain -label:suspected-spam, got:\n%s", config)
+	}
+	if !strings.Contains(config, "Excluded 1 spam/noise label") {
+		t.Errorf("expected comment about excluded spam labels, got:\n%s", config)
+	}
+}
