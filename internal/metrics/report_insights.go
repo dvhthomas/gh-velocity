@@ -148,9 +148,9 @@ func GenerateStatsInsights(stats model.Stats, section string, items []ItemRef) [
 		if fastest != nil && slowest != nil && fastest.Number != slowest.Number {
 			insights = append(insights, model.Insight{
 				Type: "fastest_slowest",
-				Message: fmt.Sprintf("Fastest: %s %s (%s). Slowest: %s %s (%s).",
-					fmtItemRef(fastest), truncate(fastest.Title, 40), fmtDur(fastest.Duration),
-					fmtItemRef(slowest), truncate(slowest.Title, 40), fmtDur(slowest.Duration)),
+				Message: fmt.Sprintf("Fastest: %s (%s). Slowest: %s (%s).",
+					fmtItemRef(fastest), fmtDur(fastest.Duration),
+					fmtItemRef(slowest), fmtDur(slowest.Duration)),
 			})
 		}
 	}
@@ -472,12 +472,14 @@ func fmtDur(d time.Duration) string {
 	}
 }
 
-// fmtItemRef formats an issue/PR reference, using markdown link when URL is available.
+// fmtItemRef formats an issue/PR reference with truncated title.
+// Uses markdown link when URL is available: [#N title…](url).
 func fmtItemRef(r *ItemRef) string {
+	title := truncate(r.Title, 40)
 	if r.URL != "" {
-		return fmt.Sprintf("[#%d](%s)", r.Number, r.URL)
+		return fmt.Sprintf("[#%d %s](%s)", r.Number, title, r.URL)
 	}
-	return fmt.Sprintf("#%d", r.Number)
+	return fmt.Sprintf("#%d %s", r.Number, title)
 }
 
 // truncate shortens a string to maxLen, adding "…" if truncated.
