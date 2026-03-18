@@ -198,6 +198,41 @@ Either there are genuinely no bugs in this release, or your bug category matcher
 
 Items that do not match any effort query are excluded from velocity and committed totals and reported separately. A high not-assessed count means your effort matchers need tuning. Run `gh velocity config validate --velocity` to see which issues are unmatched. See [Setting Up Velocity: Validating effort matchers]({{< relref "/guides/velocity-setup" >}}#validating-effort-matchers) for details.
 
+## Why noise exclusion matters
+
+Repos with spam, duplicate, or invalid issues can produce misleading metrics. The `preflight` command detects these labels and adds `-label:` exclusions to the scope query automatically. Here is a real example from **cli/cli** (30-day window):
+
+| Metric | Before (no exclusions) | After (noise excluded) |
+|--------|----------------------|----------------------|
+| Issues closed | 112 | 57 |
+| Lead time median | 8 minutes | 35 days |
+| Bug ratio | 25% | 35% |
+| Bug fix speed | "slower than other work" | "faster than other work" |
+| Hotfix count | 72 | 17 |
+| Predictability (CV) | 2.7 | 1.8 |
+
+Half the closed issues were spam or duplicates closed in under 60 seconds. These instant closures dragged the median lead time to 8 minutes, made bug fixes look slower than "other work" (which was mostly spam), and inflated the hotfix count by counting every instant closure as a "hotfix."
+
+After excluding noise labels, every metric became meaningful: lead time reflects actual delivery time, bug ratio reflects real workload composition, and the insight about bug fix speed reversed — bugs are actually resolved faster than features.
+
+### Checking your scope for noise
+
+Run `preflight` to regenerate your config and inspect the scope:
+
+```bash
+gh velocity config preflight -R owner/repo --write
+```
+
+If noise labels are detected, the generated config will include exclusions:
+
+```yaml
+scope:
+  query: "repo:cli/cli -label:duplicate -label:invalid -label:suspected-spam"
+  # Excluded 3 noise label(s) detected in this repo: duplicate, invalid, suspected-spam
+```
+
+The detected patterns are: `spam`, `duplicate`, and `invalid` (matched at word boundaries). If your repo has different noise labels, add manual exclusions to the scope query.
+
 ## Comparing across releases
 
 To spot trends, run the same command for multiple releases and compare:
