@@ -165,6 +165,7 @@ type PreflightResult struct {
 	Categories       map[string][]string `json:"categories,omitempty"`
 	ActiveLabels     []string            `json:"active_labels"`
 	BacklogLabels    []string            `json:"backlog_labels"`
+	SpamLabels       []string            `json:"spam_labels,omitempty"`
 	ProjectURL       string              `json:"project_url,omitempty"`
 	StatusOptions    []string            `json:"status_options,omitempty"`
 	Strategy         string              `json:"strategy"`
@@ -338,6 +339,10 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 
 	if result.RecentIssues == 0 && result.RecentPRs == 0 {
 		result.Hints = append(result.Hints, "No recent activity found in the last 30 days — metrics may be empty initially")
+	}
+
+	if len(result.SpamLabels) > 0 {
+		result.Hints = append(result.Hints, fmt.Sprintf("Detected spam/noise labels %v — excluding from scope to avoid distorting metrics", result.SpamLabels))
 	}
 
 	// 5a. Discover issue types (concurrent when both paths available)
@@ -765,6 +770,11 @@ func classifyLabels(result *PreflightResult, labels []string) {
 		if containsAnyKeyword(normalized, statusPatterns["backlog"]) {
 			result.BacklogLabels = append(result.BacklogLabels, label)
 		}
+
+		// Spam/noise labels: detect labels containing "spam" to suggest scope exclusion.
+		if strings.Contains(lower, "spam") {
+			result.SpamLabels = append(result.SpamLabels, label)
+		}
 	}
 }
 
@@ -997,7 +1007,19 @@ func renderPreflightConfig(r *PreflightResult) string {
 	b.WriteString("# Scope: which issues/PRs to analyze (GitHub search syntax).\n")
 	b.WriteString("# Override per-run with: --scope 'label:\"priority:high\"'\n")
 	b.WriteString("scope:\n")
-	b.WriteString(fmt.Sprintf("  query: \"repo:%s\"\n", r.Repo))
+	if len(r.SpamLabels) > 0 {
+		// Build scope query with spam label exclusions.
+		var parts []string
+		parts = append(parts, fmt.Sprintf("repo:%s", r.Repo))
+		for _, sl := range r.SpamLabels {
+			parts = append(parts, fmt.Sprintf("-label:%s", sl))
+		}
+		b.WriteString(fmt.Sprintf("  query: %q\n", strings.Join(parts, " ")))
+		b.WriteString(fmt.Sprintf("  # Excluded %d spam/noise label(s) detected in this repo: %s\n",
+			len(r.SpamLabels), strings.Join(r.SpamLabels, ", ")))
+	} else {
+		b.WriteString(fmt.Sprintf("  query: \"repo:%s\"\n", r.Repo))
+	}
 	b.WriteString("\n")
 
 	// Quality categories
