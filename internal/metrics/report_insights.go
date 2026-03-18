@@ -91,7 +91,7 @@ func GenerateStatsInsights(stats model.Stats, section string, items []ItemRef) [
 			insights = append(insights, model.Insight{
 				Type: "outlier_detection",
 				Message: fmt.Sprintf(
-					"%d items took %dx+ longer than the median (%s).",
+					"%d items took over %dx longer than the median (%s).",
 					stats.OutlierCount, OutlierMultipleCap, fmtDur(*stats.Median)),
 			})
 		} else {

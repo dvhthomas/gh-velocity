@@ -263,7 +263,7 @@ func TestGenerateStatsInsights(t *testing.T) {
 				OutlierCount:  10,
 				OutlierCutoff: ptrDur(dur(200)), // 200 days / 1 min >> 100x
 			},
-			wantSubstr: "100x+",
+			wantSubstr: "over 100x",
 			wantType:   "outlier_detection",
 			wantCount:  3, // outlier_detection + low_median + skew_warning
 		},
