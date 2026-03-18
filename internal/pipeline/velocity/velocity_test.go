@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/config"
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/config"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 func TestProcessData_CountFixed(t *testing.T) {

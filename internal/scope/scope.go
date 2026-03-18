@@ -5,6 +5,7 @@ package scope
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -181,4 +182,21 @@ func MergeScope(configScope, flagScope string) string {
 	default:
 		return f
 	}
+}
+
+var repoQualifierRe = regexp.MustCompile(`(?:^|\s)repo:(\S+)`)
+
+// DetectRepoConflict checks whether scopeQuery contains a repo: qualifier
+// that differs from the repoFlag value (owner/repo). Returns the config repo
+// and true if there's a conflict, or ("", false) if there's no conflict.
+func DetectRepoConflict(scopeQuery, repoFlag string) (configRepo string, conflict bool) {
+	if repoFlag == "" {
+		return "", false
+	}
+	m := repoQualifierRe.FindStringSubmatch(scopeQuery)
+	if m == nil {
+		return "", false
+	}
+	configRepo = m[1]
+	return configRepo, !strings.EqualFold(configRepo, repoFlag)
 }

@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // Input holds the fields available for classification matching.

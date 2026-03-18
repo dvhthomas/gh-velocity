@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/classify"
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/classify"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // ReleaseInput holds the data needed to compute release metrics.

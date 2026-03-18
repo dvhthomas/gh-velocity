@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/format"
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/metrics"
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/format"
+	gh "github.com/dvhthomas/gh-velocity/internal/github"
+	"github.com/dvhthomas/gh-velocity/internal/metrics"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // Compute calculates the lead time for an issue: created → closed.

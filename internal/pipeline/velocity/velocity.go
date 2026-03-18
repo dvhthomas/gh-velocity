@@ -8,12 +8,12 @@ import (
 	"math"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/config"
-	"github.com/bitsbyme/gh-velocity/internal/format"
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/model"
-	"github.com/bitsbyme/gh-velocity/internal/scope"
+	"github.com/dvhthomas/gh-velocity/internal/config"
+	"github.com/dvhthomas/gh-velocity/internal/format"
+	gh "github.com/dvhthomas/gh-velocity/internal/github"
+	"github.com/dvhthomas/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/scope"
 )
 
 // Client is the narrow interface used by the velocity pipeline.

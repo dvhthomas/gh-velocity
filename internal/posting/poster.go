@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // Target identifies where to post metrics output.

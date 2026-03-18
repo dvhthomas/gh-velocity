@@ -8,10 +8,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/bitsbyme/gh-velocity/internal/git"
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/git"
+	gh "github.com/dvhthomas/gh-velocity/internal/github"
+	"github.com/dvhthomas/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // Source abstracts git data retrieval so callers can transparently use

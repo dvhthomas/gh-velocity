@@ -3,7 +3,7 @@ package strategy
 import (
 	"sort"
 
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // strategyPriority returns a numeric priority for a strategy name.

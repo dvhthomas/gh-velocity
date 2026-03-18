@@ -5,9 +5,9 @@ package release
 import (
 	"context"
 
-	"github.com/bitsbyme/gh-velocity/internal/format"
-	"github.com/bitsbyme/gh-velocity/internal/metrics"
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/format"
+	"github.com/dvhthomas/gh-velocity/internal/metrics"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // Pipeline implements pipeline.Pipeline for the release command.

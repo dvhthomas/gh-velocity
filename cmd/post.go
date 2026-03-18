@@ -7,10 +7,10 @@ import (
 
 	"fmt"
 
-	"github.com/bitsbyme/gh-velocity/internal/format"
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/model"
-	"github.com/bitsbyme/gh-velocity/internal/posting"
+	"github.com/dvhthomas/gh-velocity/internal/format"
+	gh "github.com/dvhthomas/gh-velocity/internal/github"
+	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/posting"
 	"github.com/spf13/cobra"
 )
 

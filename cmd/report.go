@@ -7,19 +7,19 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bitsbyme/gh-velocity/internal/classify"
-	"github.com/bitsbyme/gh-velocity/internal/dateutil"
-	"github.com/bitsbyme/gh-velocity/internal/format"
-	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/metrics"
-	"github.com/bitsbyme/gh-velocity/internal/model"
-	cycletimepipe "github.com/bitsbyme/gh-velocity/internal/pipeline/cycletime"
-	"github.com/bitsbyme/gh-velocity/internal/pipeline/leadtime"
-	qualitypipe "github.com/bitsbyme/gh-velocity/internal/pipeline/quality"
-	"github.com/bitsbyme/gh-velocity/internal/pipeline/throughput"
-	"github.com/bitsbyme/gh-velocity/internal/pipeline/velocity"
-	"github.com/bitsbyme/gh-velocity/internal/posting"
-	"github.com/bitsbyme/gh-velocity/internal/scope"
+	"github.com/dvhthomas/gh-velocity/internal/classify"
+	"github.com/dvhthomas/gh-velocity/internal/dateutil"
+	"github.com/dvhthomas/gh-velocity/internal/format"
+	"github.com/dvhthomas/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/metrics"
+	"github.com/dvhthomas/gh-velocity/internal/model"
+	cycletimepipe "github.com/dvhthomas/gh-velocity/internal/pipeline/cycletime"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline/leadtime"
+	qualitypipe "github.com/dvhthomas/gh-velocity/internal/pipeline/quality"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline/throughput"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline/velocity"
+	"github.com/dvhthomas/gh-velocity/internal/posting"
+	"github.com/dvhthomas/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 )
@@ -297,7 +297,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 	// Quality: defect rate + insights from categories (reuses lead time's closed issues)
 	var qualDetail qualityResult
 	if leadOK && len(cfg.Quality.Categories) > 0 {
-		qualDetail = computeQualityWithInsights(leadPipeline.Items, cfg.Quality.Categories, cfg.Quality.HotfixWindowHours)
+		qualDetail = computeQualityWithInsights(leadPipeline.Items, cfg.Quality.Categories, cfg.Quality.HotfixWindowHours, cfg.Quality.DefectRateThreshold)
 		result.Quality = qualDetail.Quality
 		result.QualityInsights = qualDetail.Insights
 	}
@@ -567,7 +567,7 @@ type qualityResult struct {
 	Categories []qualitypipe.CategoryRow
 }
 
-func computeQualityWithInsights(items []leadtime.BulkItem, categories []model.CategoryConfig, hotfixWindowHours float64) qualityResult {
+func computeQualityWithInsights(items []leadtime.BulkItem, categories []model.CategoryConfig, hotfixWindowHours, defectRateThreshold float64) qualityResult {
 	if len(items) == 0 {
 		return qualityResult{}
 	}
@@ -620,7 +620,7 @@ func computeQualityWithInsights(items []leadtime.BulkItem, categories []model.Ca
 	if hwh <= 0 {
 		hwh = metrics.HotfixMaxHours
 	}
-	insights := metrics.GenerateQualityInsights(*quality, insightItems, hwh)
+	insights := metrics.GenerateQualityInsights(*quality, insightItems, hwh, defectRateThreshold)
 	return qualityResult{
 		Quality:    quality,
 		Insights:   insights,

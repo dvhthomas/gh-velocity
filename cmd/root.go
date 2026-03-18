@@ -12,13 +12,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/config"
-	"github.com/bitsbyme/gh-velocity/internal/format"
-	"github.com/bitsbyme/gh-velocity/internal/gitdata"
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/model"
-	"github.com/bitsbyme/gh-velocity/internal/scope"
+	"github.com/dvhthomas/gh-velocity/internal/config"
+	"github.com/dvhthomas/gh-velocity/internal/format"
+	"github.com/dvhthomas/gh-velocity/internal/gitdata"
+	gh "github.com/dvhthomas/gh-velocity/internal/github"
+	"github.com/dvhthomas/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/scope"
 	"github.com/cli/go-gh/v2/pkg/repository"
 	"github.com/cli/go-gh/v2/pkg/term"
 	"github.com/spf13/cobra"
@@ -237,6 +237,11 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 
 			// Resolve scope: merge config scope + --scope flag.
 			resolvedScope := scope.MergeScope(cfg.Scope.Query, scopeFlag)
+
+			// Warn if config scope contains a repo: qualifier that conflicts with -R.
+			if configRepo, conflict := scope.DetectRepoConflict(cfg.Scope.Query, owner+"/"+repo); conflict {
+				log.Warn("config scope includes \"repo:%s\" but -R targets %s/%s — config scope overrides -R flag", configRepo, owner, repo)
+			}
 
 			// Dry-run is the default for --post. Mutations only happen when
 			// GH_VELOCITY_POST_LIVE=true is explicitly set. This prevents

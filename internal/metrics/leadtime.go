@@ -1,7 +1,7 @@
 package metrics
 
 import (
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // LeadTime calculates the lead time for an issue: created → closed.

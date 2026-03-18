@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/log"
 	"golang.org/x/sync/singleflight"
 )
 

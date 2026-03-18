@@ -257,3 +257,75 @@ func TestMergeScope(t *testing.T) {
 		})
 	}
 }
+
+func TestDetectRepoConflict(t *testing.T) {
+	tests := []struct {
+		name       string
+		scope      string
+		repoFlag   string
+		wantRepo   string
+		wantConflict bool
+	}{
+		{
+			name:         "same repo no conflict",
+			scope:        "repo:cli/cli",
+			repoFlag:     "cli/cli",
+			wantRepo:     "cli/cli",
+			wantConflict: false,
+		},
+		{
+			name:         "different repo conflict",
+			scope:        "repo:cli/cli",
+			repoFlag:     "other/repo",
+			wantRepo:     "cli/cli",
+			wantConflict: true,
+		},
+		{
+			name:         "no repo qualifier no conflict",
+			scope:        "org:myorg label:bug",
+			repoFlag:     "myorg/repo",
+			wantRepo:     "",
+			wantConflict: false,
+		},
+		{
+			name:         "repo with additional qualifiers conflict",
+			scope:        "repo:cli/cli label:bug",
+			repoFlag:     "other/repo",
+			wantRepo:     "cli/cli",
+			wantConflict: true,
+		},
+		{
+			name:         "empty repo flag no conflict",
+			scope:        "repo:cli/cli",
+			repoFlag:     "",
+			wantRepo:     "",
+			wantConflict: false,
+		},
+		{
+			name:         "empty scope no conflict",
+			scope:        "",
+			repoFlag:     "cli/cli",
+			wantRepo:     "",
+			wantConflict: false,
+		},
+		{
+			name:         "case insensitive match no conflict",
+			scope:        "repo:CLI/Cli",
+			repoFlag:     "cli/cli",
+			wantRepo:     "CLI/Cli",
+			wantConflict: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotRepo, gotConflict := DetectRepoConflict(tt.scope, tt.repoFlag)
+			if gotRepo != tt.wantRepo {
+				t.Errorf("configRepo = %q, want %q", gotRepo, tt.wantRepo)
+			}
+			if gotConflict != tt.wantConflict {
+				t.Errorf("conflict = %v, want %v", gotConflict, tt.wantConflict)
+			}
+		})
+	}
+}

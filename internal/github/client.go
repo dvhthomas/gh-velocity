@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/log"
 	ghapi "github.com/cli/go-gh/v2/pkg/api"
 )
 

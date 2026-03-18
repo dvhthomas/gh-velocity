@@ -7,7 +7,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // ComputeStats calculates mean, median, standard deviation, percentiles,

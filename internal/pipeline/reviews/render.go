@@ -8,8 +8,8 @@ import (
 	"sort"
 	"text/template"
 
-	"github.com/bitsbyme/gh-velocity/internal/format"
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/format"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 //go:embed templates/*.md.tmpl

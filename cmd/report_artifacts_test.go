@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/format"
-	"github.com/bitsbyme/gh-velocity/internal/model"
-	"github.com/bitsbyme/gh-velocity/internal/pipeline/leadtime"
-	"github.com/bitsbyme/gh-velocity/internal/pipeline/throughput"
+	"github.com/dvhthomas/gh-velocity/internal/format"
+	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline/leadtime"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline/throughput"
 )
 
 func TestWriteReportArtifacts_CreatesPerSectionFiles(t *testing.T) {

@@ -3,8 +3,8 @@ package velocity
 import (
 	"testing"
 
-	"github.com/bitsbyme/gh-velocity/internal/config"
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/config"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 func ptr(f float64) *float64 { return &f }

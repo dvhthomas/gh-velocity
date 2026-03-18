@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	gh "github.com/bitsbyme/gh-velocity/internal/github"
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	gh "github.com/dvhthomas/gh-velocity/internal/github"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // Strategy discovers issues and PRs belonging to a release.

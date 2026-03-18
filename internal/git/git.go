@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/log"
 
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 var refPattern = regexp.MustCompile(`^[a-zA-Z0-9._\-/]+$`)

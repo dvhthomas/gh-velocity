@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 	"github.com/cli/go-gh/v2/pkg/tableprinter"
 )
 

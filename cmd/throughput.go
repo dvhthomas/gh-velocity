@@ -1,12 +1,12 @@
 package cmd
 
 import (
-	"github.com/bitsbyme/gh-velocity/internal/dateutil"
-	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/model"
-	"github.com/bitsbyme/gh-velocity/internal/pipeline/throughput"
-	"github.com/bitsbyme/gh-velocity/internal/posting"
-	"github.com/bitsbyme/gh-velocity/internal/scope"
+	"github.com/dvhthomas/gh-velocity/internal/dateutil"
+	"github.com/dvhthomas/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline/throughput"
+	"github.com/dvhthomas/gh-velocity/internal/posting"
+	"github.com/dvhthomas/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
 )
 

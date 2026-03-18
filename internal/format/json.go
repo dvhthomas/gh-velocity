@@ -3,7 +3,7 @@ package format
 import (
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // JSONEvent is the JSON representation of a metric event.

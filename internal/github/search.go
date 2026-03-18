@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // searchItemToIssue converts a search API item to a model.Issue.

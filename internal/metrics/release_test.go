@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/classify"
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/classify"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // testClassifier creates a Classifier from bug/feature label names for test convenience.

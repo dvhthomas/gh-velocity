@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bitsbyme/gh-velocity/internal/log"
-	"github.com/bitsbyme/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // iterationFieldResponse is the GraphQL response for iteration field queries.
