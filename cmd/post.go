@@ -28,7 +28,7 @@ func postIfEnabled(cmd *cobra.Command, deps *Deps, client *gh.Client, opts posti
 	w := io.MultiWriter(cmd.OutOrStdout(), &buf)
 
 	return w, func() error {
-		opts.Content = wrapForPost(buf.String(), deps.Format)
+		opts.Content = wrapForPost(buf.String(), deps.Output.Results[0])
 		opts.ForceNew = deps.NewPost
 		opts.Repo = deps.Owner + "/" + deps.Repo
 

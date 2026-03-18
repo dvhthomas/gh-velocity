@@ -47,7 +47,7 @@ The following rules must **NEVER** be broken:
 ## Error Handling
 
 Exit codes: 0=success, 1=general, 2=config, 3=auth, 4=not found.
-When `--format json`, errors are also JSON: `{"error": "message", "code": N}`.
+When `--results json`, errors are also JSON: `{"error": "message", "code": N}`.
 
 ## Quality
 

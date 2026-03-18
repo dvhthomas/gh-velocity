@@ -15,7 +15,7 @@ import (
 
 func TestWriteReportArtifacts_CreatesPerSectionFiles(t *testing.T) {
 	dir := t.TempDir()
-	deps := &Deps{Format: format.Markdown}
+	deps := &Deps{Output: OutputConfig{Results: []format.Format{format.Markdown}}}
 
 	now := time.Now()
 	since := now.Add(-7 * 24 * time.Hour)
@@ -87,7 +87,7 @@ func TestWriteReportArtifacts_CreatesPerSectionFiles(t *testing.T) {
 
 func TestWriteReportArtifacts_ReportMDIncludesDetailSections(t *testing.T) {
 	dir := t.TempDir()
-	deps := &Deps{Format: format.Markdown}
+	deps := &Deps{Output: OutputConfig{Results: []format.Format{format.Markdown}}}
 
 	now := time.Now()
 	since := now.Add(-7 * 24 * time.Hour)
@@ -141,7 +141,7 @@ func TestWriteReportArtifacts_ReportMDIncludesDetailSections(t *testing.T) {
 
 func TestWriteReportArtifacts_NoSections(t *testing.T) {
 	dir := t.TempDir()
-	deps := &Deps{Format: format.Markdown}
+	deps := &Deps{Output: OutputConfig{Results: []format.Format{format.Markdown}}}
 
 	result := model.StatsResult{
 		Repository: "test/repo",

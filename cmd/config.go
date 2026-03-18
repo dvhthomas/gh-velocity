@@ -45,9 +45,9 @@ This shows the effective config that commands will use — including default
 values for any keys you have not set in your .gh-velocity.yml. Use this
 to verify that your config is interpreted the way you expect.
 
-The JSON output (-f json) is useful for debugging or piping into other tools.`,
+The JSON output (-r json) is useful for debugging or piping into other tools.`,
 		Example: `  gh velocity config show
-  gh velocity config show -f json`,
+  gh velocity config show -r json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load(resolveConfigPath(cmd))
 			if err != nil {
@@ -313,7 +313,7 @@ needed for .gh-velocity.yml configuration.`,
   gh velocity config discover -R cli/cli
 
   # JSON output for scripting
-  gh velocity config discover -R owner/repo -f json`,
+  gh velocity config discover -R owner/repo -r json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Config subcommands skip PersistentPreRunE, so resolve repo here.

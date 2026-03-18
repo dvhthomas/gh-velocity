@@ -60,6 +60,50 @@ func TestParseFormat(t *testing.T) {
 	}
 }
 
+func TestParseResults(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   []string
+		want    []Format
+		wantErr bool
+	}{
+		{"single json", []string{"json"}, []Format{JSON}, false},
+		{"single pretty", []string{"pretty"}, []Format{Pretty}, false},
+		{"single markdown", []string{"markdown"}, []Format{Markdown}, false},
+		{"md alias", []string{"md"}, []Format{Markdown}, false},
+		{"multi", []string{"json", "markdown"}, []Format{JSON, Markdown}, false},
+		{"multi with alias", []string{"json", "md"}, []Format{JSON, Markdown}, false},
+		{"dedup", []string{"json", "json"}, []Format{JSON}, false},
+		{"dedup alias", []string{"md", "markdown"}, []Format{Markdown}, false},
+		{"invalid", []string{"csv"}, nil, true},
+		{"mixed valid invalid", []string{"json", "csv"}, nil, true},
+		{"empty", []string{}, nil, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseResults(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("got[%d] = %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
 func TestWriteReportPretty_CycleTimeNA_IssueStrategy(t *testing.T) {
 	var buf bytes.Buffer
 	rc := RenderContext{Writer: &buf, Format: Pretty}

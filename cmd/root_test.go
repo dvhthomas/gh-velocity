@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dvhthomas/gh-velocity/internal/format"
 	"github.com/dvhthomas/gh-velocity/internal/model"
 	"github.com/spf13/cobra"
 )
@@ -72,17 +73,17 @@ func TestHandleError_NonAppError_JSONFormat_WrapsAsInternal(t *testing.T) {
 	}
 }
 
-func TestWarnUnlessJSON_SuppressesInJSONMode(t *testing.T) {
-	deps := &Deps{Format: "json"}
+func TestWarn_SuppressedWhenSuppressWarnTrue(t *testing.T) {
+	deps := &Deps{Output: OutputConfig{Results: []format.Format{format.JSON}, SuppressWarn: true}}
 	// Should not panic or write to stderr.
-	deps.WarnUnlessJSON("test warning: %s", "value")
+	deps.Warn("test warning: %s", "value")
 }
 
-func TestWarnUnlessJSON_EmitsInPrettyMode(t *testing.T) {
-	deps := &Deps{Format: "pretty"}
+func TestWarn_EmitsWhenSuppressWarnFalse(t *testing.T) {
+	deps := &Deps{Output: OutputConfig{Results: []format.Format{format.Pretty}}}
 	// Should not panic. We can't easily capture stderr here,
 	// but verifying it doesn't panic is the baseline.
-	deps.WarnUnlessJSON("test warning: %s", "value")
+	deps.Warn("test warning: %s", "value")
 }
 
 func TestHandleError_JSONFormat_EmitsEnvelope(t *testing.T) {
@@ -258,13 +259,13 @@ func TestNowFunc_InvalidFallsBack(t *testing.T) {
 	}
 }
 
-// newTestRoot creates a minimal root command with the format flag set.
-func newTestRoot(format string) *cobra.Command {
+// newTestRoot creates a minimal root command with the results flag set.
+func newTestRoot(resultFormat string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "test",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	cmd.PersistentFlags().String("format", format, "")
+	cmd.PersistentFlags().StringSlice("results", []string{resultFormat}, "")
 	return cmd
 }

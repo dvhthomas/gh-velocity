@@ -51,7 +51,7 @@ unavailable.`,
   gh velocity report --since 14d --until 2026-03-01
 
   # Remote repo, JSON for CI dashboards
-  gh velocity report --since 30d -R cli/cli -f json
+  gh velocity report --since 30d -R cli/cli -r json
 
   # Write all formats to a directory (single data-gathering pass)
   gh velocity report --since 30d --artifact-dir ./out`,
@@ -159,7 +159,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 	if cfg.CycleTime.Strategy == model.StrategyPR {
 		mergedPRs, prErr := client.SearchPRs(ctx, prQuery.Build())
 		if prErr != nil {
-			deps.WarnUnlessJSON("could not search merged PRs for cycle-time: %v", prErr)
+			deps.Warn("could not search merged PRs for cycle-time: %v", prErr)
 		} else {
 			cyclePipeline.ClosingPRs = metrics.BuildClosingPRMap(ctx, client, mergedPRs)
 		}
@@ -247,7 +247,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 
 	if leadOK {
 		if err := leadPipeline.ProcessData(); err != nil {
-			deps.WarnUnlessJSON("lead time ProcessData: %v", err)
+			deps.Warn("lead time ProcessData: %v", err)
 			result.Warnings = append(result.Warnings, fmt.Sprintf("lead time: %v", err))
 		} else {
 			result.LeadTime = &leadPipeline.Stats
@@ -257,7 +257,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 
 	if cycleOK {
 		if err := cyclePipeline.ProcessData(); err != nil {
-			deps.WarnUnlessJSON("cycle time ProcessData: %v", err)
+			deps.Warn("cycle time ProcessData: %v", err)
 			result.Warnings = append(result.Warnings, fmt.Sprintf("cycle time: %v", err))
 		} else {
 			result.CycleTime = &cyclePipeline.Stats
@@ -272,7 +272,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 
 	if throughputOK {
 		if err := throughputPipeline.ProcessData(); err != nil {
-			deps.WarnUnlessJSON("throughput ProcessData: %v", err)
+			deps.Warn("throughput ProcessData: %v", err)
 			result.Warnings = append(result.Warnings, fmt.Sprintf("throughput: %v", err))
 		} else {
 			result.Throughput = &model.StatsThroughput{
@@ -287,7 +287,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 
 	if velocityOK && velocityPipeline != nil {
 		if err := velocityPipeline.ProcessData(); err != nil {
-			deps.WarnUnlessJSON("velocity ProcessData: %v", err)
+			deps.Warn("velocity ProcessData: %v", err)
 			result.Warnings = append(result.Warnings, fmt.Sprintf("velocity: %v", err))
 		} else {
 			result.Velocity = &velocityPipeline.Result
@@ -312,7 +312,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 	})
 
 	var fmtErr error
-	switch deps.Format {
+	switch deps.ResultFormat() {
 	case format.JSON:
 		fmtErr = format.WriteReportJSON(w, result)
 	case format.Markdown:
@@ -325,7 +325,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 	}
 
 	// Detail sections: append per-item tables after the summary unless --summary-only.
-	if !summaryOnly && deps.Format != format.JSON {
+	if !summaryOnly && deps.ResultFormat() != format.JSON {
 		rc := deps.RenderCtx(w)
 		fmt.Fprintln(rc.Writer)
 

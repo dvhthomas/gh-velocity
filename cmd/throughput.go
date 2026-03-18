@@ -27,7 +27,7 @@ Default window is the last 30 days.`,
   gh velocity flow throughput
 
   # Last 7 days, JSON output
-  gh velocity flow throughput --since 7d -f json
+  gh velocity flow throughput --since 7d -r json
 
   # Remote repo
   gh velocity flow throughput --since 30d -R cli/cli`,

@@ -40,6 +40,32 @@ func ParseFormat(s string) (Format, error) {
 	}
 }
 
+// ParseResults validates and normalizes a slice of format strings into
+// deduplicated Format values. Accepts "md" as an alias for "markdown".
+func ParseResults(ss []string) ([]Format, error) {
+	if len(ss) == 0 {
+		return nil, fmt.Errorf("--results requires at least one format")
+	}
+
+	seen := make(map[Format]bool, len(ss))
+	var out []Format
+	for _, s := range ss {
+		// Normalize alias.
+		if s == "md" {
+			s = "markdown"
+		}
+		f, err := ParseFormat(s)
+		if err != nil {
+			return nil, err
+		}
+		if !seen[f] {
+			seen[f] = true
+			out = append(out, f)
+		}
+	}
+	return out, nil
+}
+
 // FormatDuration formats a duration for human-readable output.
 func FormatDuration(d time.Duration) string {
 	if d < 0 {

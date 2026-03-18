@@ -34,7 +34,7 @@ for all issues closed in the given date window.`,
   gh velocity flow lead-time --since 30d
 
   # Custom window, JSON output
-  gh velocity flow lead-time --since 2026-01-01 --until 2026-02-01 -f json`,
+  gh velocity flow lead-time --since 2026-01-01 --until 2026-02-01 -r json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 && sinceFlag != "" {

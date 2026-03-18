@@ -29,7 +29,7 @@ func buildCycleTimeStrategy(ctx context.Context, deps *Deps, client *gh.Client) 
 		if len(cfg.Lifecycle.InProgress.ProjectStatus) > 0 && cfg.Project.URL != "" {
 			info, err := client.ResolveProject(ctx, cfg.Project.URL, cfg.Project.StatusField)
 			if err != nil {
-				deps.WarnUnlessJSON("Could not resolve project for cycle time: %v", err)
+				deps.Warn("Could not resolve project for cycle time: %v", err)
 			} else {
 				strat.ProjectID = info.ProjectID
 				strat.StatusFieldID = info.StatusFieldID
@@ -39,7 +39,7 @@ func buildCycleTimeStrategy(ctx context.Context, deps *Deps, client *gh.Client) 
 
 		// Warn when project board is the only cycle-start signal.
 		if strat.ProjectID != "" && len(strat.InProgressMatch) == 0 {
-			deps.WarnUnlessJSON("cycle time: project board timestamps can be unreliable (reflects last update, not transition). Recommend adding lifecycle.in-progress.match with label matchers. Run: gh velocity config preflight --write")
+			deps.Warn("cycle time: project board timestamps can be unreliable (reflects last update, not transition). Recommend adding lifecycle.in-progress.match with label matchers. Run: gh velocity config preflight --write")
 		}
 
 		// No signal source at all.

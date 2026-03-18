@@ -47,7 +47,7 @@ Run 'gh velocity config preflight' to get suggested configuration.`,
   gh velocity flow velocity --current
 
   # Last 3 iterations, JSON output
-  gh velocity flow velocity --history --iterations 3 --format json
+  gh velocity flow velocity --history --iterations 3 --results json
 
   # With date filter
   gh velocity flow velocity --since 2026-01-01 --until 2026-03-01

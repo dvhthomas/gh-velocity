@@ -21,10 +21,10 @@ This command shows the work (PRs), not individual reviewers.`,
   gh velocity status reviews
 
   # Markdown for posting to a discussion
-  gh velocity status reviews -f markdown
+  gh velocity status reviews -r markdown
 
   # JSON for automation
-  gh velocity status reviews -f json`,
+  gh velocity status reviews -r json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runReviews(cmd)

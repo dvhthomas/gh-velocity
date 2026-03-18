@@ -29,10 +29,17 @@ type contextKey string
 
 const configKey contextKey = "config"
 
+// OutputConfig controls result format(s) and file destination.
+type OutputConfig struct {
+	Results      []format.Format // requested output formats (default: [pretty])
+	WriteTo      string          // directory for file output; empty = stdout
+	SuppressWarn bool            // true when JSON is sole result format going to stdout
+}
+
 // Deps holds shared dependencies injected into subcommands.
 type Deps struct {
 	Config       *config.Config
-	Format       format.Format
+	Output       OutputConfig
 	Post         bool
 	NewPost      bool // --new-post: force a new post (skip idempotent update)
 	DryRun       bool // true unless GH_VELOCITY_POST_LIVE=true — protects against accidental mutations
@@ -72,20 +79,28 @@ func (d *Deps) NewClient() (*gh.Client, error) {
 	return gh.NewClient(d.Owner, d.Repo, delay, gh.ClientOptions{NoCache: d.NoCache})
 }
 
-// WarnUnlessJSON emits a warning to stderr unless JSON format is selected.
-// In JSON mode, warnings are included in the JSON payload — stderr warnings
-// would be noise for agentic consumers.
-func (d *Deps) WarnUnlessJSON(format string, args ...any) {
-	if d.Format != "json" {
+// Warn emits a warning to stderr unless SuppressWarn is true.
+// When JSON is the sole result format going to stdout, warnings are
+// suppressed — they're embedded in the JSON payload instead.
+func (d *Deps) Warn(format string, args ...any) {
+	if !d.Output.SuppressWarn {
 		log.Warn(format, args...)
 	}
+}
+
+// ResultFormat returns the primary result format (first in the list).
+func (d *Deps) ResultFormat() format.Format {
+	if len(d.Output.Results) > 0 {
+		return d.Output.Results[0]
+	}
+	return format.Pretty
 }
 
 // RenderCtx builds a format.RenderContext from Deps and a writer.
 func (d *Deps) RenderCtx(w io.Writer) format.RenderContext {
 	return format.RenderContext{
 		Writer: w,
-		Format: d.Format,
+		Format: d.ResultFormat(),
 		IsTTY:  d.IsTTY,
 		Width:  d.TermWidth,
 		Owner:  d.Owner,
@@ -111,9 +126,8 @@ func Execute(version, buildTime string) int {
 }
 
 // handleError processes the error from command execution, emitting JSON
-// error output to stderr when --format json is set, and returning the
-// appropriate exit code. All errors are wrapped as structured JSON for
-// agentic consumers when JSON format is requested.
+// error output to stderr when --results json is the sole format, and
+// returning the appropriate exit code.
 func handleError(root *cobra.Command, err error) int {
 	var appErr *model.AppError
 	if !errors.As(err, &appErr) {
@@ -124,8 +138,8 @@ func handleError(root *cobra.Command, err error) int {
 		}
 	}
 
-	formatFlag, _ := root.PersistentFlags().GetString("format")
-	if formatFlag == "json" {
+	resultsSlice, _ := root.PersistentFlags().GetStringSlice("results")
+	if len(resultsSlice) == 1 && resultsSlice[0] == "json" {
 		envelope := model.ErrorEnvelope{Error: appErr}
 		data, jsonErr := json.Marshal(envelope)
 		if jsonErr == nil {
@@ -143,7 +157,7 @@ func handleError(root *cobra.Command, err error) int {
 // NewRootCmd creates and returns the root command with all subcommands wired.
 func NewRootCmd(version, buildTime string) *cobra.Command {
 	var (
-		formatFlag  string
+		resultsFlag []string
 		repoFlag    string
 		configFlag  string
 		scopeFlag   string
@@ -176,23 +190,22 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				postFlag = true
 			}
 
-			// --post coerces format to markdown unless user explicitly set -f.
-			if postFlag && !cmd.Flags().Changed("format") {
-				formatFlag = "markdown"
+			// --post coerces results to markdown unless user explicitly set -r.
+			if postFlag && !cmd.Flags().Changed("results") {
+				resultsFlag = []string{"markdown"}
 			}
 
-			// Validate format
-			f, err := format.ParseFormat(formatFlag)
+			// Validate and normalize result formats.
+			results, err := format.ParseResults(resultsFlag)
 			if err != nil {
 				return err
 			}
 
-			// Suppress all non-error stderr output in JSON mode — warnings
-			// and debug lines are noise for agentic consumers. Warnings
-			// are embedded in the JSON payload instead.
-			if f == format.JSON {
-				log.SuppressStderr = true
-			}
+			// Suppress warnings on stderr when JSON is the sole result
+			// format going to stdout — warnings are embedded in the JSON
+			// payload instead. When --write-to is set (Phase 2), stdout
+			// is empty so stderr is always safe.
+			suppressWarn := len(results) == 1 && results[0] == format.JSON
 
 			// Resolve repo
 			owner, repo, err := resolveRepo(repoFlag)
@@ -256,7 +269,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				log.Debug("repo:         %s/%s%s", owner, repo, repoSource)
 				log.Debug("local repo:   %v", hasLocal)
 				log.Debug("config:       %s", configPath)
-				log.Debug("format:       %s", formatFlag)
+				log.Debug("results:      %v", resultsFlag)
 				log.Debug("scope:        %s", resolvedScope)
 				log.Debug("strategy:     %s", cfg.CycleTime.Strategy)
 				if cfg.Project.URL != "" {
@@ -272,8 +285,11 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 			}
 
 			deps := &Deps{
-				Config:       cfg,
-				Format:       f,
+				Config: cfg,
+				Output: OutputConfig{
+					Results:      results,
+					SuppressWarn: suppressWarn,
+				},
 				Post:         postFlag,
 				NewPost:      newPostFlag,
 				DryRun:       dryRun,
@@ -294,7 +310,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 		},
 	}
 
-	root.PersistentFlags().StringVarP(&formatFlag, "format", "f", "pretty", "Output format: json, pretty, markdown")
+	root.PersistentFlags().StringSliceVarP(&resultsFlag, "results", "r", []string{"pretty"}, "Output format(s): json, pretty, markdown (comma-separated)")
 	root.PersistentFlags().StringVarP(&repoFlag, "repo", "R", "", "Repository in owner/name format")
 	root.PersistentFlags().StringVar(&configFlag, "config", "", "Path to config file (default: .gh-velocity.yml)")
 	root.PersistentFlags().BoolVar(&postFlag, "post", false, "Post output to GitHub (dry-run by default; set GH_VELOCITY_POST_LIVE=true for live)")

@@ -38,7 +38,7 @@ Risk levels:
   gh velocity quality bus-factor --since 180d
 
   # JSON for CI/scripts
-  gh velocity quality bus-factor --format json`,
+  gh velocity quality bus-factor --results json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBusFactor(cmd, sinceFlag)

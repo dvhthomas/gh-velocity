@@ -27,19 +27,6 @@ func TestEscapeCI(t *testing.T) {
 	}
 }
 
-func TestSuppressStderr_SuppressesWarnAndDebug(t *testing.T) {
-	// When SuppressStderr is true, Warn and Debug should no-op.
-	// We can't easily capture stderr in a unit test, but we can verify
-	// the functions don't panic and respect the flag.
-	old := SuppressStderr
-	defer func() { SuppressStderr = old }()
-
-	SuppressStderr = true
-	// These should silently return without writing to stderr.
-	Warn("should not appear: %s", "test")
-	Debug("should not appear: %s", "test")
-	// If we got here without panic, the suppression works.
-}
 
 func TestIsCI(t *testing.T) {
 	t.Setenv("GITHUB_ACTIONS", "true")

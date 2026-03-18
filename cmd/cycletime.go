@@ -52,7 +52,7 @@ When a signal is not available for an item, cycle time is N/A.`,
   gh velocity flow cycle-time --since 30d
 
   # Remote repo, markdown output
-  gh velocity flow cycle-time --since 14d -R cli/cli -f markdown`,
+  gh velocity flow cycle-time --since 14d -R cli/cli -r markdown`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Conflict: --since with positional or --pr
@@ -135,7 +135,7 @@ func runCycleTimePR(cmd *cobra.Command, prNumber int) error {
 	}
 
 	for _, warn := range p.Warnings {
-		deps.WarnUnlessJSON("%s", warn)
+		deps.Warn("%s", warn)
 	}
 
 	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
@@ -186,7 +186,7 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 	}
 
 	for _, warn := range p.Warnings {
-		deps.WarnUnlessJSON("%s", warn)
+		deps.Warn("%s", warn)
 	}
 
 	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
@@ -256,7 +256,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		mergedPRs, prErr := client.SearchPRs(ctx, prQuery.Build())
 		if prErr != nil {
 			w := fmt.Sprintf("could not search merged PRs: %v", prErr)
-			deps.WarnUnlessJSON("%s", w)
+			deps.Warn("%s", w)
 			preWarnings = append(preWarnings, w)
 		} else {
 			closingPRs = metrics.BuildClosingPRMap(ctx, client, mergedPRs)
@@ -288,7 +288,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	p.Warnings = append(preWarnings, p.Warnings...)
 
 	for _, warn := range p.Warnings {
-		deps.WarnUnlessJSON("%s", warn)
+		deps.Warn("%s", warn)
 	}
 
 	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
