@@ -12,16 +12,21 @@ All example configs are in [`docs/examples/`](https://github.com/dvhthomas/gh-ve
 
 ## Generating your own config
 
-Use [preflight]({{< relref "/getting-started/configuration" >}}#generate-a-config-with-preflight) to auto-detect a good starting config for any repo:
+Use [preflight]({{< relref "/getting-started/configuration" >}}#generate-a-config-with-preflight) to auto-detect a good starting config. Run it from inside a cloned repo and it auto-detects the repo from git remotes — no `-R` flag needed:
 
 ```bash
-gh velocity config preflight -R owner/repo              # preview to stdout
-gh velocity config preflight -R owner/repo --write       # save to .gh-velocity.yml
+gh velocity config preflight                  # preview to stdout (auto-detects repo)
+gh velocity config preflight --write          # save to .gh-velocity.yml
+
+# Or specify a repo explicitly (works from anywhere)
+gh velocity config preflight -R owner/repo
 
 # With a project board
-gh velocity config preflight -R owner/repo \
+gh velocity config preflight \
   --project-url https://github.com/users/me/projects/1
 ```
+
+Preflight auto-detects noise labels (spam, duplicate, invalid) and excludes them from the scope query. See [Why noise exclusion matters]({{< relref "/guides/interpreting-results" >}}#why-noise-exclusion-matters) for the impact this has on metrics.
 
 ## Running examples
 
@@ -48,10 +53,10 @@ gh velocity quality release v2.67.0 -R cli/cli \
 
 ```yaml
 # Scope tells gh-velocity which repo to query.
-# When running with -R cli/cli, this is redundant but makes
-# the config self-contained for CI use.
+# Noise labels (spam, duplicate, invalid) are excluded to avoid distorting metrics.
+# See: /guides/interpreting-results/#why-noise-exclusion-matters
 scope:
-  query: "repo:cli/cli"
+  query: "repo:cli/cli -label:duplicate -label:invalid -label:suspected-spam"
 
 # Four classification categories using labels.
 # cli/cli uses standard GitHub labels: "bug", "enhancement", "tech-debt", "docs".
