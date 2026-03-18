@@ -277,11 +277,11 @@ type PRAwaitingReview struct {
 	IsStale bool          // >48h without review
 }
 
-// StatsQuality holds defect rate metrics.
+// StatsQuality holds bug ratio metrics.
 type StatsQuality struct {
 	BugCount    int
 	TotalIssues int
-	DefectRate  float64
+	BugRatio  float64
 }
 
 // Insight is a human-readable observation derived from the data.

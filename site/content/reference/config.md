@@ -221,7 +221,7 @@ Ordered list of classification categories. Each category has:
 
 | Sub-field | Type | Description |
 |---|---|---|
-| `name` | string | Category name. Use `"bug"` for the defect rate numerator. |
+| `name` | string | Category name. Use `"bug"` for the bug ratio numerator. |
 | `match` | list of strings | Matcher patterns. First match wins across all categories. |
 
 ```yaml

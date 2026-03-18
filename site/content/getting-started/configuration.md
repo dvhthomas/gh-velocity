@@ -123,7 +123,7 @@ quality:
 ```
 
 > [!NOTE]
-> The report's defect rate counts issues classified as "bug". If you name your bug category differently (e.g., "defect"), use `bug` as the name in the config.
+> The report's bug ratio counts issues classified as "bug". If you name your bug category differently (e.g., "defect"), use `bug` as the name in the config.
 
 ### `quality.hotfix_window_hours`
 

@@ -294,10 +294,10 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 		}
 	}
 
-	// Quality: defect rate + insights from categories (reuses lead time's closed issues)
+	// Quality: bug ratio + insights from categories (reuses lead time's closed issues)
 	var qualDetail qualityResult
 	if leadOK && len(cfg.Quality.Categories) > 0 {
-		qualDetail = computeQualityWithInsights(leadPipeline.Items, cfg.Quality.Categories, cfg.Quality.HotfixWindowHours, cfg.Quality.DefectRateThreshold)
+		qualDetail = computeQualityWithInsights(leadPipeline.Items, cfg.Quality.Categories, cfg.Quality.HotfixWindowHours, cfg.Quality.BugRatioThreshold)
 		result.Quality = qualDetail.Quality
 		result.QualityInsights = qualDetail.Insights
 	}
@@ -556,9 +556,9 @@ func writeReportArtifacts(deps *Deps, dir string, result model.StatsResult, sect
 	return nil
 }
 
-// computeQualityWithInsights computes defect rate and quality insights from closed issues.
+// computeQualityWithInsights computes bug ratio and quality insights from closed issues.
 // Issues classified as "bug" are counted as defects. Returns both the quality stats
-// and insight observations about defect rate, bug fix speed, category distribution, and hotfixes.
+// and insight observations about bug ratio, bug fix speed, category distribution, and hotfixes.
 // qualityResult holds quality computation output including per-item classification.
 type qualityResult struct {
 	Quality    *model.StatsQuality
@@ -567,7 +567,7 @@ type qualityResult struct {
 	Categories []qualitypipe.CategoryRow
 }
 
-func computeQualityWithInsights(items []leadtime.BulkItem, categories []model.CategoryConfig, hotfixWindowHours, defectRateThreshold float64) qualityResult {
+func computeQualityWithInsights(items []leadtime.BulkItem, categories []model.CategoryConfig, hotfixWindowHours, bugRatioThreshold float64) qualityResult {
 	if len(items) == 0 {
 		return qualityResult{}
 	}
@@ -609,18 +609,18 @@ func computeQualityWithInsights(items []leadtime.BulkItem, categories []model.Ca
 		}
 	}
 
-	defectRate := float64(bugCount) / float64(len(items))
+	bugRatio := float64(bugCount) / float64(len(items))
 	quality := &model.StatsQuality{
 		BugCount:    bugCount,
 		TotalIssues: len(items),
-		DefectRate:  defectRate,
+		BugRatio:  bugRatio,
 	}
 
 	hwh := int(hotfixWindowHours)
 	if hwh <= 0 {
 		hwh = metrics.HotfixMaxHours
 	}
-	insights := metrics.GenerateQualityInsights(*quality, insightItems, hwh, defectRateThreshold)
+	insights := metrics.GenerateQualityInsights(*quality, insightItems, hwh, bugRatioThreshold)
 	return qualityResult{
 		Quality:    quality,
 		Insights:   insights,

@@ -54,7 +54,7 @@ Hotfix: no
 
 Composition (12 issues):
   bug: 3 (25%)  feature: 7 (58%)  chore: 1 (8%)  other: 1 (8%)
-  Defect rate: 25%
+  Bug ratio: 25%
 
   #   Title                          Lead     Cycle    Lag   Category
   ─── ────────────────────────────── ──────── ──────── ───── ────────
@@ -74,7 +74,7 @@ Key things to notice:
 
 - **Per-issue rows** show each issue with its individual metrics. Issues flagged as statistical outliers are marked with `OUTLIER`.
 - **Aggregates** at the bottom summarize the distribution. Median is the primary number to watch; mean is shown for comparison.
-- **Composition** shows category breakdown and defect rate.
+- **Composition** shows category breakdown and bug ratio.
 - **Cadence** and **hotfix** describe the release rhythm.
 
 ## Reading JSON output
@@ -143,9 +143,9 @@ There are no universal benchmarks. What matters is your trend over time and whet
 - **Median under 7 days** means completed work reaches users within a week.
 - **High release lag with low cadence** means work is done but sits waiting for a release. Consider releasing more frequently.
 
-### [Composition and defect rate]({{< relref "/reference/metrics/quality" >}})
+### [Composition and bug ratio]({{< relref "/reference/metrics/quality" >}})
 
-- **Defect rate under 30%** is typical for product-focused teams.
+- **Bug ratio under 30%** is typical for product-focused teams.
 - **High "other" count** means your issues lack classification labels. Run `gh velocity config preflight` to generate category matchers, or label issues before releasing. See [Recipes: Check label coverage]({{< relref "recipes" >}}#check-label-coverage-before-a-release).
 
 ### [Velocity]({{< relref "/reference/metrics/velocity" >}})
@@ -190,7 +190,7 @@ See [Troubleshooting]({{< relref "troubleshooting" >}}#cycle-time-shows-na-for-a
 
 Work finishes quickly but waits before being released. This typically indicates a batch release process. The fix is organizational: release more often, or automate releases on merge.
 
-### Defect rate of 0%
+### Bug ratio of 0%
 
 Either there are genuinely no bugs in this release, or your bug category matchers are not configured correctly. Check that your config has a category named `bug` with appropriate `match` rules. See [Troubleshooting]({{< relref "troubleshooting" >}}#defect-rate-shows-0).
 

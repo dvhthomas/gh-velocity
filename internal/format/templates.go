@@ -165,8 +165,8 @@ func renderReportMarkdown(w io.Writer, r model.StatsResult) error {
 		data.WIP = fmt.Sprintf("%d items in progress", *r.WIPCount)
 	}
 	if r.Quality != nil {
-		data.Quality = fmt.Sprintf("%d bugs / %d issues (%.0f%% defect rate)",
-			r.Quality.BugCount, r.Quality.TotalIssues, r.Quality.DefectRate*100)
+		data.Quality = fmt.Sprintf("%d bugs / %d issues (%.0f%% bug ratio)",
+			r.Quality.BugCount, r.Quality.TotalIssues, r.Quality.BugRatio*100)
 	}
 	data.Warnings = r.Warnings
 	data.InsightGroups = buildInsightGroups(r)

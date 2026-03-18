@@ -52,7 +52,7 @@ type templateData struct {
 	Until      time.Time
 	Insights   []string
 	Categories []CategoryRow
-	DefectRate int
+	BugRatio int
 	BugCount   int
 	TotalIssues int
 	Items      []itemRow
@@ -72,7 +72,7 @@ func WriteMarkdown(rc format.RenderContext, d Detail) error {
 		Since:       d.Since,
 		Until:       d.Until,
 		Categories:  d.Categories,
-		DefectRate:  int(d.Quality.DefectRate * 100),
+		BugRatio:  int(d.Quality.BugRatio * 100),
 		BugCount:    d.Quality.BugCount,
 		TotalIssues: d.Quality.TotalIssues,
 	}
@@ -101,8 +101,8 @@ func WritePretty(w io.Writer, d Detail) error {
 	for _, cat := range d.Categories {
 		fmt.Fprintf(w, "    %-20s %3d  (%d%%)\n", cat.Name, cat.Count, cat.Pct)
 	}
-	fmt.Fprintf(w, "\n  Defect rate: %d%% (%d bugs / %d issues)\n\n",
-		int(d.Quality.DefectRate*100), d.Quality.BugCount, d.Quality.TotalIssues)
+	fmt.Fprintf(w, "\n  Bug ratio: %d%% (%d bugs / %d issues)\n\n",
+		int(d.Quality.BugRatio*100), d.Quality.BugCount, d.Quality.TotalIssues)
 
 	if len(d.Items) > 0 {
 		tp := format.NewTable(w, false, 120)

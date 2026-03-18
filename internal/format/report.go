@@ -65,7 +65,7 @@ type jsonWIP struct {
 type jsonStatsQuality struct {
 	BugCount    int           `json:"bug_count"`
 	TotalIssues int           `json:"total_issues"`
-	DefectRate  float64       `json:"defect_rate"`
+	BugRatio  float64       `json:"bug_ratio"`
 	Insights    []jsonInsight `json:"insights,omitempty"`
 }
 
@@ -122,7 +122,7 @@ func WriteReportJSON(w io.Writer, r model.StatsResult) error {
 		out.Quality = &jsonStatsQuality{
 			BugCount:    r.Quality.BugCount,
 			TotalIssues: r.Quality.TotalIssues,
-			DefectRate:  r.Quality.DefectRate,
+			BugRatio:  r.Quality.BugRatio,
 			Insights:    insightsToJSON(r.QualityInsights),
 		}
 	}
@@ -188,8 +188,8 @@ func WriteReportPretty(rc RenderContext, r model.StatsResult) error {
 		fmt.Fprintf(w, "  WIP:         not configured\n")
 	}
 	if r.Quality != nil {
-		fmt.Fprintf(w, "  Quality:     %d bugs / %d issues (%.0f%% defect rate)\n",
-			r.Quality.BugCount, r.Quality.TotalIssues, r.Quality.DefectRate*100)
+		fmt.Fprintf(w, "  Quality:     %d bugs / %d issues (%.0f%% bug ratio)\n",
+			r.Quality.BugCount, r.Quality.TotalIssues, r.Quality.BugRatio*100)
 	}
 
 	return nil
