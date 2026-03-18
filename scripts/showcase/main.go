@@ -38,7 +38,7 @@ func (sc showcaseConfig) slug() string {
 	return strings.ReplaceAll(sc.Name, "/", "-")
 }
 
-// preflightFlags builds the gh-velocity flags for this config entry.
+// preflightFlags builds the gh-velocity flags for the preflight command.
 func (sc showcaseConfig) preflightFlags() []string {
 	var flags []string
 	if sc.Repo != "" {
@@ -48,6 +48,14 @@ func (sc showcaseConfig) preflightFlags() []string {
 		flags = append(flags, "--project-url", sc.Project)
 	}
 	return flags
+}
+
+// repoFlags returns only the -R flag (safe for all commands including report).
+func (sc showcaseConfig) repoFlags() []string {
+	if sc.Repo != "" {
+		return []string{"-R", sc.Repo}
+	}
+	return nil
 }
 
 type config struct {
@@ -326,7 +334,7 @@ func runReport(ctx context.Context, cfg config, configPath, slug string, sc show
 
 	args := []string{"report", "--since", cfg.Since, "--config", configPath,
 		"--debug", "-f", "markdown", "--artifact-dir", artifactDir}
-	args = append(args, sc.preflightFlags()...)
+	args = append(args, sc.repoFlags()...)
 
 	report, err := execBinary(repoCtx, cfg.Binary, args...)
 	if err != nil || report == "" {
