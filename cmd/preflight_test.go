@@ -1328,14 +1328,15 @@ func TestRenderPreflightConfig_NoiseExclusion(t *testing.T) {
 		},
 	}
 	config := renderPreflightConfig(r)
-	if !strings.Contains(config, "-label:suspected-spam") {
-		t.Errorf("expected scope to contain -label:suspected-spam, got:\n%s", config)
+	// All labels are quoted (harmless for single-word, required for multi-word).
+	if !strings.Contains(config, `-label:\"suspected-spam\"`) {
+		t.Errorf("expected scope to contain -label:\"suspected-spam\", got:\n%s", config)
 	}
-	if !strings.Contains(config, "-label:duplicate") {
-		t.Errorf("expected scope to contain -label:duplicate, got:\n%s", config)
+	if !strings.Contains(config, `-label:\"duplicate\"`) {
+		t.Errorf("expected scope to contain -label:\"duplicate\", got:\n%s", config)
 	}
-	if !strings.Contains(config, "-label:invalid") {
-		t.Errorf("expected scope to contain -label:invalid, got:\n%s", config)
+	if !strings.Contains(config, `-label:\"invalid\"`) {
+		t.Errorf("expected scope to contain -label:\"invalid\", got:\n%s", config)
 	}
 	if !strings.Contains(config, "Excluded 3 noise label") {
 		t.Errorf("expected comment about excluded noise labels, got:\n%s", config)
@@ -1352,18 +1353,14 @@ func TestRenderPreflightConfig_NoiseLabelsWithSpacesAreQuoted(t *testing.T) {
 		},
 	}
 	config := renderPreflightConfig(r)
-	// Inside YAML %q string, inner quotes are escaped as \"
+	// All labels are always quoted; inside YAML %q string, inner quotes are escaped as \"
 	if !strings.Contains(config, `-label:\"Resolution: Duplicate\"`) {
 		t.Errorf("expected quoted label with spaces, got:\n%s", config)
 	}
 	if !strings.Contains(config, `-label:\"Resolution: Invalid\"`) {
 		t.Errorf("expected quoted label with spaces, got:\n%s", config)
 	}
-	// Single-word labels should NOT be quoted
-	if strings.Contains(config, `-label:\"invalid\"`) {
-		t.Errorf("single-word label should not be quoted, got:\n%s", config)
-	}
-	if !strings.Contains(config, `-label:invalid`) {
-		t.Errorf("expected unquoted single-word label, got:\n%s", config)
+	if !strings.Contains(config, `-label:\"invalid\"`) {
+		t.Errorf("expected quoted single-word label, got:\n%s", config)
 	}
 }

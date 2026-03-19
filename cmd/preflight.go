@@ -15,6 +15,7 @@ import (
 	gh "github.com/dvhthomas/gh-velocity/internal/github"
 	"github.com/dvhthomas/gh-velocity/internal/log"
 	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 )
@@ -1014,16 +1015,9 @@ func renderPreflightConfig(r *PreflightResult) string {
 	b.WriteString("scope:\n")
 	if len(r.NoiseLabels) > 0 {
 		// Build scope query with spam label exclusions.
-		var parts []string
-		parts = append(parts, fmt.Sprintf("repo:%s", r.Repo))
-		for _, sl := range r.NoiseLabels {
-			if strings.ContainsAny(sl, " \t") {
-				parts = append(parts, fmt.Sprintf(`-label:"%s"`, sl))
-			} else {
-				parts = append(parts, fmt.Sprintf("-label:%s", sl))
-			}
-		}
-		b.WriteString(fmt.Sprintf("  query: %q\n", strings.Join(parts, " ")))
+		repoQ := fmt.Sprintf("repo:%s", r.Repo)
+		labelQ := scope.BuildLabelExclusions(r.NoiseLabels)
+		b.WriteString(fmt.Sprintf("  query: %q\n", repoQ+" "+labelQ))
 		b.WriteString(fmt.Sprintf("  # Excluded %d noise label(s) detected in this repo: %s\n",
 			len(r.NoiseLabels), strings.Join(r.NoiseLabels, ", ")))
 	} else {
