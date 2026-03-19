@@ -32,6 +32,7 @@ type closerRef struct {
 	Title     string     `json:"title,omitempty"`
 	CreatedAt *time.Time `json:"createdAt,omitempty"`
 	MergedAt  *time.Time `json:"mergedAt,omitempty"`
+	URL       string     `json:"url,omitempty"`
 }
 
 // closingPRResponse is the GraphQL response for finding the PR that closed an issue.
@@ -88,6 +89,7 @@ func (c *Client) GetClosingPR(ctx context.Context, issueNumber int) (*model.PR, 
 				Number:    node.Closer.Number,
 				Title:     node.Closer.Title,
 				CreatedAt: *node.Closer.CreatedAt,
+				URL:       node.Closer.URL,
 			}
 			if node.Closer.MergedAt != nil {
 				pr.MergedAt = node.Closer.MergedAt
@@ -97,6 +99,68 @@ func (c *Client) GetClosingPR(ctx context.Context, issueNumber int) (*model.PR, 
 	}
 
 	return nil, nil
+}
+
+// GetClosingPRs finds all PRs that closed an issue via timeline events.
+// Returns an empty slice (not an error) if no closing PRs were found.
+// An issue may have multiple closing PRs if it was reopened and closed again.
+func (c *Client) GetClosingPRs(ctx context.Context, issueNumber int) ([]*model.PR, error) {
+	query := `query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    issue(number: $number) {
+      timelineItems(first: 20, itemTypes: [CLOSED_EVENT]) {
+        nodes {
+          __typename
+          ... on ClosedEvent {
+            closer {
+              __typename
+              ... on PullRequest {
+                number
+                title
+                createdAt
+                mergedAt
+                url
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}`
+	variables := map[string]any{
+		"owner":  c.owner,
+		"repo":   c.repo,
+		"number": issueNumber,
+	}
+
+	var resp closingPRResponse
+	if err := c.gql.DoWithContext(ctx, query, variables, &resp); err != nil {
+		return nil, fmt.Errorf("get closing PRs for issue #%d: %w", issueNumber, err)
+	}
+
+	seen := make(map[int]bool)
+	var prs []*model.PR
+	for _, node := range resp.Repository.Issue.TimelineItems.Nodes {
+		if node.Closer != nil && node.Closer.Typename == "PullRequest" && node.Closer.CreatedAt != nil {
+			if seen[node.Closer.Number] {
+				continue
+			}
+			seen[node.Closer.Number] = true
+			pr := &model.PR{
+				Number:    node.Closer.Number,
+				Title:     node.Closer.Title,
+				CreatedAt: *node.Closer.CreatedAt,
+				URL:       node.Closer.URL,
+			}
+			if node.Closer.MergedAt != nil {
+				pr.MergedAt = node.Closer.MergedAt
+			}
+			prs = append(prs, pr)
+		}
+	}
+
+	return prs, nil
 }
 
 // projectStatusResponse is the GraphQL response for project item queries.

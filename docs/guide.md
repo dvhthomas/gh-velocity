@@ -840,6 +840,10 @@ jobs:
           path: metrics.json
 ```
 
+### Per-item automation
+
+The examples above run on a schedule and produce bulk reports. If you want metrics posted automatically on individual issues and PRs when they close or merge, see the [single-item workflow guide](single-item-workflow.md). It covers event-driven triggers, conditional filtering, and the `--post` flag.
+
 ## How-to recipes
 
 ### Compare two releases

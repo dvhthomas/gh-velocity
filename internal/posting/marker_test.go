@@ -63,3 +63,76 @@ func TestFindMarker(t *testing.T) {
 		})
 	}
 }
+
+func TestInjectMarkedSection(t *testing.T) {
+	section := WrapWithMarker("issue", "42", "new metrics content")
+
+	tests := []struct {
+		name     string
+		body     string
+		wantHas  string // substring that must appear
+		wantNot  string // substring that must NOT appear (empty = skip)
+	}{
+		{
+			name:    "empty body",
+			body:    "",
+			wantHas: "<!-- gh-velocity:issue:42 -->",
+		},
+		{
+			name:    "append to existing body",
+			body:    "Original issue description.\n\nMore details here.",
+			wantHas: "Original issue description.",
+		},
+		{
+			name:    "append preserves body",
+			body:    "Original issue description.",
+			wantHas: "new metrics content",
+		},
+		{
+			name:    "replace existing section",
+			body:    "Description.\n\n<!-- gh-velocity:issue:42 -->\nold content\n<!-- /gh-velocity -->\n",
+			wantHas: "new metrics content",
+			wantNot: "old content",
+		},
+		{
+			name:    "replace preserves surrounding",
+			body:    "Before.\n\n<!-- gh-velocity:issue:42 -->\nold\n<!-- /gh-velocity -->\n\nAfter.",
+			wantHas: "After.",
+		},
+		{
+			name:    "different marker untouched",
+			body:    "Body.\n\n<!-- gh-velocity:lead-time:42 -->\nlead time\n<!-- /gh-velocity -->\n",
+			wantHas: "lead time",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := InjectMarkedSection(tt.body, "issue", "42", section)
+			if tt.wantHas != "" && !contains(got, tt.wantHas) {
+				t.Errorf("result missing %q:\n%s", tt.wantHas, got)
+			}
+			if tt.wantNot != "" && contains(got, tt.wantNot) {
+				t.Errorf("result should not contain %q:\n%s", tt.wantNot, got)
+			}
+			// Always must contain the new marker
+			if !contains(got, "<!-- gh-velocity:issue:42 -->") {
+				t.Errorf("result missing new marker:\n%s", got)
+			}
+		})
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
+		(len(s) > 0 && len(substr) > 0 && stringContains(s, substr)))
+}
+
+func stringContains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

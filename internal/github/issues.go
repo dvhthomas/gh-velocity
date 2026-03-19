@@ -1,7 +1,9 @@
 package github
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"time"
@@ -50,4 +52,34 @@ func (c *Client) GetIssue(ctx context.Context, number int) (*model.Issue, error)
 		ClosedAt:  resp.ClosedAt,
 		URL:       resp.HTMLURL,
 	}, nil
+}
+
+// issueBodyResponse is a minimal response for reading issue/PR body.
+type issueBodyResponse struct {
+	Body string `json:"body"`
+}
+
+// GetIssueBody fetches just the body of an issue or PR by number.
+func (c *Client) GetIssueBody(ctx context.Context, number int) (string, error) {
+	var resp issueBodyResponse
+	path := fmt.Sprintf("repos/%s/%s/issues/%d", url.PathEscape(c.owner), url.PathEscape(c.repo), number)
+	if err := c.rest.DoWithContext(ctx, "GET", path, nil, &resp); err != nil {
+		return "", fmt.Errorf("get body for #%d: %w", number, err)
+	}
+	return resp.Body, nil
+}
+
+// UpdateIssueBody patches the body of an issue or PR by number.
+func (c *Client) UpdateIssueBody(ctx context.Context, number int, body string) error {
+	path := fmt.Sprintf("repos/%s/%s/issues/%d", url.PathEscape(c.owner), url.PathEscape(c.repo), number)
+	payload := struct {
+		Body string `json:"body"`
+	}{Body: body}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal body: %w", err)
+	}
+
+	return c.rest.DoWithContext(ctx, "PATCH", path, bytes.NewReader(data), nil)
 }
