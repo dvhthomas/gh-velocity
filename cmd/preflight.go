@@ -1017,7 +1017,11 @@ func renderPreflightConfig(r *PreflightResult) string {
 		var parts []string
 		parts = append(parts, fmt.Sprintf("repo:%s", r.Repo))
 		for _, sl := range r.NoiseLabels {
-			parts = append(parts, fmt.Sprintf("-label:%s", sl))
+			if strings.ContainsAny(sl, " \t") {
+				parts = append(parts, fmt.Sprintf(`-label:"%s"`, sl))
+			} else {
+				parts = append(parts, fmt.Sprintf("-label:%s", sl))
+			}
 		}
 		b.WriteString(fmt.Sprintf("  query: %q\n", strings.Join(parts, " ")))
 		b.WriteString(fmt.Sprintf("  # Excluded %d noise label(s) detected in this repo: %s\n",
