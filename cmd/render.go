@@ -112,6 +112,8 @@ func formatExt(f format.Format) string {
 		return "json"
 	case format.Markdown:
 		return "md"
+	case format.HTML:
+		return "html"
 	default:
 		return "txt"
 	}

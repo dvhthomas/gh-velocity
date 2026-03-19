@@ -331,21 +331,28 @@ func runPreflight(ctx context.Context, binary, configPath string, sc showcaseCon
 // runReport executes the gh-velocity report command. Returns the markdown
 // output and updated status.
 func runReport(ctx context.Context, cfg config, configPath, slug string, sc showcaseConfig) (markdown, status string) {
-	artifactDir := filepath.Join(cfg.TmpDir, slug)
-	os.MkdirAll(artifactDir, 0o755)
+	writeToDir := filepath.Join(cfg.TmpDir, slug)
+	os.MkdirAll(writeToDir, 0o755)
 
 	repoCtx, cancel := context.WithTimeout(ctx, cfg.RepoTimeout)
 	defer cancel()
 
 	args := []string{"report", "--since", cfg.Since, "--config", configPath,
-		"--debug", "-f", "markdown", "--artifact-dir", artifactDir}
+		"--debug", "--results", "md,json,html", "--write-to", writeToDir}
 	args = append(args, sc.repoFlags()...)
 
-	report, err := execBinary(repoCtx, cfg.Binary, args...)
-	if err != nil || report == "" {
+	_, err := execBinary(repoCtx, cfg.Binary, args...)
+	if err != nil {
 		return "", "partial"
 	}
-	return report, "success"
+
+	// Read the markdown file for posting as a discussion comment.
+	mdPath := filepath.Join(writeToDir, "report.md")
+	data, readErr := os.ReadFile(mdPath)
+	if readErr != nil || len(data) == 0 {
+		return "", "partial"
+	}
+	return string(data), "success"
 }
 
 // buildComment assembles the Discussion comment markdown for one config run.

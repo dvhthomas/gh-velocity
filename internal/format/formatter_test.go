@@ -44,7 +44,7 @@ func TestFormatDurationPtr(t *testing.T) {
 }
 
 func TestParseFormat(t *testing.T) {
-	for _, valid := range []string{"json", "pretty", "markdown"} {
+	for _, valid := range []string{"json", "pretty", "markdown", "html"} {
 		f, err := ParseFormat(valid)
 		if err != nil {
 			t.Errorf("ParseFormat(%q) unexpected error: %v", valid, err)
@@ -101,6 +101,32 @@ func TestParseResults(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestWriteReportHTML_Basic(t *testing.T) {
+	var buf bytes.Buffer
+	r := model.StatsResult{
+		Repository: "owner/repo",
+		Since:      time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+		Until:      time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC),
+		Throughput: &model.StatsThroughput{IssuesClosed: 10, PRsMerged: 5},
+	}
+	if err := WriteReportHTML(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "<!DOCTYPE html>") {
+		t.Error("expected HTML doctype")
+	}
+	if !strings.Contains(out, "owner/repo") {
+		t.Error("expected repository name in HTML")
+	}
+	if !strings.Contains(out, "Throughput") {
+		t.Error("expected Throughput metric in HTML")
+	}
+	if !strings.Contains(out, "10 issues closed") {
+		t.Error("expected throughput value in HTML")
 	}
 }
 

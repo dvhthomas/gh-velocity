@@ -320,6 +320,8 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 		switch f {
 		case format.JSON:
 			return format.WriteReportJSON(w, result)
+		case format.HTML:
+			return format.WriteReportHTML(w, result)
 		case format.Markdown:
 			if err := format.WriteReportMarkdown(rc, result); err != nil {
 				return err

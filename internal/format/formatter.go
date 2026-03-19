@@ -28,15 +28,16 @@ const (
 	JSON     Format = "json"
 	Pretty   Format = "pretty"
 	Markdown Format = "markdown"
+	HTML     Format = "html"
 )
 
 // ParseFormat validates and returns a Format from a string.
 func ParseFormat(s string) (Format, error) {
 	switch Format(s) {
-	case JSON, Pretty, Markdown:
+	case JSON, Pretty, Markdown, HTML:
 		return Format(s), nil
 	default:
-		return "", fmt.Errorf("invalid format %q: must be json, pretty, or markdown", s)
+		return "", fmt.Errorf("invalid format %q: must be json, pretty, markdown, or html", s)
 	}
 }
 

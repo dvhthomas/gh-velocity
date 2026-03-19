@@ -13,7 +13,7 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
-//go:embed templates/*.md.tmpl
+//go:embed templates/*.md.tmpl templates/*.html.tmpl
 var templateFS embed.FS
 
 // funcMap provides shared template functions for markdown formatters.

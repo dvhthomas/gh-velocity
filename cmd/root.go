@@ -357,7 +357,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 		},
 	}
 
-	root.PersistentFlags().StringSliceVarP(&resultsFlag, "results", "r", []string{"pretty"}, "Output format(s): json, pretty, markdown (comma-separated)")
+	root.PersistentFlags().StringSliceVarP(&resultsFlag, "results", "r", []string{"pretty"}, "Output format(s): json, pretty, markdown, html (comma-separated)")
 	root.PersistentFlags().StringVar(&writeToFlag, "write-to", "", "Write result files to this directory (silences stdout)")
 	root.PersistentFlags().StringVarP(&repoFlag, "repo", "R", "", "Repository in owner/name format")
 	root.PersistentFlags().StringVar(&configFlag, "config", "", "Path to config file (default: .gh-velocity.yml)")

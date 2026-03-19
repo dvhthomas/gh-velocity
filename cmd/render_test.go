@@ -81,6 +81,7 @@ func TestFormatExt(t *testing.T) {
 	}{
 		{"json", "json", "json"},
 		{"markdown", "markdown", "md"},
+		{"html", "html", "html"},
 		{"pretty", "pretty", "txt"},
 	}
 
