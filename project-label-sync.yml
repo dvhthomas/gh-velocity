@@ -1,0 +1,11 @@
+# Sync Project Tracker board status to issue labels.
+# See: https://github.com/dvhthomas/project-label-sync
+project-url: https://github.com/users/dvhthomas/projects/1
+field: Status
+mapping:
+  "In progress":
+    - in-progress
+  "In review":
+    - in-review
+  Done:
+    - done
