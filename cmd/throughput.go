@@ -27,7 +27,7 @@ Default window is the last 30 days.`,
   gh velocity flow throughput
 
   # Last 7 days, JSON output
-  gh velocity flow throughput --since 7d -f json
+  gh velocity flow throughput --since 7d -r json
 
   # Remote repo
   gh velocity flow throughput --since 30d -R cli/cli`,
@@ -96,16 +96,11 @@ Default window is the last 30 days.`,
 				return err
 			}
 
-			w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+			return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 				Command: "throughput",
 				Context: dateutil.FormatContext(sinceFlag, untilFlag),
 				Target:  posting.DiscussionTarget,
 			})
-			rc := deps.RenderCtx(w)
-			if err := p.Render(rc); err != nil {
-				return err
-			}
-			return postFn()
 		},
 	}
 

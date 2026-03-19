@@ -22,7 +22,7 @@ To validate an existing config:
 ```bash
 gh velocity config validate          # check syntax and values
 gh velocity config show              # show resolved config with defaults
-gh velocity config show -f json      # JSON format
+gh velocity config show -r json      # JSON format
 ```
 
 Maximum config file size: 64 KB. Unknown top-level keys produce warnings but do not cause errors.

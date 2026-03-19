@@ -52,7 +52,7 @@ When a signal is not available for an item, cycle time is N/A.`,
   gh velocity flow cycle-time --since 30d
 
   # Remote repo, markdown output
-  gh velocity flow cycle-time --since 14d -R cli/cli -f markdown`,
+  gh velocity flow cycle-time --since 14d -R cli/cli -r markdown`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Conflict: --since with positional or --pr
@@ -135,20 +135,15 @@ func runCycleTimePR(cmd *cobra.Command, prNumber int) error {
 	}
 
 	for _, warn := range p.Warnings {
-		deps.WarnUnlessJSON("%s", warn)
+		deps.Warn("%s", warn)
 	}
 
-	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+	return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 		Command: "cycle-time",
 		Context: "pr-" + strconv.Itoa(prNumber),
 		Target:  posting.PRComment,
 		Number:  prNumber,
 	})
-	rc := deps.RenderCtx(w)
-	if err := p.Render(rc); err != nil {
-		return err
-	}
-	return postFn()
 }
 
 // runCycleTimeIssue computes cycle time for an issue using the configured strategy.
@@ -186,20 +181,15 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 	}
 
 	for _, warn := range p.Warnings {
-		deps.WarnUnlessJSON("%s", warn)
+		deps.Warn("%s", warn)
 	}
 
-	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+	return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 		Command: "cycle-time",
 		Context: strconv.Itoa(issueNumber),
 		Target:  posting.IssueComment,
 		Number:  issueNumber,
 	})
-	rc := deps.RenderCtx(w)
-	if err := p.Render(rc); err != nil {
-		return err
-	}
-	return postFn()
 }
 
 // runCycleTimeBulk computes cycle time for all issues closed in a date window.
@@ -256,7 +246,7 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		mergedPRs, prErr := client.SearchPRs(ctx, prQuery.Build())
 		if prErr != nil {
 			w := fmt.Sprintf("could not search merged PRs: %v", prErr)
-			deps.WarnUnlessJSON("%s", w)
+			deps.Warn("%s", w)
 			preWarnings = append(preWarnings, w)
 		} else {
 			closingPRs = metrics.BuildClosingPRMap(ctx, client, mergedPRs)
@@ -288,17 +278,12 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	p.Warnings = append(preWarnings, p.Warnings...)
 
 	for _, warn := range p.Warnings {
-		deps.WarnUnlessJSON("%s", warn)
+		deps.Warn("%s", warn)
 	}
 
-	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+	return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 		Command: "cycle-time",
 		Context: dateutil.FormatContext(sinceStr, untilStr),
 		Target:  posting.DiscussionTarget,
 	})
-	rc := deps.RenderCtx(w)
-	if err := p.Render(rc); err != nil {
-		return err
-	}
-	return postFn()
 }

@@ -193,7 +193,7 @@ Bulk (all issues closed in a window):
 
 ```bash
 gh velocity flow cycle-time --since 30d
-gh velocity flow cycle-time --since 2026-01-01 --until 2026-02-01 --format json
+gh velocity flow cycle-time --since 2026-01-01 --until 2026-02-01 --results json
 ```
 
 Cycle time does not require a local clone. It uses GitHub API signals (PR creation date, label events, project status). Running from inside a local checkout adds commit counts and a fallback signal from commit history.

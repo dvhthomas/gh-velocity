@@ -6,7 +6,6 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/dateutil"
 	"github.com/dvhthomas/gh-velocity/internal/log"
 	"github.com/dvhthomas/gh-velocity/internal/model"
-	"github.com/dvhthomas/gh-velocity/internal/pipeline"
 	"github.com/dvhthomas/gh-velocity/internal/pipeline/busfactor"
 	"github.com/spf13/cobra"
 )
@@ -38,7 +37,7 @@ Risk levels:
   gh velocity quality bus-factor --since 180d
 
   # JSON for CI/scripts
-  gh velocity quality bus-factor --format json`,
+  gh velocity quality bus-factor --results json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBusFactor(cmd, sinceFlag)
@@ -89,6 +88,11 @@ func runBusFactor(cmd *cobra.Command, sinceStr string) error {
 		MinCommits: busFactorMinCommits,
 	}
 
-	rc := deps.RenderCtx(cmd.OutOrStdout())
-	return pipeline.RunPipeline(ctx, p, rc)
+	if err := p.GatherData(ctx); err != nil {
+		return err
+	}
+	if err := p.ProcessData(); err != nil {
+		return err
+	}
+	return renderPipelineSimple(cmd, deps, p)
 }

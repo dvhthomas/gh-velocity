@@ -48,7 +48,7 @@ func (e *AppError) ExitCode() int {
 	return 1
 }
 
-// ErrorEnvelope is the top-level JSON wrapper emitted when --format json
+// ErrorEnvelope is the top-level JSON wrapper emitted when --results json
 // encounters an error.
 type ErrorEnvelope struct {
 	Error *AppError `json:"error"`

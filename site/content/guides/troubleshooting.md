@@ -177,7 +177,7 @@ To see the resolved configuration with all defaults applied:
 
 ```bash
 gh velocity config show
-gh velocity config show --format json
+gh velocity config show --results json
 ```
 
 ## CI issues
@@ -223,7 +223,7 @@ This shows:
 The debug output goes to stderr, so it does not interfere with JSON or markdown output on stdout:
 
 ```bash
-gh velocity quality release v1.2.0 --format json --debug 2>debug.log | jq '.aggregates'
+gh velocity quality release v1.2.0 --results json --debug 2>debug.log | jq '.aggregates'
 ```
 
 ## Next steps

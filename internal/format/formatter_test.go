@@ -44,7 +44,7 @@ func TestFormatDurationPtr(t *testing.T) {
 }
 
 func TestParseFormat(t *testing.T) {
-	for _, valid := range []string{"json", "pretty", "markdown"} {
+	for _, valid := range []string{"json", "pretty", "markdown", "html"} {
 		f, err := ParseFormat(valid)
 		if err != nil {
 			t.Errorf("ParseFormat(%q) unexpected error: %v", valid, err)
@@ -57,6 +57,76 @@ func TestParseFormat(t *testing.T) {
 	_, err := ParseFormat("csv")
 	if err == nil {
 		t.Error("expected error for invalid format")
+	}
+}
+
+func TestParseResults(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   []string
+		want    []Format
+		wantErr bool
+	}{
+		{"single json", []string{"json"}, []Format{JSON}, false},
+		{"single pretty", []string{"pretty"}, []Format{Pretty}, false},
+		{"single markdown", []string{"markdown"}, []Format{Markdown}, false},
+		{"md alias", []string{"md"}, []Format{Markdown}, false},
+		{"multi", []string{"json", "markdown"}, []Format{JSON, Markdown}, false},
+		{"multi with alias", []string{"json", "md"}, []Format{JSON, Markdown}, false},
+		{"dedup", []string{"json", "json"}, []Format{JSON}, false},
+		{"dedup alias", []string{"md", "markdown"}, []Format{Markdown}, false},
+		{"invalid", []string{"csv"}, nil, true},
+		{"mixed valid invalid", []string{"json", "csv"}, nil, true},
+		{"empty", []string{}, nil, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseResults(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("got[%d] = %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestWriteReportHTML_Basic(t *testing.T) {
+	var buf bytes.Buffer
+	r := model.StatsResult{
+		Repository: "owner/repo",
+		Since:      time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+		Until:      time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC),
+		Throughput: &model.StatsThroughput{IssuesClosed: 10, PRsMerged: 5},
+	}
+	if err := WriteReportHTML(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "<!DOCTYPE html>") {
+		t.Error("expected HTML doctype")
+	}
+	if !strings.Contains(out, "owner/repo") {
+		t.Error("expected repository name in HTML")
+	}
+	if !strings.Contains(out, "Throughput") {
+		t.Error("expected Throughput metric in HTML")
+	}
+	if !strings.Contains(out, "10 issues closed") {
+		t.Error("expected throughput value in HTML")
 	}
 }
 

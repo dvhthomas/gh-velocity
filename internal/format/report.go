@@ -140,6 +140,50 @@ func WriteReportMarkdown(rc RenderContext, r model.StatsResult) error {
 	return renderReportMarkdown(rc.Writer, r)
 }
 
+// --- HTML ---
+
+var reportHTMLTmpl = mustParseTemplate("report.html.tmpl")
+
+// WriteReportHTML writes a self-contained HTML dashboard with embedded CSS.
+func WriteReportHTML(w io.Writer, r model.StatsResult) error {
+	data := reportTemplateData{
+		Repository: r.Repository,
+		Since:      r.Since,
+		Until:      r.Until,
+	}
+	if r.LeadTime != nil {
+		data.LeadTime = FormatStatsSummary(*r.LeadTime)
+	}
+	if r.CycleTime != nil {
+		data.CycleTime = FormatStatsSummary(*r.CycleTime)
+	}
+	if r.Throughput != nil {
+		data.Throughput = fmt.Sprintf("%d issues closed, %d PRs merged",
+			r.Throughput.IssuesClosed, r.Throughput.PRsMerged)
+	}
+	if r.Velocity != nil {
+		data.Velocity = FormatVelocitySummary(*r.Velocity)
+	}
+	if r.WIPCount != nil {
+		data.WIP = fmt.Sprintf("%d items in progress", *r.WIPCount)
+	}
+	if r.Quality != nil {
+		data.Quality = fmt.Sprintf("%d bugs / %d issues (%.0f%% bug ratio)",
+			r.Quality.BugCount, r.Quality.TotalIssues, r.Quality.BugRatio*100)
+	}
+	data.Warnings = r.Warnings
+	data.InsightGroups = buildInsightGroups(r)
+	// Strip markdown links for HTML — insights may contain [text](url) syntax.
+	for i := range data.InsightGroups {
+		for j := range data.InsightGroups[i].Messages {
+			data.InsightGroups[i].Messages[j] = StripMarkdownLinks(data.InsightGroups[i].Messages[j])
+		}
+	}
+	data.HasInsights = len(data.InsightGroups) > 0
+	data.HasData = data.LeadTime != "" || data.CycleTime != "" || data.Throughput != "" || data.Velocity != "" || data.Quality != ""
+	return reportHTMLTmpl.Execute(w, data)
+}
+
 // --- Pretty ---
 
 // WriteReportPretty writes dashboard metrics as formatted text.

@@ -14,11 +14,81 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// postCapture holds the independent post buffer and the post function.
+// The buffer captures markdown output separately from stdout and --write-to.
+type postCapture struct {
+	buf  bytes.Buffer
+	deps *Deps
+}
+
+// postWriter returns a writer for the post buffer. When --write-to is set,
+// this is the only way to capture content for posting (stdout is silent).
+// When --write-to is not set, content is teed to both stdout and the buffer.
+func (pc *postCapture) postWriter(stdout io.Writer) io.Writer {
+	if pc.deps.Output.WriteTo != "" {
+		// --write-to mode: post buffer is independent, stdout is silent.
+		return &pc.buf
+	}
+	// Stdout mode: tee to both stdout and the buffer.
+	return io.MultiWriter(stdout, &pc.buf)
+}
+
+// setupPost returns a postCapture and a post function. When --post is not set,
+// both are nil/no-op. When --post is set, the caller must render markdown to
+// the postCapture's writer, then call the returned function to post.
+func setupPost(cmd *cobra.Command, deps *Deps, client *gh.Client, opts posting.PostOptions) (*postCapture, func() error) {
+	if !deps.Post {
+		return nil, func() error { return nil }
+	}
+
+	pc := &postCapture{deps: deps}
+
+	return pc, func() error {
+		opts.Content = pc.buf.String()
+		opts.ForceNew = deps.NewPost
+		opts.Repo = deps.Owner + "/" + deps.Repo
+
+		var poster posting.Poster
+		switch opts.Target {
+		case posting.DiscussionTarget:
+			categoryName := deps.Config.Discussions.Category
+			if categoryName == "" {
+				return &model.AppError{
+					Code:    model.ErrConfigInvalid,
+					Message: "posting to Discussions requires discussions.category in config",
+				}
+			}
+			categoryID, err := client.ResolveDiscussionCategoryID(cmd.Context(), categoryName)
+			if err != nil {
+				return &model.AppError{
+					Code:    model.ErrPostFailed,
+					Message: fmt.Sprintf("resolve discussion category %q: %v", categoryName, err),
+				}
+			}
+			opts.CategoryID = categoryID
+			poster = &posting.DiscussionPoster{
+				Client: &discussionAdapter{client: client},
+				DryRun: deps.DryRun,
+			}
+		default:
+			poster = &posting.CommentPoster{
+				Client: &commentAdapter{client: client},
+				DryRun: deps.DryRun,
+			}
+		}
+
+		return poster.Post(cmd.Context(), opts)
+	}
+}
+
 // postIfEnabled returns a writer and a post function. When --post is not set,
 // the writer is cmd.OutOrStdout() and the post function is a no-op.
 // When --post is set, the writer tees to both stdout and an internal buffer.
 // After formatting completes, call the returned function to post the captured
 // output to GitHub. The poster respects DryRun from deps.
+//
+// Deprecated: use setupPost + renderPipeline for new code. This remains for
+// commands that haven't migrated to the render helper yet.
 func postIfEnabled(cmd *cobra.Command, deps *Deps, client *gh.Client, opts posting.PostOptions) (io.Writer, func() error) {
 	if !deps.Post {
 		return cmd.OutOrStdout(), func() error { return nil }
@@ -28,7 +98,7 @@ func postIfEnabled(cmd *cobra.Command, deps *Deps, client *gh.Client, opts posti
 	w := io.MultiWriter(cmd.OutOrStdout(), &buf)
 
 	return w, func() error {
-		opts.Content = wrapForPost(buf.String(), deps.Format)
+		opts.Content = wrapForPost(buf.String(), deps.Output.Results[0])
 		opts.ForceNew = deps.NewPost
 		opts.Repo = deps.Owner + "/" + deps.Repo
 

@@ -41,7 +41,7 @@ linking strategy discovered for the release.`,
   gh velocity quality release v2.65.0 --discover
 
   # Remote repo, JSON output
-  gh velocity quality release v2.65.0 -R cli/cli -f json`,
+  gh velocity quality release v2.65.0 -R cli/cli -r json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tag := args[0]
@@ -69,13 +69,13 @@ linking strategy discovered for the release.`,
 				}
 				if gitdata.IsShallowClone(wd) {
 					w := "shallow clone detected; commit history is incomplete. Use 'actions/checkout' with fetch-depth: 0 for accurate metrics."
-					deps.WarnUnlessJSON("%s", w)
+					deps.Warn("%s", w)
 					preWarnings = append(preWarnings, w)
 				}
 				source = gitdata.NewLocalSource(wd)
 			} else {
 				w := "Using API for git operations (no local checkout)"
-				deps.WarnUnlessJSON("%s", w)
+				deps.Warn("%s", w)
 				preWarnings = append(preWarnings, w)
 				source = gitdata.NewAPISource(client)
 			}
@@ -90,10 +90,10 @@ linking strategy discovered for the release.`,
 			// --discover: output scope diagnostic view and return
 			if discoverFlag {
 				for _, warning := range warnings {
-					deps.WarnUnlessJSON("%s", warning)
+					deps.Warn("%s", warning)
 				}
 				w := cmd.OutOrStdout()
-				switch deps.Format {
+				switch deps.ResultFormat() {
 				case format.JSON:
 					return format.WriteScopeJSON(w, deps.Owner+"/"+deps.Repo, scopeResult)
 				case format.Markdown:
@@ -123,16 +123,11 @@ linking strategy discovered for the release.`,
 				return err
 			}
 
-			w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+			return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 				Command: "release",
 				Context: tag,
 				Target:  posting.DiscussionTarget,
 			})
-			rc := deps.RenderCtx(w)
-			if err := p.Render(rc); err != nil {
-				return err
-			}
-			return postFn()
 		},
 	}
 

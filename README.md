@@ -98,12 +98,16 @@ gh velocity
 
 ### Output formats
 
-Every command supports three formats:
+Every command supports multiple output formats:
 
 ```bash
 gh velocity report                    # human-readable (default)
-gh velocity report -f json            # structured JSON (for CI/scripts)
-gh velocity report -f markdown        # paste into an issue or PR
+gh velocity report -r json            # structured JSON (for CI/scripts)
+gh velocity report -r markdown        # paste into an issue or PR
+gh velocity report -r html            # self-contained HTML dashboard
+
+# Write multiple formats at once (single data-gathering pass)
+gh velocity report --results md,json,html --write-to ./out
 ```
 
 ### Posting results to GitHub
@@ -153,7 +157,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: gh extension install dvhthomas/gh-velocity
-      - run: gh velocity report --since 30d --post -f markdown
+      - run: gh velocity report --since 30d --post -r markdown
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_VELOCITY_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
@@ -164,7 +168,8 @@ jobs:
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `--format` | `-f` | Output: `pretty` (default), `json`, `markdown` |
+| `--results` | `-r` | Output format(s): `pretty` (default), `json`, `markdown`, `html` |
+| `--write-to` | | Write result files to a directory (silences stdout) |
 | `--repo` | `-R` | Target repo as `owner/name` |
 | `--since` | | Start of date window or previous tag |
 | `--until` | | End of date window (default: now) |

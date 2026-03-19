@@ -55,7 +55,7 @@ each choice. Use --write to save it directly.`,
   gh velocity config preflight -R cli/cli --write=output/configs/cli-cli.yml
 
   # JSON output for tooling
-  gh velocity config preflight -R owner/repo -f json`,
+  gh velocity config preflight -R owner/repo -r json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Config subcommands skip PersistentPreRunE, so resolve repo here.

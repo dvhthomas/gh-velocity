@@ -11,11 +11,12 @@ gh-velocity produces output in three formats: pretty (default), JSON, and markdo
 
 | Format | Best for | Flag |
 |--------|----------|------|
-| Pretty | Terminal reading, quick checks | `--format pretty` (default) |
-| JSON | Agents, scripts, `jq` pipelines, CI | `--format json` |
-| Markdown | Pasting into issues, PRs, Discussions | `--format markdown` |
+| Pretty | Terminal reading, quick checks | `--results pretty` (default) |
+| JSON | Agents, scripts, `jq` pipelines, CI | `--results json` |
+| Markdown | Pasting into issues, PRs, Discussions | `--results markdown` |
+| HTML | Self-contained report files | `--results html` |
 
-All commands accept `--format` (or `-f`). If you omit it, you get pretty.
+All commands accept `--results` (or `-r`). If you omit it, you get pretty.
 
 ## Three metric states
 
@@ -82,7 +83,7 @@ Key things to notice:
 JSON is the richest format. Every field that appears in pretty output is present in JSON, plus additional fields for programmatic use.
 
 ```bash
-gh velocity quality release v1.2.0 --format json | jq '.aggregates.lead_time'
+gh velocity quality release v1.2.0 --results json | jq '.aggregates.lead_time'
 ```
 
 ```json
@@ -101,7 +102,7 @@ gh velocity quality release v1.2.0 --format json | jq '.aggregates.lead_time'
 Durations are always in seconds. Divide by 86400 to get days. Ratios are floats between 0 and 1. Booleans flag outlier status per issue:
 
 ```bash
-gh velocity quality release v1.2.0 --format json | \
+gh velocity quality release v1.2.0 --results json | \
   jq '[.issues[] | select(.lead_time_outlier) | {number, title, lead_time_seconds}]'
 ```
 
@@ -112,13 +113,13 @@ When errors occur in JSON mode, they appear as structured `ErrorEnvelope` object
 Markdown is designed for pasting into GitHub Issues, PRs, or Discussions:
 
 ```bash
-gh velocity quality release v1.2.0 --format markdown
+gh velocity quality release v1.2.0 --results markdown
 ```
 
 The output uses GitHub-flavored markdown tables and is ready to paste directly. Use it with `--post` to have gh-velocity post it for you, or pipe it into `gh issue comment`:
 
 ```bash
-gh velocity quality release v1.2.0 --format markdown | \
+gh velocity quality release v1.2.0 --results markdown | \
   gh issue comment 100 --body-file -
 ```
 
@@ -238,8 +239,8 @@ The detected patterns are: `spam`, `duplicate`, and `invalid` (matched at word b
 To spot trends, run the same command for multiple releases and compare:
 
 ```bash
-gh velocity quality release v2.0.0 --format json > v2.json
-gh velocity quality release v1.9.0 --format json > v1.json
+gh velocity quality release v2.0.0 --results json > v2.json
+gh velocity quality release v1.9.0 --results json > v1.json
 
 echo "v1.9.0 median: $(jq -r '.aggregates.lead_time.median_seconds / 86400 | round | "\(.)d"' v1.json)"
 echo "v2.0.0 median: $(jq -r '.aggregates.lead_time.median_seconds / 86400 | round | "\(.)d"' v2.json)"

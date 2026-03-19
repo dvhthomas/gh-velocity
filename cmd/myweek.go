@@ -35,7 +35,7 @@ Always uses the authenticated GitHub user (gh auth status).`,
   gh velocity status my-week --since 14d
 
   # Markdown for pasting into a doc
-  gh velocity status my-week -f markdown`,
+  gh velocity status my-week -r markdown`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runMyWeek(cmd, sinceFlag)
@@ -79,7 +79,7 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 	var warnings []string
 	if isBotLogin(login) {
 		w := fmt.Sprintf("Authenticated as %s — my-week shows activity for the authenticated user", login)
-		deps.WarnUnlessJSON("%s", w)
+		deps.Warn("%s", w)
 		warnings = append(warnings, w)
 	}
 
@@ -261,7 +261,7 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 	w := cmd.OutOrStdout()
 	rc := deps.RenderCtx(w)
 
-	switch deps.Format {
+	switch deps.ResultFormat() {
 	case format.JSON:
 		return format.WriteMyWeekJSON(w, result, ins, urls, warnings)
 	case format.Markdown:

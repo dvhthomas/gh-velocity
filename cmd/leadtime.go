@@ -34,7 +34,7 @@ for all issues closed in the given date window.`,
   gh velocity flow lead-time --since 30d
 
   # Custom window, JSON output
-  gh velocity flow lead-time --since 2026-01-01 --until 2026-02-01 -f json`,
+  gh velocity flow lead-time --since 2026-01-01 --until 2026-02-01 -r json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 && sinceFlag != "" {
@@ -97,17 +97,12 @@ func runLeadTimeSingle(cmd *cobra.Command, arg string) error {
 		return err
 	}
 
-	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+	return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 		Command: "lead-time",
 		Context: strconv.Itoa(issueNumber),
 		Target:  posting.IssueComment,
 		Number:  issueNumber,
 	})
-	rc := deps.RenderCtx(w)
-	if err := p.Render(rc); err != nil {
-		return err
-	}
-	return postFn()
 }
 
 // runLeadTimeBulk computes lead time for all issues closed in a date window.
@@ -167,14 +162,9 @@ func runLeadTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		return err
 	}
 
-	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+	return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 		Command: "lead-time",
 		Context: dateutil.FormatContext(sinceStr, untilStr),
 		Target:  posting.DiscussionTarget,
 	})
-	rc := deps.RenderCtx(w)
-	if err := p.Render(rc); err != nil {
-		return err
-	}
-	return postFn()
 }

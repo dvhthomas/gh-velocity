@@ -28,16 +28,43 @@ const (
 	JSON     Format = "json"
 	Pretty   Format = "pretty"
 	Markdown Format = "markdown"
+	HTML     Format = "html"
 )
 
 // ParseFormat validates and returns a Format from a string.
 func ParseFormat(s string) (Format, error) {
 	switch Format(s) {
-	case JSON, Pretty, Markdown:
+	case JSON, Pretty, Markdown, HTML:
 		return Format(s), nil
 	default:
-		return "", fmt.Errorf("invalid format %q: must be json, pretty, or markdown", s)
+		return "", fmt.Errorf("invalid format %q: must be json, pretty, markdown, or html", s)
 	}
+}
+
+// ParseResults validates and normalizes a slice of format strings into
+// deduplicated Format values. Accepts "md" as an alias for "markdown".
+func ParseResults(ss []string) ([]Format, error) {
+	if len(ss) == 0 {
+		return nil, fmt.Errorf("--results requires at least one format")
+	}
+
+	seen := make(map[Format]bool, len(ss))
+	var out []Format
+	for _, s := range ss {
+		// Normalize alias.
+		if s == "md" {
+			s = "markdown"
+		}
+		f, err := ParseFormat(s)
+		if err != nil {
+			return nil, err
+		}
+		if !seen[f] {
+			seen[f] = true
+			out = append(out, f)
+		}
+	}
+	return out, nil
 }
 
 // FormatDuration formats a duration for human-readable output.

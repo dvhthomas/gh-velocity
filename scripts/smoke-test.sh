@@ -38,9 +38,14 @@ out=$($BINARY version 2>&1)
 show "$out"
 [[ "$out" == *"gh-velocity"* ]] && pass "version pretty" || fail "version pretty"
 
-out=$($BINARY version --format json 2>&1)
+out=$($BINARY version --results json 2>&1)
 show "$out"
 echo "$out" | jq -e '.version' >/dev/null 2>&1 && pass "version json" || fail "version json"
+
+# Old --format flag must be rejected (clean break).
+out=$($BINARY version --format json 2>&1 || true)
+show "$out"
+[[ "$out" == *"unknown flag"* ]] && pass "old --format rejected" || fail "old --format rejected"
 
 # ── config ─────────────────────────────────────────────────────────
 echo ""
@@ -107,7 +112,7 @@ show "$out"
 [[ "$out" == *"Status"* ]] && pass "config discover shows status field" || fail "config discover shows status field"
 [[ "$out" == *"Config snippet"* ]] && pass "config discover shows snippet" || fail "config discover shows snippet"
 
-out=$($BINARY config discover -R dvhthomas/gh-velocity -f json 2>&1)
+out=$($BINARY config discover -R dvhthomas/gh-velocity -r json 2>&1)
 echo "$out" | jq '.[0].id' 2>/dev/null | sed 's/^/    /'
 echo "$out" | jq -e '.[0].id' >/dev/null 2>&1 && pass "config discover json" || fail "config discover json"
 
@@ -124,12 +129,12 @@ show "$out"
 [[ "$out" == *"Lead Time"* ]] && pass "flow lead-time pretty" || fail "flow lead-time pretty"
 [[ "$out" == *"Created:"* ]] && pass "flow lead-time shows created" || fail "flow lead-time shows created"
 
-out=$($BINARY flow lead-time 2 -R cli/cli --config "$CLI_CONFIG" -f json 2>&1)
+out=$($BINARY flow lead-time 2 -R cli/cli --config "$CLI_CONFIG" -r json 2>&1)
 show "$out"
 echo "$out" | jq -e '.lead_time.duration_seconds' >/dev/null 2>&1 && pass "flow lead-time json" || fail "flow lead-time json"
 echo "$out" | jq -e '.lead_time.start.signal' >/dev/null 2>&1 && pass "flow lead-time json start signal" || fail "flow lead-time json start signal"
 
-out=$($BINARY flow lead-time 2 -R cli/cli --config "$CLI_CONFIG" -f markdown 2>&1)
+out=$($BINARY flow lead-time 2 -R cli/cli --config "$CLI_CONFIG" -r markdown 2>&1)
 show "$out"
 [[ "$out" == *"|"* ]] && pass "flow lead-time markdown" || fail "flow lead-time markdown"
 
@@ -137,7 +142,7 @@ show "$out"
 echo ""
 echo "flow lead-time bulk (cli/cli --since 7d)"
 
-out=$($BINARY flow lead-time --since 7d -R cli/cli --config "$CLI_CONFIG" -f json 2>/dev/null)
+out=$($BINARY flow lead-time --since 7d -R cli/cli --config "$CLI_CONFIG" -r json 2>/dev/null)
 echo "$out" | jq '.stats.count' 2>/dev/null | sed 's/^/    count: /'
 echo "$out" | jq -e '.stats' >/dev/null 2>&1 && pass "flow lead-time bulk json" || fail "flow lead-time bulk json"
 echo "$out" | jq -e '.window.since' >/dev/null 2>&1 && pass "flow lead-time bulk has window" || fail "flow lead-time bulk has window"
@@ -156,7 +161,7 @@ out=$($BINARY flow cycle-time 2 -R cli/cli --config "$CLI_CONFIG" 2>&1)
 show "$out"
 [[ "$out" == *"Cycle Time"* ]] && pass "flow cycle-time pretty" || fail "flow cycle-time pretty"
 
-out=$($BINARY flow cycle-time 2 -R cli/cli --config "$CLI_CONFIG" -f json 2>&1)
+out=$($BINARY flow cycle-time 2 -R cli/cli --config "$CLI_CONFIG" -r json 2>&1)
 show "$out"
 echo "$out" | jq -e '.issue' >/dev/null 2>&1 && pass "flow cycle-time json" || fail "flow cycle-time json"
 
@@ -169,7 +174,7 @@ show "$out"
 [[ "$out" == *"Cycle Time"* ]] && pass "flow cycle-time --pr pretty" || fail "flow cycle-time --pr pretty"
 [[ "$out" == *"Started"* ]] && pass "flow cycle-time --pr shows started" || fail "flow cycle-time --pr shows started"
 
-out=$($BINARY flow cycle-time --pr 1 -R cli/cli --config "$CLI_CONFIG" -f json 2>&1)
+out=$($BINARY flow cycle-time --pr 1 -R cli/cli --config "$CLI_CONFIG" -r json 2>&1)
 show "$out"
 echo "$out" | jq -e '.pr' >/dev/null 2>&1 && pass "flow cycle-time --pr json" || fail "flow cycle-time --pr json"
 echo "$out" | jq -e '.cycle_time.start.signal' >/dev/null 2>&1 && pass "flow cycle-time --pr json start signal" || fail "flow cycle-time --pr json start signal"
@@ -182,11 +187,11 @@ out=$($BINARY quality release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since 
 show "$out"
 [[ "$out" == *"Release v2.65.0"* ]] && pass "quality release pretty" || fail "quality release pretty"
 
-out=$($BINARY quality release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 -f json 2>/dev/null)
+out=$($BINARY quality release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 -r json 2>/dev/null)
 echo "$out" | jq . 2>/dev/null | sed 's/^/    /'
 echo "$out" | jq -e '.tag' >/dev/null 2>&1 && pass "quality release json" || fail "quality release json"
 
-out=$($BINARY quality release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 -f markdown 2>/dev/null)
+out=$($BINARY quality release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 -r markdown 2>/dev/null)
 show "$out"
 [[ "$out" == *"## Release v2.65.0"* ]] && pass "quality release markdown" || fail "quality release markdown"
 
@@ -208,11 +213,11 @@ show "$out"
 [[ "$out" == *"Scope: v2.65.0"* ]] && pass "quality release --discover pretty" || fail "quality release --discover pretty"
 [[ "$out" == *"Strategy:"* ]] && pass "quality release --discover shows strategies" || fail "quality release --discover shows strategies"
 
-out=$($BINARY quality release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 --discover -f json 2>/dev/null)
+out=$($BINARY quality release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 --discover -r json 2>/dev/null)
 echo "$out" | jq . 2>/dev/null | sed 's/^/    /'
 echo "$out" | jq -e '.strategies' >/dev/null 2>&1 && pass "quality release --discover json" || fail "quality release --discover json"
 
-out=$($BINARY quality release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 --discover -f markdown 2>/dev/null)
+out=$($BINARY quality release v2.65.0 -R cli/cli --config "$CLI_CONFIG" --since v2.64.0 --discover -r markdown 2>/dev/null)
 show "$out"
 [[ "$out" == *"## Scope:"* ]] && pass "quality release --discover markdown" || fail "quality release --discover markdown"
 
@@ -226,7 +231,7 @@ show "$out"
 [[ "$out" == *"Lead Time:"* ]] && pass "report shows lead time" || fail "report shows lead time"
 [[ "$out" == *"Throughput:"* ]] && pass "report shows throughput" || fail "report shows throughput"
 
-out=$($BINARY report --since 7d -R cli/cli --config "$CLI_CONFIG" -f json 2>/dev/null)
+out=$($BINARY report --since 7d -R cli/cli --config "$CLI_CONFIG" -r json 2>/dev/null)
 echo "$out" | jq '.lead_time.count' 2>/dev/null | sed 's/^/    lead_time count: /'
 echo "$out" | jq -e '.lead_time' >/dev/null 2>&1 && pass "report json has lead_time" || fail "report json has lead_time"
 echo "$out" | jq -e '.throughput' >/dev/null 2>&1 && pass "report json has throughput" || fail "report json has throughput"
@@ -235,7 +240,7 @@ echo "$out" | jq -e '.window.since' >/dev/null 2>&1 && pass "report json has win
 echo "$out" | jq -e '.lead_time.insights // empty | .[0].type' >/dev/null 2>&1 && pass "report json lead_time insights have type field" || pass "report json lead_time insights absent (no data)"
 echo "$out" | jq -e '.throughput.insights // empty | .[0].type' >/dev/null 2>&1 && pass "report json throughput insights have type field" || pass "report json throughput insights absent (no data)"
 
-out=$($BINARY report --since 7d -R cli/cli --config "$CLI_CONFIG" -f markdown 2>/dev/null)
+out=$($BINARY report --since 7d -R cli/cli --config "$CLI_CONFIG" -r markdown 2>/dev/null)
 show "$out"
 [[ "$out" == *"## Report:"* ]] && pass "report markdown" || fail "report markdown"
 
@@ -268,11 +273,11 @@ show "$out"
 [[ "$out" == *"Throughput:"* ]] && pass "flow throughput pretty" || fail "flow throughput pretty"
 [[ "$out" == *"Issues closed:"* ]] && pass "flow throughput shows issues" || fail "flow throughput shows issues"
 
-out=$($BINARY flow throughput --since 7d -R cli/cli --config "$CLI_CONFIG" -f json 2>/dev/null)
+out=$($BINARY flow throughput --since 7d -R cli/cli --config "$CLI_CONFIG" -r json 2>/dev/null)
 echo "$out" | jq '.total' 2>/dev/null | sed 's/^/    total: /'
 echo "$out" | jq -e '.issues_closed' >/dev/null 2>&1 && pass "flow throughput json" || fail "flow throughput json"
 
-out=$($BINARY flow throughput --since 7d -R cli/cli --config "$CLI_CONFIG" -f markdown 2>/dev/null)
+out=$($BINARY flow throughput --since 7d -R cli/cli --config "$CLI_CONFIG" -r markdown 2>/dev/null)
 show "$out"
 [[ "$out" == *"## Throughput:"* ]] && pass "flow throughput markdown" || fail "flow throughput markdown"
 
@@ -284,11 +289,11 @@ out=$($BINARY risk bus-factor 2>&1)
 show "$out"
 [[ "$out" == *"Knowledge Risk"* ]] && pass "risk bus-factor pretty" || fail "risk bus-factor pretty"
 
-out=$($BINARY risk bus-factor -f json 2>/dev/null)
+out=$($BINARY risk bus-factor -r json 2>/dev/null)
 echo "$out" | jq '.paths | length' 2>/dev/null | sed 's/^/    paths: /'
 echo "$out" | jq -e '.paths' >/dev/null 2>&1 && pass "risk bus-factor json" || fail "risk bus-factor json"
 
-out=$($BINARY risk bus-factor -f markdown 2>/dev/null)
+out=$($BINARY risk bus-factor -r markdown 2>/dev/null)
 show "$out"
 [[ "$out" == *"## Knowledge Risk"* ]] && pass "risk bus-factor markdown" || fail "risk bus-factor markdown"
 
@@ -300,11 +305,11 @@ out=$($BINARY status reviews -R dvhthomas/gh-velocity 2>&1)
 show "$out"
 [[ "$out" == *"Review Queue"* ]] && pass "status reviews pretty" || fail "status reviews pretty"
 
-out=$($BINARY status reviews -R dvhthomas/gh-velocity -f json 2>/dev/null)
+out=$($BINARY status reviews -R dvhthomas/gh-velocity -r json 2>/dev/null)
 echo "$out" | jq '.count' 2>/dev/null | sed 's/^/    count: /'
 echo "$out" | jq -e '.count >= 0' >/dev/null 2>&1 && pass "status reviews json" || fail "status reviews json"
 
-out=$($BINARY status reviews -R dvhthomas/gh-velocity -f markdown 2>/dev/null)
+out=$($BINARY status reviews -R dvhthomas/gh-velocity -r markdown 2>/dev/null)
 show "$out"
 [[ "$out" == *"## Review Queue"* ]] && pass "status reviews markdown" || fail "status reviews markdown"
 
@@ -327,7 +332,7 @@ show "$out"
 [[ "$out" == *"cycle_time:"* ]] && pass "preflight generates cycle_time config" || fail "preflight generates cycle_time config"
 [[ "$out" == *"categories:"* ]] && pass "preflight generates categories" || fail "preflight generates categories"
 
-out=$($BINARY config preflight -R cli/cli --config "$CLI_CONFIG" -f json 2>/dev/null)
+out=$($BINARY config preflight -R cli/cli --config "$CLI_CONFIG" -r json 2>/dev/null)
 echo "$out" | jq '.strategy' 2>/dev/null | sed 's/^/    strategy: /'
 echo "$out" | jq -e '.repo' >/dev/null 2>&1 && pass "preflight json" || fail "preflight json"
 
@@ -378,7 +383,7 @@ show "$out"
 out=$($BINARY flow cycle-time --pr 1 --since 30d -R cli/cli --config "$CLI_CONFIG" 2>&1) && fail "pr+since should fail" || pass "flow cycle-time pr+since conflict rejected"
 show "$out"
 
-out=$($BINARY flow lead-time abc -R cli/cli --config "$CLI_CONFIG" -f json 2>&1 || true)
+out=$($BINARY flow lead-time abc -R cli/cli --config "$CLI_CONFIG" -r json 2>&1 || true)
 show "$out"
 echo "$out" | jq -e '.error.code' >/dev/null 2>&1 && pass "json error envelope" || fail "json error envelope"
 
@@ -398,7 +403,7 @@ show "$out"
 echo ""
 echo "preflight posting readiness"
 
-out=$($BINARY config preflight -R cli/cli --config "$CLI_CONFIG" -f json 2>/dev/null)
+out=$($BINARY config preflight -R cli/cli --config "$CLI_CONFIG" -r json 2>/dev/null)
 echo "$out" | jq '.posting_readiness.discussions_enabled' 2>/dev/null | sed 's/^/    discussions: /'
 echo "$out" | jq -e '.posting_readiness' >/dev/null 2>&1 && pass "preflight json has posting_readiness" || fail "preflight json has posting_readiness"
 echo "$out" | jq -e '.verification.config_parses' >/dev/null 2>&1 && pass "preflight json has verification" || fail "preflight json has verification"
@@ -426,12 +431,12 @@ show "$out"
 [[ "$out" == *"Velocity:"* ]] && pass "flow velocity pretty" || fail "flow velocity pretty"
 [[ "$out" == *"Avg velocity"* ]] && pass "flow velocity shows avg" || fail "flow velocity shows avg"
 
-out=$($BINARY flow velocity -R cli/cli --config "$VEL_CONFIG" -f json 2>/dev/null)
+out=$($BINARY flow velocity -R cli/cli --config "$VEL_CONFIG" -r json 2>/dev/null)
 echo "$out" | jq '.avg_velocity' 2>/dev/null | sed 's/^/    avg: /'
 echo "$out" | jq -e '.repository' >/dev/null 2>&1 && pass "flow velocity json has repository" || fail "flow velocity json has repository"
 echo "$out" | jq -e '.history' >/dev/null 2>&1 && pass "flow velocity json has history" || fail "flow velocity json has history"
 
-out=$($BINARY flow velocity -R cli/cli --config "$VEL_CONFIG" -f markdown 2>/dev/null)
+out=$($BINARY flow velocity -R cli/cli --config "$VEL_CONFIG" -r markdown 2>/dev/null)
 show "$out"
 [[ "$out" == *"## Velocity:"* ]] && pass "flow velocity markdown" || fail "flow velocity markdown"
 

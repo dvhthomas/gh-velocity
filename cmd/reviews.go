@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"github.com/dvhthomas/gh-velocity/internal/model"
-	"github.com/dvhthomas/gh-velocity/internal/pipeline"
 	"github.com/dvhthomas/gh-velocity/internal/pipeline/reviews"
 	"github.com/spf13/cobra"
 )
@@ -21,10 +20,10 @@ This command shows the work (PRs), not individual reviewers.`,
   gh velocity status reviews
 
   # Markdown for posting to a discussion
-  gh velocity status reviews -f markdown
+  gh velocity status reviews -r markdown
 
   # JSON for automation
-  gh velocity status reviews -f json`,
+  gh velocity status reviews -r json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runReviews(cmd)
@@ -56,6 +55,12 @@ func runReviews(cmd *cobra.Command) error {
 		Now:    deps.Now(),
 	}
 
-	rc := deps.RenderCtx(cmd.OutOrStdout())
-	return pipeline.RunPipeline(ctx, p, rc)
+	if err := p.GatherData(ctx); err != nil {
+		return err
+	}
+	if err := p.ProcessData(); err != nil {
+		return err
+	}
+
+	return renderPipelineSimple(cmd, deps, p)
 }

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,7 +29,6 @@ import (
 func NewReportCmd() *cobra.Command {
 	var (
 		sinceFlag, untilFlag string
-		artifactDir          string
 		summaryOnly          bool
 	)
 
@@ -51,25 +51,24 @@ unavailable.`,
   gh velocity report --since 14d --until 2026-03-01
 
   # Remote repo, JSON for CI dashboards
-  gh velocity report --since 30d -R cli/cli -f json
+  gh velocity report --since 30d -R cli/cli -r json
 
   # Write all formats to a directory (single data-gathering pass)
-  gh velocity report --since 30d --artifact-dir ./out`,
+  gh velocity report --since 30d --results md,json --write-to ./out`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runReport(cmd, sinceFlag, untilFlag, artifactDir, summaryOnly)
+			return runReport(cmd, sinceFlag, untilFlag, summaryOnly)
 		},
 	}
 
 	cmd.Flags().StringVar(&sinceFlag, "since", "", "Start of date window (default: 30d)")
 	cmd.Flags().StringVar(&untilFlag, "until", "", "End of date window (default: now)")
-	cmd.Flags().StringVar(&artifactDir, "artifact-dir", "", "Write report in all formats (json, markdown) to this directory")
 	cmd.Flags().BoolVar(&summaryOnly, "summary-only", false, "Show only the summary dashboard table, omit per-item detail sections")
 
 	return cmd
 }
 
-func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, summaryOnly bool) error {
+func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool) error {
 	ctx := cmd.Context()
 	deps := DepsFromContext(ctx)
 	if deps == nil {
@@ -159,7 +158,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 	if cfg.CycleTime.Strategy == model.StrategyPR {
 		mergedPRs, prErr := client.SearchPRs(ctx, prQuery.Build())
 		if prErr != nil {
-			deps.WarnUnlessJSON("could not search merged PRs for cycle-time: %v", prErr)
+			deps.Warn("could not search merged PRs for cycle-time: %v", prErr)
 		} else {
 			cyclePipeline.ClosingPRs = metrics.BuildClosingPRMap(ctx, client, mergedPRs)
 		}
@@ -247,7 +246,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 
 	if leadOK {
 		if err := leadPipeline.ProcessData(); err != nil {
-			deps.WarnUnlessJSON("lead time ProcessData: %v", err)
+			deps.Warn("lead time ProcessData: %v", err)
 			result.Warnings = append(result.Warnings, fmt.Sprintf("lead time: %v", err))
 		} else {
 			result.LeadTime = &leadPipeline.Stats
@@ -257,7 +256,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 
 	if cycleOK {
 		if err := cyclePipeline.ProcessData(); err != nil {
-			deps.WarnUnlessJSON("cycle time ProcessData: %v", err)
+			deps.Warn("cycle time ProcessData: %v", err)
 			result.Warnings = append(result.Warnings, fmt.Sprintf("cycle time: %v", err))
 		} else {
 			result.CycleTime = &cyclePipeline.Stats
@@ -272,7 +271,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 
 	if throughputOK {
 		if err := throughputPipeline.ProcessData(); err != nil {
-			deps.WarnUnlessJSON("throughput ProcessData: %v", err)
+			deps.Warn("throughput ProcessData: %v", err)
 			result.Warnings = append(result.Warnings, fmt.Sprintf("throughput: %v", err))
 		} else {
 			result.Throughput = &model.StatsThroughput{
@@ -287,7 +286,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 
 	if velocityOK && velocityPipeline != nil {
 		if err := velocityPipeline.ProcessData(); err != nil {
-			deps.WarnUnlessJSON("velocity ProcessData: %v", err)
+			deps.Warn("velocity ProcessData: %v", err)
 			result.Warnings = append(result.Warnings, fmt.Sprintf("velocity: %v", err))
 		} else {
 			result.Velocity = &velocityPipeline.Result
@@ -305,106 +304,138 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 	// TODO(PR C): WIP from project board or active_labels config
 
 	// --- Render ---
-	w, postFn := postIfEnabled(cmd, deps, client, posting.PostOptions{
+
+	// renderReportToWriter writes the report in the given format to w,
+	// including detail sections when applicable.
+	renderReportToWriter := func(w io.Writer, f format.Format) error {
+		rc := format.RenderContext{
+			Writer: w,
+			Format: f,
+			IsTTY:  deps.IsTTY,
+			Width:  deps.TermWidth,
+			Owner:  deps.Owner,
+			Repo:   deps.Repo,
+		}
+
+		switch f {
+		case format.JSON:
+			return format.WriteReportJSON(w, result)
+		case format.HTML:
+			return format.WriteReportHTML(w, result)
+		case format.Markdown:
+			if err := format.WriteReportMarkdown(rc, result); err != nil {
+				return err
+			}
+		default:
+			if err := format.WriteReportPretty(rc, result); err != nil {
+				return err
+			}
+		}
+
+		// Detail sections: append per-item tables after the summary unless --summary-only.
+		if !summaryOnly && f != format.JSON {
+			fmt.Fprintln(rc.Writer)
+
+			if leadOK && leadPipeline.Stats.Count > 0 {
+				summary := fmt.Sprintf("Lead Time (%d issues)", leadPipeline.Stats.Count)
+				if err := writeDetail(rc, summary, func() error {
+					return leadtime.WriteBulkMarkdown(rc, repo, since, until, leadPipeline.Items, leadPipeline.Stats, leadPipeline.SearchURL, leadPipeline.Insights)
+				}, func() error {
+					return leadtime.WriteBulkPretty(rc, repo, since, until, leadPipeline.Items, leadPipeline.Stats, leadPipeline.SearchURL, leadPipeline.Insights)
+				}); err != nil {
+					return err
+				}
+			}
+
+			if cycleOK && cyclePipeline.Stats.Count > 0 {
+				summary := fmt.Sprintf("Cycle Time (%d items)", cyclePipeline.Stats.Count)
+				if err := writeDetail(rc, summary, func() error {
+					return cycletimepipe.WriteBulkMarkdown(rc, repo, since, until, cfg.CycleTime.Strategy, cyclePipeline.Items, cyclePipeline.Stats, cyclePipeline.SearchURL, cyclePipeline.Insights)
+				}, func() error {
+					return cycletimepipe.WriteBulkPretty(rc, repo, since, until, cfg.CycleTime.Strategy, cyclePipeline.Items, cyclePipeline.Stats, cyclePipeline.SearchURL, cyclePipeline.Insights)
+				}); err != nil {
+					return err
+				}
+			}
+
+			if throughputOK && throughputPipeline.Result.IssuesClosed+throughputPipeline.Result.PRsMerged > 0 {
+				total := throughputPipeline.Result.IssuesClosed + throughputPipeline.Result.PRsMerged
+				summary := fmt.Sprintf("Throughput (%d items)", total)
+				var tpCats []throughput.CategoryRow
+				for _, c := range qualDetail.Categories {
+					tpCats = append(tpCats, throughput.CategoryRow{Name: c.Name, Count: c.Count, Pct: c.Pct})
+				}
+				if err := writeDetail(rc, summary, func() error {
+					return throughput.WriteMarkdownWithCategories(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL, throughputPipeline.Insights, tpCats)
+				}, func() error {
+					return throughput.WritePretty(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL, throughputPipeline.Insights)
+				}); err != nil {
+					return err
+				}
+			}
+
+			if velocityOK && velocityPipeline != nil {
+				if err := writeDetail(rc, "Velocity", func() error {
+					return velocity.WriteMarkdown(rc.Writer, velocityPipeline.Result)
+				}, func() error {
+					return velocity.WritePretty(rc.Writer, velocityPipeline.Result, false)
+				}); err != nil {
+					return err
+				}
+			}
+
+			if qualDetail.Quality != nil && len(qualDetail.Items) > 0 {
+				summary := fmt.Sprintf("Quality (%d issues)", qualDetail.Quality.TotalIssues)
+				detail := qualitypipe.Detail{
+					Repository: repo,
+					Since:      since,
+					Until:      until,
+					Quality:    *qualDetail.Quality,
+					Insights:   qualDetail.Insights,
+					Items:      qualDetail.Items,
+					Categories: qualDetail.Categories,
+				}
+				if err := writeDetail(rc, summary, func() error {
+					return qualitypipe.WriteMarkdown(rc, detail)
+				}, func() error {
+					return qualitypipe.WritePretty(rc.Writer, detail)
+				}); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+
+	// Post setup: independent buffer for markdown content.
+	pc, postFn := setupPost(cmd, deps, client, posting.PostOptions{
 		Command: "report",
 		Context: dateutil.FormatContext(sinceFlag, untilFlag),
 		Target:  posting.DiscussionTarget,
 	})
 
-	var fmtErr error
-	switch deps.Format {
-	case format.JSON:
-		fmtErr = format.WriteReportJSON(w, result)
-	case format.Markdown:
-		fmtErr = format.WriteReportMarkdown(deps.RenderCtx(w), result)
-	default:
-		fmtErr = format.WriteReportPretty(deps.RenderCtx(w), result)
-	}
-	if fmtErr != nil {
-		return fmtErr
-	}
+	if deps.Output.WriteTo != "" {
+		// --write-to mode: render all formats to files, no stdout.
 
-	// Detail sections: append per-item tables after the summary unless --summary-only.
-	if !summaryOnly && deps.Format != format.JSON {
-		rc := deps.RenderCtx(w)
-		fmt.Fprintln(rc.Writer)
-
-		if leadOK && leadPipeline.Stats.Count > 0 {
-			summary := fmt.Sprintf("Lead Time (%d issues)", leadPipeline.Stats.Count)
-			if err := writeDetail(rc, summary, func() error {
-				return leadtime.WriteBulkMarkdown(rc, repo, since, until, leadPipeline.Items, leadPipeline.Stats, leadPipeline.SearchURL, leadPipeline.Insights)
-			}, func() error {
-				return leadtime.WriteBulkPretty(rc, repo, since, until, leadPipeline.Items, leadPipeline.Stats, leadPipeline.SearchURL, leadPipeline.Insights)
-			}); err != nil {
+		// Capture markdown for post if needed.
+		if pc != nil {
+			if err := renderReportToWriter(&pc.buf, format.Markdown); err != nil {
 				return err
 			}
 		}
 
-		if cycleOK && cyclePipeline.Stats.Count > 0 {
-			summary := fmt.Sprintf("Cycle Time (%d items)", cyclePipeline.Stats.Count)
-			if err := writeDetail(rc, summary, func() error {
-				return cycletimepipe.WriteBulkMarkdown(rc, repo, since, until, cfg.CycleTime.Strategy, cyclePipeline.Items, cyclePipeline.Stats, cyclePipeline.SearchURL, cyclePipeline.Insights)
-			}, func() error {
-				return cycletimepipe.WriteBulkPretty(rc, repo, since, until, cfg.CycleTime.Strategy, cyclePipeline.Items, cyclePipeline.Stats, cyclePipeline.SearchURL, cyclePipeline.Insights)
+		// Write requested formats.
+		for _, f := range deps.Output.Results {
+			name := "report." + formatExt(f)
+			path := filepath.Join(deps.Output.WriteTo, name)
+			if err := writeFileAtomic(path, func(w *os.File) error {
+				return renderReportToWriter(w, f)
 			}); err != nil {
-				return err
+				return fmt.Errorf("writing %s: %w", path, err)
 			}
 		}
 
-		if throughputOK && throughputPipeline.Result.IssuesClosed+throughputPipeline.Result.PRsMerged > 0 {
-			total := throughputPipeline.Result.IssuesClosed + throughputPipeline.Result.PRsMerged
-			summary := fmt.Sprintf("Throughput (%d items)", total)
-			// Convert quality categories to throughput categories for the breakdown table.
-			var tpCats []throughput.CategoryRow
-			for _, c := range qualDetail.Categories {
-				tpCats = append(tpCats, throughput.CategoryRow{Name: c.Name, Count: c.Count, Pct: c.Pct})
-			}
-			if err := writeDetail(rc, summary, func() error {
-				return throughput.WriteMarkdownWithCategories(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL, throughputPipeline.Insights, tpCats)
-			}, func() error {
-				return throughput.WritePretty(rc.Writer, throughputPipeline.Result, throughputPipeline.SearchURL, throughputPipeline.Insights)
-			}); err != nil {
-				return err
-			}
-		}
-
-		if velocityOK && velocityPipeline != nil {
-			if err := writeDetail(rc, "Velocity", func() error {
-				return velocity.WriteMarkdown(rc.Writer, velocityPipeline.Result)
-			}, func() error {
-				return velocity.WritePretty(rc.Writer, velocityPipeline.Result, false)
-			}); err != nil {
-				return err
-			}
-		}
-
-		if qualDetail.Quality != nil && len(qualDetail.Items) > 0 {
-			summary := fmt.Sprintf("Quality (%d issues)", qualDetail.Quality.TotalIssues)
-			detail := qualitypipe.Detail{
-				Repository: repo,
-				Since:      since,
-				Until:      until,
-				Quality:    *qualDetail.Quality,
-				Insights:   qualDetail.Insights,
-				Items:      qualDetail.Items,
-				Categories: qualDetail.Categories,
-			}
-			if err := writeDetail(rc, summary, func() error {
-				return qualitypipe.WriteMarkdown(rc, detail)
-			}, func() error {
-				return qualitypipe.WritePretty(rc.Writer, detail)
-			}); err != nil {
-				return err
-			}
-		}
-	}
-
-	if err := postFn(); err != nil {
-		return err
-	}
-
-	// Write artifacts — pure rendering from the already-computed result.
-	if artifactDir != "" {
+		// Per-section artifacts (report-specific).
 		var sections []artifactSection
 		if leadOK && leadPipeline.Stats.Count > 0 {
 			sections = append(sections, leadTimeArtifact(leadPipeline))
@@ -415,12 +446,22 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag, artifactDir string, sum
 		if throughputOK {
 			sections = append(sections, throughputArtifact(throughputPipeline))
 		}
-		if err := writeReportArtifacts(deps, artifactDir, result, sections); err != nil {
+		if err := writeReportArtifacts(deps, deps.Output.WriteTo, sections); err != nil {
+			return err
+		}
+	} else {
+		// Stdout mode: single format.
+		stdout := cmd.OutOrStdout()
+		var w io.Writer = stdout
+		if pc != nil {
+			w = pc.postWriter(stdout)
+		}
+		if err := renderReportToWriter(w, deps.ResultFormat()); err != nil {
 			return err
 		}
 	}
 
-	return nil
+	return postFn()
 }
 
 // writeDetail dispatches to the markdown or pretty renderer based on format.
@@ -486,44 +527,10 @@ func throughputArtifact(p *throughput.Pipeline) artifactSection {
 	}
 }
 
-// writeReportArtifacts writes report output in all formats to the given
-// directory, plus per-section artifacts. This is a pure rendering step — no API calls.
-func writeReportArtifacts(deps *Deps, dir string, result model.StatsResult, sections []artifactSection) error {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("creating artifact dir: %w", err)
-	}
-
-	// JSON
-	jsonFile, err := os.Create(filepath.Join(dir, "report.json"))
-	if err != nil {
-		return fmt.Errorf("creating report.json: %w", err)
-	}
-	defer jsonFile.Close()
-	if err := format.WriteReportJSON(jsonFile, result); err != nil {
-		return fmt.Errorf("writing report.json: %w", err)
-	}
-
-	// Markdown — full composite: Key Findings + metrics table + detail sections.
-	mdFile, err := os.Create(filepath.Join(dir, "report.md"))
-	if err != nil {
-		return fmt.Errorf("creating report.md: %w", err)
-	}
-	defer mdFile.Close()
-	rctx := deps.RenderCtx(mdFile)
-	rctx.Format = format.Markdown
-	if err := format.WriteReportMarkdown(rctx, result); err != nil {
-		return fmt.Errorf("writing report.md: %w", err)
-	}
-	// Append detail sections as collapsible blocks.
-	for _, s := range sections {
-		fmt.Fprintf(mdFile, "\n<details>\n<summary>%s</summary>\n\n", s.Name)
-		if err := s.WriteMD(mdFile, rctx); err != nil {
-			return fmt.Errorf("writing %s detail in report.md: %w", s.Name, err)
-		}
-		fmt.Fprintln(mdFile, "</details>")
-		fmt.Fprintln(mdFile)
-	}
-
+// writeReportArtifacts writes per-section artifact files (e.g., flow-lead-time.json,
+// flow-lead-time.md) to the given directory. Top-level report files (report.json,
+// report.md) are handled by the caller. This is a pure rendering step — no API calls.
+func writeReportArtifacts(deps *Deps, dir string, sections []artifactSection) error {
 	// Per-section artifacts.
 	for _, s := range sections {
 		jf, err := os.Create(filepath.Join(dir, s.Name+".json"))

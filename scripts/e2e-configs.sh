@@ -39,7 +39,7 @@ for entry in "${configs[@]}"; do
   echo "$name ($repo $tag)"
 
   # Run quality release command with the example config
-  out=$($BINARY quality release "$tag" --since "$since" -R "$repo" --config "$config" -f json 2>/dev/null) || {
+  out=$($BINARY quality release "$tag" --since "$since" -R "$repo" --config "$config" -r json 2>/dev/null) || {
     fail "$name: command failed"
     continue
   }

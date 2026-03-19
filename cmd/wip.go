@@ -27,7 +27,7 @@ Use -R owner/repo to filter board items to a specific repo.`,
   gh velocity status wip -R owner/repo
 
   # JSON output for CI/automation
-  gh velocity status wip -f json`,
+  gh velocity status wip -r json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runWIP(cmd)
@@ -116,7 +116,7 @@ func runWIP(cmd *cobra.Command) error {
 	repo := fmt.Sprintf("%s/%s", deps.Owner, deps.Repo)
 	rc := deps.RenderCtx(os.Stdout)
 
-	switch deps.Format {
+	switch deps.ResultFormat() {
 	case format.JSON:
 		return format.WriteWIPJSON(os.Stdout, repo, wipItems)
 	case format.Markdown:
