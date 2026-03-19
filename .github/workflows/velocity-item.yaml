@@ -1,0 +1,50 @@
+name: Item Metrics
+
+on:
+  issues:
+    types: [closed]
+  pull_request:
+    types: [closed]
+  workflow_dispatch: # Manual testing from the Actions tab
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  lead-time:
+    # Only when an issue is closed as completed (not "not planned")
+    if: >-
+      github.event_name == 'issues' &&
+      github.event.issue.state_reason == 'completed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: gh extension install dvhthomas/gh-velocity
+
+      - name: Post lead time to issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_VELOCITY_POST_LIVE: "true"
+        run: |
+          gh velocity flow lead-time ${{ github.event.issue.number }} --post
+
+  cycle-time:
+    # Only when a PR is actually merged (not just closed)
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: gh extension install dvhthomas/gh-velocity
+
+      - name: Post cycle time to PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_VELOCITY_POST_LIVE: "true"
+        run: |
+          gh velocity flow cycle-time --pr ${{ github.event.pull_request.number }} --post
