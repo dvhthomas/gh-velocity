@@ -74,6 +74,21 @@ func BuildExclusions(users []string) string {
 	return strings.Join(parts, " ")
 }
 
+// BuildLabelExclusions builds a search qualifier string that excludes the
+// given labels from results. Each label becomes a "-label:name" qualifier,
+// quoted when the name contains whitespace (required by GitHub Search).
+// Returns empty string if no labels are provided.
+func BuildLabelExclusions(labels []string) string {
+	if len(labels) == 0 {
+		return ""
+	}
+	parts := make([]string, len(labels))
+	for i, l := range labels {
+		parts[i] = fmt.Sprintf(`-label:"%s"`, l)
+	}
+	return strings.Join(parts, " ")
+}
+
 // ClosedIssueQuery returns a Query for issues closed in the given date range.
 func ClosedIssueQuery(scopeStr string, since, until time.Time) Query {
 	return Query{

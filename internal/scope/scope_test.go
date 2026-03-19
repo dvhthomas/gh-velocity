@@ -329,3 +329,40 @@ func TestDetectRepoConflict(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildLabelExclusions(t *testing.T) {
+	tests := []struct {
+		name   string
+		labels []string
+		want   string
+	}{
+		{
+			name:   "empty",
+			labels: nil,
+			want:   "",
+		},
+		{
+			name:   "single word",
+			labels: []string{"invalid"},
+			want:   `-label:"invalid"`,
+		},
+		{
+			name:   "label with spaces",
+			labels: []string{"Resolution: Duplicate"},
+			want:   `-label:"Resolution: Duplicate"`,
+		},
+		{
+			name:   "mixed labels",
+			labels: []string{"invalid", "Resolution: Duplicate", "Resolution: Invalid"},
+			want:   `-label:"invalid" -label:"Resolution: Duplicate" -label:"Resolution: Invalid"`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := BuildLabelExclusions(tt.labels)
+			if got != tt.want {
+				t.Errorf("BuildLabelExclusions(%v) = %q, want %q", tt.labels, got, tt.want)
+			}
+		})
+	}
+}

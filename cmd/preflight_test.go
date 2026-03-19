@@ -1328,16 +1328,39 @@ func TestRenderPreflightConfig_NoiseExclusion(t *testing.T) {
 		},
 	}
 	config := renderPreflightConfig(r)
-	if !strings.Contains(config, "-label:suspected-spam") {
-		t.Errorf("expected scope to contain -label:suspected-spam, got:\n%s", config)
+	// All labels are quoted (harmless for single-word, required for multi-word).
+	if !strings.Contains(config, `-label:\"suspected-spam\"`) {
+		t.Errorf("expected scope to contain -label:\"suspected-spam\", got:\n%s", config)
 	}
-	if !strings.Contains(config, "-label:duplicate") {
-		t.Errorf("expected scope to contain -label:duplicate, got:\n%s", config)
+	if !strings.Contains(config, `-label:\"duplicate\"`) {
+		t.Errorf("expected scope to contain -label:\"duplicate\", got:\n%s", config)
 	}
-	if !strings.Contains(config, "-label:invalid") {
-		t.Errorf("expected scope to contain -label:invalid, got:\n%s", config)
+	if !strings.Contains(config, `-label:\"invalid\"`) {
+		t.Errorf("expected scope to contain -label:\"invalid\", got:\n%s", config)
 	}
 	if !strings.Contains(config, "Excluded 3 noise label") {
 		t.Errorf("expected comment about excluded noise labels, got:\n%s", config)
+	}
+}
+
+func TestRenderPreflightConfig_NoiseLabelsWithSpacesAreQuoted(t *testing.T) {
+	r := &PreflightResult{
+		Repo:        "facebook/react",
+		Strategy:    "pr",
+		NoiseLabels: []string{"invalid", "Resolution: Duplicate", "Resolution: Invalid"},
+		Categories: map[string][]string{
+			"bug": {"Type: Bug"},
+		},
+	}
+	config := renderPreflightConfig(r)
+	// All labels are always quoted; inside YAML %q string, inner quotes are escaped as \"
+	if !strings.Contains(config, `-label:\"Resolution: Duplicate\"`) {
+		t.Errorf("expected quoted label with spaces, got:\n%s", config)
+	}
+	if !strings.Contains(config, `-label:\"Resolution: Invalid\"`) {
+		t.Errorf("expected quoted label with spaces, got:\n%s", config)
+	}
+	if !strings.Contains(config, `-label:\"invalid\"`) {
+		t.Errorf("expected quoted single-word label, got:\n%s", config)
 	}
 }
