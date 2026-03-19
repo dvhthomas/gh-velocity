@@ -22,9 +22,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
+        run: go install github.com/go-task/task/v3/cmd/task@latest
 
       - name: Run showcase
         env:
@@ -33,7 +31,7 @@ jobs:
 
       - name: Upload showcase artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: showcase-${{ github.run_id }}
           path: tmp/showcase/
