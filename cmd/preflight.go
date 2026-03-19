@@ -326,16 +326,16 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 	// 4. Infer strategy
 	if result.HasProject {
 		result.Strategy = model.StrategyIssue
-		result.Hints = append(result.Hints, "Project board detected — configure lifecycle.in-progress.match with status labels for cycle time")
+		result.Hints = append(result.Hints, "Project board detected — add lifecycle labels (e.g., in-progress) for issue-based cycle time")
 	} else if len(result.ActiveLabels) > 0 {
 		result.Strategy = model.StrategyIssue
 		result.Hints = append(result.Hints, fmt.Sprintf("Found status labels %v — issue strategy uses label timeline for cycle time", result.ActiveLabels))
 	} else if result.RecentPRs > 0 {
 		result.Strategy = model.StrategyPR
-		result.Hints = append(result.Hints, "No project board or status labels — using PR strategy (PR created → merged) for cycle time")
+		result.Hints = append(result.Hints, "No lifecycle labels detected — using PR strategy (PR created → merged) for cycle time")
 	} else {
 		result.Strategy = model.StrategyIssue
-		result.Hints = append(result.Hints, "No project board, status labels, or recent PRs — cycle time will be unavailable. Add a project board with: preflight --project-url <url>")
+		result.Hints = append(result.Hints, "No lifecycle labels or recent PRs — cycle time will be unavailable. Add status labels (e.g., in-progress) to issues for issue-based cycle time")
 	}
 
 	if result.RecentIssues == 0 && result.RecentPRs == 0 {
@@ -1184,8 +1184,8 @@ func renderPreflightConfig(r *PreflightResult) string {
 		}
 		b.WriteString("\n")
 	} else {
-		b.WriteString("# No lifecycle stages detected. Add a project board or status labels for cycle time metrics:\n")
-		b.WriteString("#   gh velocity config preflight --project-url <url> --write\n")
+		b.WriteString("# No lifecycle labels detected. For issue-based cycle time, add labels like\n")
+		b.WriteString("# 'in-progress' or 'in-review' to issues, then re-run preflight.\n")
 		b.WriteString("\n")
 	}
 
