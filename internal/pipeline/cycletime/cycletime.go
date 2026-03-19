@@ -64,16 +64,11 @@ func (p *IssuePipeline) ProcessData() error {
 	input := metrics.CycleTimeInput{Issue: p.Issue, PR: p.PR}
 	p.CycleTime = p.Strategy.Compute(context.Background(), input)
 
-	// Warn on negative cycle time (project board timestamp after close).
-	if p.CycleTime.Duration != nil && *p.CycleTime.Duration < 0 {
-		p.Warnings = append(p.Warnings, "Negative cycle time detected — project board status was updated after issue was closed. The timestamp reflects the last field update, not the original transition. Consider using lifecycle.in-progress.match with label matchers.")
-	}
-
 	// Warn when cycle time is truly N/A (no start signal at all).
 	if p.CycleTime.Start == nil && p.CycleTime.Duration == nil {
 		switch p.StrategyStr {
 		case model.StrategyIssue:
-			p.Warnings = append(p.Warnings, "No cycle time signal — configure lifecycle.in-progress with project_status or match for issue cycle time")
+			p.Warnings = append(p.Warnings, "No cycle time signal — configure lifecycle.in-progress.match for issue cycle time")
 		case model.StrategyPR:
 			if p.PR == nil {
 				p.Warnings = append(p.Warnings, "No closing PR found — PR strategy requires PRs that reference issues with 'closes #N'")
@@ -164,12 +159,6 @@ type BulkPipeline struct {
 	SearchURL   string
 	ClosingPRs  map[int]*model.PR // pre-fetched by cmd layer for PR strategy
 
-	// Project board params (for batch pre-fetch of project statuses).
-	// Set by the cmd layer when issue strategy + project board is configured.
-	ProjectID     string
-	StatusFieldID string
-	BacklogStatus []string
-
 	// GatherData output
 	issues []model.Issue
 
@@ -188,20 +177,6 @@ func (p *BulkPipeline) GatherData(ctx context.Context) error {
 		return err
 	}
 	p.issues = issues
-
-	// Batch pre-fetch project statuses to warm cache (avoids N+1).
-	if p.ProjectID != "" && len(issues) > 0 {
-		numbers := make([]int, len(issues))
-		for i, issue := range issues {
-			numbers[i] = issue.Number
-		}
-		backlog := ""
-		if len(p.BacklogStatus) > 0 {
-			backlog = p.BacklogStatus[0]
-		}
-		p.Client.BatchGetProjectStatuses(ctx, numbers, p.ProjectID, p.StatusFieldID, backlog)
-	}
-
 	return nil
 }
 
@@ -226,10 +201,10 @@ func (p *BulkPipeline) ProcessData() error {
 
 	p.Stats = metrics.ComputeStats(durations)
 
-	// Warn when negative durations were filtered (project board timestamp issue).
+	// Warn when negative durations were filtered.
 	if p.Stats.NegativeCount > 0 {
 		p.Warnings = append(p.Warnings, fmt.Sprintf(
-			"%d issues had negative cycle times (project board timestamp reflects last update, not transition) — excluded from stats. Consider using lifecycle.in-progress.match with label matchers for reliable timestamps.",
+			"%d issues had negative cycle times — excluded from stats.",
 			p.Stats.NegativeCount))
 	}
 
@@ -237,7 +212,7 @@ func (p *BulkPipeline) ProcessData() error {
 	if len(durations) == 0 && len(p.Items) > 0 {
 		switch p.StrategyStr {
 		case model.StrategyIssue:
-			p.Warnings = append(p.Warnings, "Cycle time unavailable for all issues — configure lifecycle.in-progress with project_status or match. Run: gh velocity config preflight --write")
+			p.Warnings = append(p.Warnings, "Cycle time unavailable for all issues — configure lifecycle.in-progress.match. Run: gh velocity config preflight --write")
 		case model.StrategyPR:
 			p.Warnings = append(p.Warnings, "Cycle time unavailable — no issues had a closing PR. Ensure PRs reference issues with 'closes #N'")
 		}

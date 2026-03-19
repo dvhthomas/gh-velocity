@@ -240,20 +240,6 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 
 	// Compute cycle-time durations using the configured strategy.
 	strat := buildCycleTimeStrategy(ctx, deps, client)
-
-	// Batch pre-fetch project statuses to warm cache (avoids N+1).
-	if is, ok := strat.(*metrics.IssueStrategy); ok && is.ProjectID != "" && len(result.IssuesClosed) > 0 {
-		numbers := make([]int, len(result.IssuesClosed))
-		for i := range result.IssuesClosed {
-			numbers[i] = result.IssuesClosed[i].Number
-		}
-		backlog := ""
-		if len(is.BacklogStatus) > 0 {
-			backlog = is.BacklogStatus[0]
-		}
-		is.Client.BatchGetProjectStatuses(ctx, numbers, is.ProjectID, is.StatusFieldID, backlog)
-	}
-
 	cycleTimeDurations := computeMyWeekCycleTime(ctx, strat, result)
 
 	ins := metrics.ComputeInsights(result, cycleTimeDurations)

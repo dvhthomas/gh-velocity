@@ -207,8 +207,8 @@ func TestLinkStatTerms(t *testing.T) {
 		},
 		{
 			name:  "lifecycle.in-progress linked",
-			input: "No cycle time data — configure lifecycle.in-progress with project_status or label matchers.",
-			want:  "No cycle time data — configure [lifecycle.in-progress](https://dvhthomas.github.io/gh-velocity/guides/cycle-time-setup/) with project_status or label matchers.",
+			input: "No cycle time data — configure lifecycle.in-progress.match for cycle time.",
+			want:  "No cycle time data — configure [lifecycle.in-progress](https://dvhthomas.github.io/gh-velocity/guides/cycle-time-setup/).match for cycle time.",
 		},
 	}
 	for _, tt := range tests {

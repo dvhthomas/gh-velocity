@@ -104,7 +104,7 @@ Ordered list of classification categories. The first matching category wins; unm
 - `label:<name>` — exact label match
 - `type:<name>` — GitHub Issue Type
 - `title:/<regex>/i` — title regex, case-insensitive
-- `field:<Name>/<Value>` — GitHub Projects v2 SingleSelect field value (e.g., `field:Size/M`). See [Labels vs. Board]({{< relref "/concepts/labels-vs-board" >}})
+- `field:<Name>/<Value>` — GitHub Projects v2 SingleSelect field value (e.g., `field:Size/M`). See [Labels as Lifecycle Signal]({{< relref "/concepts/labels-vs-board" >}})
 
 ```yaml
 quality:
@@ -140,7 +140,7 @@ cycle_time:
 
 ### `project`
 
-GitHub Projects v2 settings. Enables the `wip` command and backlog detection:
+GitHub Projects v2 settings. Used for velocity iteration/effort reads:
 
 ```yaml
 project:
@@ -150,15 +150,17 @@ project:
 
 ### `lifecycle`
 
-Maps labels and project board columns to workflow stages. Labels (`match`) provide reliable cycle time timestamps. Board columns (`project_status`) power WIP and backlog detection. See [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}) for why labels are preferred:
+Maps labels to workflow stages. Labels are the sole source of truth for lifecycle signals -- they provide immutable timestamps for cycle time measurement. See [Labels as Lifecycle Signal]({{< relref "/concepts/labels-vs-board" >}}) for details:
 
 ```yaml
 lifecycle:
-  backlog:
-    project_status: ["Backlog", "Triage"]
   in-progress:
-    project_status: ["In progress"]
-    match: ["label:in-progress", "label:wip"]
+    match: ["label:in-progress"]
+  in-review:
+    match: ["label:in-review"]
+  done:
+    query: "is:closed"
+    match: ["label:done"]
 ```
 
 ### `velocity`
@@ -216,7 +218,7 @@ The default `gh auth login` token works for all local usage. In CI, different to
 | Lead time, throughput, release quality | Yes | Yes |
 | Bus factor, reviews | Yes | Yes |
 | `--post` to issues/PRs/Discussions | Yes | Yes |
-| Cycle time (issue strategy with project board) | No | Yes |
+| Velocity (project-field iteration or numeric effort) | No | Yes |
 | WIP command | No | Yes |
 
 **If your config has no `project:` section**, you do not need `GH_VELOCITY_TOKEN`.

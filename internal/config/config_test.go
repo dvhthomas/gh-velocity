@@ -428,11 +428,6 @@ func TestLoad_Validation(t *testing.T) {
 			wantErr: "",
 		},
 		{
-			name:    "cycle_time.strategy project-board deprecated to issue",
-			yaml:    "cycle_time:\n  strategy: project-board",
-			wantErr: "",
-		},
-		{
 			name:    "cycle_time.strategy invalid",
 			yaml:    "cycle_time:\n  strategy: blended",
 			wantErr: "cycle_time.strategy must be",
@@ -456,28 +451,6 @@ func TestLoad_Validation(t *testing.T) {
 			name:    "workflow invalid",
 			yaml:    "workflow: deploy",
 			wantErr: "workflow must be",
-		},
-		{
-			name:    "lifecycle with project_status requires status_field",
-			yaml:    "project:\n  url: https://github.com/users/test/projects/1\nlifecycle:\n  done:\n    project_status: [\"Done\"]",
-			wantErr: "project.status_field is required",
-		},
-		{
-			name:    "lifecycle with project_status requires project url",
-			yaml:    "project:\n  status_field: Status\nlifecycle:\n  done:\n    project_status: [\"Done\"]",
-			wantErr: "project.url is required",
-		},
-		{
-			name: "lifecycle with project_status valid",
-			yaml: `project:
-  url: https://github.com/users/test/projects/1
-  status_field: Status
-lifecycle:
-  done:
-    project_status: ["Done", "Shipped"]
-  backlog:
-    project_status: ["Backlog"]`,
-			wantErr: "",
 		},
 		{
 			name:    "scope valid",

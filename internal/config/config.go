@@ -105,15 +105,13 @@ type ProjectConfig struct {
 	StatusField string `yaml:"status_field" json:"status_field"`
 }
 
-// LifecycleStage defines the query qualifiers and/or project statuses for a workflow stage.
+// LifecycleStage defines the query qualifiers and label matchers for a workflow stage.
 type LifecycleStage struct {
 	// Query is appended to scope for REST search API calls (e.g., "is:closed").
 	Query string `yaml:"query" json:"query"`
-	// ProjectStatus lists project board status values for GraphQL filtering.
-	ProjectStatus []string `yaml:"project_status" json:"project_status"`
 	// Match lists classify.Matcher patterns (e.g., "label:in-progress") for
 	// client-side lifecycle grouping. Used by the issue cycle time strategy
-	// when no project board is configured.
+	// and the WIP command.
 	Match []string `yaml:"match" json:"match,omitempty"`
 }
 
@@ -319,12 +317,13 @@ func validate(cfg *Config) error {
 	switch cfg.CycleTime.Strategy {
 	case model.StrategyIssue, model.StrategyPR:
 		// valid
-	case "project-board":
-		// Deprecated: treat as "issue" with a warning.
-		WarnFunc("config: cycle_time.strategy %q is deprecated, using %q instead (project board detection is now built into the issue strategy via lifecycle config)", "project-board", model.StrategyIssue)
-		cfg.CycleTime.Strategy = model.StrategyIssue
 	default:
 		return fmt.Errorf("config: cycle_time.strategy must be %q or %q, got %q", model.StrategyIssue, model.StrategyPR, cfg.CycleTime.Strategy)
+	}
+
+	// Issue strategy requires lifecycle.in-progress.match for cycle time signals.
+	if cfg.CycleTime.Strategy == model.StrategyIssue && len(cfg.Lifecycle.InProgress.Match) == 0 {
+		WarnFunc("config: issue strategy has no lifecycle.in-progress.match — cycle time will be unavailable. Run: gh velocity config preflight --write")
 	}
 
 	// commit_ref.patterns: validate values.
@@ -342,19 +341,6 @@ func validate(cfg *Config) error {
 		if err := validateProjectURL(cfg.Project.URL); err != nil {
 			return err
 		}
-	}
-
-	// status_field is required when any lifecycle stage uses project_status.
-	hasProjectStatus := len(cfg.Lifecycle.Backlog.ProjectStatus) > 0 ||
-		len(cfg.Lifecycle.InProgress.ProjectStatus) > 0 ||
-		len(cfg.Lifecycle.InReview.ProjectStatus) > 0 ||
-		len(cfg.Lifecycle.Done.ProjectStatus) > 0 ||
-		len(cfg.Lifecycle.Released.ProjectStatus) > 0
-	if hasProjectStatus && cfg.Project.StatusField == "" {
-		return fmt.Errorf("config: project.status_field is required when lifecycle stages use project_status")
-	}
-	if hasProjectStatus && cfg.Project.URL == "" {
-		return fmt.Errorf("config: project.url is required when lifecycle stages use project_status")
 	}
 
 	// Discussions category name validation.

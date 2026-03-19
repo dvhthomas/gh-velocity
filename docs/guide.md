@@ -14,7 +14,7 @@ The tradeoff is clear: you get zero-setup velocity metrics in exchange for being
 
 **Cycle time** measures how long active work took. There are two strategies:
 
-- **Issue strategy** (`cycle_time.strategy: issue`): Starts when the issue is labeled with an in-progress label (`lifecycle.in-progress.match`), ends when the issue is closed. Can optionally fall back to project board status, but labels are strongly recommended (see [Why labels over project board](#why-labels-over-project-board-for-cycle-time) below).
+- **Issue strategy** (`cycle_time.strategy: issue`): Starts when the issue is labeled with an in-progress label (`lifecycle.in-progress.match`), ends when the issue is closed. Labels are the sole source of truth for cycle time.
 - **PR strategy** (`cycle_time.strategy: pr`): Starts when the closing PR is created, ends when it is merged. Works with no extra config — just link PRs to issues with "Closes #N".
 
 The strategy is configured in `.gh-velocity.yml`. If unsure, start with `pr` — it works immediately.
@@ -49,7 +49,7 @@ Which cycle time signal is used depends on your configured strategy (`cycle_time
 **Lead time** always starts when the issue is created and ends when the issue is closed.
 
 **Cycle time** depends on the configured strategy:
-- **Issue strategy**: Starts when an in-progress label is applied to the issue (via `lifecycle.in-progress.match`), ends when closed. Falls back to project board status if no matching label is found, but label timestamps are far more reliable (see [why](#why-labels-over-project-board-for-cycle-time)).
+- **Issue strategy**: Starts when an in-progress label is applied to the issue (via `lifecycle.in-progress.match`), ends when closed. Label timestamps are immutable and reliable.
 - **PR strategy**: Starts when the closing PR is created, ends when the PR is merged.
 
 ### What you need to do (and what you probably already do)
@@ -60,7 +60,7 @@ Which cycle time signal is used depends on your configured strategy (`cycle_time
 
 **Even better: use labels for lifecycle tracking.** Add an `in-progress` label (or `wip`, `doing`, etc.) to issues when work starts. Configure `lifecycle.in-progress.match` in `.gh-velocity.yml` to match these labels. Label timestamps are **immutable** — once applied, the `createdAt` timestamp never changes, giving you accurate cycle time measurements.
 
-**Also valuable: use a Projects v2 board for workflow visibility.** Project boards are excellent for tracking current status (WIP counts, backlog size) and filtering. However, **do not rely on project board status alone for cycle time** — the GitHub API only exposes the field's last-modified timestamp, not when the status was originally set. See [Why labels over project board](#why-labels-over-project-board-for-cycle-time) for details. When you use a board, configure both `project_status` (for WIP/backlog) and `match` (for cycle time).
+**Also valuable: use a Projects v2 board for workflow visibility.** Project boards are excellent for tracking current status and filtering. The project board is used by gh-velocity for velocity iteration/effort reads. For lifecycle signals (cycle time and WIP), use labels exclusively.
 
 **Best: use releases.** Publishing GitHub Releases (not just tags) gives the tool precise dates for computing release lag and cadence. If you only push tags, the tool resolves dates from the tag's commit — which works but is less precise.
 
@@ -69,8 +69,7 @@ Which cycle time signal is used depends on your configured strategy (`cycle_time
 | Your action | What the tool reads | Metric it enables |
 | --- | --- | --- |
 | Create an issue | `issue.created_at` | Lead time start |
-| Apply "in-progress" label | `LABELED_EVENT.createdAt` (immutable) | Cycle time start (issue strategy, preferred) |
-| Move issue to "In progress" on project board | `ProjectV2ItemFieldSingleSelectValue.updatedAt` (mutable — see [caveat](#why-labels-over-project-board-for-cycle-time)) | Cycle time start (issue strategy, fallback) |
+| Apply "in-progress" label | `LABELED_EVENT.createdAt` (immutable) | Cycle time start (issue strategy) |
 | Open a PR that closes the issue | `PullRequest.createdAt` | Cycle time start (PR strategy) |
 | Close the issue | `issue.closed_at` | Lead time end, cycle time end (issue strategy) |
 | Merge the closing PR | `PullRequest.mergedAt` | Cycle time end (PR strategy) |
@@ -82,7 +81,7 @@ Which cycle time signal is used depends on your configured strategy (`cycle_time
 | Your workflow | Recommended strategy | Why |
 |---------------|---------------------|-----|
 | Issues with lifecycle labels | `issue` | Measures real work time (label applied → closed); immutable timestamps |
-| Issues on a project board | `issue` + labels | Use labels for cycle time, board for WIP/backlog visibility |
+| Issues on a project board | `issue` + labels | Use labels for cycle time; board for velocity reads |
 | PRs close issues (most OSS repos) | `pr` | Measures PR review time (created → merged) |
 | Issues only, no labels or PRs | `issue` | Lead time works; add an `in-progress` label for cycle time |
 
@@ -113,27 +112,7 @@ lifecycle:
 
 When any matching label is applied to an issue, that timestamp becomes the cycle time start. Label event timestamps (`LABELED_EVENT.createdAt`) are **immutable** — they never change once the label is applied, so you get accurate cycle time measurements.
 
-**If you also use a project board**, configure both signals. The board gives you WIP counts and backlog filtering; labels give you reliable cycle time:
-
-```yaml
-# .gh-velocity.yml — recommended: labels + project board
-project:
-  url: "https://github.com/users/yourname/projects/1"
-  status_field: "Status"
-
-lifecycle:
-  backlog:
-    project_status: ["Backlog", "Triage"]   # used for backlog detection and WIP
-  in-progress:
-    project_status: ["In progress"]          # used for WIP detection
-    match: ["label:in-progress"]             # used for cycle time (preferred)
-```
-
-When both `match` and `project_status` are configured, labels take priority for cycle time. Project board status is used as a fallback if no matching label is found, and it continues to power WIP and backlog detection.
-
-> **Warning**: If you configure only `project_status` without `match`, the tool emits a deprecation warning. Project board timestamps are unreliable for cycle time — see [Why labels over project board](#why-labels-over-project-board-for-cycle-time).
-
-Run `gh velocity config discover -R owner/repo` to find your project URL, status field name, and available status values. Run `gh velocity config preflight -R owner/repo --write` to auto-detect labels and generate a complete config.
+Run `gh velocity config preflight -R owner/repo --write` to auto-detect labels and generate a complete config.
 
 ### Configuring the PR strategy
 
@@ -157,7 +136,7 @@ Lead time is unaffected by strategy choice — it always measures the full elaps
 
 **Team workflow with project board** (issue strategy + labels):
 - Create an issue → triage into Backlog → move to In Progress and apply `in-progress` label → open a PR → review → merge → release
-- Use `cycle_time.strategy: issue` with `lifecycle.in-progress.match` for cycle time and `project_status` for WIP/backlog. The label application is the cycle start.
+- Use `cycle_time.strategy: issue` with `lifecycle.in-progress.match` for cycle time and WIP. The label application is the cycle start.
 - To automate the label step, use a GitHub Actions workflow triggered by `projects_v2_item` events (see [Syncing project board status to labels](#syncing-project-board-status-to-labels)).
 
 **Team workflow without project board** (PR strategy):
@@ -195,8 +174,8 @@ You do **not** need to:
 
 ### What has limits
 
-- **Cycle time depends on your configured strategy**. With `pr` strategy, the tool uses the closing PR's creation → merge dates. With `issue` strategy, it prefers label events (`lifecycle.in-progress.match`) and falls back to project board status. If neither strategy has a signal for a given issue, cycle time is N/A. The tool warns you when this happens.
-- **Project board timestamps are unreliable for cycle time**. The GitHub Projects v2 API exposes only `updatedAt` on field values — the timestamp of the **last** status change, not the original transition. If someone moves a card to "Done" after an issue is closed, `updatedAt` reflects that post-closure move, producing `start > end` and **negative cycle times**. This is a fundamental GitHub API limitation — there is no field change history API. The tool filters negative durations from aggregate statistics and warns you, but the root cause cannot be fixed without label-based timestamps. See [Why labels over project board](#why-labels-over-project-board-for-cycle-time).
+- **Cycle time depends on your configured strategy**. With `pr` strategy, the tool uses the closing PR's creation → merge dates. With `issue` strategy, it uses label events (`lifecycle.in-progress.match`). If the strategy has no signal for a given issue, cycle time is N/A. The tool warns you when this happens.
+- **Label timestamps are immutable**. Once a label is applied, the `LABELED_EVENT.createdAt` timestamp never changes, giving you accurate cycle time measurements. This is why labels are the sole lifecycle signal.
 - **The PR search API caps at 1000 results**. If a release window contains more than 1000 merged PRs, the `pr-link` strategy warns you and returns partial results. This is rare outside the largest monorepos.
 - **Tag ordering is by API default, not semver**. Tags are returned in the order GitHub's API provides, which is usually creation date. The tool picks the tag immediately before your target tag in this list. If your tag history is non-linear, use `--since` to specify the previous tag explicitly.
 - **"Closed" is not "merged"**. GitHub issues can be closed without a PR being merged — by a maintainer, a bot, or the author. `gh-velocity` treats closure as the end event regardless of cause. For most teams this is fine; for teams that close stale issues aggressively, it may inflate lead time counts.
@@ -204,8 +183,8 @@ You do **not** need to:
 
 ### What is not possible
 
-- **Project board transition history**. GitHub Projects v2 has no API for field change history. You cannot query "when did this issue move to In Progress?" — only "what is the current status, and when was it last modified?" This is why label events are the recommended cycle time signal: `LABELED_EVENT.createdAt` is immutable and records the exact moment a label was applied.
-- **Work-in-progress duration as separate phases**. Without transition history, there is no way to measure time-in-review or time-in-backlog as separate phases using project board data alone. Labels partially address this — you could use separate labels for each phase (`in-review`, `blocked`) and measure durations between label events.
+- **Project board transition history**. GitHub Projects v2 has no API for field change history. This is why labels are the sole lifecycle signal in gh-velocity.
+- **Work-in-progress duration as separate phases**. You can use separate labels for each phase (`in-review`, `blocked`) and measure durations between label events.
 - **Developer-level attribution**. The tool measures issue and release velocity, not individual performance. This is intentional.
 - **Cross-repo tracking**. Each invocation targets a single repository. Multi-repo releases require separate runs.
 
@@ -343,22 +322,6 @@ lifecycle:
 
 With this config and `cycle_time.strategy: issue`, the tool checks if the issue has an in-progress label and uses the label's immutable `createdAt` timestamp as the cycle start.
 
-If you also use a project board, add both signals:
-
-```yaml
-# .gh-velocity.yml — labels + board (recommended for board users)
-project:
-  url: "https://github.com/users/yourname/projects/1"
-  status_field: "Status"
-
-lifecycle:
-  backlog:
-    project_status: ["Backlog", "Triage"]
-  in-progress:
-    project_status: ["In progress"]          # WIP/backlog detection
-    match: ["label:in-progress"]             # cycle time (preferred)
-```
-
 Run `gh velocity config preflight -R owner/repo --write` to generate this config automatically.
 
 In **GitHub Actions**, set `fetch-depth: 0` if you want commit enrichment:
@@ -433,28 +396,22 @@ commit_ref:
 
 # Cycle time strategy: "issue" (default) or "pr"
 # Issue strategy uses lifecycle.in-progress.match (labels) to detect "work started."
-# Falls back to project board status if no label match — but labels are recommended.
 # PR strategy uses PR created → merged (works with no extra config).
 cycle_time:
   strategy: pr
 
-# GitHub Projects v2 — enables WIP command and backlog detection.
-# Note: project board status is NOT recommended as the sole cycle time signal.
-# Use lifecycle.in-progress.match (labels) for reliable cycle time timestamps.
-project:
-  url: "https://github.com/users/yourname/projects/1"
-  status_field: "Status"
+# GitHub Projects v2 — used for velocity iteration/effort reads.
+# project:
+#   url: "https://github.com/users/yourname/projects/1"
+#   status_field: "Status"
 
-# Lifecycle stages: map labels and/or project board columns to workflow stages.
-# match: recommended for cycle time — label timestamps are immutable and reliable.
-# project_status: used for WIP detection and backlog filtering (board column names).
+# Lifecycle stages: labels are the sole source of truth for cycle time and WIP.
 # Run: gh velocity config preflight -R owner/repo --write
 lifecycle:
-  backlog:
-    project_status: ["Backlog", "Triage"]
   in-progress:
-    project_status: ["In progress"]            # WIP detection
-    match: ["label:in-progress", "label:wip"]  # cycle time (preferred signal)
+    match: ["label:in-progress", "label:wip"]
+  in-review:
+    match: ["label:in-review"]
 
 # Exclude bot accounts from metrics.
 exclude_users:
@@ -477,9 +434,9 @@ discussions:
 - `["closes"]` (default): Only matches closing keywords — `fixes #N`, `closes #N`, `resolves #N` and their variations. This is conservative and avoids false positives from comments like "see #42" or "step #1".
 - `["closes", "refs"]`: Also matches bare `#N` references. Use this if your team writes commits like "implement #42" without closing keywords. Be aware that this can match false positives like "update step #1."
 
-**`project.url`**: GitHub Projects v2 URL (e.g., `https://github.com/users/yourname/projects/1`). Required when lifecycle stages use `project_status`. Enables the `wip` command and backlog detection. For cycle time, prefer `lifecycle.in-progress.match` (labels) over `project_status` — see [Why labels over project board](#why-labels-over-project-board-for-cycle-time). Find your project URL by navigating to your project board in GitHub.
+**`project.url`**: GitHub Projects v2 URL (e.g., `https://github.com/users/yourname/projects/1`). Used by velocity iteration/effort strategies. Not required for cycle time or WIP (those use labels). Find your project URL by navigating to your project board in GitHub.
 
-**`project.status_field`**: The visible name of the status field on your project board (usually "Status"). Required when lifecycle stages use `project_status`. Run `gh velocity config discover` to find available fields and options.
+**`project.status_field`**: The visible name of the status field on your project board (usually "Status"). Used by velocity features. Run `gh velocity config discover` to find available fields and options.
 
 **Unknown keys** in the config file produce warnings to stderr but do not cause errors. This lets you add comments or future fields without breaking the tool.
 
@@ -956,132 +913,23 @@ Sample standard deviation (N-1 denominator) measures spread. It is most useful a
 
 Standard deviation requires at least 2 data points.
 
-## Why labels over project board for cycle time
+## Why labels for lifecycle signals
 
-This section explains a fundamental limitation of the GitHub Projects v2 API and why `gh-velocity` recommends labels for cycle time measurement.
+Labels are the sole source of truth for cycle time and WIP in gh-velocity. Label events have **immutable timestamps** — when you apply a label, GitHub creates a `LABELED_EVENT` with a `createdAt` that never changes. This makes labels the only reliable signal for "when did work start?" from the GitHub API.
 
-### The problem: project board timestamps are mutable
+GitHub Projects v2 board status fields expose only `updatedAt`, which reflects the last modification, not the original transition. This made project board timestamps unreliable for cycle time. Labels are now required.
 
-When you move an issue to "In Progress" on a Projects v2 board, GitHub records a `ProjectV2ItemFieldSingleSelectValue` with an `updatedAt` timestamp. This seems like a useful cycle time signal — but it has a critical flaw: **`updatedAt` reflects the last time the field was modified, not when the status was originally set**.
+### Configuration
 
-Common scenario that produces wrong data:
-
-1. Monday: You move issue #42 to "In Progress" → `updatedAt` = Monday
-2. Wednesday: You close issue #42
-3. Thursday: You move the card to "Done" on the board → `updatedAt` = **Thursday**
-
-Now `updatedAt` (Thursday) is **after** the issue close date (Wednesday). The tool computes `start - end = Thursday - Wednesday = -1 day`. This produces **negative cycle times**, which are nonsensical.
-
-This is not a bug in `gh-velocity`. It is a fundamental limitation of the GitHub Projects v2 API:
-
-- **There is no field change history API.** You cannot query "when did this issue first move to In Progress?"
-- **The REST timeline API does not include project field changes.** Even per-issue timeline queries cannot retrieve project board transitions.
-- **The `updatedAt` on field values is the only timestamp available**, and it is overwritten on every field change.
-
-### The solution: use labels
-
-Label events have **immutable timestamps**. When you apply a label to an issue, GitHub creates a `LABELED_EVENT` with a `createdAt` timestamp that **never changes** — not when you remove the label, not when you re-add it, not when you modify anything else. The first application of that label is permanently recorded.
-
-This makes labels the only reliable source of "when did work start?" from the GitHub API.
-
-### What project board status is still good for
-
-Project board status remains valuable for **current-state queries** — things that ask "what is the status right now?" rather than "when did the status change?":
-
-| Use case | Signal | Works well? |
-|----------|--------|-------------|
-| **Cycle time start** (when did work begin?) | Label `createdAt` | Yes — immutable |
-| **Cycle time start** (when did work begin?) | Board `updatedAt` | **No** — mutable, can be wrong |
-| **WIP count** (how many items are in progress now?) | Board current status | Yes — current state |
-| **Backlog detection** (is this issue still in backlog?) | Board current status | Yes — current state |
-
-Configure `project_status` for WIP and backlog. Configure `match` for cycle time.
-
-### Syncing project board status to labels
-
-If your team uses a project board as the primary workflow tool and does not want to manually apply labels, you can automate the sync with a GitHub Actions workflow:
-
-```yaml
-# .github/workflows/project-label-sync.yml
-name: Sync project status to labels
-
-on:
-  # Requires a GitHub App or classic PAT with 'project' scope.
-  # GITHUB_TOKEN cannot receive projects_v2_item events.
-  projects_v2_item:
-    types: [edited]
-
-jobs:
-  sync:
-    runs-on: ubuntu-latest
-    if: github.event.changes.field_value.field_name == 'Status'
-    steps:
-      - name: Apply in-progress label
-        if: github.event.changes.field_value.to.name == 'In progress'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Get the issue/PR URL from the project item
-          CONTENT_URL=$(gh api graphql -f query='
-            query($itemId: ID!) {
-              node(id: $itemId) {
-                ... on ProjectV2Item {
-                  content {
-                    ... on Issue { url }
-                    ... on PullRequest { url }
-                  }
-                }
-              }
-            }' -f itemId="${{ github.event.projects_v2_item.node_id }}" \
-            --jq '.data.node.content.url')
-
-          if [ -n "$CONTENT_URL" ]; then
-            gh issue edit "$CONTENT_URL" --add-label "in-progress"
-          fi
-```
-
-> **Important**: The `projects_v2_item` webhook event requires a **GitHub App** or a **classic PAT** with `project` scope. The default `GITHUB_TOKEN` in GitHub Actions **cannot** receive project board events. This is another GitHub platform limitation.
-
-If setting up a GitHub App or PAT is not feasible, the simplest alternative is to manually apply the `in-progress` label when you start work. Many teams find this natural — applying a label when picking up an issue is a single click in the GitHub UI.
-
-### Configuration examples
-
-**Labels only (simplest, most reliable):**
 ```yaml
 lifecycle:
   in-progress:
-    match: ["label:in-progress"]
+    match: ["label:in-progress", "label:wip"]
+  in-review:
+    match: ["label:in-review"]
 ```
 
-**Labels + project board (recommended for board users):**
-```yaml
-project:
-  url: "https://github.com/users/yourname/projects/1"
-  status_field: "Status"
-
-lifecycle:
-  backlog:
-    project_status: ["Backlog", "Triage"]
-  in-progress:
-    project_status: ["In progress"]          # WIP detection
-    match: ["label:in-progress"]             # cycle time (immutable timestamp)
-  done:
-    project_status: ["Done", "Shipped"]
-```
-
-**Project board only (not recommended — you will see a deprecation warning):**
-```yaml
-# WARNING: This config produces unreliable cycle times.
-# The project board updatedAt timestamp can be wrong.
-# Add lifecycle.in-progress.match for reliable cycle time.
-project:
-  url: "https://github.com/users/yourname/projects/1"
-  status_field: "Status"
-
-lifecycle:
-  in-progress:
-    project_status: ["In progress"]
-```
+If your team uses a project board as the primary workflow tool and does not want to manually apply labels, consider using a label-sync GitHub Action to bidirectionally sync board status with labels on a cron schedule.
 
 ## Troubleshooting
 
@@ -1118,16 +966,13 @@ Without full history, the tool cannot find commits between tags or search commit
 This is the most common first-run issue. Causes by strategy:
 
 **Issue strategy** (`cycle_time.strategy: issue`):
-- Missing `lifecycle.in-progress.match` in config — the tool has no label-based signal to detect when work started. Fix: add labels like `in-progress` to your repo and configure `lifecycle.in-progress.match: ["label:in-progress"]`.
-- Falling back to project board but missing `project.url` or `project.status_field` — run `gh velocity config discover -R owner/repo` to find the right values.
-- Token missing `project` scope — run `gh auth status` to check (only needed if using project board features).
-- Negative cycle times in output — your project board timestamps are unreliable. Add `lifecycle.in-progress.match` with label matchers. See [Why labels over project board](#why-labels-over-project-board-for-cycle-time).
+- Missing `lifecycle.in-progress.match` in config — the tool has no signal to detect when work started. Fix: add labels like `in-progress` to your repo and configure `lifecycle.in-progress.match: ["label:in-progress"]`.
 
 **PR strategy** (`cycle_time.strategy: pr`):
 - No closing PRs found — ensure PRs reference issues with "Closes #N" or "Fixes #N" in the PR description.
 - Issues were closed without PRs — the PR strategy requires merged PRs linked to issues.
 
-**Quick fix**: Switch to `strategy: pr` if you don't use a project board. It works immediately when PRs reference issues.
+**Quick fix**: Switch to `strategy: pr` if you don't use lifecycle labels. It works immediately when PRs reference issues.
 
 ### Cycle time shows N/A for a single issue
 

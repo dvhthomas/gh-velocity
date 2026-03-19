@@ -21,9 +21,9 @@ weight: 1
 
 ## What has limits
 
-**Cycle time depends on your configured strategy.** With the `pr` strategy, the tool uses the closing PR's creation and merge dates. With the `issue` strategy, it prefers label events (`lifecycle.in-progress.match`) and falls back to project board status. If neither strategy has a signal for a given issue, cycle time is reported as N/A. The tool warns you when this happens.
+**Cycle time depends on your configured strategy.** With the `pr` strategy, the tool uses the closing PR's creation and merge dates. With the `issue` strategy, it uses label events (`lifecycle.in-progress.match`). If neither strategy has a signal for a given issue, cycle time is reported as N/A. The tool warns you when this happens.
 
-**Project board timestamps are unreliable for cycle time.** The GitHub Projects v2 API exposes only `updatedAt` on field values -- the timestamp of the *last* status change, not the original transition. If someone moves a card to "Done" after an issue is already closed, `updatedAt` reflects that post-closure move. This can produce negative cycle times. The tool filters negative durations from aggregate statistics and warns you, but the root cause cannot be fixed without switching to label-based timestamps. See [Labels vs. Project Board]({{< relref "labels-vs-board" >}}) for the full explanation.
+**Project board timestamps are mutable and not used for lifecycle.** The GitHub Projects v2 API exposes only `updatedAt` on field values -- the timestamp of the *last* status change, not the original transition. This makes board timestamps unreliable for lifecycle tracking. Labels are the sole lifecycle signal. Project boards remain useful for velocity reads (iteration tracking, effort fields). See [Labels as Lifecycle Signal]({{< relref "labels-vs-board" >}}) for the full explanation.
 
 **The PR search API caps at 1000 results.** If a release window contains more than 1000 merged PRs, the `pr-link` strategy warns you and returns partial results. This is rare outside the largest monorepos.
 
@@ -35,9 +35,9 @@ weight: 1
 
 ## What is not possible
 
-**Project board transition history.** GitHub Projects v2 has no API for field change history. You cannot query "when did this issue move to In Progress?" -- only "what is the current status, and when was it last modified?" This is why label events are the recommended cycle time signal: `LABELED_EVENT.createdAt` is immutable and records the exact moment a label was applied.
+**Project board transition history.** GitHub Projects v2 has no API for field change history. You cannot query "when did this issue move to In Progress?" -- only "what is the current status, and when was it last modified?" This is why labels are the sole lifecycle signal: `LABELED_EVENT.createdAt` is immutable and records the exact moment a label was applied.
 
-**Work-in-progress duration as separate phases.** Without transition history, there is no way to measure time-in-review or time-in-backlog as separate phases using project board data alone. Labels partially address this -- you could use separate labels for each phase (`in-review`, `blocked`) and measure durations between label events.
+**Work-in-progress duration as separate phases.** Without transition history, there is no way to measure time-in-review or time-in-backlog as separate phases using project board data alone. Labels address this -- use separate labels for each phase (`in-progress`, `in-review`) and measure durations between label events.
 
 **Developer-level attribution.** The tool measures issue and release velocity, not individual performance. This is intentional.
 
@@ -45,7 +45,7 @@ weight: 1
 
 ## See also
 
-- [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}) -- detailed explanation of the project board timestamp limitation
+- [Labels as Lifecycle Signal]({{< relref "/concepts/labels-vs-board" >}}) -- why labels are the sole lifecycle signal
 - [Linking Strategies]({{< relref "/concepts/linking-strategies" >}}) -- how the tool connects PRs to issues and releases
 - [API Consumption]({{< relref "/reference/api-consumption" >}}) -- rate limits, per-command costs, and optimization tips
 - [Configuration]({{< relref "/getting-started/configuration" >}}) -- set up your config to work within these constraints

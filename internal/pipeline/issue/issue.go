@@ -78,7 +78,7 @@ func (p *Pipeline) ProcessData() error {
 		p.CycleTime = p.Strategy.Compute(context.Background(), input)
 
 		if p.CycleTime.Duration != nil && *p.CycleTime.Duration < 0 {
-			p.Warnings = append(p.Warnings, "Negative cycle time detected — project board status was updated after issue was closed.")
+			p.Warnings = append(p.Warnings, "Negative cycle time detected — filtered from results.")
 			p.CycleTime = model.Metric{}
 			p.CycleTimeFiltered = true
 		}

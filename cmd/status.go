@@ -13,7 +13,7 @@ func NewStatusCmd() *cobra.Command {
 
 Status commands show the current state of work:
 
-  wip         Work in progress — open items on your project board
+  wip         Work in progress — open items with lifecycle labels
   my-week     Personal weekly summary for 1:1 prep
   reviews     Pending and stale pull request reviews`,
 	}

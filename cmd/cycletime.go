@@ -32,9 +32,9 @@ The measurement strategy is set in .gh-velocity.yml:
     strategy: issue  # work started → issue closed (default)
     strategy: pr     # PR created → PR merged
 
-The issue strategy detects "work started" from lifecycle config
-(project board status change). Configure lifecycle.in-progress for
-cycle time metrics.
+The issue strategy detects "work started" from lifecycle labels
+(e.g., label:in-progress). Configure lifecycle.in-progress.match
+for cycle time metrics.
 
 Single mode:  gh velocity cycle-time 42
               gh velocity cycle-time --pr 99
@@ -265,7 +265,6 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		SearchURL:   issueQuery.URL(),
 		ClosingPRs:  closingPRs,
 	}
-	setCycleTimeBatchParams(p, strat)
 
 	if err := p.GatherData(ctx); err != nil {
 		return err

@@ -173,39 +173,6 @@ func (s *negativeDurationStrategy) Compute(_ context.Context, input metrics.Cycl
 	return model.NewMetric(start, end)
 }
 
-func TestIssuePipelineProcessData_WarnsOnNegativeDuration(t *testing.T) {
-	created := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-	closed := time.Date(2026, 1, 3, 12, 0, 0, 0, time.UTC)
-
-	p := &IssuePipeline{
-		Strategy:    &negativeDurationStrategy{},
-		StrategyStr: model.StrategyIssue,
-		Issue: &model.Issue{
-			Number: 42, Title: "Fix bug", State: "closed",
-			CreatedAt: created, ClosedAt: &closed,
-		},
-	}
-
-	_ = p.ProcessData()
-
-	if p.CycleTime.Duration == nil {
-		t.Fatal("expected non-nil (negative) duration")
-	}
-	if *p.CycleTime.Duration >= 0 {
-		t.Errorf("expected negative duration, got %v", *p.CycleTime.Duration)
-	}
-	found := false
-	for _, w := range p.Warnings {
-		if containsStr(w, "Negative cycle time") {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("expected warning about negative cycle time, got: %v", p.Warnings)
-	}
-}
-
 func TestBulkPipelineProcessData_NegativeDurationsFiltered(t *testing.T) {
 	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	closed1 := now.Add(-24 * time.Hour)
