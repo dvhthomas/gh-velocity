@@ -13,7 +13,7 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
-//go:embed templates/*.md.tmpl templates/*.html.tmpl
+//go:embed templates/*.md.tmpl
 var templateFS embed.FS
 
 // funcMap provides shared template functions for markdown formatters.
@@ -54,6 +54,9 @@ var funcMap = template.FuncMap{
 	"join": strings.Join,
 	"docLink": func(text, anchor string) string {
 		return DocLink(text, anchor)
+	},
+	"htmlDocLink": func(text, anchor string) string {
+		return fmt.Sprintf(`<a href="%s%s">%s</a>`, DocSiteURL, anchor, text)
 	},
 }
 

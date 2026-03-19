@@ -59,6 +59,7 @@ type templateData struct {
 }
 
 type itemRow struct {
+	Flag     string
 	Link     string
 	Title    string
 	Category string
@@ -80,7 +81,12 @@ func WriteMarkdown(rc format.RenderContext, d Detail) error {
 		data.Insights = append(data.Insights, format.LinkStatTerms(ins.Message))
 	}
 	for _, item := range d.Items {
+		flag := ""
+		if item.Category == "bug" {
+			flag = "🐛"
+		}
 		data.Items = append(data.Items, itemRow{
+			Flag:     flag,
 			Link:     format.FormatItemLink(item.Number, item.URL, rc),
 			Title:    format.SanitizeMarkdown(item.Title),
 			Category: item.Category,
@@ -106,8 +112,13 @@ func WritePretty(w io.Writer, d Detail) error {
 
 	if len(d.Items) > 0 {
 		tp := format.NewTable(w, false, 120)
-		tp.AddHeader([]string{"#", "Title", "Category", "Lead Time"})
+		tp.AddHeader([]string{"", "#", "Title", "Category", "Lead Time"})
 		for _, item := range d.Items {
+			flag := ""
+			if item.Category == "bug" {
+				flag = "🐛"
+			}
+			tp.AddField(flag)
 			tp.AddField(fmt.Sprintf("#%d", item.Number))
 			tp.AddField(item.Title)
 			tp.AddField(item.Category)

@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/dvhthomas/gh-velocity/internal/model"
 	"github.com/dvhthomas/gh-velocity/internal/pipeline/reviews"
+	"github.com/dvhthomas/gh-velocity/internal/posting"
 	"github.com/spf13/cobra"
 )
 
@@ -62,5 +63,5 @@ func runReviews(cmd *cobra.Command) error {
 		return err
 	}
 
-	return renderPipelineSimple(cmd, deps, p)
+	return renderPipeline(cmd, deps, p, nil, posting.PostOptions{})
 }

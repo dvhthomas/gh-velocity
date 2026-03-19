@@ -20,6 +20,9 @@ func TestFormatDuration(t *testing.T) {
 		{"minutes", 28 * time.Minute, "28m"},
 		{"hours and minutes", 10*time.Hour + 43*time.Minute, "10h 43m"},
 		{"days and hours", 3*24*time.Hour + 13*time.Hour, "3d 13h"},
+		{"many days", 446*24*time.Hour + 20*time.Hour, "1y 81d"},
+		{"exactly one year", 365 * 24 * time.Hour, "1y 0d"},
+		{"two years", 730 * 24 * time.Hour, "2y 0d"},
 		{"negative", -2 * time.Hour, "-2h 0m"},
 	}
 
@@ -106,13 +109,8 @@ func TestParseResults(t *testing.T) {
 
 func TestWriteReportHTML_Basic(t *testing.T) {
 	var buf bytes.Buffer
-	r := model.StatsResult{
-		Repository: "owner/repo",
-		Since:      time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
-		Until:      time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC),
-		Throughput: &model.StatsThroughput{IssuesClosed: 10, PRsMerged: 5},
-	}
-	if err := WriteReportHTML(&buf, r); err != nil {
+	md := "## Report: owner/repo\n\n| Metric | Value |\n| --- | --- |\n| Throughput | 10 issues closed, 5 PRs merged |\n"
+	if err := WriteReportHTML(&buf, md, "Velocity Report: owner/repo"); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -125,8 +123,8 @@ func TestWriteReportHTML_Basic(t *testing.T) {
 	if !strings.Contains(out, "Throughput") {
 		t.Error("expected Throughput metric in HTML")
 	}
-	if !strings.Contains(out, "10 issues closed") {
-		t.Error("expected throughput value in HTML")
+	if !strings.Contains(out, "<table>") {
+		t.Error("expected HTML table (markdown table should be converted)")
 	}
 }
 

@@ -6,6 +6,24 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
+// JSONInsight is the JSON representation of a model.Insight.
+type JSONInsight struct {
+	Type    string `json:"type"`
+	Message string `json:"message"`
+}
+
+// InsightsToJSON converts a slice of model.Insight to their JSON representation.
+func InsightsToJSON(insights []model.Insight) []JSONInsight {
+	if len(insights) == 0 {
+		return nil
+	}
+	out := make([]JSONInsight, len(insights))
+	for i, ins := range insights {
+		out[i] = JSONInsight{Type: ins.Type, Message: ins.Message}
+	}
+	return out
+}
+
 // JSONEvent is the JSON representation of a metric event.
 type JSONEvent struct {
 	Time   time.Time `json:"time"`
@@ -57,7 +75,7 @@ type JSONStats struct {
 	OutlierCount         int           `json:"outlier_count,omitempty"`
 	CV                   *float64      `json:"cv,omitempty"`
 	Predictability       string        `json:"predictability,omitempty"`
-	Insights             []jsonInsight `json:"insights,omitempty"`
+	Insights             []JSONInsight `json:"insights,omitempty"`
 }
 
 // DurationToSeconds converts a duration pointer to seconds.

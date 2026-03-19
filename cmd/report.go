@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -226,7 +227,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 		g.Go(func() error {
 			if err := velocityPipeline.GatherData(gctx); err != nil {
 				mu.Lock()
-				warnings = append(warnings, fmt.Sprintf("velocity: %v", err))
+				warnings = append(warnings, err.Error())
 				velocityOK = false
 				mu.Unlock()
 			}
@@ -307,7 +308,8 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 
 	// renderReportToWriter writes the report in the given format to w,
 	// including detail sections when applicable.
-	renderReportToWriter := func(w io.Writer, f format.Format) error {
+	var renderReportToWriter func(w io.Writer, f format.Format) error
+	renderReportToWriter = func(w io.Writer, f format.Format) error {
 		rc := format.RenderContext{
 			Writer: w,
 			Format: f,
@@ -321,7 +323,13 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 		case format.JSON:
 			return format.WriteReportJSON(w, result)
 		case format.HTML:
-			return format.WriteReportHTML(w, result)
+			// Render the full report as markdown, then convert to HTML.
+			var mdBuf bytes.Buffer
+			if err := renderReportToWriter(&mdBuf, format.Markdown); err != nil {
+				return err
+			}
+			title := fmt.Sprintf("Velocity Report: %s", result.Repository)
+			return format.WriteReportHTML(w, mdBuf.String(), title)
 		case format.Markdown:
 			if err := format.WriteReportMarkdown(rc, result); err != nil {
 				return err
@@ -533,26 +541,18 @@ func throughputArtifact(p *throughput.Pipeline) artifactSection {
 func writeReportArtifacts(deps *Deps, dir string, sections []artifactSection) error {
 	// Per-section artifacts.
 	for _, s := range sections {
-		jf, err := os.Create(filepath.Join(dir, s.Name+".json"))
-		if err != nil {
-			return fmt.Errorf("creating %s.json: %w", s.Name, err)
-		}
-		if err := s.WriteJSON(jf); err != nil {
-			jf.Close()
+		if err := writeFileAtomic(filepath.Join(dir, s.Name+".json"), func(w *os.File) error {
+			return s.WriteJSON(w)
+		}); err != nil {
 			return fmt.Errorf("writing %s.json: %w", s.Name, err)
 		}
-		jf.Close()
 
-		mf, err := os.Create(filepath.Join(dir, s.Name+".md"))
-		if err != nil {
-			return fmt.Errorf("creating %s.md: %w", s.Name, err)
-		}
-		mrc := deps.RenderCtx(mf)
-		if err := s.WriteMD(mf, mrc); err != nil {
-			mf.Close()
+		if err := writeFileAtomic(filepath.Join(dir, s.Name+".md"), func(w *os.File) error {
+			mrc := deps.RenderCtx(w)
+			return s.WriteMD(w, mrc)
+		}); err != nil {
 			return fmt.Errorf("writing %s.md: %w", s.Name, err)
 		}
-		mf.Close()
 	}
 
 	names := []string{"report.json", "report.md"}

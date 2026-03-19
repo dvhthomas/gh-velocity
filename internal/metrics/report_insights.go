@@ -402,7 +402,8 @@ func medianDuration(durs []time.Duration) time.Duration {
 	return sorted[n/2]
 }
 
-// fmtDur formats a duration for insight messages. Compact human-readable format.
+// fmtDur formats a duration for insight messages. Uses the largest two units.
+// Mirrors format.FormatDuration (metrics cannot import format to avoid cycles).
 func fmtDur(d time.Duration) string {
 	if d < 0 {
 		return "-" + fmtDur(-d)
@@ -411,19 +412,19 @@ func fmtDur(d time.Duration) string {
 		return "0s"
 	}
 
-	days := int(d.Hours()) / 24
+	totalDays := int(d.Hours()) / 24
+	years := totalDays / 365
+	days := totalDays % 365
 	hours := int(d.Hours()) % 24
 	minutes := int(d.Minutes()) % 60
 
 	switch {
-	case days > 0 && hours > 0:
-		return fmt.Sprintf("%dd %dh", days, hours)
-	case days > 0:
-		return fmt.Sprintf("%dd", days)
-	case hours > 0 && minutes > 0:
-		return fmt.Sprintf("%dh %dm", hours, minutes)
+	case years > 0:
+		return fmt.Sprintf("%dy %dd", years, days)
+	case totalDays > 0:
+		return fmt.Sprintf("%dd %dh", totalDays, hours)
 	case hours > 0:
-		return fmt.Sprintf("%dh", hours)
+		return fmt.Sprintf("%dh %dm", hours, minutes)
 	case minutes > 0:
 		return fmt.Sprintf("%dm", minutes)
 	default:

@@ -82,11 +82,11 @@ func (c *Client) searchPaginated(ctx context.Context, query string) ([]searchIss
 				if kind == rateLimitSecondary {
 					// Use the client's configurable backoff for secondary limits.
 					wait = c.SecondaryBackoff
-					log.Warn("GitHub secondary rate limit hit; waiting %s before retry", wait)
+					log.Debug("GitHub secondary rate limit hit; waiting %s before retry", wait)
 					// Signal all other goroutines to pause too.
 					c.setRateLimitPause(wait)
 				} else {
-					log.Warn("search rate-limited; waiting %s before retry", wait)
+					log.Debug("search rate-limited; waiting %s before retry", wait)
 				}
 				select {
 				case <-time.After(wait):
@@ -170,7 +170,7 @@ func (c *Client) SearchIssues(ctx context.Context, query string) ([]model.Issue,
 		func() (any, error) {
 			items, err := c.searchPaginated(ctx, query)
 			if err != nil {
-				return nil, fmt.Errorf("search issues: %w", err)
+				return nil, err
 			}
 			issues := make([]model.Issue, 0, len(items))
 			for _, item := range items {
@@ -200,7 +200,7 @@ func (c *Client) SearchPRs(ctx context.Context, query string) ([]model.PR, error
 		func() (any, error) {
 			items, err := c.searchPaginated(ctx, query)
 			if err != nil {
-				return nil, fmt.Errorf("search PRs: %w", err)
+				return nil, err
 			}
 			prs := make([]model.PR, 0, len(items))
 			for _, item := range items {

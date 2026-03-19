@@ -68,6 +68,7 @@ func ParseResults(ss []string) ([]Format, error) {
 }
 
 // FormatDuration formats a duration for human-readable output.
+// Uses the largest two units: "1y 81d", "45d 3h", "10h 43m", "28m", "42s".
 func FormatDuration(d time.Duration) string {
 	if d < 0 {
 		return "-" + FormatDuration(-d)
@@ -76,13 +77,17 @@ func FormatDuration(d time.Duration) string {
 		return "0s"
 	}
 
-	days := int(d.Hours()) / 24
+	totalDays := int(d.Hours()) / 24
+	years := totalDays / 365
+	days := totalDays % 365
 	hours := int(d.Hours()) % 24
 	minutes := int(d.Minutes()) % 60
 
 	switch {
-	case days > 0:
-		return fmt.Sprintf("%dd %dh", days, hours)
+	case years > 0:
+		return fmt.Sprintf("%dy %dd", years, days)
+	case totalDays > 0:
+		return fmt.Sprintf("%dd %dh", totalDays, hours)
 	case hours > 0:
 		return fmt.Sprintf("%dh %dm", hours, minutes)
 	case minutes > 0:
