@@ -3,9 +3,12 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/dvhthomas/gh-velocity/internal/classify"
 	"github.com/dvhthomas/gh-velocity/internal/format"
+	"github.com/dvhthomas/gh-velocity/internal/log"
 	"github.com/dvhthomas/gh-velocity/internal/model"
 	"github.com/spf13/cobra"
 )
@@ -17,14 +20,12 @@ func NewWIPCmd() *cobra.Command {
 		Short: "Show work in progress",
 		Long: `Show items currently in progress.
 
-Primary source: Projects v2 board status (requires project.url in config).
+Uses lifecycle.in-progress.match and lifecycle.in-review.match labels
+from config to find open issues that are actively being worked on.
 
-Use -R owner/repo to filter board items to a specific repo.`,
-		Example: `  # Show WIP from configured project board
+Use -R owner/repo to target a specific repo.`,
+		Example: `  # Show WIP from configured lifecycle labels
   gh velocity status wip
-
-  # Filter to a specific repo on the board
-  gh velocity status wip -R owner/repo
 
   # JSON output for CI/automation
   gh velocity status wip -r json`,
@@ -49,10 +50,14 @@ func runWIP(cmd *cobra.Command) error {
 
 	cfg := deps.Config
 
-	if cfg.Project.URL == "" {
+	// Collect label matchers from lifecycle config.
+	inProgressMatchers := cfg.Lifecycle.InProgress.Match
+	inReviewMatchers := cfg.Lifecycle.InReview.Match
+
+	if len(inProgressMatchers) == 0 && len(inReviewMatchers) == 0 {
 		return &model.AppError{
 			Code:    model.ErrConfigInvalid,
-			Message: "wip requires project.url in .gh-velocity.yml\n\n  To auto-detect your setup:  gh velocity config preflight -R owner/repo\n  To find project boards:     gh velocity config discover -R owner/repo",
+			Message: "wip requires lifecycle.in-progress.match or lifecycle.in-review.match in config\n\n  To auto-detect your setup:  gh velocity config preflight -R owner/repo --write",
 		}
 	}
 
@@ -61,55 +66,80 @@ func runWIP(cmd *cobra.Command) error {
 		return err
 	}
 
-	// Resolve project URL → node IDs.
-	info, err := client.ResolveProject(ctx, cfg.Project.URL, cfg.Project.StatusField)
-	if err != nil {
-		return &model.AppError{
-			Code:    model.ErrConfigInvalid,
-			Message: fmt.Sprintf("resolve project board: %v", err),
+	// Extract label names from "label:<name>" matchers.
+	type labelStage struct {
+		name  string
+		stage string
+	}
+	var labels []labelStage
+	for _, matcherStr := range inProgressMatchers {
+		if _, parseErr := classify.ParseMatcher(matcherStr); parseErr != nil {
+			continue
+		}
+		if strings.HasPrefix(matcherStr, "label:") {
+			labels = append(labels, labelStage{
+				name:  matcherStr[len("label:"):],
+				stage: "In Progress",
+			})
+		}
+	}
+	for _, matcherStr := range inReviewMatchers {
+		if _, parseErr := classify.ParseMatcher(matcherStr); parseErr != nil {
+			continue
+		}
+		if strings.HasPrefix(matcherStr, "label:") {
+			labels = append(labels, labelStage{
+				name:  matcherStr[len("label:"):],
+				stage: "In Review",
+			})
 		}
 	}
 
-	// Fetch all items from the board.
-	items, err := client.ListProjectItems(ctx, info.ProjectID, info.StatusFieldID)
-	if err != nil {
-		return err
-	}
-
-	// Build set of WIP statuses from lifecycle config.
-	wipStatuses := make(map[string]bool)
-	for _, s := range cfg.Lifecycle.InProgress.ProjectStatus {
-		wipStatuses[s] = true
-	}
-	for _, s := range cfg.Lifecycle.InReview.ProjectStatus {
-		wipStatuses[s] = true
-	}
-
-	if len(wipStatuses) == 0 {
+	if len(labels) == 0 {
 		return &model.AppError{
 			Code:    model.ErrConfigInvalid,
-			Message: "no lifecycle stages define project_status for in-progress or in-review\n\n  Run: gh velocity config preflight -R owner/repo --write",
+			Message: "wip: no label: matchers found in lifecycle.in-progress.match or lifecycle.in-review.match",
 		}
 	}
 
-	// Filter to WIP items and convert to display type.
+	// Build base scope.
+	var baseParts []string
+	if deps.Scope != "" {
+		baseParts = append(baseParts, deps.Scope)
+	} else if deps.Owner != "" && deps.Repo != "" {
+		baseParts = append(baseParts, fmt.Sprintf("repo:%s/%s", deps.Owner, deps.Repo))
+	}
+	baseParts = append(baseParts, "is:open", "is:issue")
+	baseQuery := strings.Join(baseParts, " ")
+
+	// Search per label and deduplicate (GitHub search ANDs label: qualifiers,
+	// so we need one search per WIP label to get OR semantics).
 	now := deps.Now()
-	repoFilter := ""
-	if deps.Owner != "" && deps.Repo != "" {
-		repoFilter = deps.Owner + "/" + deps.Repo
-	}
-
+	seen := make(map[int]bool)
 	var wipItems []model.WIPItem
-	for _, item := range items {
-		if !wipStatuses[item.Status] {
-			continue
+
+	for _, ls := range labels {
+		query := fmt.Sprintf("%s label:%q", baseQuery, ls.name)
+		if deps.Debug {
+			log.Debug("wip search query: %s", query)
 		}
-		// Filter by repo if -R was set.
-		if repoFilter != "" && item.Repo != repoFilter {
+
+		issues, searchErr := client.SearchIssues(ctx, query)
+		if searchErr != nil {
+			deps.Warn("wip: search for label %q failed: %v", ls.name, searchErr)
 			continue
 		}
 
-		wipItems = append(wipItems, toWIPItem(item, now))
+		for _, issue := range issues {
+			if seen[issue.Number] {
+				continue
+			}
+			seen[issue.Number] = true
+
+			// Classify stage: check in-review first (more specific), then in-progress.
+			stage := classifyWIPStage(issue.Labels, inProgressMatchers, inReviewMatchers)
+			wipItems = append(wipItems, toWIPItemFromIssue(issue, stage, now))
+		}
 	}
 
 	// Output.
@@ -126,12 +156,41 @@ func runWIP(cmd *cobra.Command) error {
 	}
 }
 
-// toWIPItem converts a ProjectItem to a display-ready WIPItem.
-func toWIPItem(item model.ProjectItem, now time.Time) model.WIPItem {
-	age := now.Sub(item.CreatedAt)
+// classifyWIPStage determines whether an issue is "in-progress" or "in-review"
+// based on its labels and the configured matchers.
+func classifyWIPStage(labels []string, inProgressMatchers, inReviewMatchers []string) string {
+	input := classify.Input{Labels: labels}
+
+	// Check in-review first (more specific).
+	for _, matcherStr := range inReviewMatchers {
+		m, err := classify.ParseMatcher(matcherStr)
+		if err != nil {
+			continue
+		}
+		if m.Matches(input) {
+			return "In Review"
+		}
+	}
+
+	for _, matcherStr := range inProgressMatchers {
+		m, err := classify.ParseMatcher(matcherStr)
+		if err != nil {
+			continue
+		}
+		if m.Matches(input) {
+			return "In Progress"
+		}
+	}
+
+	return "In Progress" // default
+}
+
+// toWIPItemFromIssue converts an Issue to a display-ready WIPItem.
+func toWIPItemFromIssue(issue model.Issue, stage string, now time.Time) model.WIPItem {
+	age := now.Sub(issue.CreatedAt)
 
 	staleness := model.StalenessActive
-	sinceUpdate := now.Sub(item.UpdatedAt)
+	sinceUpdate := now.Sub(issue.UpdatedAt)
 	switch {
 	case sinceUpdate > 7*24*time.Hour:
 		staleness = model.StalenessStale
@@ -140,15 +199,15 @@ func toWIPItem(item model.ProjectItem, now time.Time) model.WIPItem {
 	}
 
 	return model.WIPItem{
-		Number:    item.Number,
-		Title:     item.Title,
-		Status:    item.Status,
+		Number:    issue.Number,
+		Title:     issue.Title,
+		Status:    stage,
 		Age:       age,
-		Repo:      item.Repo,
-		Kind:      item.ContentType,
-		URL:       item.URL,
-		Labels:    item.Labels,
-		UpdatedAt: item.UpdatedAt,
+		Repo:      "",
+		Kind:      "ISSUE",
+		URL:       issue.URL,
+		Labels:    issue.Labels,
+		UpdatedAt: issue.UpdatedAt,
 		Staleness: staleness,
 	}
 }

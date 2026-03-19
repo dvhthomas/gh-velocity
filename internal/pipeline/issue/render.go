@@ -198,10 +198,10 @@ func cycleTimeNAReason(p *Pipeline) string {
 		return "" // not N/A
 	}
 	if p.CycleTimeFiltered {
-		return "project board timestamp unreliable"
+		return "negative cycle time filtered"
 	}
 	if p.Strategy == nil {
 		return "no cycle time strategy configured"
 	}
-	return "no in-progress signal found"
+	return "configure lifecycle.in-progress.match for cycle time"
 }

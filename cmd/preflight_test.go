@@ -718,35 +718,6 @@ func TestRenderPreflightConfig_LabelMatchersIncludedWithZeroHits(t *testing.T) {
 	}
 }
 
-func TestWriteLifecycleMapping_ReadyMapsToBacklog(t *testing.T) {
-	var b strings.Builder
-	writeLifecycleMapping(&b, []string{"Backlog", "Ready", "In progress", "In review", "Done"}, nil)
-	output := b.String()
-
-	// "Ready" should be mapped to backlog alongside "Backlog".
-	if !strings.Contains(output, `"Backlog"`) {
-		t.Error("expected Backlog in lifecycle mapping")
-	}
-	// "Ready" should NOT appear as unmapped.
-	if strings.Contains(output, `# unmapped: "Ready"`) {
-		t.Errorf("Ready should be mapped to backlog, not unmapped:\n%s", output)
-	}
-}
-
-func TestWriteLifecycleMapping_ReadyAloneAsBacklog(t *testing.T) {
-	// When "Ready" is the only backlog-like column.
-	var b strings.Builder
-	writeLifecycleMapping(&b, []string{"Ready", "In progress", "Done"}, nil)
-	output := b.String()
-
-	if !strings.Contains(output, "backlog:") {
-		t.Errorf("expected backlog stage from Ready, got:\n%s", output)
-	}
-	if !strings.Contains(output, `"Ready"`) {
-		t.Errorf("expected Ready mapped to backlog, got:\n%s", output)
-	}
-}
-
 func TestWriteLifecycleMapping_WithActiveLabels(t *testing.T) {
 	var b strings.Builder
 	writeLifecycleMapping(&b, []string{"Backlog", "In progress", "Done"}, []string{"in-progress"})
@@ -755,8 +726,9 @@ func TestWriteLifecycleMapping_WithActiveLabels(t *testing.T) {
 	if !strings.Contains(output, `label:in-progress`) {
 		t.Errorf("expected match entry for in-progress label, got:\n%s", output)
 	}
-	if !strings.Contains(output, "project_status:") {
-		t.Errorf("expected project_status to still be present, got:\n%s", output)
+	// Should NOT emit project_status (labels only now).
+	if strings.Contains(output, "project_status:") {
+		t.Errorf("should not emit project_status, got:\n%s", output)
 	}
 }
 
@@ -768,8 +740,9 @@ func TestWriteLifecycleMapping_NoActiveLabels_ShowsTip(t *testing.T) {
 	if !strings.Contains(output, "Tip:") {
 		t.Errorf("expected tip about adding labels, got:\n%s", output)
 	}
-	if strings.Contains(output, "match:") {
-		t.Errorf("should not emit match when no active labels, got:\n%s", output)
+	// match should be commented out (suggested but not active).
+	if !strings.Contains(output, "# match:") {
+		t.Errorf("expected commented-out match suggestion, got:\n%s", output)
 	}
 }
 

@@ -326,7 +326,7 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 	// 4. Infer strategy
 	if result.HasProject {
 		result.Strategy = model.StrategyIssue
-		result.Hints = append(result.Hints, "Project board detected — issue strategy uses board status to detect work started")
+		result.Hints = append(result.Hints, "Project board detected — configure lifecycle.in-progress.match with status labels for cycle time")
 	} else if len(result.ActiveLabels) > 0 {
 		result.Strategy = model.StrategyIssue
 		result.Hints = append(result.Hints, fmt.Sprintf("Found status labels %v — issue strategy uses label timeline for cycle time", result.ActiveLabels))
@@ -1147,9 +1147,9 @@ func renderPreflightConfig(r *PreflightResult) string {
 	b.WriteString(fmt.Sprintf("api_throttle_seconds: %d\n", config.DefaultAPIThrottleSeconds))
 	b.WriteString("\n")
 
-	// Project board config (if detected)
+	// Project board config (if detected) — kept for velocity iteration/effort reads only.
 	if r.HasProject && r.ProjectURL != "" {
-		b.WriteString("# Projects v2 board (auto-detected)\n")
+		b.WriteString("# Projects v2 board (auto-detected) — used for velocity iteration/effort reads.\n")
 		b.WriteString("# CI/Actions: GITHUB_TOKEN cannot access projects. Create a classic PAT with\n")
 		b.WriteString("# 'project' scope: https://github.com/settings/tokens/new?scopes=project&description=gh-velocity\n")
 		b.WriteString("project:\n")
@@ -1157,10 +1157,9 @@ func renderPreflightConfig(r *PreflightResult) string {
 		b.WriteString(fmt.Sprintf("  status_field: %q\n", "Status"))
 		b.WriteString("\n")
 
-		// Map status options to lifecycle stages
-		b.WriteString("# Lifecycle stages mapped from board columns\n")
-		b.WriteString("# project_status: used for WIP and backlog detection\n")
-		b.WriteString("# match: used for cycle time (label timestamps are more reliable than board timestamps)\n")
+		// Lifecycle stages use labels only (not board status).
+		b.WriteString("# Lifecycle stages — labels are the sole source of truth for cycle time and WIP.\n")
+		b.WriteString("# match: label matchers with immutable timestamps.\n")
 		b.WriteString("lifecycle:\n")
 		writeLifecycleMapping(&b, r.StatusOptions, r.ActiveLabels)
 		b.WriteString("\n")
@@ -1374,77 +1373,24 @@ func printAPIUsage(ctx context.Context, client *gh.Client) {
 	}
 }
 
-// writeLifecycleMapping maps project board status options to lifecycle stages.
-// When activeLabels are detected, it also emits match entries for the in-progress
-// stage so cycle time can use label timestamps (more reliable than board timestamps).
+// writeLifecycleMapping maps detected status labels and board status options to
+// lifecycle stages using only match entries (label matchers). Project board
+// status names are used as hints for label naming but are not emitted as
+// project_status config entries.
 func writeLifecycleMapping(b *strings.Builder, options []string, activeLabels []string) {
-	backlog := findStatuses(options, "backlog", "to do", "todo", "triage", "new", "ready")
-	inProgress := findStatuses(options, "in progress", "doing", "active", "working")
-	inReview := findStatuses(options, "in review", "review", "pending review")
-	done := findStatuses(options, "done", "closed", "complete", "completed", "shipped")
-
-	writeStage := func(name string, statuses []string) {
-		if len(statuses) == 0 {
-			return
-		}
-		quoted := make([]string, len(statuses))
-		for i, s := range statuses {
-			quoted[i] = fmt.Sprintf("%q", s)
-		}
-		b.WriteString(fmt.Sprintf("  %s:\n    project_status: [%s]\n", name, strings.Join(quoted, ", ")))
-	}
-	writeStage("backlog", backlog)
-
-	// In-progress: emit project_status + match (labels) when available.
-	if len(inProgress) > 0 {
-		quoted := make([]string, len(inProgress))
-		for i, s := range inProgress {
-			quoted[i] = fmt.Sprintf("%q", s)
-		}
-		b.WriteString(fmt.Sprintf("  in-progress:\n    project_status: [%s]\n", strings.Join(quoted, ", ")))
-	} else {
-		b.WriteString("  in-progress:\n")
-	}
+	// When active labels are detected, use them directly as match entries.
 	if len(activeLabels) > 0 {
+		b.WriteString("  in-progress:\n")
 		b.WriteString("    match:\n")
 		for _, l := range activeLabels {
 			b.WriteString(fmt.Sprintf("      - \"label:%s\"\n", l))
 		}
-	} else if len(inProgress) > 0 {
-		b.WriteString("    # Tip: add a label like \"in-progress\" for more reliable cycle time timestamps.\n")
-		b.WriteString("    # Label events have immutable timestamps; board status updatedAt can be stale.\n")
+	} else {
+		// No active labels detected — suggest creating one.
+		b.WriteString("  in-progress:\n")
+		b.WriteString("    # Tip: create a label like \"in-progress\" and add it to issues when work starts.\n")
+		b.WriteString("    # match: [\"label:in-progress\"]\n")
 	}
-
-	writeStage("in-review", inReview)
-	writeStage("done", done)
-
-	// Show unmapped options as comments.
-	mapped := make(map[string]bool)
-	for _, group := range [][]string{backlog, inProgress, inReview, done} {
-		for _, s := range group {
-			mapped[s] = true
-		}
-	}
-	for _, o := range options {
-		if !mapped[o] && o != "" {
-			b.WriteString(fmt.Sprintf("  # unmapped: %q\n", o))
-		}
-	}
-}
-
-// findStatuses returns all options that match any of the patterns.
-func findStatuses(options []string, patterns ...string) []string {
-	var result []string
-	for _, o := range options {
-		lower := strings.ToLower(o)
-		for _, p := range patterns {
-			if strings.Contains(lower, p) {
-				result = append(result, o)
-				break
-			}
-		}
-	}
-	return result
 }
 
 // verifyConfig validates the generated config by parsing it, constructing a
@@ -1476,10 +1422,9 @@ func verifyConfig(result *PreflightResult, repoLabels []string) *VerificationRes
 	vr.CategoryCount = len(cfg.Quality.Categories)
 
 	// 3. Validate strategy prerequisites
-	hasProjectStatus := len(cfg.Lifecycle.InProgress.ProjectStatus) > 0
 	hasMatch := len(cfg.Lifecycle.InProgress.Match) > 0
-	if cfg.CycleTime.Strategy == model.StrategyIssue && !hasProjectStatus && !hasMatch {
-		vr.Warnings = append(vr.Warnings, "issue strategy has no lifecycle.in-progress.project_status or match — cycle time will be unavailable; configure lifecycle.in-progress for cycle time metrics")
+	if cfg.CycleTime.Strategy == model.StrategyIssue && !hasMatch {
+		vr.Warnings = append(vr.Warnings, "issue strategy has no lifecycle.in-progress.match — cycle time will be unavailable; configure lifecycle.in-progress.match for cycle time metrics")
 	}
 
 	// 4. Cross-reference category labels against repo labels

@@ -265,7 +265,6 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		SearchURL:   issueQuery.URL(),
 		ClosingPRs:  closingPRs,
 	}
-	setCycleTimeBatchParams(p, strat)
 
 	if err := p.GatherData(ctx); err != nil {
 		return err

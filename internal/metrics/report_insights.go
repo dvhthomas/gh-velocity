@@ -198,7 +198,7 @@ func GenerateCycleTimeInsights(stats *model.Stats, strategy string, items []Item
 		case model.StrategyIssue:
 			return []model.Insight{{
 				Type:    "no_data",
-				Message: "No cycle time data — configure lifecycle.in-progress with project_status or label matchers.",
+				Message: "No cycle time data — configure lifecycle.in-progress.match for cycle time.",
 			}}
 		case model.StrategyPR:
 			return []model.Insight{{

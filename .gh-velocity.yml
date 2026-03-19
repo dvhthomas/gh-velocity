@@ -58,16 +58,12 @@ project:
   url: "https://github.com/users/dvhthomas/projects/1"
   status_field: "Status"
 
-# Lifecycle stages mapped from board columns
+# Lifecycle stages — labels are the sole source of truth for cycle time and WIP.
 lifecycle:
-  backlog:
-    project_status: ["Backlog", "Ready"]
   in-progress:
-    project_status: ["In progress"]
+    match: ["label:in-progress"]
   in-review:
-    project_status: ["In review"]
-  done:
-    project_status: ["Done"]
+    match: ["label:in-review"]
 
 # Velocity measurement
 velocity:
