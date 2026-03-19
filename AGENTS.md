@@ -44,6 +44,14 @@ The following rules must **NEVER** be broken:
 - GitHub `gh` CLI
 - https://taskfile.dev/ is the Go-based task runner.
 
+## Output Flags
+
+- `--results`/`-r` — output format(s): `pretty` (default), `json`, `markdown`, `html`. Comma-separated for multiple: `--results md,json,html`.
+- `--write-to <dir>` — write all result formats as files to this directory (silences stdout). Required when using multiple `--results` formats. `pretty` is disallowed with `--write-to`.
+- `--post` requires markdown in `--results`. Posts use an independent buffer, decoupled from stdout and `--write-to`.
+- Warnings appear in both stderr (when not suppressed) and in result JSON `warnings` arrays. When `--results json` is the sole format going to stdout, stderr warnings are suppressed to preserve JSON stream purity. When `--write-to` is set, stderr is always active.
+- `--debug` always goes to stderr regardless of warning suppression.
+
 ## Error Handling
 
 Exit codes: 0=success, 1=general, 2=config, 3=auth, 4=not found.

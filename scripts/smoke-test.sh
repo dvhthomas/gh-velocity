@@ -42,6 +42,11 @@ out=$($BINARY version --results json 2>&1)
 show "$out"
 echo "$out" | jq -e '.version' >/dev/null 2>&1 && pass "version json" || fail "version json"
 
+# Old --format flag must be rejected (clean break).
+out=$($BINARY version --format json 2>&1 || true)
+show "$out"
+[[ "$out" == *"unknown flag"* ]] && pass "old --format rejected" || fail "old --format rejected"
+
 # ── config ─────────────────────────────────────────────────────────
 echo ""
 echo "config"
