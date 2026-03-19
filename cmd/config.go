@@ -202,18 +202,26 @@ commit_ref:
 #   status_field: "Status"
 
 # Lifecycle stages: map labels to workflow stages.
-# Used by cycle time to detect "work started" and by WIP to find active issues.
+# Used by cycle time (to detect "work started") and WIP (to find active issues).
 #
-# match: label matchers with immutable timestamps — the sole source of truth
-# for cycle time and WIP detection.
+# Minimum: in-progress is required for issue-based cycle time.
+# Cycle time = in-progress label applied → issue closed.
+#
+# Recommended labels to create on your repo:
+#   in-progress   (required) — marks when work starts
+#   in-review     (optional) — marks when work moves to review
+#   done          (optional) — end signal; default is issue close
+#
+# If you use GitHub Projects, a label-sync Action can apply these
+# automatically: https://github.com/dvhthomas/gh-project-label-sync
 #
 # lifecycle:
-#   backlog:
-#     match: ["label:backlog"]
 #   in-progress:
-#     match: ["label:in-progress", "label:wip"]
+#     match: ["label:in-progress"]
 #   in-review:
 #     match: ["label:in-review"]
+#   done:
+#     match: ["label:done"]
 
 # Exclude bot accounts from metrics (e.g., dependabot, renovate).
 # These are filtered via -author: qualifiers in search queries.

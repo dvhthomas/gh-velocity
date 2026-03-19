@@ -332,10 +332,10 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 		result.Hints = append(result.Hints, fmt.Sprintf("Found status labels %v — issue strategy uses label timeline for cycle time", result.ActiveLabels))
 	} else if result.RecentPRs > 0 {
 		result.Strategy = model.StrategyPR
-		result.Hints = append(result.Hints, "No lifecycle labels detected — using PR strategy (PR created → merged) for cycle time")
+		result.Hints = append(result.Hints, "No lifecycle labels detected — using PR strategy (PR created → merged) for cycle time. Create an 'in-progress' label for issue-based cycle time.")
 	} else {
 		result.Strategy = model.StrategyIssue
-		result.Hints = append(result.Hints, "No lifecycle labels or recent PRs — cycle time will be unavailable. Add status labels (e.g., in-progress) to issues for issue-based cycle time")
+		result.Hints = append(result.Hints, "No lifecycle labels or recent PRs — cycle time will be unavailable. Create an 'in-progress' label and apply it to issues when work starts.")
 	}
 
 	if result.RecentIssues == 0 && result.RecentPRs == 0 {
@@ -1184,8 +1184,19 @@ func renderPreflightConfig(r *PreflightResult) string {
 		}
 		b.WriteString("\n")
 	} else {
-		b.WriteString("# No lifecycle labels detected. For issue-based cycle time, add labels like\n")
-		b.WriteString("# 'in-progress' or 'in-review' to issues, then re-run preflight.\n")
+		b.WriteString("# No lifecycle labels detected. For issue-based cycle time, create these\n")
+		b.WriteString("# labels on your repo and apply them to issues as work progresses:\n")
+		b.WriteString("#\n")
+		b.WriteString("#   in-progress   (required) — marks when work starts; cycle time begins here\n")
+		b.WriteString("#   in-review     (optional) — marks when work moves to review\n")
+		b.WriteString("#   done          (optional) — marks completion; default end signal is issue close\n")
+		b.WriteString("#\n")
+		b.WriteString("# Then re-run preflight to auto-detect them:\n")
+		b.WriteString("#   gh velocity config preflight --write\n")
+		b.WriteString("#\n")
+		b.WriteString("# If you use GitHub Projects, a label-sync Action can apply these\n")
+		b.WriteString("# labels automatically when you move items on the board.\n")
+		b.WriteString("# See: https://github.com/dvhthomas/gh-project-label-sync\n")
 		b.WriteString("\n")
 	}
 
