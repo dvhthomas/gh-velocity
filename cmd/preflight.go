@@ -93,7 +93,7 @@ each choice. Use --write to save it directly.`,
 				projectNumber = num
 			}
 
-			log.Notice("Analyzing %s/%s...", owner, repo)
+			log.Debug("Analyzing %s/%s...", owner, repo)
 
 			result, err := runPreflight(ctx, client, owner, repo, projectNumber)
 			if err != nil {
@@ -135,7 +135,7 @@ each choice. Use --write to save it directly.`,
 				if writeErr := os.WriteFile(path, []byte(configYAML), 0644); writeErr != nil {
 					return fmt.Errorf("write %s: %w", path, writeErr)
 				}
-				log.Notice("Wrote %s", path)
+				log.Debug("Wrote %s", path)
 				return nil
 			}
 
@@ -1368,11 +1368,11 @@ func printAPIUsage(ctx context.Context, client *gh.Client) {
 		return
 	}
 	pctUsed := float64(rl.Used) / float64(rl.Limit) * 100
-	log.Notice("")
-	log.Notice("API budget: %d/%d GraphQL points used (%.1f%%), %d remaining",
+	log.Debug("")
+	log.Debug("API budget: %d/%d GraphQL points used (%.1f%%), %d remaining",
 		rl.Used, rl.Limit, pctUsed, rl.Remaining)
 	if rl.Remaining < 1000 {
-		log.Notice("⚠ Low API budget — consider waiting until reset at %s", rl.ResetAt.Format("15:04 MST"))
+		log.Warn("Low API budget — consider waiting until reset at %s", rl.ResetAt.Format("15:04 MST"))
 	}
 }
 

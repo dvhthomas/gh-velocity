@@ -21,10 +21,10 @@ Bug ratio: {{.BugRatio}}% ({{.BugCount}} bugs / {{.TotalIssues}} issues)
 <details>
 <summary>Details ({{len .Items}} issues)</summary>
 
-| Issue | Title | Category | Lead Time |
-| ---: | --- | --- | --- |
+| | Issue | Title | Category | Lead Time |
+| :---: | ---: | --- | --- | --- |
 {{- range .Items}}
-| {{.Link}} | {{.Title}} | {{.Category}} | {{.LeadTime}} |
+| {{.Flag}} | {{.Link}} | {{.Title}} | {{.Category}} | {{.LeadTime}} |
 {{- end}}
 
 </details>

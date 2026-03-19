@@ -75,6 +75,7 @@ func LinkStatTerms(msg string) string {
 	msg = strings.Replace(msg, "(CV ", "("+DocLink("CV", "/concepts/statistics/#coefficient-of-variation-cv")+" ", 1)
 	msg = strings.Replace(msg, "(hotfix window)", "("+DocLink("hotfix window", "/reference/metrics/quality/#hotfix-detection")+")", 1)
 	msg = strings.Replace(msg, "threshold)", DocLink("threshold", "/reference/metrics/quality/#per-release-bug-ratio")+")", 1)
+	msg = strings.Replace(msg, "lifecycle.in-progress", DocLink("lifecycle.in-progress", "/guides/cycle-time-setup/"), 1)
 	return msg
 }
 

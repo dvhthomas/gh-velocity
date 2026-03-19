@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/format"
+	"github.com/dvhthomas/gh-velocity/internal/metrics"
 	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
@@ -121,17 +122,12 @@ func WritePretty(rc format.RenderContext, kind string, number int, title, itemUR
 // Bulk JSON
 // ============================================================
 
-type jsonBulkInsight struct {
-	Type    string `json:"type"`
-	Message string `json:"message"`
-}
-
 type jsonBulkOutput struct {
-	Repository string            `json:"repository"`
-	Window     format.JSONWindow `json:"window"`
-	SearchURL  string            `json:"search_url"`
-	Strategy   string            `json:"strategy"`
-	Insights   []jsonBulkInsight `json:"insights,omitempty"`
+	Repository string               `json:"repository"`
+	Window     format.JSONWindow    `json:"window"`
+	SearchURL  string               `json:"search_url"`
+	Strategy   string               `json:"strategy"`
+	Insights   []format.JSONInsight `json:"insights,omitempty"`
 	Items      []jsonBulkItem    `json:"items"`
 	Stats      format.JSONStats  `json:"stats"`
 	Capped     bool              `json:"capped,omitempty"`
@@ -144,14 +140,12 @@ type jsonBulkItem struct {
 	URL       string            `json:"url,omitempty"`
 	Labels    []string          `json:"labels,omitempty"`
 	CycleTime format.JSONMetric `json:"cycle_time"`
+	Flags     []string          `json:"flags,omitempty"`
 }
 
 // WriteBulkJSON writes bulk cycle-time results as JSON.
 func WriteBulkJSON(w io.Writer, repo string, since, until time.Time, strategy string, items []BulkItem, stats model.Stats, searchURL string, warnings []string, insights []model.Insight) error {
-	var jsonIns []jsonBulkInsight
-	for _, ins := range insights {
-		jsonIns = append(jsonIns, jsonBulkInsight{Type: ins.Type, Message: ins.Message})
-	}
+	jsonIns := format.InsightsToJSON(insights)
 	out := jsonBulkOutput{
 		Repository: repo,
 		Window: format.JSONWindow{
@@ -168,13 +162,23 @@ func WriteBulkJSON(w io.Writer, repo string, since, until time.Time, strategy st
 	}
 
 	for _, item := range items {
-		out.Items = append(out.Items, jsonBulkItem{
+		ji := jsonBulkItem{
 			Number:    item.Issue.Number,
 			Title:     item.Issue.Title,
 			URL:       item.Issue.URL,
 			Labels:    item.Issue.Labels,
 			CycleTime: format.MetricToJSON(item.Metric),
-		})
+		}
+		if item.Metric.Duration != nil && *item.Metric.Duration < time.Minute {
+			ji.Flags = append(ji.Flags, "noise")
+		}
+		if item.Metric.Duration != nil && *item.Metric.Duration <= 72*time.Hour && *item.Metric.Duration >= time.Minute {
+			ji.Flags = append(ji.Flags, "hotfix")
+		}
+		if metrics.IsOutlier(item.Metric, stats) {
+			ji.Flags = append(ji.Flags, "outlier")
+		}
+		out.Items = append(out.Items, ji)
 	}
 
 	enc := json.NewEncoder(w)
@@ -207,6 +211,7 @@ type bulkItemRow struct {
 	Started   string
 	Closed    string
 	CycleTime string
+	Flag      string
 }
 
 // WriteBulkMarkdown writes bulk cycle-time results as markdown.
@@ -249,6 +254,7 @@ func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.T
 			Started:   startedStr,
 			Closed:    closedStr,
 			CycleTime: format.FormatMetricDuration(item.Metric),
+			Flag:      cycleTimeFlag(item, stats),
 		})
 	}
 	data.DetailCount = len(data.Items)
@@ -281,7 +287,7 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 	}
 
 	tp := format.NewTable(rc.Writer, rc.IsTTY, rc.Width)
-	tp.AddHeader([]string{"#", "Title", "Labels", "Started", "Closed", "Cycle Time"})
+	tp.AddHeader([]string{"", "#", "Title", "Labels", "Started", "Closed", "Cycle Time"})
 	for _, item := range sorted {
 		// Filter out items without cycle time data.
 		if item.Metric.Duration == nil {
@@ -295,6 +301,7 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 		if item.Issue.ClosedAt != nil {
 			closedStr = item.Issue.ClosedAt.UTC().Format(time.DateOnly)
 		}
+		tp.AddField(cycleTimeFlag(item, stats))
 		tp.AddField(format.FormatItemLink(item.Issue.Number, item.Issue.URL, rc))
 		tp.AddField(item.Issue.Title)
 		tp.AddField(format.FormatLabels(item.Issue.Labels))
@@ -304,6 +311,22 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 		tp.EndRow()
 	}
 	return tp.Render()
+}
+
+// cycleTimeFlag returns a flag emoji for outlier items.
+// cycleTimeFlag returns flag emojis for insight-triggering items.
+func cycleTimeFlag(item BulkItem, stats model.Stats) string {
+	var flag string
+	if item.Metric.Duration != nil && *item.Metric.Duration < time.Minute {
+		flag += "🤖"
+	}
+	if item.Metric.Duration != nil && *item.Metric.Duration <= 72*time.Hour && *item.Metric.Duration >= time.Minute {
+		flag += "⚡"
+	}
+	if metrics.IsOutlier(item.Metric, stats) {
+		flag += "🚩"
+	}
+	return flag
 }
 
 // --- Helpers ---

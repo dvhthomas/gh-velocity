@@ -1,8 +1,10 @@
 package format
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"math"
 	"time"
@@ -11,23 +13,6 @@ import (
 )
 
 // --- JSON ---
-
-// jsonInsight is the JSON representation of a model.Insight.
-type jsonInsight struct {
-	Type    string `json:"type"`
-	Message string `json:"message"`
-}
-
-func insightsToJSON(insights []model.Insight) []jsonInsight {
-	if len(insights) == 0 {
-		return nil
-	}
-	out := make([]jsonInsight, len(insights))
-	for i, ins := range insights {
-		out[i] = jsonInsight{Type: ins.Type, Message: ins.Message}
-	}
-	return out
-}
 
 type jsonStatsOutput struct {
 	Repository        string               `json:"repository"`
@@ -49,13 +34,13 @@ type jsonVelocitySummary struct {
 	EffortUnit       string        `json:"effort_unit"`
 	IterationCount   int           `json:"iteration_count"`
 	CurrentIteration string        `json:"current_iteration,omitempty"`
-	Insights         []jsonInsight `json:"insights,omitempty"`
+	Insights         []JSONInsight `json:"insights,omitempty"`
 }
 
 type jsonThroughput struct {
 	IssuesClosed int           `json:"issues_closed"`
 	PRsMerged    int           `json:"prs_merged"`
-	Insights     []jsonInsight `json:"insights,omitempty"`
+	Insights     []JSONInsight `json:"insights,omitempty"`
 }
 
 type jsonWIP struct {
@@ -66,7 +51,7 @@ type jsonStatsQuality struct {
 	BugCount    int           `json:"bug_count"`
 	TotalIssues int           `json:"total_issues"`
 	BugRatio  float64       `json:"bug_ratio"`
-	Insights    []jsonInsight `json:"insights,omitempty"`
+	Insights    []JSONInsight `json:"insights,omitempty"`
 }
 
 // WriteReportJSON writes dashboard metrics as JSON.
@@ -80,12 +65,12 @@ func WriteReportJSON(w io.Writer, r model.StatsResult) error {
 	}
 	if r.LeadTime != nil {
 		s := StatsToJSON(*r.LeadTime)
-		s.Insights = insightsToJSON(r.LeadTimeInsights)
+		s.Insights = InsightsToJSON(r.LeadTimeInsights)
 		out.LeadTime = &s
 	}
 	if r.CycleTime != nil {
 		s := StatsToJSON(*r.CycleTime)
-		s.Insights = insightsToJSON(r.CycleTimeInsights)
+		s.Insights = InsightsToJSON(r.CycleTimeInsights)
 		out.CycleTime = &s
 		out.CycleTimeStrategy = r.CycleTimeStrategy
 	}
@@ -93,7 +78,7 @@ func WriteReportJSON(w io.Writer, r model.StatsResult) error {
 		out.Throughput = &jsonThroughput{
 			IssuesClosed: r.Throughput.IssuesClosed,
 			PRsMerged:    r.Throughput.PRsMerged,
-			Insights:     insightsToJSON(r.ThroughputInsights),
+			Insights:     InsightsToJSON(r.ThroughputInsights),
 		}
 	}
 	if r.Velocity != nil {
@@ -108,7 +93,7 @@ func WriteReportJSON(w io.Writer, r model.StatsResult) error {
 			StdDev:           v.StdDev,
 			EffortUnit:       v.EffortUnit,
 			IterationCount:   n,
-			Insights:         insightsToJSON(v.Insights),
+			Insights:         InsightsToJSON(v.Insights),
 		}
 		if v.Current != nil {
 			summary.CurrentIteration = v.Current.Name
@@ -123,7 +108,7 @@ func WriteReportJSON(w io.Writer, r model.StatsResult) error {
 			BugCount:    r.Quality.BugCount,
 			TotalIssues: r.Quality.TotalIssues,
 			BugRatio:  r.Quality.BugRatio,
-			Insights:    insightsToJSON(r.QualityInsights),
+			Insights:    InsightsToJSON(r.QualityInsights),
 		}
 	}
 	out.Warnings = r.Warnings
@@ -142,46 +127,24 @@ func WriteReportMarkdown(rc RenderContext, r model.StatsResult) error {
 
 // --- HTML ---
 
-var reportHTMLTmpl = mustParseTemplate("report.html.tmpl")
+//go:embed templates/report-shell.html.tmpl
+var reportShellHTML string
+var reportShellTmpl = template.Must(template.New("report-shell.html.tmpl").Parse(reportShellHTML))
 
-// WriteReportHTML writes a self-contained HTML dashboard with embedded CSS.
-func WriteReportHTML(w io.Writer, r model.StatsResult) error {
-	data := reportTemplateData{
-		Repository: r.Repository,
-		Since:      r.Since,
-		Until:      r.Until,
-	}
-	if r.LeadTime != nil {
-		data.LeadTime = FormatStatsSummary(*r.LeadTime)
-	}
-	if r.CycleTime != nil {
-		data.CycleTime = FormatStatsSummary(*r.CycleTime)
-	}
-	if r.Throughput != nil {
-		data.Throughput = fmt.Sprintf("%d issues closed, %d PRs merged",
-			r.Throughput.IssuesClosed, r.Throughput.PRsMerged)
-	}
-	if r.Velocity != nil {
-		data.Velocity = FormatVelocitySummary(*r.Velocity)
-	}
-	if r.WIPCount != nil {
-		data.WIP = fmt.Sprintf("%d items in progress", *r.WIPCount)
-	}
-	if r.Quality != nil {
-		data.Quality = fmt.Sprintf("%d bugs / %d issues (%.0f%% bug ratio)",
-			r.Quality.BugCount, r.Quality.TotalIssues, r.Quality.BugRatio*100)
-	}
-	data.Warnings = r.Warnings
-	data.InsightGroups = buildInsightGroups(r)
-	// Strip markdown links for HTML — insights may contain [text](url) syntax.
-	for i := range data.InsightGroups {
-		for j := range data.InsightGroups[i].Messages {
-			data.InsightGroups[i].Messages[j] = StripMarkdownLinks(data.InsightGroups[i].Messages[j])
-		}
-	}
-	data.HasInsights = len(data.InsightGroups) > 0
-	data.HasData = data.LeadTime != "" || data.CycleTime != "" || data.Throughput != "" || data.Velocity != "" || data.Quality != ""
-	return reportHTMLTmpl.Execute(w, data)
+type reportShellData struct {
+	Title   string        // auto-escaped by html/template
+	Content template.HTML // pre-rendered, sanitized HTML from goldmark+bluemonday
+}
+
+// WriteReportHTML converts markdown content to a self-contained HTML page.
+// The markdown is converted to HTML via goldmark, sanitized via bluemonday,
+// then wrapped in a styled shell. The title is auto-escaped by html/template.
+func WriteReportHTML(w io.Writer, markdownContent string, title string) error {
+	htmlBody := MarkdownToHTML(markdownContent)
+	return reportShellTmpl.Execute(w, reportShellData{
+		Title:   title,
+		Content: template.HTML(htmlBody),
+	})
 }
 
 // --- Pretty ---

@@ -7,6 +7,7 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/log"
 	"github.com/dvhthomas/gh-velocity/internal/model"
 	"github.com/dvhthomas/gh-velocity/internal/pipeline/busfactor"
+	"github.com/dvhthomas/gh-velocity/internal/posting"
 	"github.com/spf13/cobra"
 )
 
@@ -94,5 +95,5 @@ func runBusFactor(cmd *cobra.Command, sinceStr string) error {
 	if err := p.ProcessData(); err != nil {
 		return err
 	}
-	return renderPipelineSimple(cmd, deps, p)
+	return renderPipeline(cmd, deps, p, nil, posting.PostOptions{})
 }

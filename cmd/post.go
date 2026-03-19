@@ -3,11 +3,9 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 
-	"fmt"
-
-	"github.com/dvhthomas/gh-velocity/internal/format"
 	gh "github.com/dvhthomas/gh-velocity/internal/github"
 	"github.com/dvhthomas/gh-velocity/internal/model"
 	"github.com/dvhthomas/gh-velocity/internal/posting"
@@ -79,69 +77,6 @@ func setupPost(cmd *cobra.Command, deps *Deps, client *gh.Client, opts posting.P
 
 		return poster.Post(cmd.Context(), opts)
 	}
-}
-
-// postIfEnabled returns a writer and a post function. When --post is not set,
-// the writer is cmd.OutOrStdout() and the post function is a no-op.
-// When --post is set, the writer tees to both stdout and an internal buffer.
-// After formatting completes, call the returned function to post the captured
-// output to GitHub. The poster respects DryRun from deps.
-//
-// Deprecated: use setupPost + renderPipeline for new code. This remains for
-// commands that haven't migrated to the render helper yet.
-func postIfEnabled(cmd *cobra.Command, deps *Deps, client *gh.Client, opts posting.PostOptions) (io.Writer, func() error) {
-	if !deps.Post {
-		return cmd.OutOrStdout(), func() error { return nil }
-	}
-
-	var buf bytes.Buffer
-	w := io.MultiWriter(cmd.OutOrStdout(), &buf)
-
-	return w, func() error {
-		opts.Content = wrapForPost(buf.String(), deps.Output.Results[0])
-		opts.ForceNew = deps.NewPost
-		opts.Repo = deps.Owner + "/" + deps.Repo
-
-		var poster posting.Poster
-		switch opts.Target {
-		case posting.DiscussionTarget:
-			categoryName := deps.Config.Discussions.Category
-			if categoryName == "" {
-				return &model.AppError{
-					Code:    model.ErrConfigInvalid,
-					Message: "posting to Discussions requires discussions.category in config",
-				}
-			}
-			categoryID, err := client.ResolveDiscussionCategoryID(cmd.Context(), categoryName)
-			if err != nil {
-				return &model.AppError{
-					Code:    model.ErrPostFailed,
-					Message: fmt.Sprintf("resolve discussion category %q: %v", categoryName, err),
-				}
-			}
-			opts.CategoryID = categoryID
-			poster = &posting.DiscussionPoster{
-				Client: &discussionAdapter{client: client},
-				DryRun: deps.DryRun,
-			}
-		default:
-			poster = &posting.CommentPoster{
-				Client: &commentAdapter{client: client},
-				DryRun: deps.DryRun,
-			}
-		}
-
-		return poster.Post(cmd.Context(), opts)
-	}
-}
-
-// wrapForPost prepares content for posting: JSON is wrapped in a code fence,
-// markdown and pretty are used as-is.
-func wrapForPost(content string, f format.Format) string {
-	if f == format.JSON {
-		return "```json\n" + content + "```\n"
-	}
-	return content
 }
 
 // commentAdapter adapts github.Client to posting.CommentClient.

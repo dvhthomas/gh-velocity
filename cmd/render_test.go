@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/dvhthomas/gh-velocity/internal/format"
@@ -34,27 +35,7 @@ func TestCommandSlug(t *testing.T) {
 
 // splitPath splits a space-separated path into command names.
 func splitPath(s string) []string {
-	var parts []string
-	for _, p := range []byte(s) {
-		if p == ' ' {
-			parts = append(parts, "")
-		}
-	}
-	// Simple split.
-	result := make([]string, 0)
-	current := ""
-	for _, c := range s {
-		if c == ' ' {
-			result = append(result, current)
-			current = ""
-		} else {
-			current += string(c)
-		}
-	}
-	if current != "" {
-		result = append(result, current)
-	}
-	return result
+	return strings.Fields(s)
 }
 
 // buildCmdTree builds a command tree and returns the leaf command.
