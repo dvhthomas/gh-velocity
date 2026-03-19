@@ -40,7 +40,7 @@ Which cycle time signal is used depends on your configured **strategy** — the 
 
 **[Cycle time]({{< relref "/reference/metrics/cycle-time" >}})** measures how long active work took. Two strategies are available:
 
-- **Issue strategy** (`cycle_time.strategy: issue`): Starts when an in-progress label is applied, ends when the issue is closed. Label timestamps are immutable and reliable.
+- **Issue strategy** (`cycle_time.strategy: issue`): Starts when an in-progress label is applied (`lifecycle.in-progress.match`), ends when the issue is closed. Label timestamps are immutable and reliable.
 - **PR strategy** (`cycle_time.strategy: pr`): Starts when the closing PR is created, ends when it is merged. Works with no extra config -- just link PRs to issues with "Closes #N".
 
 **Release lag** is the time from when an issue is closed to when the release containing it is published. High release lag points to batch-and-release workflows where completed work sits waiting. See [Quality Metrics]({{< relref "/reference/metrics/quality" >}}) for the full definition.
@@ -62,16 +62,15 @@ Before computing any metric, gh-velocity applies a **scope** — a filter that d
 | Your action | What the tool reads | Metric it enables |
 | --- | --- | --- |
 | Create an issue | `issue.created_at` | Lead time start |
-| Apply "in-progress" label | `LABELED_EVENT.createdAt` (immutable) | Cycle time start (issue strategy, preferred) |
-| Move issue to "In progress" on project board | `ProjectV2ItemFieldSingleSelectValue.updatedAt` (mutable -- see note below) | Cycle time start (issue strategy, fallback) |
+| Apply "in-progress" label | `LABELED_EVENT.createdAt` (immutable) | Cycle time start (issue strategy) |
 | Open a PR that closes the issue | `PullRequest.createdAt` | Cycle time start (PR strategy) |
 | Close the issue | `issue.closed_at` | Lead time end, cycle time end (issue strategy) |
 | Merge the closing PR | `PullRequest.mergedAt` | Cycle time end (PR strategy) |
 | Publish a release | `release.created_at` | Release lag, cadence |
 | Tag without a release | Tag commit date via git refs API | Release lag (less precise) |
 
-> [!WARNING]
-> **Project board timestamps are mutable.** The GitHub Projects v2 API only exposes `updatedAt` on field values -- the timestamp of the *last* status change, not the original transition. If someone moves a card to "Done" after an issue is already closed, the timestamp reflects that post-closure move, producing negative cycle times. This is a fundamental GitHub API limitation. Use labels for cycle time; use the project board for WIP counts and backlog visibility.
+> [!TIP]
+> **Labels are the sole lifecycle signal.** Label event timestamps are immutable -- once a label is applied, the `createdAt` timestamp never changes. This makes labels the only reliable source of "when did work start?" from the GitHub API. Project boards remain useful for velocity iteration/effort reads but are not used for lifecycle or cycle-time signals.
 
 ## What you need to do
 
@@ -92,19 +91,17 @@ The right strategy depends on your workflow. There is no single "best" choice:
 | Your workflow | Strategy | Config | Trade-offs |
 |---|---|---|---|
 | Issues with lifecycle labels | `issue` | `lifecycle.in-progress.match: ["label:in-progress"]` | Most reliable timestamps (labels are immutable). Requires label discipline. |
-| Issues on a project board | `issue` + board | `project.url`, `project.status_field`, `lifecycle.in-progress.project_status` + `match` | Board drives WIP/backlog; labels provide reliable cycle time. Best of both. |
 | PRs close issues (most OSS repos) | `pr` | `cycle_time.strategy: pr` | Zero config needed. Measures PR open-to-merge time, not total work time. |
-| Project board, no labels | `issue` + board only | `project.url`, `lifecycle.in-progress.project_status: ["In progress"]` | Board timestamps are mutable — works if cards are moved promptly (see warning above). |
 
 **Setting up the issue strategy:**
 
 The simplest path is labels:
 
-1. Create a label like `in-progress` or `wip` in your repo
+1. Create a label like `in-progress` in your repo
 2. Add `lifecycle.in-progress.match: ["label:in-progress"]` to your config
 3. Apply the label to issues when work starts
 
-If you use a project board, add `project.url` and `project.status_field` to your config. The board's status column can drive both WIP detection and cycle time. For best results, use both board status and labels — see [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}).
+If you use a project board, use a label-sync Action like [gh-project-label-sync](https://github.com/dvhthomas/gh-project-label-sync) to automatically apply lifecycle labels when cards move on the board.
 
 Run `config preflight --write` to auto-detect your setup and generate the right config. See [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) for a detailed walkthrough.
 
@@ -141,27 +138,26 @@ quality:
 ```
 {{< /tab >}}
 {{< tab "Team with board" >}}
-**Team workflow with project board** (issue strategy + labels):
+**Team workflow with labels** (issue strategy):
 
-- Create an issue, triage into Backlog, move to In Progress and apply `in-progress` label, open a PR, review, merge, release
-- Use `cycle_time.strategy: issue` with `lifecycle.in-progress.match` for cycle time and `project_status` for WIP/backlog
+- Create an issue, apply `in-progress` label when work starts, open a PR, review, merge, release
+- Use `cycle_time.strategy: issue` with `lifecycle.in-progress.match`
 
 ```yaml
-# .gh-velocity.yml -- team config with board
+# .gh-velocity.yml -- team config with labels
 cycle_time:
   strategy: issue
-project:
-  url: "https://github.com/users/yourname/projects/1"
-  status_field: "Status"
 lifecycle:
-  backlog:
-    project_status: ["Backlog", "Triage"]
   in-progress:
-    project_status: ["In progress"]
     match: ["label:in-progress"]
+  in-review:
+    match: ["label:in-review"]
+  done:
+    query: "is:closed"
+    match: ["label:done"]
 ```
 
-To automate the label step when someone moves a card on the board, see the project-label-sync workflow in the guide.
+If you use a project board, use [gh-project-label-sync](https://github.com/dvhthomas/gh-project-label-sync) to automate the label step when moving cards on the board.
 {{< /tab >}}
 {{< tab "Team without board" >}}
 **Team workflow without a project board** (PR strategy):
@@ -197,15 +193,14 @@ quality:
 
 {{% details "What has limits" %}}
 - **Cycle time depends on your strategy.** With no signal for a given issue, cycle time is N/A. The tool warns you when this happens.
-- **Project board timestamps are unreliable for cycle time.** See the warning above.
 - **The PR search API caps at 1000 results.** Rare outside the largest monorepos.
 - **Tag ordering is by API default, not semver.** Use `--since` to specify the previous tag if your tag history is non-linear.
 - **"Closed" is not "merged."** Issues can be closed without a PR being merged. The tool treats closure as the end event regardless of cause.
 {{% /details %}}
 
 {{% details "What is not possible" %}}
-- **Project board transition history.** There is no API for field change history. This is why labels are recommended.
-- **Work-in-progress duration as separate phases.** Without transition history, you cannot measure time-in-review or time-in-backlog from the board alone.
+- **Project board transition history.** There is no API for field change history. This is why labels are used for lifecycle.
+- **Work-in-progress duration as separate phases.** Without transition history, you cannot measure time-in-review or time-in-backlog from the board alone. Labels partially address this.
 - **Developer-level attribution.** The tool measures issue and release velocity, not individual performance. This is intentional.
 - **Cross-repo tracking.** Each invocation targets a single repository.
 {{% /details %}}

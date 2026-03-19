@@ -79,7 +79,7 @@ The `--scope` CLI flag adds additional qualifiers at runtime (AND logic with the
 
 ## `project`
 
-Identifies a GitHub Projects v2 board. Required when lifecycle stages use `project_status`, when `velocity.iteration.strategy` is `"project-field"`, or when `velocity.effort.strategy` is `"numeric"`.
+Identifies a GitHub Projects v2 board. Required when `velocity.iteration.strategy` is `"project-field"`, when `velocity.effort.strategy` is `"numeric"`, or when using `field:` matchers.
 
 ### `project.url`
 
@@ -103,7 +103,7 @@ project:
 | **Type** | string |
 | **Default** | `""` (none) |
 
-The visible name of the status (single-select) field on your project board. Usually `"Status"`. Required when any lifecycle stage uses `project_status`.
+The visible name of the status (single-select) field on your project board. Usually `"Status"`. Used by the velocity `numeric` effort strategy and `field:` matchers.
 
 Run `gh velocity config discover` to find available fields and options on your board.
 
@@ -117,14 +117,13 @@ project:
 
 ## `lifecycle`
 
-Maps workflow stages to GitHub search qualifiers and/or project board statuses. Commands use these to filter items by lifecycle stage. See [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}) for guidance on choosing between labels and board status.
+Maps workflow stages to GitHub search qualifiers and label matchers. Commands use these to filter items by lifecycle stage. Labels are the sole source of truth for lifecycle signals. See [Labels as Lifecycle Signal]({{< relref "/concepts/labels-vs-board" >}}) for details.
 
-Each stage has three optional fields:
+Each stage has two optional fields:
 
 | Sub-field | Type | Description |
 |---|---|---|
 | `query` | string | Appended to search API calls (e.g., `"is:closed"`) |
-| `project_status` | list of strings | Project board column names for GraphQL filtering |
 | `match` | list of strings | Matcher patterns for client-side lifecycle grouping |
 
 ### `lifecycle.backlog`
@@ -139,7 +138,7 @@ Items in the backlog (not yet started).
 lifecycle:
   backlog:
     query: "is:open"
-    project_status: ["Backlog", "Triage"]
+    match: ["label:backlog"]
 ```
 
 ### `lifecycle.in-progress`
@@ -154,7 +153,6 @@ Items actively being worked on. The `match` field is used by the issue cycle tim
 lifecycle:
   in-progress:
     query: "is:open"
-    project_status: ["In progress"]
     match: ["label:in-progress", "label:wip"]
 ```
 
@@ -172,7 +170,7 @@ Items in code review.
 lifecycle:
   in-review:
     query: "is:open"
-    project_status: ["In review"]
+    match: ["label:in-review"]
 ```
 
 ### `lifecycle.done`
@@ -187,7 +185,7 @@ Completed items.
 lifecycle:
   done:
     query: "is:closed"
-    project_status: ["Done"]
+    match: ["label:done"]
 ```
 
 ### `lifecycle.released`
@@ -197,12 +195,8 @@ Items included in a release. No default query -- release detection is tag-based.
 ```yaml
 lifecycle:
   released:
-    project_status: ["Released"]
+    query: ""
 ```
-
-### Validation rules
-
-- If any lifecycle stage uses `project_status`, both `project.url` and `project.status_field` are required.
 
 ---
 
@@ -276,10 +270,8 @@ Controls which strategy measures cycle time.
 | **Default** | `"issue"` |
 | **Valid values** | `"issue"`, `"pr"` |
 
-- `"issue"` -- Starts when an in-progress label is applied (or project board status changes as fallback), ends when the issue is closed.
+- `"issue"` -- Starts when an in-progress label is applied (`lifecycle.in-progress.match`), ends when the issue is closed.
 - `"pr"` -- Starts when the closing PR is created, ends when it is merged.
-
-The value `"project-board"` is deprecated and silently treated as `"issue"`.
 
 ```yaml
 cycle_time:
@@ -509,7 +501,7 @@ Several configuration fields (`quality.categories[].match`, `lifecycle.in-progre
 | `title:/<regex>/i` | Case-insensitive regex match on title | `title:/^fix[\(: ]/i` |
 | `field:<Name>/<Value>` | Match a SingleSelect field value on a Projects v2 board | `field:Size/M` |
 
-The `field:` matcher requires `project.url` to be configured. It reads the specified SingleSelect field from the project board and matches items whose field value equals `<Value>`. This is especially useful for effort classification — see [Labels vs. Board]({{< relref "/concepts/labels-vs-board" >}}) for examples.
+The `field:` matcher requires `project.url` to be configured. It reads the specified SingleSelect field from the project board and matches items whose field value equals `<Value>`. This is especially useful for effort classification — see [Labels as Lifecycle Signal]({{< relref "/concepts/labels-vs-board" >}}) for examples.
 
 Matchers are evaluated in config order. For classification (`quality.categories`), the first matching category wins across all categories. For effort (`velocity.effort.attribute`), the first matching rule determines the effort value.
 
@@ -528,16 +520,13 @@ project:
   status_field: "Status"
 
 lifecycle:
-  backlog:
-    project_status: ["Backlog", "Triage"]
   in-progress:
-    project_status: ["In progress"]
     match: ["label:in-progress", "label:wip"]
   in-review:
-    project_status: ["In review"]
+    match: ["label:in-review"]
   done:
     query: "is:closed"
-    project_status: ["Done"]
+    match: ["label:done"]
 
 quality:
   categories:
@@ -619,6 +608,6 @@ api_throttle_seconds: 2
 - [Configuration (Getting Started)]({{< relref "/getting-started/configuration" >}}) -- first-time setup guide with preflight, discover, and validate
 - [Setting Up Velocity]({{< relref "/guides/velocity-setup" >}}) -- effort strategies, iteration strategies, and validation
 - [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) -- choosing and configuring a cycle time strategy
-- [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}) -- why labels are preferred for lifecycle tracking
+- [Labels as Lifecycle Signal]({{< relref "/concepts/labels-vs-board" >}}) -- why labels are the sole lifecycle signal
 - [CI Setup]({{< relref "/getting-started/ci-setup" >}}) -- token setup for CI environments
 - [Examples]({{< relref "/examples" >}}) -- annotated real-world configs for popular repositories

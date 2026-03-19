@@ -107,7 +107,7 @@ lifecycle:
 ## Example 2: dvhthomas/gh-velocity -- Project board with lifecycle mapping
 
 **Repo**: [dvhthomas/gh-velocity](https://github.com/dvhthomas/gh-velocity) (this project)
-**Strategy**: Issue-based cycle time, project board columns, title-based classification
+**Strategy**: Issue-based cycle time, label-based lifecycle, title-based classification
 
 ```yaml
 scope:
@@ -136,37 +136,30 @@ commit_ref:
 cycle_time:
   strategy: issue
 
-# Project board configuration.
-# The URL points to a GitHub Projects v2 board.
-# status_field is the name of the single-select field that tracks status.
+# Project board configuration for velocity reads (iteration, effort).
+# The board is NOT used for lifecycle signals -- labels handle that.
 project:
   url: "https://github.com/users/dvhthomas/projects/1"
   status_field: "Status"
 
-# Full lifecycle mapping from board columns.
-# Each stage maps to one or more project board status values.
-# This enables:
-#   - WIP command: shows items in "In progress" + "In review"
-#   - Backlog detection: items in "Backlog" are excluded from cycle time
-#   - Cycle time fallback: if no in-progress label, board status is used
+# Label-based lifecycle mapping.
+# Labels are the sole source of truth for lifecycle signals.
+# Use gh-project-label-sync to keep labels in sync with board columns:
+# https://github.com/dvhthomas/gh-project-label-sync
 lifecycle:
-  backlog:
-    project_status: ["Backlog"]
   in-progress:
-    project_status: ["In progress"]
-    # To add label-based cycle time (recommended):
-    # match: ["label:in-progress"]
+    match: ["label:in-progress"]
   in-review:
-    project_status: ["In review"]
+    match: ["label:in-review"]
   done:
-    project_status: ["Done"]
+    query: "is:closed"
+    match: ["label:done"]
 ```
 
 **Key takeaways**:
 - Title regex matchers work well for repos that follow conventional commit naming.
-- The project board enables the `wip` command and gives backlog visibility.
-- For best cycle time accuracy, add `match: ["label:in-progress"]` to `lifecycle.in-progress` so label timestamps are used instead of board timestamps.
-- The commented-out velocity section shows what sprint velocity config would look like with a `project-field` iteration strategy.
+- Labels are the sole lifecycle signal. If you use a project board, sync board columns to labels with [gh-project-label-sync](https://github.com/dvhthomas/gh-project-label-sync).
+- The project board is still used for velocity iteration/effort reads (via `velocity.iteration.strategy: project-field` and `field:` matchers).
 
 ---
 

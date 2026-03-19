@@ -63,9 +63,7 @@ This is the most common first-run issue. The cause depends on your configured st
     in-progress:
       match: ["label:in-progress"]
   ```
-- **Falling back to project board but missing `project.url` or `project.status_field`.** Run `gh velocity config discover -R owner/repo` to find the correct values.
-- **Token missing `project` scope.** Run `gh auth status` to check. Only needed if using project board features. See [CI Setup: Token setup]({{< relref "/getting-started/ci-setup" >}}#setting-up-gh_velocity_token).
-- **Negative cycle times in output.** Your project board timestamps are unreliable. The `updatedAt` on project field values reflects the last change, not the original transition. Add `lifecycle.in-progress.match` with label matchers. See [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}).
+- **Labels not applied to issues.** The issue strategy requires that matching labels are actually applied to issues. Check that your team is applying the `in-progress` label when work starts. If you use a project board, consider [gh-project-label-sync](https://github.com/dvhthomas/gh-project-label-sync) to automate label application when cards move.
 
 **PR strategy** (`cycle_time.strategy: pr`):
 
@@ -78,14 +76,12 @@ This is the most common first-run issue. The cause depends on your configured st
 
 Cycle time is N/A when the configured strategy has no signal for that specific issue:
 
-- **Issue strategy**: The issue has no matching in-progress label, and either it was never tracked on the configured project board or it never moved into an in-progress status.
+- **Issue strategy**: The issue has no matching in-progress label applied.
 - **PR strategy**: No merged PR references this issue with a closing keyword.
 
 ### Negative cycle times
 
-This happens when project board status is the only cycle time signal and the card was moved to a different column after the issue was closed. The `updatedAt` timestamp on the project field value reflects the post-closure move, producing `start > end`.
-
-Fix: Add `lifecycle.in-progress.match` with label matchers. Label timestamps are immutable and cannot produce negative durations. The tool filters negative durations from aggregate statistics and warns you, but the root cause requires label-based timestamps. See [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}).
+Label-based cycle time should not produce negative durations since label timestamps are immutable. If you see negative cycle times, check that your `lifecycle.in-progress.match` configuration is correct and that the matched labels were applied before issue closure.
 
 ## Output issues
 
@@ -229,5 +225,5 @@ gh velocity quality release v1.2.0 --results json --debug 2>debug.log | jq '.agg
 ## Next steps
 
 - [Cycle Time Setup]({{< relref "cycle-time-setup" >}}) -- configure cycle time correctly from the start
-- [Labels vs. Project Board]({{< relref "/concepts/labels-vs-board" >}}) -- understand the project board timestamp limitation
+- [Labels as Lifecycle Signal]({{< relref "/concepts/labels-vs-board" >}}) -- why labels are the sole lifecycle signal
 - [Configuration]({{< relref "/getting-started/configuration" >}}) -- full config setup guide
