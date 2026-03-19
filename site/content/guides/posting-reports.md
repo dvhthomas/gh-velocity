@@ -80,7 +80,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_VELOCITY_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
           GH_VELOCITY_POST_LIVE: 'true'
-        run: gh velocity report --since 30d --post --format markdown
+        run: gh velocity report --since 30d --post --results markdown
 ```
 
 Key points:
@@ -99,7 +99,7 @@ See [CI Setup]({{< relref "/getting-started/ci-setup" >}}) for complete workflow
 Post a trailing-window report every Monday:
 
 ```bash
-GH_VELOCITY_POST_LIVE=true gh velocity report --since 30d --post --format markdown
+GH_VELOCITY_POST_LIVE=true gh velocity report --since 30d --post --results markdown
 ```
 
 The idempotent behavior means re-running this manually during the week updates the existing Discussion rather than creating a new one.
@@ -109,7 +109,7 @@ The idempotent behavior means re-running this manually during the week updates t
 Triggered by a GitHub release event in CI:
 
 ```bash
-GH_VELOCITY_POST_LIVE=true gh velocity quality release "$TAG" --post --format markdown
+GH_VELOCITY_POST_LIVE=true gh velocity quality release "$TAG" --post --results markdown
 ```
 
 ### Lead-time context on PRs
@@ -117,7 +117,7 @@ GH_VELOCITY_POST_LIVE=true gh velocity quality release "$TAG" --post --format ma
 Post a lead-time summary as a PR comment when a PR references an issue:
 
 ```bash
-gh velocity flow lead-time 42 --format markdown | \
+gh velocity flow lead-time 42 --results markdown | \
   gh pr comment 99 --body-file -
 ```
 
@@ -129,11 +129,11 @@ Generate a report and post it yourself:
 
 ```bash
 # Post as an issue comment
-gh velocity quality release v1.2.0 --format markdown | \
+gh velocity quality release v1.2.0 --results markdown | \
   gh issue comment 100 --body-file -
 
 # Create a new issue with the report
-gh velocity quality release v1.2.0 --format markdown | \
+gh velocity quality release v1.2.0 --results markdown | \
   gh issue create --title "Release v1.2.0 metrics" --body-file -
 ```
 

@@ -60,7 +60,7 @@ To see the resolved configuration with all defaults applied:
 
 ```bash
 gh velocity config show
-gh velocity config show -f json
+gh velocity config show -r json
 ```
 
 ## Minimal config

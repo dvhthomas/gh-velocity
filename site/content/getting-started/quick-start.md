@@ -75,7 +75,7 @@ Each section computes independently. If your config doesn't have everything set 
 Try the same report as structured JSON:
 
 ```bash
-gh velocity report --since 30d --format json | jq '.lead_time.stats'
+gh velocity report --since 30d --results json | jq '.lead_time.stats'
 ```
 
 ## Analyze a specific release

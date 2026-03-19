@@ -41,7 +41,7 @@ gh velocity flow lead-time 1234 -R cli/cli \
 
 # JSON output for scripting
 gh velocity quality release v2.67.0 -R cli/cli \
-  --config docs/examples/cli-cli.yml -f json
+  --config docs/examples/cli-cli.yml -r json
 ```
 
 ---
@@ -271,7 +271,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Post velocity report
-        run: gh velocity report --since 30d --post -f markdown
+        run: gh velocity report --since 30d --post -r markdown
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_VELOCITY_POST_LIVE: 'true'

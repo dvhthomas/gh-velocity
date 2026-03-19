@@ -134,7 +134,7 @@ JSON output includes both the raw CV value and the label:
 You can use these in scripts or dashboards. For example, to alert when predictability drops:
 
 ```bash
-gh velocity flow lead-time --since 30d --format json | \
+gh velocity flow lead-time --since 30d --results json | \
   jq -r 'if .stats.cv > 1.0 then "WARNING: low predictability (CV \(.stats.cv))" else "OK" end'
 ```
 

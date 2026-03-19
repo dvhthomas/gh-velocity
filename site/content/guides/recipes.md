@@ -10,8 +10,8 @@ Practical patterns for common tasks with gh-velocity. For understanding what the
 ## Compare two releases
 
 ```bash
-gh velocity quality release v2.0.0 --format json > v2.json
-gh velocity quality release v1.9.0 --format json > v1.json
+gh velocity quality release v2.0.0 --results json > v2.json
+gh velocity quality release v1.9.0 --results json > v1.json
 
 echo "v1.9.0 median lead time: $(jq -r '.aggregates.lead_time.median_seconds / 86400 | round | "\(.)d"' v1.json)"
 echo "v2.0.0 median lead time: $(jq -r '.aggregates.lead_time.median_seconds / 86400 | round | "\(.)d"' v2.json)"
@@ -27,7 +27,7 @@ echo "v2.0.0 bug ratio: $(jq -r '.composition.bug_ratio * 100 | round | "\(.)%"'
 ## Find your slowest issues
 
 ```bash
-gh velocity quality release v1.2.0 --format json | \
+gh velocity quality release v1.2.0 --results json | \
   jq -r '.issues | sort_by(-.lead_time_seconds) | .[0:5] | .[] |
     "#\(.number) \(.title[0:40]) -- \(.lead_time_seconds / 86400 | round)d"'
 ```
@@ -35,7 +35,7 @@ gh velocity quality release v1.2.0 --format json | \
 ## Check label coverage before a release
 
 ```bash
-gh velocity quality release v1.2.0 --format json | \
+gh velocity quality release v1.2.0 --results json | \
   jq '"Bug: \(.composition.bug_count), Feature: \(.composition.feature_count), Unlabeled: \(.composition.other_count)"'
 ```
 
@@ -80,14 +80,14 @@ To save each report as JSON for later analysis:
 ```bash
 mkdir -p reports
 for tag in $(gh api repos/owner/repo/tags --jq '.[].name' | head -5); do
-  gh velocity quality release "$tag" -R owner/repo --format json > "reports/${tag}.json" 2>/dev/null
+  gh velocity quality release "$tag" -R owner/repo --results json > "reports/${tag}.json" 2>/dev/null
 done
 ```
 
 ## Export to CSV for spreadsheet analysis
 
 ```bash
-gh velocity quality release v1.2.0 --format json | \
+gh velocity quality release v1.2.0 --results json | \
   jq -r '["number","title","lead_time_days","cycle_time_days","outlier"],
     (.issues[] | [
       .number,
@@ -128,7 +128,7 @@ The output lists issues found by each strategy and marks items that appear in mu
 Get per-issue lead times for all issues closed in a window:
 
 ```bash
-gh velocity flow lead-time --since 30d --format json | \
+gh velocity flow lead-time --since 30d --results json | \
   jq -r '.issues[] | "#\(.number) \(.title[0:40]) -- \(.lead_time_seconds / 86400 | round)d"'
 ```
 
@@ -138,7 +138,7 @@ Override the configured strategy and measure a single PR directly:
 
 ```bash
 gh velocity flow cycle-time --pr 99
-gh velocity flow cycle-time --pr 99 --format json
+gh velocity flow cycle-time --pr 99 --results json
 ```
 
 This always uses PR created-to-merged timing, regardless of what `cycle_time.strategy` is set to in config.
@@ -146,7 +146,7 @@ This always uses PR created-to-merged timing, regardless of what `cycle_time.str
 ## Weekly velocity in JSON for dashboards
 
 ```bash
-gh velocity report --since 7d --format json > weekly.json
+gh velocity report --since 7d --results json > weekly.json
 ```
 
 Extract key numbers:
@@ -164,7 +164,7 @@ jq '{
 
 ```bash
 # Save and post in one go
-gh velocity report --since 30d --format markdown | tee report.md | \
+gh velocity report --since 30d --results markdown | tee report.md | \
   gh issue create --title "Weekly metrics" --body-file -
 ```
 

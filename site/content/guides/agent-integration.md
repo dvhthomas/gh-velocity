@@ -5,7 +5,7 @@ weight: 5
 
 # Agent Integration
 
-Every gh-velocity command supports `--format json` for structured output. This makes the tool composable with LLM agents, CI scripts, and data pipelines. For an overview of what the metrics mean, see [Interpreting Results]({{< relref "/guides/interpreting-results" >}}).
+Every gh-velocity command supports `--results json` for structured output. This makes the tool composable with LLM agents, CI scripts, and data pipelines. For an overview of what the metrics mean, see [Interpreting Results]({{< relref "/guides/interpreting-results" >}}).
 
 ## JSON output structure
 
@@ -24,7 +24,7 @@ The `report` command emits stats only. Standalone commands emit all four layers.
 - **Warnings** are included as a `warnings` array in the JSON object
 
 ```bash
-gh velocity quality release v1.2.0 --format json | jq 'keys'
+gh velocity quality release v1.2.0 --results json | jq 'keys'
 ```
 
 ## Metric states in JSON
@@ -49,28 +49,28 @@ Check `started_at` to distinguish "in progress" from "N/A."
 ### Outlier issues
 
 ```bash
-gh velocity quality release v1.2.0 --format json | \
+gh velocity quality release v1.2.0 --results json | \
   jq '[.issues[] | select(.lead_time_outlier) | {number, title, lead_time_seconds}]'
 ```
 
 ### Bug percentage
 
 ```bash
-gh velocity quality release v1.2.0 --format json | \
+gh velocity quality release v1.2.0 --results json | \
   jq '.composition | "\(.bug_count)/\(.total_issues) bugs (\(.bug_ratio * 100 | round)%)"'
 ```
 
 ### P95 lead time in days
 
 ```bash
-gh velocity quality release v1.2.0 --format json | \
+gh velocity quality release v1.2.0 --results json | \
   jq '.aggregates.lead_time.p95_seconds / 86400 | round | "\(.) days"'
 ```
 
 ### Slowest issues
 
 ```bash
-gh velocity quality release v1.2.0 --format json | \
+gh velocity quality release v1.2.0 --results json | \
   jq -r '.issues | sort_by(-.lead_time_seconds) | .[0:5] | .[] |
     "#\(.number) \(.title[0:40]) -- \(.lead_time_seconds / 86400 | round)d"'
 ```
@@ -78,20 +78,20 @@ gh velocity quality release v1.2.0 --format json | \
 ### Throughput count
 
 ```bash
-gh velocity flow throughput --since 30d --format json | \
+gh velocity flow throughput --since 30d --results json | \
   jq '{issues_closed, prs_merged}'
 ```
 
 ### Velocity per iteration
 
 ```bash
-gh velocity flow velocity --format json | \
+gh velocity flow velocity --results json | \
   jq '.iterations[] | {name, velocity, committed, completion_rate}'
 ```
 
 ## Error handling in JSON mode
 
-When `--format json` is active, errors are emitted as structured `ErrorEnvelope` objects on stderr instead of plain text. This lets agents parse errors programmatically:
+When `--results json` is active, errors are emitted as structured `ErrorEnvelope` objects on stderr instead of plain text. This lets agents parse errors programmatically:
 
 ```json
 {
@@ -116,7 +116,7 @@ Error codes follow the `model.AppError` convention:
 To handle errors in a script:
 
 ```bash
-OUTPUT=$(gh velocity quality release v1.2.0 --format json 2>errors.json)
+OUTPUT=$(gh velocity quality release v1.2.0 --results json 2>errors.json)
 if [ $? -ne 0 ]; then
   ERROR_TYPE=$(jq -r '.error.type' errors.json)
   echo "Failed: $ERROR_TYPE"
@@ -136,14 +136,14 @@ You have access to `gh velocity`. Use it to analyze our last 3 releases
 and identify trends in lead time and bug ratio.
 
 Commands available:
-  gh velocity quality release <tag> --format json
-  gh velocity quality release <tag> --discover --format json
-  gh velocity flow lead-time <issue> --format json
-  gh velocity flow lead-time --since 30d --format json
-  gh velocity flow cycle-time <issue> --format json
-  gh velocity flow throughput --since 30d --format json
-  gh velocity flow velocity --format json
-  gh velocity report --since 30d --format json
+  gh velocity quality release <tag> --results json
+  gh velocity quality release <tag> --discover --results json
+  gh velocity flow lead-time <issue> --results json
+  gh velocity flow lead-time --since 30d --results json
+  gh velocity flow cycle-time <issue> --results json
+  gh velocity flow throughput --since 30d --results json
+  gh velocity flow velocity --results json
+  gh velocity report --since 30d --results json
 
 Our recent tags: v2.5.0, v2.4.0, v2.3.0
 ```
@@ -156,7 +156,7 @@ An agent can compare releases by running multiple commands:
 
 ```bash
 for tag in v2.5.0 v2.4.0 v2.3.0; do
-  gh velocity quality release "$tag" --format json > "${tag}.json"
+  gh velocity quality release "$tag" --results json > "${tag}.json"
 done
 ```
 
@@ -172,7 +172,7 @@ done
 ### Feeding output to an LLM
 
 ```bash
-REPORT=$(gh velocity quality release v1.2.0 -R owner/repo --format json)
+REPORT=$(gh velocity quality release v1.2.0 -R owner/repo --results json)
 echo "$REPORT" | your-agent analyze-release
 ```
 
@@ -183,7 +183,7 @@ The JSON is self-contained -- the agent does not need to make additional API cal
 ### Store metrics as artifacts
 
 ```bash
-gh velocity quality release "$TAG" --format json > metrics.json
+gh velocity quality release "$TAG" --results json > metrics.json
 ```
 
 Upload as a GitHub Actions artifact for trend tracking:
@@ -199,7 +199,7 @@ Upload as a GitHub Actions artifact for trend tracking:
 ### Conditional logic based on metrics
 
 ```bash
-DEFECT_RATE=$(gh velocity quality release "$TAG" --format json | \
+DEFECT_RATE=$(gh velocity quality release "$TAG" --results json | \
   jq '.composition.bug_ratio')
 
 if (( $(echo "$DEFECT_RATE > 0.5" | bc -l) )); then
@@ -212,7 +212,7 @@ fi
 
 ```bash
 # Post to Slack via webhook
-gh velocity report --since 7d --format json | \
+gh velocity report --since 7d --results json | \
   jq '{text: "Weekly velocity: \(.throughput.issues_closed) issues closed"}' | \
   curl -X POST -H 'Content-Type: application/json' -d @- "$SLACK_WEBHOOK_URL"
 ```

@@ -112,7 +112,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_VELOCITY_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
           GH_VELOCITY_POST_LIVE: 'true'
-        run: gh velocity report --since 30d --post -f markdown
+        run: gh velocity report --since 30d --post -r markdown
 ```
 
 > [!NOTE]
@@ -150,7 +150,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_VELOCITY_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
         run: |
-          gh velocity quality release ${{ github.event.release.tag_name }} -f markdown > report.md
+          gh velocity quality release ${{ github.event.release.tag_name }} -r markdown > report.md
           gh issue create \
             --title "Metrics: ${{ github.event.release.tag_name }}" \
             --body-file report.md \
@@ -197,7 +197,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_VELOCITY_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
         run: |
-          gh velocity flow lead-time ${{ steps.issue.outputs.number }} -f markdown | \
+          gh velocity flow lead-time ${{ steps.issue.outputs.number }} -r markdown | \
             gh pr comment ${{ github.event.pull_request.number }} --body-file -
 ```
 
@@ -230,8 +230,8 @@ jobs:
           GH_VELOCITY_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
         run: |
           TAG=$(git describe --tags --abbrev=0)
-          gh velocity quality release "$TAG" -f json > metrics.json
-          gh velocity quality release "$TAG" -f markdown > metrics.md
+          gh velocity quality release "$TAG" -r json > metrics.json
+          gh velocity quality release "$TAG" -r markdown > metrics.md
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

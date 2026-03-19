@@ -154,7 +154,7 @@ gh velocity flow velocity --iterations 3
 | `--since DATE` | Show iterations overlapping this start date |
 | `--until DATE` | Show iterations overlapping this end date |
 | `--verbose` | Include not-assessed item numbers in output |
-| `--format json` | JSON output for scripts and agents |
+| `--results json` | JSON output for scripts and agents |
 
 ### Example output
 
