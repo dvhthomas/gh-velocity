@@ -246,13 +246,12 @@ func main() {
 		log.Println("[dry-run] Would update discussion body with index")
 		log.Println(finalBody)
 	} else {
-		out, err := graphQL(ctx, `mutation($id: ID!, $body: String!) {
+		if err := graphQLRetry(ctx, `mutation($id: ID!, $body: String!) {
 			updateDiscussion(input: { discussionId: $id, body: $body }) {
 				discussion { url }
 			}
-		}`, map[string]string{"id": discID, "body": finalBody})
-		if err != nil {
-			log.Fatalf("Failed to update discussion body:\n%s", out)
+		}`, map[string]string{"id": discID, "body": finalBody}); err != nil {
+			ghActionsError(fmt.Sprintf("Failed to update discussion body: %v", err))
 		}
 	}
 
@@ -406,6 +405,8 @@ func truncateAtDetailBoundary(body string, maxLen int) string {
 }
 
 // postComment posts the comment to the Discussion, truncating if needed.
+// Retries transient failures up to 3 times with backoff. On persistent
+// failure, logs a warning and continues (does not crash the showcase).
 func postComment(ctx context.Context, dryRun bool, name, discID, body string) {
 	// Truncate if approaching GitHub's 65536 char limit.
 	if len(body) > 60000 {
@@ -418,16 +419,30 @@ func postComment(ctx context.Context, dryRun bool, name, discID, body string) {
 		return
 	}
 
-	out, err := graphQL(ctx, `mutation($id: ID!, $body: String!) {
+	mutation := `mutation($id: ID!, $body: String!) {
 		addDiscussionComment(input: { discussionId: $id, body: $body }) {
 			comment { url }
 		}
-	}`, map[string]string{"id": discID, "body": body})
-	if err != nil {
-		log.Fatalf("Failed to post comment for %s:\n%s", name, out)
+	}`
+	vars := map[string]string{"id": discID, "body": body}
+
+	var lastErr string
+	for attempt := 1; attempt <= 3; attempt++ {
+		out, err := graphQL(ctx, mutation, vars)
+		if err == nil {
+			log.Printf("Posted comment for %s", name)
+			return
+		}
+		lastErr = out
+		if attempt < 3 {
+			wait := time.Duration(attempt*10) * time.Second
+			log.Printf("Post comment for %s failed (attempt %d/3), retrying in %s...", name, attempt, wait)
+			time.Sleep(wait)
+		}
 	}
 
-	log.Printf("Posted comment for %s", name)
+	// All retries exhausted — warn and continue to next repo.
+	ghActionsError(fmt.Sprintf("Failed to post comment for %s after 3 attempts: %s", name, lastErr))
 }
 
 // ── Exec helpers ─────────────────────────────────────────────────
@@ -451,6 +466,24 @@ func graphQL(ctx context.Context, query string, vars map[string]string) (string,
 		args = append(args, "-f", k+"="+v)
 	}
 	return execGH(ctx, args...)
+}
+
+// graphQLRetry retries a GraphQL mutation up to 3 times with backoff.
+func graphQLRetry(ctx context.Context, query string, vars map[string]string) error {
+	for attempt := 1; attempt <= 3; attempt++ {
+		_, err := graphQL(ctx, query, vars)
+		if err == nil {
+			return nil
+		}
+		if attempt < 3 {
+			wait := time.Duration(attempt*10) * time.Second
+			log.Printf("GraphQL request failed (attempt %d/3), retrying in %s...", attempt, wait)
+			time.Sleep(wait)
+		} else {
+			return fmt.Errorf("failed after 3 attempts: %w", err)
+		}
+	}
+	return nil // unreachable
 }
 
 // ── JSON parsing helpers ─────────────────────────────────────────
