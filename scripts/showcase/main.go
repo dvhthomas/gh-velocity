@@ -213,9 +213,9 @@ func main() {
 	for i, sc := range configs {
 		ghActionsGroup(fmt.Sprintf("[%d/%d] %s", i+1, len(configs), sc.Name))
 
-		status := processConfig(ctx, cfg, sc, showcaseTime, discID)
-		index = append(index, indexEntry{Repo: sc.Name, Status: status})
-		if status == "success" || status == "partial" {
+		entry := processConfig(ctx, cfg, sc, showcaseTime, discID)
+		index = append(index, entry)
+		if entry.Status == "success" || entry.Status == "partial" {
 			successCount++
 		}
 
@@ -297,10 +297,11 @@ func loadConfigs(path string) ([]showcaseConfig, error) {
 }
 
 // processConfig runs preflight + report for a single config and posts the comment.
-// Returns the final status string.
-func processConfig(ctx context.Context, cfg config, sc showcaseConfig, showcaseTime, discID string) string {
+// Returns the final indexEntry with status and artifact directory.
+func processConfig(ctx context.Context, cfg config, sc showcaseConfig, showcaseTime, discID string) indexEntry {
 	slug := sc.slug()
 	configPath := filepath.Join(cfg.TmpDir, slug+".yml")
+	writeDir := filepath.Join(cfg.TmpDir, slug)
 
 	status, preflightErr := runPreflight(ctx, cfg.Binary, configPath, sc)
 
@@ -312,7 +313,7 @@ func processConfig(ctx context.Context, cfg config, sc showcaseConfig, showcaseT
 	comment := buildComment(sc.Name, status, showcaseTime, configPath, preflightErr, reportMarkdown)
 	postComment(ctx, cfg.DryRun, sc.Name, discID, comment)
 
-	return status
+	return indexEntry{Repo: sc.Name, Status: status, WriteDir: writeDir}
 }
 
 // runPreflight generates a config file via gh-velocity preflight.
@@ -549,6 +550,7 @@ func ghActionsError(msg string) {
 
 // writeJobSummary appends a markdown summary to $GITHUB_STEP_SUMMARY.
 // This shows up as a clickable summary on the Actions run page.
+// Includes the full report markdown for each successful repo in collapsible sections.
 func writeJobSummary(discURL string, index []indexEntry) {
 	summaryPath := os.Getenv("GITHUB_STEP_SUMMARY")
 	if summaryPath == "" {
@@ -572,11 +574,25 @@ func writeJobSummary(discURL string, index []indexEntry) {
 	for _, e := range index {
 		fmt.Fprintf(f, "| %s | `%s` |\n", e.Repo, e.Status)
 	}
+
+	// Append per-repo report content as collapsible sections.
+	for _, e := range index {
+		if e.Status != "success" || e.WriteDir == "" {
+			continue
+		}
+		mdPath := filepath.Join(e.WriteDir, "report.md")
+		data, err := os.ReadFile(mdPath)
+		if err != nil || len(data) == 0 {
+			continue
+		}
+		fmt.Fprintf(f, "\n<details>\n<summary>%s</summary>\n\n%s\n</details>\n", e.Repo, string(data))
+	}
 }
 
 type indexEntry struct {
-	Repo   string
-	Status string
+	Repo     string
+	Status   string
+	WriteDir string // path to --write-to directory with report artifacts
 }
 
 func workflowRunLink() string {

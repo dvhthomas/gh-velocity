@@ -41,7 +41,7 @@ echo ""
 echo "Test 1: report — cold cache vs --no-cache"
 rm -rf "$CACHE_DIR"
 
-$BINARY report --since "$SINCE" --no-cache -R "$REPO" -f json 2>/dev/null > "$TMP_DIR/report-nocache.json"
+$BINARY report --since "$SINCE" --no-cache -R "$REPO" -r json 2>/dev/null > "$TMP_DIR/report-nocache.json"
 NC_EXIT=$?
 NC_WARNINGS=$(python3 -c "import json; d=json.load(open('$TMP_DIR/report-nocache.json')); print(len(d.get('warnings',[])))" 2>/dev/null || echo "?")
 
@@ -54,7 +54,7 @@ else
   sleep 30
 
   rm -rf "$CACHE_DIR"
-  $BINARY report --since "$SINCE" -R "$REPO" -f json 2>/dev/null > "$TMP_DIR/report-cold.json"
+  $BINARY report --since "$SINCE" -R "$REPO" -r json 2>/dev/null > "$TMP_DIR/report-cold.json"
   COLD_EXIT=$?
   COLD_WARNINGS=$(python3 -c "import json; d=json.load(open('$TMP_DIR/report-cold.json')); print(len(d.get('warnings',[])))" 2>/dev/null || echo "?")
 
@@ -79,13 +79,13 @@ rm -rf "$CACHE_DIR"
 echo "  Waiting 30s for rate limit cooldown..."
 sleep 30
 
-$BINARY report --since "$SINCE" -R "$REPO" -f json 2>/dev/null > "$TMP_DIR/report-run1.json"
+$BINARY report --since "$SINCE" -R "$REPO" -r json 2>/dev/null > "$TMP_DIR/report-run1.json"
 RUN1_WARNINGS=$(python3 -c "import json; d=json.load(open('$TMP_DIR/report-run1.json')); print(len(d.get('warnings',[])))" 2>/dev/null || echo "?")
 
 if [[ "$RUN1_WARNINGS" != "0" ]]; then
   echo "  ⚠ Skipping: first run has warnings (likely rate-limited)."
 else
-  $BINARY report --since "$SINCE" -R "$REPO" -f json 2>/dev/null > "$TMP_DIR/report-run2.json"
+  $BINARY report --since "$SINCE" -R "$REPO" -r json 2>/dev/null > "$TMP_DIR/report-run2.json"
 
   if diff -q "$TMP_DIR/report-run1.json" "$TMP_DIR/report-run2.json" >/dev/null 2>&1; then
     pass "report: warm cache == cold cache"
@@ -99,9 +99,9 @@ fi
 echo ""
 echo "Test 3: lead-time — warm cache matches no-cache"
 
-$BINARY flow lead-time --since "$SINCE" --no-cache -R "$REPO" -f json 2>/dev/null > "$TMP_DIR/leadtime-nocache.json"
+$BINARY flow lead-time --since "$SINCE" --no-cache -R "$REPO" -r json 2>/dev/null > "$TMP_DIR/leadtime-nocache.json"
 sleep 5
-$BINARY flow lead-time --since "$SINCE" -R "$REPO" -f json 2>/dev/null > "$TMP_DIR/leadtime-cached.json"
+$BINARY flow lead-time --since "$SINCE" -R "$REPO" -r json 2>/dev/null > "$TMP_DIR/leadtime-cached.json"
 
 if diff -q "$TMP_DIR/leadtime-nocache.json" "$TMP_DIR/leadtime-cached.json" >/dev/null 2>&1; then
   pass "lead-time: cached == no-cache"
@@ -114,9 +114,9 @@ fi
 echo ""
 echo "Test 4: throughput — warm cache matches no-cache"
 
-$BINARY flow throughput --since "$SINCE" --no-cache -R "$REPO" -f json 2>/dev/null > "$TMP_DIR/throughput-nocache.json"
+$BINARY flow throughput --since "$SINCE" --no-cache -R "$REPO" -r json 2>/dev/null > "$TMP_DIR/throughput-nocache.json"
 sleep 5
-$BINARY flow throughput --since "$SINCE" -R "$REPO" -f json 2>/dev/null > "$TMP_DIR/throughput-cached.json"
+$BINARY flow throughput --since "$SINCE" -R "$REPO" -r json 2>/dev/null > "$TMP_DIR/throughput-cached.json"
 
 if diff -q "$TMP_DIR/throughput-nocache.json" "$TMP_DIR/throughput-cached.json" >/dev/null 2>&1; then
   pass "throughput: cached == no-cache"
@@ -130,7 +130,7 @@ echo ""
 echo "Test 5: different --since must NOT use cache from prior run"
 
 # Cache is warm from test 4 with --since 7d. Run with --since 3d.
-$BINARY flow throughput --since 3d -R "$REPO" -f json 2>/dev/null > "$TMP_DIR/throughput-3d.json"
+$BINARY flow throughput --since 3d -R "$REPO" -r json 2>/dev/null > "$TMP_DIR/throughput-3d.json"
 
 # The 3d result should differ from 7d (narrower window = fewer items).
 T7D=$(python3 -c "import json; d=json.load(open('$TMP_DIR/throughput-nocache.json')); print(d.get('issues_closed',0)+d.get('prs_merged',0))" 2>/dev/null || echo "0")
@@ -147,7 +147,7 @@ echo ""
 echo "Test 6: --no-cache ignores disk cache completely"
 
 # Disk cache is warm. Run with --no-cache and verify debug shows no disk hits.
-NOCACHE_DEBUG=$($BINARY flow lead-time --since "$SINCE" --no-cache -R "$REPO" -f pretty --debug 2>&1 >/dev/null)
+NOCACHE_DEBUG=$($BINARY flow lead-time --since "$SINCE" --no-cache -R "$REPO" -r pretty --debug 2>&1 >/dev/null)
 if echo "$NOCACHE_DEBUG" | grep -q "cache hit (disk)"; then
   fail "--no-cache still hit disk cache"
 else
