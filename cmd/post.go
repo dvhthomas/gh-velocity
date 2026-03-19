@@ -68,6 +68,11 @@ func setupPost(cmd *cobra.Command, deps *Deps, client *gh.Client, opts posting.P
 				Client: &discussionAdapter{client: client},
 				DryRun: deps.DryRun,
 			}
+		case posting.IssueBody:
+			poster = &posting.BodyPoster{
+				Client: &bodyAdapter{client: client},
+				DryRun: deps.DryRun,
+			}
 		default:
 			poster = &posting.CommentPoster{
 				Client: &commentAdapter{client: client},
@@ -102,6 +107,19 @@ func (a *commentAdapter) CreateComment(ctx context.Context, number int, body str
 
 func (a *commentAdapter) UpdateComment(ctx context.Context, commentID int64, body string) error {
 	return a.client.UpdateComment(ctx, commentID, body)
+}
+
+// bodyAdapter adapts github.Client to posting.BodyClient.
+type bodyAdapter struct {
+	client *gh.Client
+}
+
+func (a *bodyAdapter) GetBody(ctx context.Context, number int) (string, error) {
+	return a.client.GetIssueBody(ctx, number)
+}
+
+func (a *bodyAdapter) UpdateBody(ctx context.Context, number int, body string) error {
+	return a.client.UpdateIssueBody(ctx, number, body)
 }
 
 // discussionAdapter adapts github.Client to posting.DiscussionClient.

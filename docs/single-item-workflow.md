@@ -57,7 +57,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  lead-time:
+  issue-detail:
     # Only when an issue is closed as completed (not "not planned")
     if: >-
       github.event_name == 'issues' &&
@@ -68,14 +68,14 @@ jobs:
 
       - run: gh extension install dvhthomas/gh-velocity
 
-      - name: Post lead time to issue
+      - name: Post issue detail
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_VELOCITY_POST_LIVE: "true"
         run: |
-          gh velocity flow lead-time ${{ github.event.issue.number }} --post
+          gh velocity issue ${{ github.event.issue.number }} --post
 
-  cycle-time:
+  pr-cycle-time:
     # Only when a PR is actually merged (not just closed)
     if: >-
       github.event_name == 'pull_request' &&
@@ -148,13 +148,23 @@ For more on posting mechanics, see the [Posting Reports guide](../site/content/g
 
 ### What the comments look like
 
-On an issue, the lead-time comment shows a single-row table:
+On an issue, the `issue` command posts a rich composite comment with facts, metrics, and linked PRs:
 
-| Issue | Title | Created (UTC) | Lead Time |
-| ---: | --- | --- | --- |
-| #119 | feat(preflight): auto-detect and exclude noise labels | 2026-03-18 | 1m  (created -> closed) |
+> ## Issue #108: bug: throughput detail section missing
+>
+> **Created:** 2026-03-18 03:18 UTC · **Closed:** 2026-03-18 05:30 UTC · **Category:** bug
+>
+> | Metric | Value |
+> |--------|-------|
+> | Lead Time | 2h 11m (created -> closed) |
+> | Cycle Time | — (no in-progress signal found) |
+>
+> ### Linked PRs
+> | PR | Title | Cycle Time |
+> |----|-------|------------|
+> | #111 | fix: stability-first rollup | 1m (created -> merged) |
 
-On a PR, the cycle-time comment is similar:
+On a PR, the cycle-time comment shows:
 
 | PR | Title | Started (UTC) | Cycle Time |
 | ---: | --- | --- | --- |
@@ -183,13 +193,13 @@ Before committing the workflow, verify the commands work against your repo:
 
 ```bash
 # Dry-run (no comment posted, just shows output)
-gh velocity flow lead-time 42 --post
+gh velocity issue 42 --post
 
 # Live (posts the comment)
-GH_VELOCITY_POST_LIVE=true gh velocity flow lead-time 42 --post
+GH_VELOCITY_POST_LIVE=true gh velocity issue 42 --post
 ```
 
-Replace `42` with a real issue number in your repo. Same for cycle-time:
+Replace `42` with a real closed issue number in your repo. For PRs:
 
 ```bash
 gh velocity flow cycle-time --pr 10 --post
@@ -204,7 +214,7 @@ Once you see the expected output, commit the workflow file and the comments will
 1. Check the Actions tab — did the workflow run? Look for the "Item Metrics" workflow.
 2. Is `GH_VELOCITY_POST_LIVE: "true"` set in the env block? Without it, `--post` runs in dry-run mode.
 3. Check the workflow permissions — `issues: write` and `pull-requests: write` are both required.
-4. Run with `--debug` to see diagnostic output: `gh velocity flow lead-time 42 --post --debug`
+4. Run with `--debug` to see diagnostic output: `gh velocity issue 42 --post --debug`
 
 **Workflow runs but lead-time job is skipped**
 

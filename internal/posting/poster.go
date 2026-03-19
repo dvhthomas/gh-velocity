@@ -19,6 +19,8 @@ const (
 	PRComment
 	// DiscussionTarget posts as a GitHub Discussion.
 	DiscussionTarget
+	// IssueBody appends/updates a marked section in the issue/PR body.
+	IssueBody
 )
 
 // PostOptions configures a single post operation.
@@ -132,6 +134,59 @@ func (p *CommentPoster) Post(ctx context.Context, opts PostOptions) error {
 		}
 	}
 	log.Notice("Posted to #%d (new comment)", opts.Number)
+	return nil
+}
+
+// BodyClient abstracts the GitHub API calls needed by BodyPoster.
+type BodyClient interface {
+	GetBody(ctx context.Context, number int) (string, error)
+	UpdateBody(ctx context.Context, number int, body string) error
+}
+
+// BodyPoster injects metrics into the body of an issue or PR.
+// It appends a marked section at the end, or replaces an existing one.
+type BodyPoster struct {
+	Client BodyClient
+	DryRun bool
+}
+
+// Post reads the current body, injects the marked section, and updates the body.
+func (p *BodyPoster) Post(ctx context.Context, opts PostOptions) error {
+	markedContent := WrapWithMarker(opts.Command, opts.Context, opts.Content)
+
+	currentBody, err := p.Client.GetBody(ctx, opts.Number)
+	if err != nil {
+		return &model.AppError{
+			Code:    model.ErrPostFailed,
+			Message: fmt.Sprintf("read body of #%d: %v", opts.Number, err),
+		}
+	}
+
+	newBody := InjectMarkedSection(currentBody, opts.Command, opts.Context, markedContent)
+
+	if p.DryRun {
+		if currentBody == newBody {
+			log.Notice("[dry-run] Body of #%d already up to date", opts.Number)
+		} else if FindMarker(currentBody, opts.Command, opts.Context) {
+			log.Notice("[dry-run] Would update metrics section in body of #%d", opts.Number)
+		} else {
+			log.Notice("[dry-run] Would append metrics section to body of #%d", opts.Number)
+		}
+		return nil
+	}
+
+	if err := p.Client.UpdateBody(ctx, opts.Number, newBody); err != nil {
+		return &model.AppError{
+			Code:    model.ErrPostFailed,
+			Message: fmt.Sprintf("update body of #%d: %v", opts.Number, err),
+		}
+	}
+
+	if FindMarker(currentBody, opts.Command, opts.Context) {
+		log.Notice("Updated metrics in body of #%d", opts.Number)
+	} else {
+		log.Notice("Appended metrics to body of #%d", opts.Number)
+	}
 	return nil
 }
 

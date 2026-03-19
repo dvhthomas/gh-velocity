@@ -13,7 +13,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  lead-time:
+  issue-detail:
     # Only when an issue is closed as completed (not "not planned")
     if: >-
       github.event_name == 'issues' &&
@@ -24,14 +24,14 @@ jobs:
 
       - run: gh extension install dvhthomas/gh-velocity
 
-      - name: Post lead time to issue
+      - name: Post issue detail
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_VELOCITY_POST_LIVE: "true"
         run: |
-          gh velocity flow lead-time ${{ github.event.issue.number }} --post
+          gh velocity issue ${{ github.event.issue.number }} --post
 
-  cycle-time:
+  pr-cycle-time:
     # Only when a PR is actually merged (not just closed)
     if: >-
       github.event_name == 'pull_request' &&
