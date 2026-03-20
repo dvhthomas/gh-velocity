@@ -34,7 +34,6 @@ get_registered_commands() {
     # Sub-commands: parse each group file for AddCommand
     # flow.go -> flow lead-time, flow cycle-time, flow throughput
     # quality.go -> quality release
-    # risk.go -> risk bus-factor
     # status.go -> status wip, status my-week, status reviews
     # config.go -> config show, config validate, config create, config discover, config preflight
 
@@ -69,7 +68,6 @@ get_registered_commands() {
 
     add_subcommands "flow" "cmd/flow.go"
     add_subcommands "quality" "cmd/quality.go"
-    add_subcommands "risk" "cmd/risk.go"
     add_subcommands "status" "cmd/status.go"
     add_subcommands "config" "cmd/config.go"
 
@@ -257,7 +255,7 @@ check_smoke_tests() {
             [ -z "$cmd" ] && continue
             # Skip group parents (they just print help) and deprecated
             case "$cmd" in
-                flow|quality|risk|status|config|release) continue ;;
+                flow|quality|status|config|release) continue ;;
             esac
 
             # Extract the leaf command name for searching

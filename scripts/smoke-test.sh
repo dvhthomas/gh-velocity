@@ -260,10 +260,6 @@ show "$out"
 [[ "$out" == *"my-week"* ]] && pass "status help shows my-week" || fail "status help shows my-week"
 [[ "$out" == *"reviews"* ]] && pass "status help shows reviews" || fail "status help shows reviews"
 
-out=$($BINARY risk --help 2>&1)
-show "$out"
-[[ "$out" == *"bus-factor"* ]] && pass "risk help shows bus-factor" || fail "risk help shows bus-factor"
-
 # ── flow throughput ───────────────────────────────────────────────
 echo ""
 echo "flow throughput (cli/cli --since 7d)"
@@ -280,22 +276,6 @@ echo "$out" | jq -e '.issues_closed' >/dev/null 2>&1 && pass "flow throughput js
 out=$($BINARY flow throughput --since 7d -R cli/cli --config "$CLI_CONFIG" -r markdown 2>/dev/null)
 show "$out"
 [[ "$out" == *"## Throughput:"* ]] && pass "flow throughput markdown" || fail "flow throughput markdown"
-
-# ── risk bus-factor ───────────────────────────────────────────────
-echo ""
-echo "risk bus-factor (local repo)"
-
-out=$($BINARY risk bus-factor 2>&1)
-show "$out"
-[[ "$out" == *"Knowledge Risk"* ]] && pass "risk bus-factor pretty" || fail "risk bus-factor pretty"
-
-out=$($BINARY risk bus-factor -r json 2>/dev/null)
-echo "$out" | jq '.paths | length' 2>/dev/null | sed 's/^/    paths: /'
-echo "$out" | jq -e '.paths' >/dev/null 2>&1 && pass "risk bus-factor json" || fail "risk bus-factor json"
-
-out=$($BINARY risk bus-factor -r markdown 2>/dev/null)
-show "$out"
-[[ "$out" == *"## Knowledge Risk"* ]] && pass "risk bus-factor markdown" || fail "risk bus-factor markdown"
 
 # ── status reviews ───────────────────────────────────────────────
 echo ""

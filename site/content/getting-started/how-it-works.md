@@ -14,7 +14,6 @@ Commands are organized by the question they answer:
 | `flow` | How fast is work flowing? | `flow lead-time`, `flow cycle-time`, `flow throughput`, `flow velocity` |
 | `quality` | Is this code good? | `quality release` |
 | `status` | What's happening right now? | `status wip`, `status my-week`, `status reviews` |
-| `risk` | Where are structural risks? | `risk bus-factor` |
 | `report` | Give me the full picture | Composite dashboard of flow + quality |
 | `config` | How do I set this up? | `config preflight`, `config validate`, `config show` |
 

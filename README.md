@@ -76,9 +76,6 @@ gh velocity
 ├── quality                           # How good is our output?
 │   └── release <tag> [--since] [--discover]
 │
-├── risk                              # What should we watch?
-│   └── bus-factor [--since]          # Contributor concentration
-│
 ├── status                            # What's happening now?
 │   ├── wip                           # Work in progress
 │   ├── my-week [--since]             # Your recent activity
@@ -190,10 +187,6 @@ jobs:
 - **Composition** — categorize issues by label (bug, feature, or custom categories)
 - **Hotfix detection** — flag issues closed very close to release
 - **Aggregates** — mean, median, P90, P95, IQR-based outlier detection
-
-### Risk
-
-- **Bus factor** — contributor concentration risk (how spread is work across the team?)
 
 ### Status
 
