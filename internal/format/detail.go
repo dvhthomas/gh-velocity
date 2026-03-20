@@ -35,11 +35,18 @@ type DetailSection struct {
 	Rows    [][]string // each row has len(Headers) cells
 }
 
+// DetailLink is a markdown link for use in template rendering.
+type DetailLink struct {
+	Text string // e.g., "#84"
+	URL  string // full URL
+}
+
 // DetailData is the input to the shared detail markdown template.
 type DetailData struct {
-	Facts    string          // "opened 2026-03-20 · closed 2026-03-20" etc.
-	Metrics  []MetricRow     // rows for the metrics table
-	Sections []DetailSection // optional sub-tables
+	Facts        string          // "opened 2026-03-20 · closed 2026-03-20" etc.
+	Metrics      []MetricRow     // rows for the metrics table
+	ClosedIssues []DetailLink    // linked issues (rendered as inline sentence)
+	Sections     []DetailSection // optional sub-tables
 }
 
 var templateFuncs = template.FuncMap{
@@ -47,6 +54,12 @@ var templateFuncs = template.FuncMap{
 	"isOK":            func() string { return StatusOK },
 	"isNA":            func() string { return StatusNA },
 	"isNotConfigured": func() string { return StatusNotConfigured },
+	"plural": func(n int, singular, plural string) string {
+		if n == 1 {
+			return singular
+		}
+		return plural
+	},
 	"dashes": func(headers []string) string {
 		parts := make([]string, len(headers))
 		for i := range headers {
@@ -75,6 +88,9 @@ var detailTemplate = template.Must(template.New("detail").Funcs(templateFuncs).P
 | {{ .Name }} | {{ .Value }} |
 {{ end -}}
 {{- end }}
+{{- if .ClosedIssues }}
+Closed {{ plural (len .ClosedIssues) "issue" "issues" }}:{{ range .ClosedIssues }} [{{ .Text }}]({{ .URL }}){{ end }}
+{{ end }}
 {{- range .Sections }}
 ### {{ .Title }}
 

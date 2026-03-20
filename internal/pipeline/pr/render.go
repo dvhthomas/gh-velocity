@@ -13,7 +13,7 @@ import (
 // WriteMarkdown writes the PR detail as GitHub-flavored markdown.
 func WriteMarkdown(rc format.RenderContext, p *Pipeline) error {
 	// Facts
-	authorFact := p.PR.Author + authorTypeSuffix(p.AuthorType)
+	authorFact := "@" + p.PR.Author + authorTypeSuffix(p.AuthorType)
 	mergedFact := ""
 	if p.PR.MergedAt != nil {
 		mergedFact = format.FormatTimeFact("merged", *p.PR.MergedAt)
@@ -44,24 +44,19 @@ func WriteMarkdown(rc format.RenderContext, p *Pipeline) error {
 		{Name: "Review Rounds", Status: format.StatusOK, Value: fmt.Sprintf("%d", p.ReviewSummary.ReviewRounds)},
 	}
 
-	// Sections
-	var sections []format.DetailSection
-	if len(p.ClosedIssues) > 0 {
-		sec := format.DetailSection{
-			Title:   "Closed Issues",
-			Headers: []string{"Issue", "Title"},
-		}
-		for _, issue := range p.ClosedIssues {
-			issueLink := format.FormatItemLink(issue.Number, issue.URL, rc)
-			sec.Rows = append(sec.Rows, []string{issueLink, issue.Title})
-		}
-		sections = append(sections, sec)
+	// Closed issues as inline links
+	var closedIssues []format.DetailLink
+	for _, issue := range p.ClosedIssues {
+		closedIssues = append(closedIssues, format.DetailLink{
+			Text: fmt.Sprintf("#%d", issue.Number),
+			URL:  issue.URL,
+		})
 	}
 
 	d := format.DetailData{
-		Facts:    facts,
-		Metrics:  metrics,
-		Sections: sections,
+		Facts:        facts,
+		Metrics:      metrics,
+		ClosedIssues: closedIssues,
 	}
 
 	return format.WriteDetail(rc.Writer, d)
