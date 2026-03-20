@@ -26,13 +26,21 @@ func NewMyWeekCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "my-week",
 		Short: "Your activity summary for 1:1 prep",
-		Long: `Shows what you shipped and what's ahead — designed for 1:1 prep.
+		Long: `Shows what you shipped, what's blocked, and what's ahead — designed for 1:1 prep.
 
-Lookback: issues closed, PRs merged, PRs reviewed in the --since period.
-Lookahead: open issues assigned to you, open PRs you authored.
+Sections (in order):
+  Insights      Shipping velocity, AI-assisted %, lead time median & p90
+  Waiting on    PRs waiting for first review, stale issues
+  What I shipped Issues closed, PRs merged, PRs reviewed, releases
+  What's ahead  Open issues and PRs with status annotations
+  Review queue  PRs from others waiting on your review
+
+AI-assisted PRs are tagged [ai] based on Co-Authored-By trailers and
+tool badges in the PR body.
 
 By default shows ALL your activity across repositories. Use -R to limit
-to a single repo. Uses the authenticated GitHub user (gh auth status).
+to a single repo (also enables releases). Uses the authenticated GitHub
+user (gh auth status).
 
 Works without a config file or repo context — just run it from anywhere.`,
 		Example: `  # All your activity in the last 7 days
