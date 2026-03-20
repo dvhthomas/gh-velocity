@@ -477,7 +477,7 @@ Used by the `--post` flag on bulk commands to create or update Discussion posts.
 | Property | Value |
 |---|---|
 | **Type** | int (nullable) |
-| **Default** | `0` (no throttle, unless set by preflight) |
+| **Default** | `0` (no throttle). `preflight` recommends `2` for repos with many iterations. |
 | **Recommended** | `2` |
 
 Minimum delay in seconds between GitHub Search API calls. Prevents triggering GitHub's secondary (abuse) rate limits, which have undocumented thresholds and can result in multi-minute lockouts.

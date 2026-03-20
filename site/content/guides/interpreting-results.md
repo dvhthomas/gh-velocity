@@ -7,7 +7,11 @@ weight: 1
 
 gh-velocity produces output in three formats: pretty (default), JSON, and markdown. Each format contains the same data, structured for different consumers. This guide explains how to read the output, what healthy metrics look like, and what common patterns mean.
 
-## Output formats at a glance
+## Reading your output
+
+This section covers the mechanics of each output format, metric states, and output layers so you can parse what the tool is telling you.
+
+### Output formats at a glance
 
 | Format | Best for | Flag |
 |--------|----------|------|
@@ -18,7 +22,7 @@ gh-velocity produces output in three formats: pretty (default), JSON, and markdo
 
 All commands accept `--results` (or `-r`). If you omit it, you get pretty.
 
-## Three metric states
+### Three metric states
 
 Every timing metric (lead time, cycle time) can be in one of three states:
 
@@ -28,9 +32,16 @@ Every timing metric (lead time, cycle time) can be in one of three states:
 | **In progress** | `in progress` | `"started_at": "...", "duration_seconds": null` | Work started but isn't done yet — the clock is still running |
 | **N/A** | `N/A` | `"started_at": null, "duration_seconds": null` | No start signal found — the tool can't measure this item |
 
-N/A usually means your cycle time strategy doesn't have a signal for that issue. See [Cycle Time Setup]({{< relref "cycle-time-setup" >}}) to fix this.
+N/A usually means your cycle time strategy doesn't have a signal for that issue. The full list of reasons cycle time can show N/A:
 
-## Output layers
+- **No `lifecycle.in-progress.match` configured** — the tool has no label to look for, so every issue is N/A
+- **Configured but no matching label event found** — the label exists in config but was never applied to this issue
+- **Issue is in backlog** — the issue matches a backlog label, so it is excluded from cycle time measurement
+- **Negative cycle time was filtered** — the computed duration was negative (start after close) and was discarded as invalid
+
+See [Cycle Time Setup]({{< relref "cycle-time-setup" >}}) to fix this.
+
+### Output layers
 
 Every command produces up to four layers of output:
 
@@ -43,7 +54,7 @@ Every command produces up to four layers of output:
 
 The `report` command shows stats only (one line per metric). Standalone commands like `flow cycle-time` and `quality release` show all four layers. In JSON, each layer is a top-level key.
 
-## Reading pretty output
+### Reading pretty output
 
 Pretty output is designed for a terminal. Here is an example from `quality release`:
 
@@ -78,7 +89,7 @@ Key things to notice:
 - **Composition** shows category breakdown and bug ratio.
 - **Cadence** and **hotfix** describe the release rhythm.
 
-## Reading JSON output
+### Reading JSON output
 
 JSON is the richest format. Every field that appears in pretty output is present in JSON, plus additional fields for programmatic use.
 
@@ -108,7 +119,7 @@ gh velocity quality release v1.2.0 --results json | \
 
 When errors occur in JSON mode, they appear as structured `ErrorEnvelope` objects on stderr, not as plain text. See [Agent Integration]({{< relref "agent-integration" >}}) for details on parsing JSON errors.
 
-## Reading markdown output
+### Reading markdown output
 
 Markdown is designed for pasting into GitHub Issues, PRs, or Discussions:
 
@@ -123,9 +134,9 @@ gh velocity quality release v1.2.0 --results markdown | \
   gh issue comment 100 --body-file -
 ```
 
-## What "good" looks like
+## What healthy metrics look like
 
-There are no universal benchmarks. What matters is your trend over time and whether the numbers match your team's experience. That said, here are patterns that indicate healthy delivery:
+Now that you can read the output, here is how to judge whether the numbers are cause for celebration or concern. There are no universal benchmarks — what matters is your trend over time and whether the numbers match your team's experience. That said, here are patterns that indicate healthy delivery:
 
 ### [Lead time]({{< relref "/reference/metrics/lead-time" >}})
 

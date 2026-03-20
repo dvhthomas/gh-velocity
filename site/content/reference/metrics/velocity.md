@@ -16,7 +16,7 @@ completion_rate = velocity / committed_effort * 100
 
 - **Velocity** is the total effort of items that are "done" within an iteration.
 - **Committed effort** is the total effort of all items assigned to the iteration (done or not).
-- **Completion rate** is the percentage of committed effort that was actually completed.
+- **Completion rate** is the percentage of committed effort that was actually completed. If committed effort is 0, completion rate is omitted.
 
 An item is "done" when:
 - **Issues** (`velocity.unit: issues`): Closed with `stateReason: completed` (not "not planned").

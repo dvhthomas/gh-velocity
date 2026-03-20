@@ -202,6 +202,12 @@ permissions:
 
 The default `GITHUB_TOKEN` cannot access Projects v2 boards. Set up `GH_VELOCITY_TOKEN` with `project` scope. See [CI Setup: Setting up GH_VELOCITY_TOKEN]({{< relref "/getting-started/ci-setup" >}}#setting-up-gh_velocity_token).
 
+## Velocity issues
+
+### Velocity shows high not-assessed count
+
+Items without an effort value show as "not assessed" in velocity output. This happens when issues lack the effort labels (e.g., `size/S`, `size/M`) or project board field values that your `velocity.effort` config expects. Fix by applying effort labels to your issues, or if you use a project board number field, switch to `strategy: numeric` and ensure the field is populated. Run `gh velocity config validate --velocity` to see which issues are unmatched.
+
 ## Debugging
 
 Use `--debug` to print diagnostic information to stderr:

@@ -93,6 +93,8 @@ The right strategy depends on your workflow. There is no single "best" choice:
 | Issues with lifecycle labels | `issue` | `lifecycle.in-progress.match: ["label:in-progress"]` | Most reliable timestamps (labels are immutable). Requires label discipline. |
 | PRs close issues (most OSS repos) | `pr` | `cycle_time.strategy: pr` | Zero config needed. Measures PR open-to-merge time, not total work time. |
 
+See [Cycle Time reference]({{< relref "/reference/metrics/cycle-time" >}}) for the full signal priority hierarchy.
+
 **Setting up the issue strategy:**
 
 The simplest path is labels:

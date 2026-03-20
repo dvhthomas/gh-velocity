@@ -63,6 +63,14 @@ gh velocity config show
 gh velocity config show -r json
 ```
 
+### Common validation errors
+
+**`quality.categories[0].match: unknown matcher type "bug"`** — Matchers need a prefix. Use `label:bug` instead of bare `bug`.
+
+**`velocity.effort.attribute[0].value: must be positive`** — Effort values must be greater than zero. Change `value: 0` to `value: 1` or remove the entry.
+
+**`lifecycle.in-progress.match: empty match list`** — The `in-progress` stage is declared but has no matchers. Add at least one, e.g., `["label:in-progress"]`.
+
 ## Minimal config
 
 If your repo uses standard `bug` and `enhancement` labels, this is all you need:

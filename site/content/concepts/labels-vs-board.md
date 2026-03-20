@@ -34,6 +34,15 @@ Project boards remain valuable for velocity and visibility -- they are just not 
 | Effort classification | `field:Size/M` matchers read SingleSelect fields from the board |
 | Team visibility | Board columns give a visual overview of work status |
 
+## What project boards ARE used for
+
+Project boards serve two concrete roles in gh-velocity:
+
+1. **Iteration tracking** — the `velocity.iteration.strategy: project-field` setting reads an Iteration field from the board to group issues into sprints for velocity measurement.
+2. **Effort fields** — the `numeric` effort strategy reads a Number field from the board (e.g., story points), and `field:Size/M` matchers read SingleSelect fields for the `attribute` effort strategy.
+
+Both are read-only data sources. The board is never used as a lifecycle or cycle-time signal.
+
 ## Suggested labels
 
 - **`in-progress`** (required for cycle time) -- apply when work starts on an issue
