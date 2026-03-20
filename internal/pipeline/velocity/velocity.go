@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/config"
@@ -40,10 +42,11 @@ type Pipeline struct {
 	Verbose        bool
 
 	// Internal state
-	items     []model.VelocityItem
-	periods   PeriodStrategy
-	evaluator EffortEvaluator
-	Result    model.VelocityResult
+	items         []model.VelocityItem
+	periods       PeriodStrategy
+	evaluator     EffortEvaluator
+	offBoardItems []int // issue/PR numbers in scope but not on the project board
+	Result        model.VelocityResult
 }
 
 // GatherData fetches project items and resolves iteration boundaries.
@@ -118,6 +121,82 @@ func (p *Pipeline) gatherFromBoard(ctx context.Context) error {
 
 	// Board is the scope — include all items, don't filter by repo.
 	p.items = items
+
+	// Detect items that are in scope (via search) but not on the board.
+	// Only relevant when effort depends on the board (numeric or field matchers).
+	effortNeedsBoard := p.Config.Effort.Strategy == "numeric" || HasFieldMatchers(p.Config.Effort)
+	if effortNeedsBoard && p.Scope != "" {
+		if err := p.detectOffBoardItems(ctx); err != nil {
+			log.Warn("velocity: off-board detection failed: %v", err)
+		}
+	}
+
+	return nil
+}
+
+// detectOffBoardItems runs a search query for in-scope closed items and
+// compares against board items to find issues/PRs missing from the board.
+func (p *Pipeline) detectOffBoardItems(ctx context.Context) error {
+	// Determine the time range from resolved iterations.
+	var earliest, latest time.Time
+	if p.periods != nil {
+		if current, err := p.periods.Current(); err == nil {
+			earliest = current.StartDate
+			latest = current.EndDate
+		}
+		if history, err := p.periods.Iterations(p.IterationCount); err == nil && len(history) > 0 {
+			for _, h := range history {
+				if earliest.IsZero() || h.StartDate.Before(earliest) {
+					earliest = h.StartDate
+				}
+				if h.EndDate.After(latest) {
+					latest = h.EndDate
+				}
+			}
+		}
+	}
+	if earliest.IsZero() || latest.IsZero() {
+		return nil
+	}
+
+	// Search for in-scope closed items in the same time range.
+	var searchNumbers map[int]bool
+	if p.Config.Unit == "prs" {
+		q := scope.MergedPRQuery(p.Scope, earliest, latest)
+		q.ExcludeUsers = p.ExcludeUsers
+		prs, err := p.Client.SearchPRs(ctx, q.Build())
+		if err != nil {
+			return err
+		}
+		searchNumbers = make(map[int]bool, len(prs))
+		for _, pr := range prs {
+			searchNumbers[pr.Number] = true
+		}
+	} else {
+		q := scope.ClosedIssueQuery(p.Scope, earliest, latest)
+		q.ExcludeUsers = p.ExcludeUsers
+		issues, err := p.Client.SearchIssues(ctx, q.Build())
+		if err != nil {
+			return err
+		}
+		searchNumbers = make(map[int]bool, len(issues))
+		for _, iss := range issues {
+			searchNumbers[iss.Number] = true
+		}
+	}
+
+	// Build set of board item numbers.
+	boardNumbers := make(map[int]bool, len(p.items))
+	for _, item := range p.items {
+		boardNumbers[item.Number] = true
+	}
+
+	// Compute delta: in search but not on board.
+	for num := range searchNumbers {
+		if !boardNumbers[num] {
+			p.offBoardItems = append(p.offBoardItems, num)
+		}
+	}
 
 	return nil
 }
@@ -351,9 +430,9 @@ func (p *Pipeline) generateInsights() {
 	if totalNotAssessed > 0 && totalItems > 0 {
 		pct := float64(totalNotAssessed) / float64(totalItems) * 100
 		if pct >= 100 {
-			r.Insights = append(r.Insights, model.Insight{Type: "not_assessed", Message: fmt.Sprintf("All %d items lack effort estimates — velocity will be 0 until estimates are added.", totalNotAssessed)})
+			r.Insights = append(r.Insights, model.Insight{Type: "not_assessed", Message: fmt.Sprintf("All %d items lack effort values — velocity will be 0 until effort is assigned.", totalNotAssessed)})
 		} else if pct >= 50 {
-			r.Insights = append(r.Insights, model.Insight{Type: "not_assessed", Message: fmt.Sprintf("%.0f%% of items (%d/%d) lack effort estimates — velocity may be understated.", pct, totalNotAssessed, totalItems)})
+			r.Insights = append(r.Insights, model.Insight{Type: "not_assessed", Message: fmt.Sprintf("%.0f%% of items (%d/%d) lack effort values — velocity may be understated.", pct, totalNotAssessed, totalItems)})
 		}
 	}
 
@@ -371,8 +450,22 @@ func (p *Pipeline) generateInsights() {
 	if r.AvgVelocity > 0 && r.StdDev > 0 {
 		cv := r.StdDev / r.AvgVelocity
 		if cv > 0.5 {
-			r.Insights = append(r.Insights, model.Insight{Type: "high_variability", Message: fmt.Sprintf("High velocity variability (CV=%.1f) — sprint commitments may be inconsistent.", cv)})
+			r.Insights = append(r.Insights, model.Insight{Type: "high_variability", Message: fmt.Sprintf("High velocity variability (CV=%.1f) — iteration commitments may be inconsistent.", cv)})
 		}
+	}
+
+	// Items in scope but not on the project board (effort depends on board).
+	if len(p.offBoardItems) > 0 {
+		sort.Ints(p.offBoardItems)
+		nums := make([]string, len(p.offBoardItems))
+		for i, n := range p.offBoardItems {
+			nums[i] = fmt.Sprintf("#%d", n)
+		}
+		r.Insights = append(r.Insights, model.Insight{
+			Type:    "field_effort_off_board",
+			Message: fmt.Sprintf("%d items are not on the project board and have no effort assigned: %s", len(p.offBoardItems), strings.Join(nums, ", ")),
+		})
+		r.OffBoardItems = p.offBoardItems
 	}
 }
 

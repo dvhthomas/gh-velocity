@@ -1,6 +1,6 @@
 ---
 title: "Labels as Lifecycle Signal"
-weight: 4
+weight: 5
 ---
 
 # Labels Are the Lifecycle Signal
@@ -26,10 +26,10 @@ This is a fundamental GitHub API limitation. Labels are the only reliable answer
 
 ## What project boards do
 
-Project boards serve two read-only roles in gh-velocity -- they are never used as lifecycle or cycle-time signals:
+Project boards serve two read-only roles in gh-velocity -- they are never used as [lifecycle]({{< relref "/concepts/terminology" >}}#lifecycle) or cycle-time signals:
 
-1. **Iteration tracking** -- `velocity.iteration.strategy: project-field` reads an Iteration field from the board to group issues into sprints.
-2. **Effort fields** -- the `numeric` effort strategy reads a Number field (e.g., story points), and `field:Size/M` matchers read SingleSelect fields for the `attribute` effort strategy.
+1. **[Iteration]({{< relref "/concepts/terminology" >}}#iteration) tracking** -- reads the board's Iteration field to define time periods for velocity bucketing.
+2. **[Effort]({{< relref "/concepts/terminology" >}}#effort) fields** -- reads Number or SingleSelect fields for effort weighting.
 
 ## Suggested labels
 

@@ -356,3 +356,276 @@ func TestIsDone(t *testing.T) {
 }
 
 func timePtr(t time.Time) *time.Time { return &t }
+
+// --- Off-board effort insight tests ---
+
+func TestProcessData_FieldEffortOffBoard(t *testing.T) {
+	// Items in scope but not on board should produce the field_effort_off_board insight.
+	now := date(2026, 3, 10)
+	fp, _ := NewFixedPeriod(config.FixedIterationConfig{
+		Length: "14d", Anchor: "2026-01-06",
+	}, now)
+
+	p := &Pipeline{
+		Owner: "test", Repo: "repo",
+		Config: config.VelocityConfig{
+			Unit:      "issues",
+			Effort:    config.EffortConfig{Strategy: "numeric", Numeric: config.NumericEffortConfig{ProjectField: "Points"}},
+			Iteration: config.IterationConfig{Strategy: "fixed", Count: 1},
+		},
+		Now:            now,
+		IterationCount: 1,
+		periods:        fp,
+		items: []model.VelocityItem{
+			{Number: 10, ContentType: "Issue", State: "closed", StateReason: "completed",
+				ClosedAt: timePtr(date(2026, 3, 5)), Effort: ptr(5)},
+		},
+		offBoardItems: []int{20, 15}, // issues in scope but not on the board
+	}
+	e, _ := NewEffortEvaluator(p.Config.Effort)
+	p.evaluator = e
+
+	if err := p.ProcessData(); err != nil {
+		t.Fatalf("ProcessData: %v", err)
+	}
+
+	// Should have the off-board insight.
+	var found bool
+	for _, ins := range p.Result.Insights {
+		if ins.Type == "field_effort_off_board" {
+			found = true
+			if !strings.Contains(ins.Message, "#15") || !strings.Contains(ins.Message, "#20") {
+				t.Errorf("insight message missing issue numbers: %s", ins.Message)
+			}
+			if !strings.Contains(ins.Message, "2 items") {
+				t.Errorf("insight message missing count: %s", ins.Message)
+			}
+		}
+	}
+	if !found {
+		t.Error("missing field_effort_off_board insight")
+	}
+
+	// OffBoardItems should be set on result and sorted.
+	if len(p.Result.OffBoardItems) != 2 {
+		t.Fatalf("OffBoardItems len = %d, want 2", len(p.Result.OffBoardItems))
+	}
+	if p.Result.OffBoardItems[0] != 15 || p.Result.OffBoardItems[1] != 20 {
+		t.Errorf("OffBoardItems = %v, want [15, 20]", p.Result.OffBoardItems)
+	}
+}
+
+func TestProcessData_FieldEffortAllOnBoard(t *testing.T) {
+	// When all items are on the board, no off-board insight should appear.
+	now := date(2026, 3, 10)
+	fp, _ := NewFixedPeriod(config.FixedIterationConfig{
+		Length: "14d", Anchor: "2026-01-06",
+	}, now)
+
+	p := &Pipeline{
+		Owner: "test", Repo: "repo",
+		Config: config.VelocityConfig{
+			Unit:      "issues",
+			Effort:    config.EffortConfig{Strategy: "numeric", Numeric: config.NumericEffortConfig{ProjectField: "Points"}},
+			Iteration: config.IterationConfig{Strategy: "fixed", Count: 1},
+		},
+		Now:            now,
+		IterationCount: 1,
+		periods:        fp,
+		items: []model.VelocityItem{
+			{Number: 10, ContentType: "Issue", State: "closed", StateReason: "completed",
+				ClosedAt: timePtr(date(2026, 3, 5)), Effort: ptr(5)},
+		},
+		// No offBoardItems — all in scope are on the board.
+	}
+	e, _ := NewEffortEvaluator(p.Config.Effort)
+	p.evaluator = e
+
+	if err := p.ProcessData(); err != nil {
+		t.Fatalf("ProcessData: %v", err)
+	}
+
+	for _, ins := range p.Result.Insights {
+		if ins.Type == "field_effort_off_board" {
+			t.Error("unexpected field_effort_off_board insight when all items are on board")
+		}
+	}
+	if len(p.Result.OffBoardItems) != 0 {
+		t.Errorf("OffBoardItems should be empty, got %v", p.Result.OffBoardItems)
+	}
+}
+
+func TestProcessData_CountStrategyNoOffBoardInsight(t *testing.T) {
+	// Count strategy should never produce an off-board insight, even if offBoardItems is set.
+	now := date(2026, 3, 10)
+	fp, _ := NewFixedPeriod(config.FixedIterationConfig{
+		Length: "14d", Anchor: "2026-01-06",
+	}, now)
+
+	p := &Pipeline{
+		Owner: "test", Repo: "repo",
+		Config: config.VelocityConfig{
+			Unit:      "issues",
+			Effort:    config.EffortConfig{Strategy: "count"},
+			Iteration: config.IterationConfig{Strategy: "fixed", Count: 1},
+		},
+		Now:            now,
+		IterationCount: 1,
+		periods:        fp,
+		items:          []model.VelocityItem{},
+		// offBoardItems should never be populated for count strategy in practice,
+		// but verify the insight is not generated even if it were.
+	}
+	e, _ := NewEffortEvaluator(p.Config.Effort)
+	p.evaluator = e
+
+	if err := p.ProcessData(); err != nil {
+		t.Fatalf("ProcessData: %v", err)
+	}
+
+	for _, ins := range p.Result.Insights {
+		if ins.Type == "field_effort_off_board" {
+			t.Error("count strategy should never produce field_effort_off_board insight")
+		}
+	}
+}
+
+func TestProcessData_AttributeLabelOnlyNoOffBoardInsight(t *testing.T) {
+	// Attribute strategy with label-only matchers should not produce off-board insight.
+	now := date(2026, 3, 10)
+	fp, _ := NewFixedPeriod(config.FixedIterationConfig{
+		Length: "14d", Anchor: "2026-01-06",
+	}, now)
+
+	p := &Pipeline{
+		Owner: "test", Repo: "repo",
+		Config: config.VelocityConfig{
+			Unit: "issues",
+			Effort: config.EffortConfig{
+				Strategy: "attribute",
+				Attribute: []config.EffortMatcher{
+					{Query: "label:size/S", Value: 1},
+					{Query: "label:size/M", Value: 3},
+				},
+			},
+			Iteration: config.IterationConfig{Strategy: "fixed", Count: 1},
+		},
+		Now:            now,
+		IterationCount: 1,
+		periods:        fp,
+		items:          []model.VelocityItem{},
+		// Label-only matchers don't need the board, so offBoardItems should never
+		// be populated. Verify the insight is not generated.
+	}
+	e, _ := NewEffortEvaluator(p.Config.Effort)
+	p.evaluator = e
+
+	if err := p.ProcessData(); err != nil {
+		t.Fatalf("ProcessData: %v", err)
+	}
+
+	for _, ins := range p.Result.Insights {
+		if ins.Type == "field_effort_off_board" {
+			t.Error("label-only attribute strategy should never produce field_effort_off_board insight")
+		}
+	}
+}
+
+func TestProcessData_MixedMatchersPartialBoard(t *testing.T) {
+	// Attribute strategy with both label and field matchers.
+	// Item not on board but assessed via label -> no insight for that item.
+	// Item not on board and not assessed -> insight includes it.
+	now := date(2026, 3, 10)
+	fp, _ := NewFixedPeriod(config.FixedIterationConfig{
+		Length: "14d", Anchor: "2026-01-06",
+	}, now)
+
+	p := &Pipeline{
+		Owner: "test", Repo: "repo",
+		Config: config.VelocityConfig{
+			Unit: "issues",
+			Effort: config.EffortConfig{
+				Strategy: "attribute",
+				Attribute: []config.EffortMatcher{
+					{Query: "label:size/S", Value: 1},
+					{Query: "field:Size/M", Value: 3},
+				},
+			},
+			Iteration: config.IterationConfig{Strategy: "fixed", Count: 1},
+		},
+		Now:            now,
+		IterationCount: 1,
+		periods:        fp,
+		items: []model.VelocityItem{
+			// On board, assessed via field matcher.
+			{Number: 10, ContentType: "Issue", State: "closed", StateReason: "completed",
+				ClosedAt: timePtr(date(2026, 3, 5)), Labels: []string{},
+				Fields: map[string]string{"Size": "M"}},
+			// On board, assessed via label.
+			{Number: 11, ContentType: "Issue", State: "closed", StateReason: "completed",
+				ClosedAt: timePtr(date(2026, 3, 6)), Labels: []string{"size/S"}},
+		},
+		// Issue #30 is in scope but not on the board (detected by detectOffBoardItems).
+		offBoardItems: []int{30},
+	}
+	e, _ := NewEffortEvaluator(p.Config.Effort)
+	p.evaluator = e
+
+	if err := p.ProcessData(); err != nil {
+		t.Fatalf("ProcessData: %v", err)
+	}
+
+	// Should have the off-board insight with issue #30.
+	var found bool
+	for _, ins := range p.Result.Insights {
+		if ins.Type == "field_effort_off_board" {
+			found = true
+			if !strings.Contains(ins.Message, "#30") {
+				t.Errorf("insight message missing #30: %s", ins.Message)
+			}
+			if !strings.Contains(ins.Message, "1 items") {
+				t.Errorf("insight message missing count: %s", ins.Message)
+			}
+		}
+	}
+	if !found {
+		t.Error("missing field_effort_off_board insight for mixed matchers with off-board item")
+	}
+}
+
+func TestWriteJSON_OffBoardItems(t *testing.T) {
+	r := model.VelocityResult{
+		Repository:    "test/repo",
+		Unit:          "issues",
+		EffortUnit:    "pts",
+		OffBoardItems: []int{5, 12, 18},
+		Insights: []model.Insight{
+			{Type: "field_effort_off_board", Message: "3 items are not on the project board and have no effort assigned: #5, #12, #18"},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := WriteJSON(&buf, r); err != nil {
+		t.Fatalf("WriteJSON: %v", err)
+	}
+
+	var out jsonOutput
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	if len(out.OffBoardItems) != 3 {
+		t.Fatalf("off_board_items len = %d, want 3", len(out.OffBoardItems))
+	}
+	if out.OffBoardItems[0] != 5 || out.OffBoardItems[1] != 12 || out.OffBoardItems[2] != 18 {
+		t.Errorf("off_board_items = %v, want [5, 12, 18]", out.OffBoardItems)
+	}
+
+	// Verify the insight appears in JSON.
+	if len(out.Insights) != 1 {
+		t.Fatalf("insights len = %d, want 1", len(out.Insights))
+	}
+	if out.Insights[0].Type != "field_effort_off_board" {
+		t.Errorf("insight type = %q", out.Insights[0].Type)
+	}
+}

@@ -87,16 +87,16 @@ type PR struct {
 
 // Review represents a single PR review submission.
 type Review struct {
-	Author      string    // GitHub login
-	State       string    // APPROVED, CHANGES_REQUESTED, COMMENTED, DISMISSED
+	Author      string // GitHub login
+	State       string // APPROVED, CHANGES_REQUESTED, COMMENTED, DISMISSED
 	SubmittedAt time.Time
 }
 
 // ReviewSummary holds computed review metrics for a PR.
 type ReviewSummary struct {
-	Reviews          []Review
+	Reviews           []Review
 	TimeToFirstReview *time.Duration // PR created → first substantive review
-	ReviewRounds     int            // count of APPROVED or CHANGES_REQUESTED reviews
+	ReviewRounds      int            // count of APPROVED or CHANGES_REQUESTED reviews
 }
 
 // AuthorType classifies a PR author.
@@ -305,7 +305,7 @@ type PRAwaitingReview struct {
 type StatsQuality struct {
 	BugCount    int
 	TotalIssues int
-	BugRatio  float64
+	BugRatio    float64
 }
 
 // Insight is a human-readable observation derived from the data.
@@ -337,6 +337,7 @@ type VelocityResult struct {
 	AvgVelocity   float64
 	AvgCompletion float64
 	StdDev        float64
+	OffBoardItems []int // issue/PR numbers in scope but not on the project board
 }
 
 // EffortDetail describes the effort strategy used for velocity measurement.
@@ -370,7 +371,7 @@ type IterationVelocity struct {
 	TotalDays        int    // total iteration length in days (0 if not current)
 }
 
-// Iteration represents a project iteration (sprint) period.
+// Iteration represents a bounded time period used to bucket velocity results.
 type Iteration struct {
 	ID        string
 	Title     string
