@@ -178,7 +178,7 @@ func TestRenderMarkdown(t *testing.T) {
 	checks := []struct {
 		label, contains string
 	}{
-		{"Metrics header", "**Metrics**"},
+		{"Metrics header", "### Metrics"},
 		{"opened timestamp", "opened 2026-03-18"},
 		{"closed timestamp", "closed 2026-03-18"},
 		{"lead time row", "Lead Time"},

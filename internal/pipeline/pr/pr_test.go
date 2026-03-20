@@ -273,7 +273,7 @@ func TestRenderMarkdown(t *testing.T) {
 		label    string
 		contains string
 	}{
-		{"Metrics header", "**Metrics**"},
+		{"Metrics header", "### Metrics"},
 		{"author in facts", "dvhthomas"},
 		{"opened timestamp", "opened 2026-03-19"},
 		{"merged timestamp", "merged 2026-03-19"},
