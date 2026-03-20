@@ -1,9 +1,9 @@
 ---
-title: "Setting Up Velocity"
+title: "Setting Up Flow Velocity"
 weight: 2
 ---
 
-# Setting Up Velocity
+# Setting Up Flow Velocity
 
 The `flow velocity` command measures effort completed per iteration -- a number, not a ratio. It answers "how much work did we ship this sprint?" in effort units. A related metric, completion rate (done / committed), measures predictability. Both appear in the output. For the metric definition and formula, see the [Velocity reference]({{< relref "/reference/metrics/velocity" >}}).
 
