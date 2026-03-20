@@ -75,7 +75,7 @@ var templateFuncs = template.FuncMap{
 var detailTemplate = template.Must(template.New("detail").Funcs(templateFuncs).Parse(
 	`### Metrics
 
-{{ .Facts }}
+{{ .Facts }}{{ if .ClosedIssues }} · closed {{ plural (len .ClosedIssues) "issue" "issues" }}:{{ range .ClosedIssues }} [{{ .Text }}]({{ .URL }}){{ end }}{{ end }}
 
 | Metric | Value |
 |--------|-------|
@@ -88,9 +88,6 @@ var detailTemplate = template.Must(template.New("detail").Funcs(templateFuncs).P
 | {{ .Name }} | {{ .Value }} |
 {{ end -}}
 {{- end }}
-{{- if .ClosedIssues }}
-Closed {{ plural (len .ClosedIssues) "issue" "issues" }}:{{ range .ClosedIssues }} [{{ .Text }}]({{ .URL }}){{ end }}
-{{ end }}
 {{- range .Sections }}
 ### {{ .Title }}
 

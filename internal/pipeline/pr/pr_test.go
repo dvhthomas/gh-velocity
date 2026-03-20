@@ -280,7 +280,7 @@ func TestRenderMarkdown(t *testing.T) {
 		{"cycle time row", "Cycle Time"},
 		{"time to first review", "Time to First Review"},
 		{"review rounds", "Review Rounds"},
-		{"closed issue sentence", "Closed issue:"},
+		{"closed issue sentence", "closed issue:"},
 		{"issue link", "#119"},
 		{"footer", "gh-velocity"},
 	}
