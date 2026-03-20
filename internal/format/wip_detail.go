@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
 	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
@@ -313,6 +315,11 @@ func WriteWIPDetailPretty(rc RenderContext, result model.WIPResult) error {
 	w := rc.Writer
 	sorted := sortWIPByAgeDesc(result.Items)
 
+	termWidth := rc.Width
+	if termWidth == 0 {
+		termWidth = 80
+	}
+
 	// Summary line.
 	staleCount := result.Staleness.Stale
 	if staleCount > 0 {
@@ -344,42 +351,49 @@ func WriteWIPDetailPretty(rc RenderContext, result model.WIPResult) error {
 		fmt.Fprintln(w)
 	}
 
+	// ownerStyleFunc returns a StyleFunc for owner tables (3 columns: Owner, Items, Effort).
+	ownerStyleFunc := func(row, col int) lipgloss.Style {
+		s := lipgloss.NewStyle().Padding(0, 1)
+		if col >= 1 { // right-align numeric columns
+			s = s.Align(lipgloss.Right)
+		}
+		if row == table.HeaderRow {
+			s = s.Bold(true)
+		}
+		return s
+	}
+
 	// Owners (human).
 	if len(result.Assignees) > 0 {
 		fmt.Fprintln(w, "Owners:")
-		tp := NewTable(w, rc.IsTTY, rc.Width)
-		tp.AddHeader([]string{"Owner", "Items", "Effort", ""})
+		t := table.New().
+			Border(lipgloss.RoundedBorder()).
+			Headers("Owner", "Items", "Effort").
+			Width(termWidth).
+			StyleFunc(ownerStyleFunc)
 		for _, a := range result.Assignees {
-			flag := ""
+			name := a.Login
 			if a.OverLimit {
-				flag = "(over limit)"
+				name += " (over limit)"
 			}
-			tp.AddField(a.Login)
-			tp.AddField(fmt.Sprintf("%d", a.ItemCount))
-			tp.AddField(fmt.Sprintf("%.0f", a.TotalEffort))
-			tp.AddField(flag)
-			tp.EndRow()
+			t.Row(name, fmt.Sprintf("%d", a.ItemCount), fmt.Sprintf("%.0f", a.TotalEffort))
 		}
-		if err := tp.Render(); err != nil {
-			return err
-		}
+		fmt.Fprintln(w, t)
 		fmt.Fprintln(w)
 	}
 
 	// Bot owners.
 	if len(result.BotAssignees) > 0 {
 		fmt.Fprintln(w, "Bot Owners:")
-		tp := NewTable(w, rc.IsTTY, rc.Width)
-		tp.AddHeader([]string{"Owner", "Items", "Effort"})
+		t := table.New().
+			Border(lipgloss.RoundedBorder()).
+			Headers("Owner", "Items", "Effort").
+			Width(termWidth).
+			StyleFunc(ownerStyleFunc)
 		for _, a := range result.BotAssignees {
-			tp.AddField(a.Login)
-			tp.AddField(fmt.Sprintf("%d", a.ItemCount))
-			tp.AddField(fmt.Sprintf("%.0f", a.TotalEffort))
-			tp.EndRow()
+			t.Row(a.Login, fmt.Sprintf("%d", a.ItemCount), fmt.Sprintf("%.0f", a.TotalEffort))
 		}
-		if err := tp.Render(); err != nil {
-			return err
-		}
+		fmt.Fprintln(w, t)
 		fmt.Fprintln(w)
 	}
 
@@ -410,23 +424,37 @@ func WriteWIPDetailPretty(rc RenderContext, result model.WIPResult) error {
 	}
 
 	// Per-item table.
-	tp := NewTable(w, rc.IsTTY, rc.Width)
-	tp.AddHeader([]string{"#", "Title", "Kind", "Status", "Age", "Last Activity", "Signal"})
+	t := table.New().
+		Border(lipgloss.RoundedBorder()).
+		Headers("#", "Title", "Kind", "Status", "Age", "Last Activity", "Signal").
+		Width(termWidth).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			s := lipgloss.NewStyle().Padding(0, 1)
+			if col == 0 { // right-align # column
+				s = s.Align(lipgloss.Right)
+			}
+			if row == table.HeaderRow {
+				s = s.Bold(true)
+			}
+			return s
+		})
 	for _, item := range sorted {
 		num := ""
 		if item.Number > 0 {
 			num = FormatItemLink(item.Number, item.URL, rc)
 		}
-		tp.AddField(num)
-		tp.AddField(item.Title)
-		tp.AddField(item.Kind)
-		tp.AddField(item.Status)
-		tp.AddField(FormatDuration(item.Age))
-		tp.AddField(formatLastActivity(item.UpdatedAt))
-		tp.AddField(string(item.Staleness))
-		tp.EndRow()
+		t.Row(
+			num,
+			item.Title,
+			item.Kind,
+			item.Status,
+			FormatDuration(item.Age),
+			formatLastActivity(item.UpdatedAt),
+			string(item.Staleness),
+		)
 	}
-	return tp.Render()
+	fmt.Fprintln(w, t)
+	return nil
 }
 
 // formatOwnerMarkdown returns a GitHub @handle for markdown output.
