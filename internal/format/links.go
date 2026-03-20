@@ -76,6 +76,20 @@ func LinkStatTerms(msg string) string {
 	msg = strings.Replace(msg, "(hotfix window)", "("+DocLink("hotfix window", "/reference/metrics/quality/#hotfix-detection")+")", 1)
 	msg = strings.Replace(msg, "threshold)", DocLink("threshold", "/reference/metrics/quality/#per-release-bug-ratio")+")", 1)
 	msg = strings.Replace(msg, "lifecycle.in-progress", DocLink("lifecycle.in-progress", "/guides/cycle-time-setup/"), 1)
+
+	// Staleness signals — link to staleness reference page.
+	stalenessURL := "/reference/metrics/staleness/"
+	msg = strings.Replace(msg, "staleness", DocLink("staleness", stalenessURL+"#wip-staleness-ratio"), 1)
+	msg = strings.Replace(msg, "stale_ratio", DocLink("stale_ratio", stalenessURL+"#wip-staleness-ratio"), 1)
+
+	// Staleness signal names — only replace when they appear as standalone uppercase words.
+	// Use surrounding context to avoid false positives.
+	for _, signal := range []string{"ACTIVE", "AGING", "STALE"} {
+		target := "Signal: " + signal
+		if strings.Contains(msg, target) {
+			msg = strings.Replace(msg, target, "Signal: "+DocLink(signal, stalenessURL+"#signals"), 1)
+		}
+	}
 	return msg
 }
 

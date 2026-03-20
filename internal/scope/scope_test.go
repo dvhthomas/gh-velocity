@@ -366,3 +366,111 @@ func TestBuildLabelExclusions(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenIssueByLabelQuery(t *testing.T) {
+	tests := []struct {
+		name  string
+		scope string
+		label string
+		want  string
+	}{
+		{
+			name:  "simple label",
+			scope: "repo:owner/repo",
+			label: "in-progress",
+			want:  `repo:owner/repo is:issue is:open label:"in-progress"`,
+		},
+		{
+			name:  "label with spaces",
+			scope: "repo:owner/repo",
+			label: "In Progress",
+			want:  `repo:owner/repo is:issue is:open label:"In Progress"`,
+		},
+		{
+			name:  "org scope",
+			scope: "org:myorg",
+			label: "wip",
+			want:  `org:myorg is:issue is:open label:"wip"`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := OpenIssueByLabelQuery(tt.scope, tt.label).Build()
+			if got != tt.want {
+				t.Errorf("OpenIssueByLabelQuery(%q, %q).Build() = %q, want %q", tt.scope, tt.label, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestOpenPRByLabelQuery(t *testing.T) {
+	tests := []struct {
+		name  string
+		scope string
+		label string
+		want  string
+	}{
+		{
+			name:  "simple label",
+			scope: "repo:owner/repo",
+			label: "in-review",
+			want:  `repo:owner/repo is:pr is:open label:"in-review"`,
+		},
+		{
+			name:  "label with spaces",
+			scope: "repo:owner/repo",
+			label: "In Review",
+			want:  `repo:owner/repo is:pr is:open label:"In Review"`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := OpenPRByLabelQuery(tt.scope, tt.label).Build()
+			if got != tt.want {
+				t.Errorf("OpenPRByLabelQuery(%q, %q).Build() = %q, want %q", tt.scope, tt.label, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestOpenUnlabeledPRQuery(t *testing.T) {
+	tests := []struct {
+		name          string
+		scope         string
+		excludeLabels []string
+		want          string
+	}{
+		{
+			name:          "single exclusion",
+			scope:         "repo:owner/repo",
+			excludeLabels: []string{"in-progress"},
+			want:          `repo:owner/repo is:pr is:open -label:"in-progress"`,
+		},
+		{
+			name:          "multiple exclusions",
+			scope:         "repo:owner/repo",
+			excludeLabels: []string{"in-progress", "in-review", "blocked"},
+			want:          `repo:owner/repo is:pr is:open -label:"in-progress" -label:"in-review" -label:"blocked"`,
+		},
+		{
+			name:          "no exclusions",
+			scope:         "repo:owner/repo",
+			excludeLabels: nil,
+			want:          "repo:owner/repo is:pr is:open",
+		},
+		{
+			name:          "labels with spaces",
+			scope:         "repo:owner/repo",
+			excludeLabels: []string{"In Progress", "In Review"},
+			want:          `repo:owner/repo is:pr is:open -label:"In Progress" -label:"In Review"`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := OpenUnlabeledPRQuery(tt.scope, tt.excludeLabels).Build()
+			if got != tt.want {
+				t.Errorf("OpenUnlabeledPRQuery(%q, %v).Build() = %q, want %q", tt.scope, tt.excludeLabels, got, tt.want)
+			}
+		})
+	}
+}

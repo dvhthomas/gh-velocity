@@ -131,3 +131,37 @@ func sortWIPByAgeDesc(items []model.WIPItem) []model.WIPItem {
 	})
 	return sorted
 }
+
+// maxWIPDetailItems is the maximum number of items shown in the detail table.
+// Full data is always available via --format json.
+const maxWIPDetailItems = 50
+
+// stalenessRank returns a sort key: STALE=0, AGING=1, ACTIVE=2.
+// Items needing attention sort first.
+func stalenessRank(s model.StalenessLevel) int {
+	switch s {
+	case model.StalenessStale:
+		return 0
+	case model.StalenessAging:
+		return 1
+	default:
+		return 2
+	}
+}
+
+// sortWIPByNeedsAttention sorts items for the detail table:
+// STALE first (longest-neglected at top), then AGING, then ACTIVE.
+// Within each staleness bucket, sort by last activity ascending (oldest first).
+func sortWIPByNeedsAttention(items []model.WIPItem) []model.WIPItem {
+	sorted := make([]model.WIPItem, len(items))
+	copy(sorted, items)
+	sort.Slice(sorted, func(i, j int) bool {
+		ri, rj := stalenessRank(sorted[i].Staleness), stalenessRank(sorted[j].Staleness)
+		if ri != rj {
+			return ri < rj
+		}
+		// Within same staleness: oldest last-activity first.
+		return sorted[i].UpdatedAt.Before(sorted[j].UpdatedAt)
+	})
+	return sorted
+}

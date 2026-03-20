@@ -88,16 +88,25 @@ The JSON output (-r json) is useful for debugging or piping into other tools.`,
 			}
 			fmt.Fprintf(w, "discussions.category:        %s\n", cfg.Discussions.Category)
 			fmt.Fprintf(w, "cycle_time.strategy:         %s\n", cfg.CycleTime.Strategy)
-			fmt.Fprintf(w, "velocity.unit:               %s\n", cfg.Velocity.Unit)
-			fmt.Fprintf(w, "velocity.effort.strategy:    %s\n", cfg.Velocity.Effort.Strategy)
-			if cfg.Velocity.Effort.Strategy == "attribute" {
-				for i, m := range cfg.Velocity.Effort.Attribute {
+			fmt.Fprintf(w, "effort.strategy:             %s\n", cfg.Effort.Strategy)
+			if cfg.Effort.Strategy == "attribute" {
+				for i, m := range cfg.Effort.Attribute {
 					fmt.Fprintf(w, "  attribute[%d]: %s → %.0f\n", i, m.Query, m.Value)
 				}
 			}
-			if cfg.Velocity.Effort.Strategy == "numeric" {
-				fmt.Fprintf(w, "  numeric.project_field:     %s\n", cfg.Velocity.Effort.Numeric.ProjectField)
+			if cfg.Effort.Strategy == "numeric" {
+				fmt.Fprintf(w, "  numeric.project_field:     %s\n", cfg.Effort.Numeric.ProjectField)
 			}
+			if cfg.WIP.TeamLimit != nil {
+				fmt.Fprintf(w, "wip.team_limit:              %g\n", *cfg.WIP.TeamLimit)
+			}
+			if cfg.WIP.PersonLimit != nil {
+				fmt.Fprintf(w, "wip.person_limit:            %g\n", *cfg.WIP.PersonLimit)
+			}
+			if len(cfg.WIP.Bots) > 0 {
+				fmt.Fprintf(w, "wip.bots:                    %v\n", cfg.WIP.Bots)
+			}
+			fmt.Fprintf(w, "velocity.unit:               %s\n", cfg.Velocity.Unit)
 			fmt.Fprintf(w, "velocity.iteration.strategy: %s\n", cfg.Velocity.Iteration.Strategy)
 			if cfg.Velocity.Iteration.Strategy == "project-field" {
 				fmt.Fprintf(w, "  project_field:             %s\n", cfg.Velocity.Iteration.ProjectField)
@@ -234,29 +243,39 @@ commit_ref:
 # Set to 0 to disable (not recommended for CI).
 # api_throttle_seconds: 2
 
+# Effort: how effort is assigned to work items (shared by velocity and WIP).
+# effort:
+#   strategy: count                 # "count" (default), "attribute", or "numeric"
+#   # attribute strategy — map labels/types/fields to effort values (first match wins):
+#   # attribute:
+#   #   - query: "label:size/XS"
+#   #     value: 1
+#   #   - query: "label:size/S"
+#   #     value: 2
+#   #   - query: "label:size/M"
+#   #     value: 3
+#   #   - query: "label:size/L"
+#   #     value: 5
+#   #   - query: "label:size/XL"
+#   #     value: 8
+#   #   # field: matchers use project board SingleSelect fields:
+#   #   # - query: "field:Size/S"
+#   #   #   value: 2
+#   # numeric strategy — read effort from a project board Number field:
+#   # numeric:
+#   #   project_field: "Story Points"
+
+# WIP limits: warn when work-in-progress exceeds these effort-weighted thresholds.
+# wip:
+#   team_limit: 50.0                # total effort across all assignees
+#   person_limit: 8.0               # max effort per individual assignee
+#   bots:                            # additional bot accounts (case-insensitive exact match)
+#     - "claude-assistant"
+#     - "openai-bot"
+
 # Velocity: effort completed per iteration (sprint velocity).
 # velocity:
 #   unit: issues                    # "issues" (default) or "prs"
-#   effort:
-#     strategy: count               # "count" (default), "attribute", or "numeric"
-#     # attribute strategy — map labels/types/fields to effort values (first match wins):
-#     # attribute:
-#     #   - query: "label:size/XS"
-#     #     value: 1
-#     #   - query: "label:size/S"
-#     #     value: 2
-#     #   - query: "label:size/M"
-#     #     value: 3
-#     #   - query: "label:size/L"
-#     #     value: 5
-#     #   - query: "label:size/XL"
-#     #     value: 8
-#     #   # field: matchers use project board SingleSelect fields:
-#     #   # - query: "field:Size/S"
-#     #   #   value: 2
-#     # numeric strategy — read effort from a project board Number field:
-#     # numeric:
-#     #   project_field: "Story Points"
 #   iteration:
 #     strategy: fixed               # "project-field" or "fixed"
 #     # project_field: "Sprint"     # name of ProjectV2 Iteration field

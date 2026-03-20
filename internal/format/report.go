@@ -44,7 +44,11 @@ type jsonThroughput struct {
 }
 
 type jsonWIP struct {
-	Count int `json:"count"`
+	TotalItems     int           `json:"total_items"`
+	HumanItemCount int           `json:"human_item_count"`
+	BotItemCount   int           `json:"bot_item_count"`
+	StaleCount     int           `json:"stale_count"`
+	Insights       []JSONInsight `json:"insights,omitempty"`
 }
 
 type jsonStatsQuality struct {
@@ -100,8 +104,14 @@ func WriteReportJSON(w io.Writer, r model.StatsResult) error {
 		}
 		out.Velocity = summary
 	}
-	if r.WIPCount != nil {
-		out.WIP = &jsonWIP{Count: *r.WIPCount}
+	if r.WIP != nil {
+		out.WIP = &jsonWIP{
+			TotalItems:     len(r.WIP.Items),
+			HumanItemCount: r.WIP.HumanItemCount,
+			BotItemCount:   r.WIP.BotItemCount,
+			StaleCount:     r.WIP.Staleness.Stale,
+			Insights:       InsightsToJSON(r.WIP.Insights),
+		}
 	}
 	if r.Quality != nil {
 		out.Quality = &jsonStatsQuality{
@@ -189,8 +199,22 @@ func WriteReportPretty(rc RenderContext, r model.StatsResult) error {
 	if r.Velocity != nil {
 		fmt.Fprintf(w, "  Velocity:    %s\n", FormatVelocitySummary(*r.Velocity))
 	}
-	if r.WIPCount != nil {
-		fmt.Fprintf(w, "  WIP:         %d items in progress\n", *r.WIPCount)
+	if r.WIP != nil {
+		stale := r.WIP.Staleness.Stale
+		total := len(r.WIP.Items)
+		if r.WIP.BotItemCount > 0 {
+			if stale > 0 {
+				fmt.Fprintf(w, "  WIP:         %d items (%d human, %d bot, %d stale)\n", total, r.WIP.HumanItemCount, r.WIP.BotItemCount, stale)
+			} else {
+				fmt.Fprintf(w, "  WIP:         %d items (%d human, %d bot)\n", total, r.WIP.HumanItemCount, r.WIP.BotItemCount)
+			}
+		} else {
+			if stale > 0 {
+				fmt.Fprintf(w, "  WIP:         %d items (%d stale)\n", total, stale)
+			} else {
+				fmt.Fprintf(w, "  WIP:         %d items\n", total)
+			}
+		}
 	} else {
 		fmt.Fprintf(w, "  WIP:         not configured\n")
 	}

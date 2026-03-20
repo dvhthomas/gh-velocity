@@ -14,6 +14,7 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/config"
 	gh "github.com/dvhthomas/gh-velocity/internal/github"
 	"github.com/dvhthomas/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/metrics"
 	"github.com/dvhthomas/gh-velocity/internal/model"
 	"github.com/dvhthomas/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
@@ -165,6 +166,7 @@ type PreflightResult struct {
 	Repo             string              `json:"repo"`
 	Categories       map[string][]string `json:"categories,omitempty"`
 	ActiveLabels     []string            `json:"active_labels"`
+	ReviewLabels     []string            `json:"review_labels,omitempty"`
 	BacklogLabels    []string            `json:"backlog_labels"`
 	NoiseLabels       []string            `json:"noise_labels,omitempty"`
 	ProjectURL       string              `json:"project_url,omitempty"`
@@ -178,6 +180,9 @@ type PreflightResult struct {
 	MatchEvidence    []CategoryEvidence  `json:"match_evidence,omitempty"`
 	PostingReadiness *PostingReadiness   `json:"posting_readiness,omitempty"`
 	Verification     *VerificationResult `json:"verification,omitempty"`
+	ContributorCount int                 `json:"contributor_count,omitempty"`
+	CurrentHumanWIP  int                 `json:"current_human_wip,omitempty"`  // actual open human items matching lifecycle labels
+	MaxPersonWIP     int                 `json:"max_person_wip,omitempty"`     // highest per-person WIP count
 	RepoAutoDetected bool                `json:"repo_auto_detected"`
 	Hints            []string            `json:"hints"`
 
@@ -327,9 +332,10 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 	if result.HasProject {
 		result.Strategy = model.StrategyIssue
 		result.Hints = append(result.Hints, "Project board detected — add lifecycle labels (e.g., in-progress) for issue-based cycle time")
-	} else if len(result.ActiveLabels) > 0 {
+	} else if len(result.ActiveLabels) > 0 || len(result.ReviewLabels) > 0 {
 		result.Strategy = model.StrategyIssue
-		result.Hints = append(result.Hints, fmt.Sprintf("Found status labels %v — issue strategy uses label timeline for cycle time", result.ActiveLabels))
+		allLifecycle := append(result.ActiveLabels, result.ReviewLabels...)
+		result.Hints = append(result.Hints, fmt.Sprintf("Found status labels %v — issue strategy uses label timeline for cycle time", allLifecycle))
 	} else if result.RecentPRs > 0 {
 		result.Strategy = model.StrategyPR
 		result.Hints = append(result.Hints, "No lifecycle labels detected — using PR strategy (PR created → merged) for cycle time. Create an 'in-progress' label for issue-based cycle time.")
@@ -418,10 +424,20 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 		}
 	}
 
-	// 5b. Collect match evidence: run each matcher against recent items
+	// 5b. Count unique human contributors from recent activity.
+	result.ContributorCount = countContributors(issues, prs)
+
+	// 5b2. Probe current WIP: query open items matching lifecycle labels to
+	// ground the WIP limit suggestions in observable reality.
+	allLifecycleLabels := append(result.ActiveLabels, result.ReviewLabels...)
+	if len(allLifecycleLabels) > 0 {
+		probeWIPCounts(ctx, client, owner, repo, allLifecycleLabels, result)
+	}
+
+	// 5c. Collect match evidence: run each matcher against recent items
 	result.MatchEvidence = collectMatchEvidence(result.Categories, result.DiscoveredTypes, issues, prs)
 
-	// 5c. Velocity heuristics: detect effort and iteration signals.
+	// 5d. Velocity heuristics: detect effort and iteration signals.
 	detectVelocityHeuristics(result, projectFields, labels)
 	if vh := result.VelocityHeuristic; vh != nil {
 		for _, ev := range vh.Evidence {
@@ -765,11 +781,15 @@ func classifyLabels(result *PreflightResult, labels []string) {
 		// "in progress", "in-progress", "In_Progress", "review me!" all match.
 		normalized := normalizeLabel(label)
 
-		// Active/in-progress labels (includes in-review, in-design, preview as active work)
-		for _, stage := range []string{"active", "in-review", "in-design", "preview"} {
-			if containsAnyKeyword(normalized, statusPatterns[stage]) {
-				result.ActiveLabels = append(result.ActiveLabels, label)
-				break
+		// Active/in-progress labels — separate review labels for distinct lifecycle stage.
+		if containsAnyKeyword(normalized, statusPatterns["in-review"]) {
+			result.ReviewLabels = append(result.ReviewLabels, label)
+		} else {
+			for _, stage := range []string{"active", "in-design", "preview"} {
+				if containsAnyKeyword(normalized, statusPatterns[stage]) {
+					result.ActiveLabels = append(result.ActiveLabels, label)
+					break
+				}
 			}
 		}
 		if containsAnyKeyword(normalized, statusPatterns["backlog"]) {
@@ -782,6 +802,115 @@ func classifyLabels(result *PreflightResult, labels []string) {
 			result.NoiseLabels = append(result.NoiseLabels, label)
 		}
 	}
+}
+
+// countContributors counts unique human contributors from recent issues and PRs.
+// Bots (logins ending in "[bot]") are excluded.
+func countContributors(issues []model.Issue, prs []model.PR) int {
+	seen := make(map[string]bool)
+	for _, iss := range issues {
+		for _, a := range iss.Assignees {
+			if a != "" && !strings.HasSuffix(a, "[bot]") {
+				seen[a] = true
+			}
+		}
+	}
+	for _, pr := range prs {
+		if pr.Author != "" && !strings.HasSuffix(pr.Author, "[bot]") {
+			seen[pr.Author] = true
+		}
+		for _, a := range pr.Assignees {
+			if a != "" && !strings.HasSuffix(a, "[bot]") {
+				seen[a] = true
+			}
+		}
+	}
+	return len(seen)
+}
+
+// probeWIPCounts queries actual open items matching lifecycle labels to determine
+// current human WIP and max per-person WIP. This grounds the WIP limit suggestions
+// in observable data rather than heuristics.
+func probeWIPCounts(ctx context.Context, client *gh.Client, owner, repo string, lifecycleLabels []string, result *PreflightResult) {
+	scopeStr := fmt.Sprintf("repo:%s/%s", owner, repo)
+	seen := make(map[int]bool)
+	var allIssues []model.Issue
+
+	// Query open issues for each lifecycle label.
+	for _, label := range lifecycleLabels {
+		query := fmt.Sprintf("%s is:open is:issue label:%q", scopeStr, label)
+		issues, err := client.SearchIssues(ctx, query)
+		if err != nil {
+			continue
+		}
+		for _, iss := range issues {
+			if !seen[iss.Number] {
+				seen[iss.Number] = true
+				allIssues = append(allIssues, iss)
+			}
+		}
+	}
+
+	// Also check open PRs (author-based ownership).
+	seenPRs := make(map[int]bool)
+	var allPRs []model.PR
+	for _, label := range lifecycleLabels {
+		query := fmt.Sprintf("%s is:open is:pr label:%q", scopeStr, label)
+		prs, err := client.SearchPRs(ctx, query)
+		if err != nil {
+			continue
+		}
+		for _, pr := range prs {
+			if !seenPRs[pr.Number] {
+				seenPRs[pr.Number] = true
+				allPRs = append(allPRs, pr)
+			}
+		}
+	}
+
+	// Count human items and per-person load.
+	personCount := make(map[string]int)
+	humanTotal := 0
+
+	for _, iss := range allIssues {
+		owners := iss.Assignees
+		if len(owners) == 0 {
+			humanTotal++ // unassigned = human
+			continue
+		}
+		isHuman := false
+		for _, a := range owners {
+			if !metrics.IsBotUser(a, nil, nil) {
+				isHuman = true
+				personCount[a]++
+			}
+		}
+		if isHuman {
+			humanTotal++
+		}
+	}
+	for _, pr := range allPRs {
+		owner := pr.Author
+		if owner == "" {
+			humanTotal++
+			continue
+		}
+		if !metrics.IsBotUser(owner, nil, nil) {
+			humanTotal++
+			personCount[owner]++
+		}
+	}
+
+	result.CurrentHumanWIP = humanTotal
+
+	// Find max per-person.
+	maxPerson := 0
+	for _, count := range personCount {
+		if count > maxPerson {
+			maxPerson = count
+		}
+	}
+	result.MaxPersonWIP = maxPerson
 }
 
 // containsAnyKeyword returns true if normalized label matches any keyword at a word boundary.
@@ -1161,9 +1290,9 @@ func renderPreflightConfig(r *PreflightResult) string {
 		b.WriteString("# Lifecycle stages — labels are the sole source of truth for cycle time and WIP.\n")
 		b.WriteString("# match: label matchers with immutable timestamps.\n")
 		b.WriteString("lifecycle:\n")
-		writeLifecycleMapping(&b, r.StatusOptions, r.ActiveLabels)
+		writeLifecycleMapping(&b, r.StatusOptions, r.ActiveLabels, r.ReviewLabels)
 		b.WriteString("\n")
-	} else if len(r.ActiveLabels) > 0 || len(r.BacklogLabels) > 0 {
+	} else if len(r.ActiveLabels) > 0 || len(r.ReviewLabels) > 0 || len(r.BacklogLabels) > 0 {
 		// Label-based lifecycle (no project board).
 		b.WriteString("# Lifecycle stages (label-based, no project board)\n")
 		b.WriteString("# match: patterns use classify.Matcher syntax for cycle time detection\n")
@@ -1179,6 +1308,13 @@ func renderPreflightConfig(r *PreflightResult) string {
 			b.WriteString("  in-progress:\n")
 			b.WriteString("    match:\n")
 			for _, l := range r.ActiveLabels {
+				b.WriteString(fmt.Sprintf("      - \"label:%s\"\n", l))
+			}
+		}
+		if len(r.ReviewLabels) > 0 {
+			b.WriteString("  in-review:\n")
+			b.WriteString("    match:\n")
+			for _, l := range r.ReviewLabels {
 				b.WriteString(fmt.Sprintf("      - \"label:%s\"\n", l))
 			}
 		}
@@ -1209,10 +1345,173 @@ func renderPreflightConfig(r *PreflightResult) string {
 		b.WriteString("\n")
 	}
 
+	// Effort section (top-level, shared by velocity and WIP).
+	renderEffortConfig(&b, r)
+
+	// WIP limits section (commented out by default; active when lifecycle labels detected).
+	renderWIPConfig(&b, r)
+
 	// Velocity section.
 	renderVelocityConfig(&b, r)
 
 	return b.String()
+}
+
+// renderEffortConfig emits the top-level effort: section from heuristic results.
+func renderEffortConfig(b *strings.Builder, r *PreflightResult) {
+	vh := r.VelocityHeuristic
+	if vh == nil {
+		// No heuristic ran — emit commented defaults.
+		b.WriteString("# Effort: how effort is assigned to work items (shared by velocity and WIP).\n")
+		b.WriteString("# effort:\n")
+		b.WriteString("#   strategy: count\n")
+		b.WriteString("\n")
+		return
+	}
+
+	b.WriteString("# Effort: how effort is assigned to work items (shared by velocity and WIP).\n")
+	for _, ev := range vh.Evidence {
+		b.WriteString(fmt.Sprintf("# Evidence: %s\n", ev))
+	}
+	b.WriteString("effort:\n")
+	b.WriteString(fmt.Sprintf("  strategy: %s\n", vh.EffortStrategy))
+
+	switch vh.EffortStrategy {
+	case "numeric":
+		b.WriteString("  numeric:\n")
+		b.WriteString(fmt.Sprintf("    project_field: %q\n", vh.NumericField))
+		// If SingleSelect sizing was also detected, show it as a commented-out alternative.
+		if len(vh.SingleSelectMatchers) > 0 {
+			b.WriteString("  # Alternative: use the SingleSelect field instead of the Number field.\n")
+			b.WriteString("  # Change strategy to \"attribute\" and uncomment:\n")
+			b.WriteString("  # attribute:\n")
+			for _, sm := range vh.SingleSelectMatchers {
+				b.WriteString(fmt.Sprintf("  #   - query: %q\n", sm.Query))
+				b.WriteString(fmt.Sprintf("  #     value: %.0f\n", sm.Value))
+			}
+		}
+		// If sizing labels were also detected, show them as a commented-out alternative.
+		if len(vh.SizingLabels) > 0 && len(vh.SingleSelectMatchers) == 0 {
+			b.WriteString("  # Alternative: use sizing labels instead of the Number field.\n")
+			b.WriteString("  # Change strategy to \"attribute\" and uncomment:\n")
+			b.WriteString("  # attribute:\n")
+			for _, sl := range vh.SizingLabels {
+				b.WriteString(fmt.Sprintf("  #   - query: %q\n", sl.Query))
+				b.WriteString(fmt.Sprintf("  #     value: %.0f\n", sl.Value))
+			}
+		}
+	case "attribute":
+		b.WriteString("  attribute:\n")
+		// Prefer SingleSelect field matchers over label matchers.
+		if len(vh.SingleSelectMatchers) > 0 {
+			for _, sm := range vh.SingleSelectMatchers {
+				b.WriteString(fmt.Sprintf("    - query: %q\n", sm.Query))
+				b.WriteString(fmt.Sprintf("      value: %.0f\n", sm.Value))
+			}
+			// If sizing labels were also detected, show them as a commented-out alternative.
+			if len(vh.SizingLabels) > 0 {
+				b.WriteString("  # Alternative: use sizing labels instead of the project field.\n")
+				b.WriteString("  # No project board needed with label-based matchers.\n")
+				for _, sl := range vh.SizingLabels {
+					b.WriteString(fmt.Sprintf("  #   - query: %q\n", sl.Query))
+					b.WriteString(fmt.Sprintf("  #     value: %.0f\n", sl.Value))
+				}
+			}
+		} else {
+			for _, sl := range vh.SizingLabels {
+				b.WriteString(fmt.Sprintf("    - query: %q\n", sl.Query))
+				b.WriteString(fmt.Sprintf("      value: %.0f\n", sl.Value))
+			}
+		}
+	}
+	b.WriteString("\n")
+}
+
+// renderWIPConfig emits the wip: section. Commented out by default;
+// provides stubs when lifecycle labels are detected.
+func renderWIPConfig(b *strings.Builder, r *PreflightResult) {
+	hasLifecycle := len(r.ActiveLabels) > 0 || len(r.ReviewLabels) > 0 || len(r.BacklogLabels) > 0
+
+	// Determine effort unit description from velocity heuristic.
+	effortUnit := "items"
+	if vh := r.VelocityHeuristic; vh != nil && (vh.EffortStrategy == "attribute" || vh.EffortStrategy == "numeric") {
+		effortUnit = "effort-points"
+	}
+
+	b.WriteString("# WIP limits: warn when work-in-progress exceeds these effort-weighted thresholds.\n")
+
+	if hasLifecycle && r.CurrentHumanWIP > 0 {
+		// Ground suggestions in actual current WIP (best signal).
+		teamLimit := roundToNearest5(r.CurrentHumanWIP + r.CurrentHumanWIP/5) // current + 20% buffer
+		if teamLimit < 5 {
+			teamLimit = 5
+		}
+		personLimit := 5
+		if r.MaxPersonWIP > 0 {
+			personLimit = r.MaxPersonWIP + 2 // current max + small buffer
+		}
+		b.WriteString(fmt.Sprintf("# Based on %d human items currently in progress", r.CurrentHumanWIP))
+		if r.MaxPersonWIP > 0 {
+			b.WriteString(fmt.Sprintf(" (busiest person has %d)", r.MaxPersonWIP))
+		}
+		b.WriteString("\n")
+		b.WriteString("wip:\n")
+		b.WriteString(fmt.Sprintf("  team_limit: %d.0%s\n", teamLimit, wipUnitComment(effortUnit, true)))
+		b.WriteString(fmt.Sprintf("  person_limit: %d.0%s\n", personLimit, wipUnitComment(effortUnit, false)))
+		b.WriteString("  # bots: additional bot accounts (case-insensitive exact match)\n")
+		b.WriteString("  # bots:\n")
+		b.WriteString("  #   - \"claude-assistant\"\n")
+		b.WriteString("  #   - \"openai-bot\"\n")
+		b.WriteString("\n")
+	} else if hasLifecycle && r.ContributorCount > 0 {
+		// No current WIP but we know team size — use heuristic.
+		teamLimit := roundToNearest5(r.ContributorCount * 2)
+		b.WriteString(fmt.Sprintf("# No items currently in progress; estimated from %d active contributors\n", r.ContributorCount))
+		b.WriteString("wip:\n")
+		b.WriteString(fmt.Sprintf("  team_limit: %d.0%s\n", teamLimit, wipUnitComment(effortUnit, true)))
+		b.WriteString(fmt.Sprintf("  person_limit: 5.0%s\n", wipUnitComment(effortUnit, false)))
+		b.WriteString("  # bots: additional bot accounts (case-insensitive exact match)\n")
+		b.WriteString("  # bots:\n")
+		b.WriteString("  #   - \"claude-assistant\"\n")
+		b.WriteString("  #   - \"openai-bot\"\n")
+		b.WriteString("\n")
+	} else if hasLifecycle {
+		// Lifecycle detected but nothing in flight and no contributor data.
+		b.WriteString("# Adjust based on your team size (team_size x 2 is a common heuristic)\n")
+		b.WriteString("wip:\n")
+		b.WriteString(fmt.Sprintf("  team_limit: 50.0%s\n", wipUnitComment(effortUnit, true)))
+		b.WriteString(fmt.Sprintf("  person_limit: 5.0%s\n", wipUnitComment(effortUnit, false)))
+		b.WriteString("  # bots: additional bot accounts (case-insensitive exact match)\n")
+		b.WriteString("  # bots:\n")
+		b.WriteString("  #   - \"claude-assistant\"\n")
+		b.WriteString("  #   - \"openai-bot\"\n")
+		b.WriteString("\n")
+	} else {
+		// No lifecycle — keep commented.
+		b.WriteString("# wip:\n")
+		b.WriteString(fmt.Sprintf("#   team_limit: 50.0%s\n", wipUnitComment(effortUnit, true)))
+		b.WriteString(fmt.Sprintf("#   person_limit: 5.0%s\n", wipUnitComment(effortUnit, false)))
+		b.WriteString("#   bots:                          # additional bot accounts (case-insensitive exact match)\n")
+		b.WriteString("#     - \"claude-assistant\"\n")
+		b.WriteString("#     - \"openai-bot\"\n")
+		b.WriteString("\n")
+	}
+}
+
+// roundToNearest5 rounds n to the nearest multiple of 5, with a minimum of 5.
+func roundToNearest5(n int) int {
+	if n < 5 {
+		return 5
+	}
+	return ((n + 2) / 5) * 5
+}
+
+// wipUnitComment returns a YAML comment describing the WIP limit unit.
+func wipUnitComment(effortUnit string, isTeam bool) string {
+	if isTeam {
+		return fmt.Sprintf("              # total %s across all assignees", effortUnit)
+	}
+	return fmt.Sprintf("             # max %s per individual assignee", effortUnit)
 }
 
 // renderVelocityConfig emits the velocity: section from heuristic results.
@@ -1224,8 +1523,6 @@ func renderVelocityConfig(b *strings.Builder, r *PreflightResult) {
 		b.WriteString("# Run: gh velocity config preflight --project-url <url> --write\n")
 		b.WriteString("# velocity:\n")
 		b.WriteString("#   unit: issues\n")
-		b.WriteString("#   effort:\n")
-		b.WriteString("#     strategy: count\n")
 		b.WriteString("#   iteration:\n")
 		b.WriteString("#     strategy: fixed\n")
 		b.WriteString("#     fixed:\n")
@@ -1237,63 +1534,8 @@ func renderVelocityConfig(b *strings.Builder, r *PreflightResult) {
 	}
 
 	b.WriteString("# Velocity: effort completed per iteration.\n")
-	for _, ev := range vh.Evidence {
-		b.WriteString(fmt.Sprintf("# Evidence: %s\n", ev))
-	}
 	b.WriteString("velocity:\n")
 	b.WriteString("  unit: issues\n")
-	b.WriteString("  effort:\n")
-	b.WriteString(fmt.Sprintf("    strategy: %s\n", vh.EffortStrategy))
-
-	switch vh.EffortStrategy {
-	case "numeric":
-		b.WriteString("    numeric:\n")
-		b.WriteString(fmt.Sprintf("      project_field: %q\n", vh.NumericField))
-		// If SingleSelect sizing was also detected, show it as a commented-out alternative.
-		if len(vh.SingleSelectMatchers) > 0 {
-			b.WriteString("    # Alternative: use the SingleSelect field instead of the Number field.\n")
-			b.WriteString("    # Change strategy to \"attribute\" and uncomment:\n")
-			b.WriteString("    # attribute:\n")
-			for _, sm := range vh.SingleSelectMatchers {
-				b.WriteString(fmt.Sprintf("    #   - query: %q\n", sm.Query))
-				b.WriteString(fmt.Sprintf("    #     value: %.0f\n", sm.Value))
-			}
-		}
-		// If sizing labels were also detected, show them as a commented-out alternative.
-		if len(vh.SizingLabels) > 0 && len(vh.SingleSelectMatchers) == 0 {
-			b.WriteString("    # Alternative: use sizing labels instead of the Number field.\n")
-			b.WriteString("    # Change strategy to \"attribute\" and uncomment:\n")
-			b.WriteString("    # attribute:\n")
-			for _, sl := range vh.SizingLabels {
-				b.WriteString(fmt.Sprintf("    #   - query: %q\n", sl.Query))
-				b.WriteString(fmt.Sprintf("    #     value: %.0f\n", sl.Value))
-			}
-		}
-	case "attribute":
-		b.WriteString("    attribute:\n")
-		// Prefer SingleSelect field matchers over label matchers.
-		if len(vh.SingleSelectMatchers) > 0 {
-			for _, sm := range vh.SingleSelectMatchers {
-				b.WriteString(fmt.Sprintf("      - query: %q\n", sm.Query))
-				b.WriteString(fmt.Sprintf("        value: %.0f\n", sm.Value))
-			}
-			// If sizing labels were also detected, show them as a commented-out alternative.
-			if len(vh.SizingLabels) > 0 {
-				b.WriteString("    # Alternative: use sizing labels instead of the project field.\n")
-				b.WriteString("    # No project board needed with label-based matchers.\n")
-				for _, sl := range vh.SizingLabels {
-					b.WriteString(fmt.Sprintf("    #   - query: %q\n", sl.Query))
-					b.WriteString(fmt.Sprintf("    #     value: %.0f\n", sl.Value))
-				}
-			}
-		} else {
-			for _, sl := range vh.SizingLabels {
-				b.WriteString(fmt.Sprintf("      - query: %q\n", sl.Query))
-				b.WriteString(fmt.Sprintf("        value: %.0f\n", sl.Value))
-			}
-		}
-	}
-
 	b.WriteString("  iteration:\n")
 	b.WriteString(fmt.Sprintf("    strategy: %s\n", vh.IterationStrategy))
 
@@ -1388,7 +1630,7 @@ func printAPIUsage(ctx context.Context, client *gh.Client) {
 // lifecycle stages using only match entries (label matchers). Project board
 // status names are used as hints for label naming but are not emitted as
 // project_status config entries.
-func writeLifecycleMapping(b *strings.Builder, options []string, activeLabels []string) {
+func writeLifecycleMapping(b *strings.Builder, options []string, activeLabels []string, reviewLabels []string) {
 	// When active labels are detected, use them directly as match entries.
 	if len(activeLabels) > 0 {
 		b.WriteString("  in-progress:\n")
@@ -1401,6 +1643,14 @@ func writeLifecycleMapping(b *strings.Builder, options []string, activeLabels []
 		b.WriteString("  in-progress:\n")
 		b.WriteString("    # Tip: create a label like \"in-progress\" and add it to issues when work starts.\n")
 		b.WriteString("    # match: [\"label:in-progress\"]\n")
+	}
+	// Emit in-review stage when review labels are detected.
+	if len(reviewLabels) > 0 {
+		b.WriteString("  in-review:\n")
+		b.WriteString("    match:\n")
+		for _, l := range reviewLabels {
+			b.WriteString(fmt.Sprintf("      - \"label:%s\"\n", l))
+		}
 	}
 }
 

@@ -28,6 +28,10 @@ type searchIssueResponse struct {
 	Labels []struct {
 		Name string `json:"name"`
 	} `json:"labels"`
+	Assignees []struct {
+		Login string `json:"login"`
+	} `json:"assignees"`
+	Draft       bool `json:"draft"`
 	PullRequest *struct {
 		MergedAt *time.Time `json:"merged_at"`
 	} `json:"pull_request"`
