@@ -26,3 +26,7 @@ configs:
     repo: github/roadmap
   - name: grafana/k6
     repo: grafana/k6
+  - name: microsoft/vscode
+    repo: microsoft/vscode
+  - name: CalcMark/go-calcmark
+    repo: CalcMark/go-calcmark
