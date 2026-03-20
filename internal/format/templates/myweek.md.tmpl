@@ -76,6 +76,22 @@ _None_
 {{- else}}
 _None_
 {{- end}}
+{{- if or .WaitingPRs .StaleIssues}}
+
+### Waiting on
+{{if .WaitingPRs}}
+**PRs Waiting for Review ({{len .WaitingPRs}})**
+{{range .WaitingPRs}}
+- {{.Link}} {{.Title}}{{.AI}}{{.Status}}
+{{- end}}
+{{- end}}
+{{if .StaleIssues}}
+**Stale Issues ({{len .StaleIssues}})**
+{{range .StaleIssues}}
+- {{.Link}} {{.Title}}{{.Status}}
+{{- end}}
+{{- end}}
+{{- end}}
 {{- if .ReviewQueue}}
 
 ### Review queue

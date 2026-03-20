@@ -313,6 +313,9 @@ type myweekTemplateData struct {
 	// Lookahead
 	IssuesOpen []myweekAnnotatedRow
 	PRsOpen    []myweekAnnotatedRow
+	// Waiting on (blocked/idle items)
+	WaitingPRs    []myweekAnnotatedRow
+	StaleIssues   []myweekAnnotatedRow
 	// Review queue
 	ReviewQueue []myweekReviewRow
 }
@@ -431,6 +434,27 @@ func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult, i
 			AI:     aiSuffixMarkdown(pr.AIAssisted),
 			Status: formatStatusMarkdown(s),
 		})
+	}
+
+	// Waiting on: PRs needing first review, stale issues
+	for _, pr := range r.PRsNeedingReview {
+		age := model.DaysBetween(pr.CreatedAt, r.Until)
+		data.WaitingPRs = append(data.WaitingPRs, myweekAnnotatedRow{
+			Link:   FormatItemLink(pr.Number, pr.URL, rc),
+			Title:  SanitizeMarkdown(pr.Title),
+			AI:     aiSuffixMarkdown(pr.AIAssisted),
+			Status: fmt.Sprintf(" *%s, no reviews*", formatAge(age)),
+		})
+	}
+	for _, iss := range r.IssuesOpen {
+		if iss.IsStale(r.Until) {
+			staleDays := model.DaysBetween(iss.UpdatedAt, r.Until)
+			data.StaleIssues = append(data.StaleIssues, myweekAnnotatedRow{
+				Link:   FormatItemLink(iss.Number, iss.URL, rc),
+				Title:  SanitizeMarkdown(iss.Title),
+				Status: fmt.Sprintf(" *no update in %dd*", staleDays),
+			})
+		}
 	}
 
 	// Review queue
