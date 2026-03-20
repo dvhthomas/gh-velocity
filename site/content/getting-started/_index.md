@@ -21,11 +21,11 @@ gh velocity report --since 30d         # lead time, throughput, quality
 
 No labels, no workflows, no project boards required. You get useful numbers immediately. See the [Quick Start]({{< relref "/getting-started/quick-start" >}}) for the full walkthrough.
 
-## 2. Get better issue classification with labels
+## 2. Enable cycle time with lifecycle labels
 
-Reports categorize issues as bug, feature, or other based on label matchers in your config. If your issues don't have consistent labels, the categories won't be accurate.
+Cycle time measures how long work is actively in progress. It needs a signal for when work starts — an `in-progress` label applied to the issue. Without it, cycle time shows "n/a."
 
-The [project-label-sync](https://github.com/dvhthomas/project-label-sync) GitHub Action solves this. It watches your GitHub Projects board and automatically applies labels to issues when they move between columns. Your board stays the source of truth, and your repo labels stay in sync — no manual labeling.
+If you use a GitHub Projects board, the [project-label-sync](https://github.com/dvhthomas/project-label-sync) Action can apply lifecycle labels automatically when issues move between columns. See [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}).
 
 ## 3. Add per-release quality metrics
 
@@ -47,7 +47,7 @@ Once fully configured, a repo gets:
 - **Release quality** posted automatically when you tag (`quality release`)
 - **Issue metrics** posted to each issue body when it closes (`issue <N> --post`)
 - **PR metrics** posted to each PR body when it merges (`pr <N> --post`)
-- **Consistent labels** kept in sync from your project board (project-label-sync)
+- **Cycle time** driven by lifecycle labels, optionally synced from your project board
 
 Each piece is independent. Start with step 1 and add the others when you're ready.
 
