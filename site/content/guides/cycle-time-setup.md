@@ -5,7 +5,7 @@ weight: 3
 
 # Cycle Time Setup
 
-Cycle time measures how long active work took on an issue. It excludes backlog time (unlike [lead time]({{< relref "/reference/metrics/lead-time" >}}), which measures the full elapsed duration from creation to close). The measurement depends on your configured strategy. For the metric definition and formula, see the [Cycle Time reference]({{< relref "/reference/metrics/cycle-time" >}}).
+Cycle time measures how long active work took on an issue, excluding backlog time (unlike [lead time]({{< relref "/reference/metrics/lead-time" >}}), which measures full elapsed duration from creation to close). The measurement depends on your configured strategy. For the metric definition and formula, see the [Cycle Time reference]({{< relref "/reference/metrics/cycle-time" >}}).
 
 ## Choosing a strategy
 
@@ -17,31 +17,31 @@ There are two cycle time strategies. Choose based on your workflow.
 | PRs close issues (most OSS repos) | `pr` | Measures PR review time (created to merged) |
 | Issues only, no labels or PRs | `issue` | Lead time works immediately; add an `in-progress` label for cycle time |
 
-Choose based on how your team works. The PR strategy requires zero setup; the issue strategy gives richer data but requires label discipline.
+The PR strategy requires zero setup; the issue strategy gives richer data but requires label discipline.
 
 > [!TIP]
-> No labels yet? The PR strategy works without any setup -- it uses your PR merge times. You can always switch to the issue strategy later when you're ready to add lifecycle labels.
+> No labels yet? The PR strategy works without any setup -- it uses PR merge times. Switch to the issue strategy later when you add lifecycle labels.
 
 ## The PR strategy
 
-The PR strategy uses the closing PR's creation date as the cycle start and its merge date as the end. No extra configuration is needed beyond setting the strategy:
+The PR strategy uses the closing PR's creation date as the cycle start and its merge date as the end. No extra configuration needed:
 
 ```yaml
 cycle_time:
   strategy: pr
 ```
 
-Ensure your PRs reference issues with "Closes #N" or "Fixes #N" in the PR description, or use GitHub's sidebar "Development" section to link them. The PR does not need to be merged or even out of draft -- opening a draft PR that mentions an issue is enough for a cycle time signal.
+PRs must reference issues with "Closes #N" or "Fixes #N" in the description, or use GitHub's sidebar "Development" section. The PR does not need to be merged or out of draft -- opening a draft PR that mentions an issue is enough for a cycle time signal.
 
 Lead time is unaffected by strategy choice -- it always measures issue creation to close.
 
 ## The issue strategy
 
-The issue strategy uses labels as the cycle time signal. When a matching label is applied to an issue, that timestamp becomes the cycle time start. The issue's close date is the cycle time end.
+The issue strategy uses labels as the cycle time signal. When a matching label is applied, that timestamp becomes the cycle start. The issue's close date is the cycle end.
 
 ### Why labels
 
-Label event timestamps (`LABELED_EVENT.createdAt`) are **immutable**. Once a label is applied, the timestamp never changes -- not when you remove the label, not when you re-add it, not when anything else changes. This makes labels the only reliable source of "when did work start?" from the GitHub API.
+Label event timestamps (`LABELED_EVENT.createdAt`) are **immutable**. Once applied, the timestamp never changes -- not on removal, not on re-application, not on any other event. This makes labels the only reliable "when did work start?" signal from the GitHub API.
 
 ### Configuring lifecycle labels
 
@@ -76,11 +76,9 @@ gh velocity config preflight -R owner/repo --write
 
 ### If you use a project board
 
-If your team uses a GitHub Projects v2 board for visibility, use a label-sync GitHub Action to keep labels in sync with board column changes. This way the board drives your workflow while labels provide the immutable timestamps gh-velocity needs.
+If your team uses a GitHub Projects v2 board, use [gh-project-label-sync](https://github.com/dvhthomas/gh-project-label-sync) to apply lifecycle labels automatically when cards move. The board drives your workflow; labels provide the immutable timestamps gh-velocity needs.
 
-Use [gh-project-label-sync](https://github.com/dvhthomas/gh-project-label-sync) to automatically apply lifecycle labels when cards move on the board.
-
-The project board stays useful for velocity iteration/effort reads (via `velocity.iteration.strategy: project-field` and `field:` matchers), but it is not used as a lifecycle or cycle-time signal.
+The project board remains useful for velocity iteration/effort reads (via `velocity.iteration.strategy: project-field` and `field:` matchers), but is not used as a lifecycle or cycle-time signal.
 
 ## Workflow patterns
 
@@ -131,11 +129,11 @@ The tool finds PR-to-issue connections through GitHub's timeline events. A PR be
 - Mention `#42` anywhere in the PR (creates a cross-reference event)
 - Any variation: `fix #42`, `close #42`, `resolve #42` (case-insensitive)
 
-You do **not** need to:
-- Add special labels or tags
-- Use a specific branch naming convention
-- Configure webhooks or integrations
-- Follow any commit message format (unless you want commit-based enrichment)
+None of the following are required:
+- Special labels or tags
+- A specific branch naming convention
+- Webhooks or integrations
+- A commit message format (unless you want commit-based enrichment)
 
 ## Running cycle time commands
 
@@ -159,7 +157,7 @@ gh velocity flow cycle-time --since 30d
 gh velocity flow cycle-time --since 2026-01-01 --until 2026-02-01 --results json
 ```
 
-Cycle time does not require a local clone. It uses GitHub API signals (PR creation date, label events). Running from inside a local checkout adds commit counts and a fallback signal from commit history.
+Cycle time does not require a local clone -- it uses GitHub API signals (PR creation date, label events). Running from a local checkout adds commit counts and a fallback signal from commit history.
 
 ## Troubleshooting cycle time
 

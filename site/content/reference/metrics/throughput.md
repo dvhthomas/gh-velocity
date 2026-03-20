@@ -5,7 +5,7 @@ weight: 4
 
 # Throughput
 
-Throughput is the count of issues closed and PRs merged within a time window. It is the simplest measure of delivery rate.
+Throughput counts issues closed and PRs merged within a time window -- the simplest measure of delivery rate.
 
 ## Definition
 
@@ -14,7 +14,7 @@ throughput_issues = count(issues closed in window)
 throughput_prs    = count(PRs merged in window)
 ```
 
-Throughput is an unweighted count. Every closed issue and every merged PR counts as 1, regardless of size, complexity, or effort labels.
+Unweighted: every closed issue and every merged PR counts as 1, regardless of size, complexity, or effort.
 
 ## Throughput vs. velocity
 
@@ -25,9 +25,9 @@ Throughput and [velocity]({{< relref "velocity" >}}) both measure output, but th
 | **Weighting** | Every item = 1 | Items weighted by effort strategy (count, attribute, or numeric) |
 | **Time boundary** | Arbitrary date range (`--since` / `--until`) | Iteration-aligned (sprint boundaries) |
 
-Throughput is useful when you do not use sprints or effort estimates. Velocity is useful when you want to track effort-weighted output across consistent iteration boundaries.
+Throughput is useful without sprints or effort estimates. Velocity is useful for tracking effort-weighted output across consistent iteration boundaries.
 
-When velocity uses `effort.strategy: count`, velocity for a completed iteration equals throughput for the same time window. They diverge when effort weighting or iteration alignment matters.
+When velocity uses `effort.strategy: count`, velocity for a completed iteration equals throughput for the same window. They diverge when effort weighting or iteration alignment matters.
 
 ## What it tells you
 
@@ -35,7 +35,7 @@ When velocity uses `effort.strategy: count`, velocity for a completed iteration 
 - **Trend direction**: Is output increasing, decreasing, or stable over time?
 - **Bottleneck signal**: A drop in throughput with stable team size suggests process friction.
 
-Throughput does not distinguish between a one-line typo fix and a multi-week refactor. Use it alongside lead time and cycle time for a complete picture.
+Throughput does not distinguish a one-line typo fix from a multi-week refactor. Use alongside lead time and cycle time for a complete picture.
 
 ## Signals used
 
@@ -92,5 +92,4 @@ Activity (last 30 days)
 ## See also
 
 - [Velocity]({{< relref "/reference/metrics/velocity" >}}) -- effort-weighted, iteration-aligned output metric
-- [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) -- what throughput trends mean
 - [Configuration Reference]({{< relref "/reference/config" >}}) -- scope and exclude_users fields that affect throughput

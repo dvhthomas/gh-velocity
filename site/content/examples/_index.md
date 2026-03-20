@@ -6,13 +6,13 @@ bookCollapseSection: true
 
 # Examples
 
-Real-world configuration examples for popular repositories, with annotations explaining what each section does and why.
+Annotated configuration examples for popular repositories.
 
 All example configs are in [`docs/examples/`](https://github.com/dvhthomas/gh-velocity/tree/main/docs/examples) and are validated by the E2E test suite (`task e2e:configs`).
 
 ## Generating your own config
 
-Use [preflight]({{< relref "/getting-started/configuration" >}}#generate-a-config-with-preflight) to auto-detect a good starting config. Run it from inside a cloned repo and it auto-detects the repo from git remotes — no `-R` flag needed:
+Use [preflight]({{< relref "/getting-started/configuration" >}}#generate-a-config-with-preflight) to auto-detect a starting config. Run from inside a cloned repo to auto-detect the repo from git remotes:
 
 ```bash
 gh velocity config preflight                  # preview to stdout (auto-detects repo)
@@ -26,7 +26,7 @@ gh velocity config preflight \
   --project-url https://github.com/users/me/projects/1
 ```
 
-Preflight auto-detects noise labels (spam, duplicate, invalid) and excludes them from the scope query. See [Why noise exclusion matters]({{< relref "/guides/interpreting-results" >}}#why-noise-exclusion-matters) for the impact this has on metrics.
+Preflight auto-detects noise labels (spam, duplicate, invalid) and excludes them from the scope query.
 
 ## Running examples
 
@@ -49,7 +49,7 @@ gh velocity quality release v2.67.0 -R cli/cli \
 ## Example 1: cli/cli -- Label-based issue workflow
 
 **Repo**: [cli/cli](https://github.com/cli/cli) (GitHub CLI)
-**Strategy**: Issue-based cycle time, label classification, no project board
+**Strategy**: Issue strategy cycle time, label classification, no project board
 
 ```yaml
 # Scope tells gh-velocity which repo to query.
@@ -107,7 +107,7 @@ lifecycle:
 ## Example 2: dvhthomas/gh-velocity -- Project board with lifecycle mapping
 
 **Repo**: [dvhthomas/gh-velocity](https://github.com/dvhthomas/gh-velocity) (this project)
-**Strategy**: Issue-based cycle time, label-based lifecycle, title-based classification
+**Strategy**: Issue strategy cycle time, label-based lifecycle, title-based classification
 
 ```yaml
 scope:
@@ -158,15 +158,15 @@ lifecycle:
 
 **Key takeaways**:
 - Title regex matchers work well for repos that follow conventional commit naming.
-- Labels are the sole lifecycle signal. If you use a project board, sync board columns to labels with [gh-project-label-sync](https://github.com/dvhthomas/gh-project-label-sync).
-- The project board is still used for velocity iteration/effort reads (via `velocity.iteration.strategy: project-field` and `field:` matchers).
+- Labels are the sole lifecycle signal. Sync board columns to labels with [gh-project-label-sync](https://github.com/dvhthomas/gh-project-label-sync).
+- The project board is used for velocity reads (iteration tracking via `project-field` strategy and `field:` matchers for effort).
 
 ---
 
 ## Example 3: cli/cli with velocity -- Fixed iterations for sprint tracking
 
 **Repo**: cli/cli with velocity tracking added
-**Strategy**: PR-based cycle time, fixed 14-day iterations, count-based effort
+**Strategy**: PR strategy cycle time, fixed 14-day iterations, count effort
 
 ```yaml
 scope:
@@ -196,7 +196,7 @@ velocity:
   unit: issues
 
   # Every closed issue = 1 point of effort.
-  # Simple and requires no sizing labels.
+  # Simple and requires no effort labels.
   effort:
     strategy: count
 
@@ -214,9 +214,9 @@ velocity:
 ```
 
 **Key takeaways**:
-- Fixed iterations work without a project board. The tool uses Search API to find items closed in each 14-day window.
+- Fixed iterations work without a project board. The tool uses the Search API to find items closed in each 14-day window.
 - `effort.strategy: count` is the simplest option -- every closed issue counts equally.
-- The anchor date should be a real sprint start date in your team's calendar. The tool extrapolates all other boundaries from it.
+- The anchor date should be a real sprint start date. The tool extrapolates all other boundaries from it.
 - To add effort weighting, switch to `effort.strategy: attribute` with label-based matchers.
 
 ---
@@ -237,7 +237,7 @@ velocity:
 
 ## CI workflow example
 
-Post a weekly velocity report to GitHub Discussions using a GitHub Actions workflow:
+Post a weekly velocity report to GitHub Discussions:
 
 ```yaml
 name: Velocity Report
@@ -274,7 +274,5 @@ See [`docs/examples/velocity-report.yml`](https://github.com/dvhthomas/gh-veloci
 
 ## See also
 
-- [Configuration (Getting Started)]({{< relref "/getting-started/configuration" >}}) -- first-time setup guide
 - [Configuration Reference]({{< relref "/reference/config" >}}) -- full schema with all options and defaults
 - [CI Setup]({{< relref "/getting-started/ci-setup" >}}) -- workflow patterns for GitHub Actions
-- [Posting Reports]({{< relref "/guides/posting-reports" >}}) -- `--post` options for automated reporting

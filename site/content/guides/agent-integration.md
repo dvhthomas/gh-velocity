@@ -5,18 +5,18 @@ weight: 5
 
 # Agent Integration
 
-Every gh-velocity command supports `--results json` for structured output. This makes the tool composable with LLM agents, CI scripts, and data pipelines. For an overview of what the metrics mean, see [Interpreting Results]({{< relref "/guides/interpreting-results" >}}).
+Every gh-velocity command supports `--results json` for structured output, making it composable with LLM agents, CI scripts, and data pipelines.
 
 ## JSON output structure
 
-Every command produces up to four layers of data (see [Interpreting Results: Output layers]({{< relref "/guides/interpreting-results" >}}#output-layers)):
+Every command produces up to four layers of data:
 
 - **Stats** — aggregate numbers (top-level keys like `lead_time`, `cycle_time`)
 - **Detail** — per-item breakdowns (the `issues` array)
 - **Insights** — observations with severity (the `insights` array)
 - **Provenance** — how the output was produced (the `provenance` object)
 
-The `report` command emits stats only. Standalone commands emit all four layers. Additional details:
+The `report` command emits stats only. Standalone commands emit all four layers. Details:
 
 - **Durations** are in seconds (divide by 86400 for days)
 - **Ratios** are floats between 0 and 1
@@ -29,7 +29,7 @@ gh velocity quality release v1.2.0 --results json | jq 'keys'
 
 ## Metric states in JSON
 
-Timing fields like `cycle_time` and `lead_time` can be in three states. See [Interpreting Results: Three metric states]({{< relref "/guides/interpreting-results" >}}#three-metric-states) for what each means.
+Timing fields like `cycle_time` and `lead_time` have three possible states:
 
 ```json
 // Completed — has a duration
@@ -91,7 +91,7 @@ gh velocity flow velocity --results json | \
 
 ## Error handling in JSON mode
 
-When `--results json` is active, errors are emitted as structured `ErrorEnvelope` objects on stderr instead of plain text. This lets agents parse errors programmatically:
+With `--results json`, errors are emitted as structured `ErrorEnvelope` objects on stderr, enabling programmatic parsing:
 
 ```json
 {
@@ -129,7 +129,7 @@ Warnings (non-fatal issues like low label coverage) appear inside the main JSON 
 
 ## Claude Code / Copilot agent patterns
 
-If you use an agent that can run shell commands, point it at your repo with instructions like:
+For agents that run shell commands, provide instructions like:
 
 ```
 You have access to `gh velocity`. Use it to analyze our last 3 releases
@@ -148,11 +148,11 @@ Commands available:
 Our recent tags: v2.5.0, v2.4.0, v2.3.0
 ```
 
-The JSON output includes every field an agent needs: seconds-based durations, ratios as floats, boolean flags, and descriptive warnings.
+JSON output includes every field an agent needs: seconds-based durations, ratios as floats, boolean flags, and descriptive warnings.
 
 ### Multi-release analysis
 
-An agent can compare releases by running multiple commands:
+Compare releases by running multiple commands:
 
 ```bash
 for tag in v2.5.0 v2.4.0 v2.3.0; do
@@ -176,7 +176,7 @@ REPORT=$(gh velocity quality release v1.2.0 -R owner/repo --results json)
 echo "$REPORT" | your-agent analyze-release
 ```
 
-The JSON is self-contained -- the agent does not need to make additional API calls to understand the data.
+The JSON is self-contained -- no additional API calls needed to interpret the data.
 
 ## CI pipeline integration
 
@@ -186,7 +186,7 @@ The JSON is self-contained -- the agent does not need to make additional API cal
 gh velocity quality release "$TAG" --results json > metrics.json
 ```
 
-Upload as a GitHub Actions artifact for trend tracking:
+Upload as a GitHub Actions artifact:
 
 ```yaml
 - name: Upload metrics

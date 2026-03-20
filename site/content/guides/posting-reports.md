@@ -5,7 +5,7 @@ weight: 4
 
 # Posting Reports
 
-gh-velocity can post metrics directly to GitHub using the `--post` flag. Reports go to GitHub Discussions (for bulk commands like `report` and `quality release`) or as issue/PR comments (for single-item commands like `flow lead-time 42`).
+gh-velocity posts metrics directly to GitHub via the `--post` flag. Bulk commands (`report`, `quality release`) post to GitHub Discussions; single-item commands (`flow lead-time 42`) post as issue/PR comments.
 
 ## The --post flag
 
@@ -17,13 +17,13 @@ gh velocity quality release v1.2.0 --post
 gh velocity flow lead-time 42 --post
 ```
 
-By default, `--post` runs in **dry-run mode**. It shows what would be posted without actually writing to GitHub. To post for real, set the `GH_VELOCITY_POST_LIVE` environment variable:
+By default, `--post` runs in **dry-run mode** -- it shows what would be posted without writing to GitHub. To post for real, set `GH_VELOCITY_POST_LIVE`:
 
 ```bash
 GH_VELOCITY_POST_LIVE=true gh velocity report --since 30d --post
 ```
 
-This safety net prevents accidental posts during local testing.
+This prevents accidental posts during local testing.
 
 ## Discussions config
 
@@ -34,11 +34,11 @@ discussions:
   category: General
 ```
 
-The tool creates a new Discussion in the specified category with the report as the body. The Discussion title includes the command, repo, and date range for easy identification.
+The tool creates a Discussion in the specified category with the report as the body. The title includes the command, repo, and date range.
 
 ## Idempotent posting
 
-When you run the same command with `--post` multiple times, the tool updates the existing Discussion or comment instead of creating a duplicate. It matches on the title (for Discussions) or a signature comment (for issue/PR comments).
+Running the same command with `--post` multiple times updates the existing Discussion or comment instead of creating a duplicate. It matches on title (for Discussions) or a signature comment (for issue/PR comments).
 
 To force a new post instead of updating, use `--new-post`:
 
@@ -50,7 +50,7 @@ gh velocity report --since 30d --new-post
 
 ## Posting in CI
 
-The most common CI pattern is a weekly report posted to Discussions on a cron schedule. Here is the minimal workflow:
+The most common CI pattern is a weekly report posted to Discussions on a cron schedule:
 
 ```yaml
 name: Velocity Report
@@ -85,12 +85,12 @@ jobs:
 
 Key points:
 
-- **`GH_VELOCITY_POST_LIVE: 'true'`** is required in CI for `--post` to actually write. Without it, the run succeeds but nothing is posted.
-- **`permissions: discussions: write`** is required for the `GITHUB_TOKEN` to create Discussions.
-- **`permissions: issues: write`** is required for posting comments on issues or PRs.
-- **`workflow_dispatch`** lets you trigger the workflow manually from the GitHub UI for testing.
+- **`GH_VELOCITY_POST_LIVE: 'true'`** -- required for `--post` to write. Without it, the run succeeds but nothing is posted.
+- **`permissions: discussions: write`** -- required to create Discussions.
+- **`permissions: issues: write`** -- required for issue/PR comments.
+- **`workflow_dispatch`** -- lets you trigger the workflow manually for testing.
 
-See [CI Setup]({{< relref "/getting-started/ci-setup" >}}) for complete workflow examples including release metrics, PR lead-time checks, and scheduled trend reports.
+See [CI Setup]({{< relref "/getting-started/ci-setup" >}}) for complete workflow examples.
 
 ## Posting patterns
 
@@ -102,7 +102,7 @@ Post a trailing-window report every Monday:
 GH_VELOCITY_POST_LIVE=true gh velocity report --since 30d --post --results markdown
 ```
 
-The idempotent behavior means re-running this manually during the week updates the existing Discussion rather than creating a new one.
+Re-running during the week updates the existing Discussion rather than creating a new one.
 
 ### Release metrics on every release
 
@@ -139,7 +139,7 @@ gh velocity quality release v1.2.0 --results markdown | \
 
 ## Token permissions for posting
 
-The default `GITHUB_TOKEN` in GitHub Actions can post to issues, PRs, and Discussions with the right workflow permissions. You do not need `GH_VELOCITY_TOKEN` for posting -- that token is only for project board access.
+The default `GITHUB_TOKEN` in GitHub Actions can post to issues, PRs, and Discussions with the right workflow permissions. `GH_VELOCITY_TOKEN` is only for project board access, not posting.
 
 | Posting target | Required permission |
 |---|---|

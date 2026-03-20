@@ -7,7 +7,7 @@ weight: 3
 
 Complete reference for `.gh-velocity.yml` fields, types, defaults, and validation rules.
 
-All metric commands require a `.gh-velocity.yml` file. Run `gh velocity config preflight --write` to generate one, or create one manually in your repository root. Use `--config` to point to an alternate path. Every field within the config is optional — the tool uses sensible defaults for anything you omit.
+All metric commands require a `.gh-velocity.yml` file. Run `gh velocity config preflight --write` to generate one, or create one manually in your repository root. Use `--config` to point to an alternate path. Every field is optional -- the tool uses sensible defaults for anything omitted.
 
 To generate a config tailored to your repository:
 
@@ -39,7 +39,7 @@ How your team delivers code.
 | **Default** | `"pr"` |
 | **Valid values** | `"pr"`, `"local"` |
 
-- `"pr"` -- PRs close issues (most teams). Enables PR-based linking strategies and cycle time.
+- `"pr"` -- PRs close issues (most teams). Enables PR strategy linking and cycle time.
 - `"local"` -- Direct commits to main (solo projects, scripts). Uses commit-ref strategy.
 
 ```yaml
@@ -59,14 +59,14 @@ Filters which issues and PRs are analyzed. Uses GitHub search query syntax.
 | **Type** | string |
 | **Default** | `""` (empty -- uses repo context) |
 
-A GitHub search query fragment appended to all search API calls. Typically `"repo:owner/name"` when running against a remote repo. Can include any valid GitHub search qualifier.
+A GitHub search query fragment appended to all Search API calls. Typically `"repo:owner/name"` when running against a remote repo. Accepts any valid GitHub search qualifier.
 
 ```yaml
 scope:
   query: "repo:cli/cli"
 ```
 
-You can add label filters, milestone filters, or any search qualifier:
+Add label filters, milestone filters, or any search qualifier:
 
 ```yaml
 scope:
@@ -89,7 +89,7 @@ Identifies a GitHub Projects v2 board. Required when `velocity.iteration.strateg
 | **Default** | `""` (none) |
 | **Format** | `https://github.com/users/{user}/projects/{N}` or `https://github.com/orgs/{org}/projects/{N}` |
 
-The project board URL. Find it by navigating to your project board in GitHub and copying the URL from the browser.
+The project board URL. Copy it from the browser address bar when viewing your project board.
 
 ```yaml
 project:
@@ -117,7 +117,7 @@ project:
 
 ## `lifecycle`
 
-Maps workflow stages to GitHub search qualifiers and label matchers. Commands use these to filter items by lifecycle stage. Labels are the sole source of truth for lifecycle signals. See [Labels as Lifecycle Signal]({{< relref "/concepts/labels-vs-board" >}}) for details.
+Maps workflow stages to GitHub search qualifiers and label matchers. Commands use these to filter items by lifecycle stage. Labels are the sole source of truth for lifecycle signals (see [Labels as Lifecycle Signal]({{< relref "/concepts/labels-vs-board" >}})).
 
 Each stage has two optional fields:
 
@@ -156,7 +156,7 @@ lifecycle:
     match: ["label:in-progress", "label:wip"]
 ```
 
-The `match` patterns use [matcher syntax](#matcher-syntax). When a label matching one of these patterns is applied to an issue, its immutable `createdAt` timestamp becomes the cycle time start signal.
+Uses [matcher syntax](#matcher-syntax). When a matching label is applied, its immutable `createdAt` timestamp becomes the cycle time start signal.
 
 ### `lifecycle.in-review`
 
@@ -239,7 +239,7 @@ quality:
         - "label:documentation"
 ```
 
-Issues that do not match any category are classified as `"other"`. When more than 50% of issues are "other," the tool warns about low classification coverage.
+Unmatched issues are classified as `"other"`. When more than 50% of issues are "other," the tool warns about low classification coverage.
 
 ### `quality.hotfix_window_hours`
 
@@ -278,13 +278,13 @@ cycle_time:
   strategy: pr
 ```
 
-See [Cycle Time]({{< relref "metrics/cycle-time" >}}) for the metric definition, and [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) for a step-by-step configuration guide.
+See [Cycle Time]({{< relref "metrics/cycle-time" >}}) for the metric definition.
 
 ---
 
 ## `velocity`
 
-Controls how velocity (effort per iteration) is measured. See [Velocity]({{< relref "metrics/velocity" >}}) for the metric definition, and [Setting Up Velocity]({{< relref "/guides/velocity-setup" >}}) for a step-by-step configuration guide.
+Controls how velocity (effort per iteration) is measured. See [Velocity]({{< relref "metrics/velocity" >}}) for the metric definition.
 
 ### `velocity.unit`
 
@@ -346,7 +346,7 @@ velocity:
 | **Type** | string |
 | **Required** | when strategy is `"numeric"` |
 
-The name of a Number field on the project board that holds the effort value (e.g., `"Story Points"`).
+Name of a Number field on the project board holding the effort value (e.g., `"Story Points"`).
 
 ```yaml
 velocity:
@@ -368,7 +368,7 @@ Controls how iteration boundaries are determined.
 | **Default** | `""` (not configured) |
 | **Valid values** | `"project-field"`, `"fixed"` |
 
-Must be explicitly set to use the velocity command. Run `gh velocity config preflight` to get a suggested value.
+Must be set to use the velocity command. Run `gh velocity config preflight` for a suggested value.
 
 #### `velocity.iteration.project_field`
 
@@ -377,7 +377,7 @@ Must be explicitly set to use the velocity command. Run `gh velocity config pref
 | **Type** | string |
 | **Required** | when strategy is `"project-field"` |
 
-The name of an Iteration field on the project board (e.g., `"Sprint"`). Requires `project.url`.
+Name of an Iteration field on the project board (e.g., `"Sprint"`). Requires `project.url`.
 
 #### `velocity.iteration.fixed`
 
@@ -405,7 +405,7 @@ velocity:
 | **Default** | `6` |
 | **Range** | > 0 |
 
-Number of past iterations to fetch and display. Higher values increase API consumption (one search query per iteration for fixed strategy).
+Number of past iterations to fetch. Higher values increase API consumption (one search query per iteration for the fixed strategy).
 
 ---
 
@@ -440,7 +440,7 @@ Excludes issues and PRs authored by specified users from all metrics.
 | **Type** | list of strings |
 | **Default** | `[]` (none) |
 
-Commonly used to filter out bot accounts. Values are applied as `-author:` qualifiers in search queries.
+Commonly used to filter bot accounts. Applied as `-author:` qualifiers in search queries.
 
 ```yaml
 exclude_users:
@@ -461,7 +461,7 @@ Configuration for posting reports to GitHub Discussions.
 | **Type** | string |
 | **Default** | `""` (none) |
 
-The Discussion category name to post to (e.g., `"General"`, `"Reports"`). Must be a non-empty string if set. The category must already exist in the repository's Discussions settings.
+Discussion category name to post to (e.g., `"General"`, `"Reports"`). Must already exist in the repository's Discussions settings.
 
 ```yaml
 discussions:
@@ -477,12 +477,12 @@ Used by the `--post` flag on bulk commands to create or update Discussion posts.
 | Property | Value |
 |---|---|
 | **Type** | int (nullable) |
-| **Default** | `0` (no throttle, unless set by preflight) |
+| **Default** | `0` (no throttle). `preflight` recommends `2` for repos with many iterations. |
 | **Recommended** | `2` |
 
-Minimum delay in seconds between GitHub Search API calls. Prevents triggering GitHub's secondary (abuse) rate limits, which have undocumented thresholds and can result in multi-minute lockouts.
+Minimum delay in seconds between GitHub Search API calls. Prevents triggering GitHub's secondary (abuse) rate limits, which have undocumented thresholds and can cause multi-minute lockouts.
 
-The `preflight` command recommends `api_throttle_seconds: 2` when generating a config. Set to `0` to disable throttling (not recommended for repos with many iterations).
+`preflight` recommends `api_throttle_seconds: 2` when generating a config. Set to `0` to disable (not recommended for repos with many iterations).
 
 ```yaml
 api_throttle_seconds: 2
@@ -501,7 +501,7 @@ Several configuration fields (`quality.categories[].match`, `lifecycle.in-progre
 | `title:/<regex>/i` | Case-insensitive regex match on title | `title:/^fix[\(: ]/i` |
 | `field:<Name>/<Value>` | Match a SingleSelect field value on a Projects v2 board | `field:Size/M` |
 
-The `field:` matcher requires `project.url` to be configured. It reads the specified SingleSelect field from the project board and matches items whose field value equals `<Value>`. This is especially useful for effort classification — see [Labels as Lifecycle Signal]({{< relref "/concepts/labels-vs-board" >}}) for examples.
+The `field:` matcher requires `project.url`. It reads the specified SingleSelect field from the project board and matches items whose field value equals `<Value>`.
 
 Matchers are evaluated in config order. For classification (`quality.categories`), the first matching category wins across all categories. For effort (`velocity.effort.attribute`), the first matching rule determines the effort value.
 
@@ -605,9 +605,7 @@ api_throttle_seconds: 2
 
 ## See also
 
-- [Configuration (Getting Started)]({{< relref "/getting-started/configuration" >}}) -- first-time setup guide with preflight, discover, and validate
-- [Setting Up Velocity]({{< relref "/guides/velocity-setup" >}}) -- effort strategies, iteration strategies, and validation
-- [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) -- choosing and configuring a cycle time strategy
-- [Labels as Lifecycle Signal]({{< relref "/concepts/labels-vs-board" >}}) -- why labels are the sole lifecycle signal
-- [CI Setup]({{< relref "/getting-started/ci-setup" >}}) -- token setup for CI environments
-- [Examples]({{< relref "/examples" >}}) -- annotated real-world configs for popular repositories
+- [Configuration (Getting Started)]({{< relref "/getting-started/configuration" >}}) -- first-time setup with preflight, discover, and validate
+- [Setting Up Velocity]({{< relref "/guides/velocity-setup" >}}) -- effort and iteration strategy guides
+- [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) -- choosing a cycle time strategy
+- [Examples]({{< relref "/examples" >}}) -- annotated real-world configs

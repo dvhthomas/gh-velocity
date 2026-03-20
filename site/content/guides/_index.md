@@ -6,6 +6,6 @@ bookCollapseSection: true
 
 # Guides
 
-Task-oriented guides for common workflows with gh-velocity. New here? Start with [Getting Started]({{< relref "/getting-started" >}}). Looking for metric definitions or config schema? See the [Reference]({{< relref "/reference" >}}).
+Task-oriented guides for common gh-velocity workflows. Start with [Getting Started]({{< relref "/getting-started" >}}) if this is your first time. For metric definitions and config schema, see the [Reference]({{< relref "/reference" >}}).
 
 {{< children >}}

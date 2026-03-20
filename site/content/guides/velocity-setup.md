@@ -5,122 +5,31 @@ weight: 2
 
 # Setting Up Velocity
 
-The `flow velocity` command measures effort completed per iteration -- a number, not a ratio. It answers "how much work did we ship this sprint?" expressed in effort units. A related metric, completion rate (done / committed), measures predictability. Both are shown in the output. For the metric definition and formula, see the [Velocity reference]({{< relref "/reference/metrics/velocity" >}}).
+The `flow velocity` command measures effort completed per iteration -- a number, not a ratio. It answers "how much work did we ship this sprint?" in effort units. A related metric, completion rate (done / committed), measures predictability. Both appear in the output. For the metric definition and formula, see the [Velocity reference]({{< relref "/reference/metrics/velocity" >}}).
 
 ## How velocity differs from throughput
 
 Throughput counts items in a sliding window. Velocity is effort-weighted and iteration-aligned:
 
 - **[Throughput]({{< relref "/reference/metrics/throughput" >}})**: "12 issues closed in the last 30 days"
-- **Velocity**: "31 story points completed in Sprint 12"
+- **Velocity**: "31 effort points completed in Sprint 12"
 
-If you do not size your work items, velocity with the `count` strategy is effectively throughput sliced into iterations.
+Without effort estimates, velocity with the `count` strategy is effectively throughput sliced into iterations.
 
-## Effort strategies
+## Choosing your strategies
 
-The `velocity.effort.strategy` field controls how the tool determines how much "work" an item represents. There are three strategies.
+Velocity requires two choices: how to measure **effort** and how to define **iterations**.
 
-### Count (default)
-
-Every completed item equals 1 unit. No sizing required. This is throughput repackaged into iterations.
-
-```yaml
-velocity:
-  effort:
-    strategy: count
-```
-
-Use count when your team does not estimate or size work items. It still gives you iteration-aligned completion data and a completion rate.
-
-### Attribute
-
-Map GitHub search queries to effort values. If you can run the query in the GitHub Issues UI, it works as an effort classifier. The tool evaluates queries in config order; first match wins.
-
-```yaml
-velocity:
-  effort:
-    strategy: attribute
-    attribute:
-      - query: "label:size/S"
-        value: 1
-      - query: "label:size/M"
-        value: 3
-      - query: "label:size/L"
-        value: 5
-      - query: "label:size/XL"
-        value: 8
-      - query: "type:epic"
-        value: 13
-```
-
-Matchers use the same syntax as `scope.query` and `quality.categories[].match`. You can match on labels, issue types, title patterns, or any qualifier GitHub search supports.
-
-Items matching no query are classified as "not assessed" and excluded from velocity and committed totals. Items explicitly configured with `value: 0` are valid (useful for chores or operational items that should count as done but carry no effort weight).
-
-When an item matches multiple queries, the first match in config order wins. Run `gh velocity config validate --velocity` to detect overlaps.
-
-### Numeric
-
-Read effort directly from a GitHub Projects v2 Number field (e.g., "Story Points"). The field value is used as-is.
-
-```yaml
-velocity:
-  effort:
-    strategy: numeric
-    numeric:
-      project_field: "Story Points"
-```
-
-Items with a 0 or null field value are treated as "not assessed" and excluded from totals.
-
-This strategy requires a `project:` section in your config and a token with `project` scope. See [CI Setup]({{< relref "/getting-started/ci-setup" >}}#setting-up-gh_velocity_token) for token configuration.
-
-### Choosing a strategy
+### Effort strategy
 
 | Your workflow | Recommended strategy | Why |
 |---|---|---|
-| No estimation or sizing | `count` | Works immediately, no labels needed |
-| T-shirt size labels (S/M/L/XL) | `attribute` | Maps labels to fibonacci-ish effort values |
+| No estimation | `count` | Works immediately, no labels needed |
+| T-shirt effort labels (S/M/L/XL) | `attribute` | Maps labels to fibonacci-ish effort values |
 | Story points on a project board | `numeric` | Reads the actual number field value |
-| Mixed: some items labeled, some on a board | `attribute` | Covers items with labels; board-only items show as "not assessed" |
+| Mixed: some items labeled, some on a board | `attribute` | Covers labeled items; board-only items show as "not assessed" |
 
-## Iteration strategies
-
-The `velocity.iteration.strategy` field controls how the tool defines iteration boundaries. There are two strategies.
-
-### Project field
-
-Read iteration boundaries from a GitHub Projects v2 Iteration field. GitHub stores active/upcoming iterations and completed iterations with `startDate` and `duration`. The end date is computed as start + duration.
-
-```yaml
-velocity:
-  iteration:
-    strategy: project-field
-    project_field: "Sprint"
-```
-
-An item is committed to an iteration if it is assigned to that iteration on the project board (via the `ProjectV2ItemFieldIterationValue`).
-
-This strategy requires a `project:` section in your config and a token with `project` scope.
-
-### Fixed
-
-Define iteration boundaries with a length and anchor date. Simple calendar math, no project board needed.
-
-```yaml
-velocity:
-  iteration:
-    strategy: fixed
-    fixed:
-      length: 14d
-      anchor: 2026-01-06
-```
-
-Iterations are computed forward and backward from the anchor date. An item is committed if it was open at iteration start or opened during the iteration. Items are assigned to the iteration in which they were closed or merged.
-
-Use fixed when you do not have a project board or prefer calendar-based sprints.
-
-### Choosing an iteration strategy
+### Iteration strategy
 
 | Your workflow | Recommended strategy | Why |
 |---|---|---|
@@ -195,11 +104,11 @@ velocity:
 
 ## Carry-over and scope
 
-Items committed but not completed in an iteration roll forward into the next one with no cap. The `--scope` flag and `scope.query` in config filter both committed and completed items uniformly, so stale work outside your scope is naturally excluded.
+Items committed but not completed roll forward into the next iteration with no cap. The `--scope` flag and `scope.query` filter both committed and completed items uniformly, so stale work outside your scope is naturally excluded.
 
 ## Preflight suggestions
 
-When no `velocity` section exists in your config, `preflight` scans the repo and suggests a starting configuration.
+When no `velocity` section exists in config, `preflight` scans the repo and suggests a starting configuration.
 
 ```bash
 gh velocity config preflight -R owner/repo
@@ -207,13 +116,13 @@ gh velocity config preflight -R owner/repo
 
 Preflight detects:
 
-- **Labels** with common sizing patterns: prefixes like `size/*`, `effort:*`, `points-*`, `estimate-*`; standalone t-shirt sizes (XS, S, M, L, XL). Digit-only labels are skipped as too ambiguous. Detected labels are mapped to fibonacci-ish defaults (1, 2, 3, 5, 8, 13).
+- **Labels** with common effort patterns: prefixes like `size/*`, `effort:*`, `points-*`, `estimate-*`; standalone t-shirt sizes (XS, S, M, L, XL). Digit-only labels are skipped as too ambiguous. Detected labels map to fibonacci-ish defaults (1, 2, 3, 5, 8, 13).
 - **Project Number fields** (candidates for numeric effort): fields named "points", "story points", "estimate", "effort", or "size" rank higher.
 - **Project Iteration fields** (candidates for iteration strategy).
 
 The suggestion logic:
 1. If a Number field is found, suggest `numeric` strategy
-2. Else if sizing labels are found, suggest `attribute` strategy with mapped values
+2. Else if effort labels are found, suggest `attribute` strategy with mapped values
 3. Else suggest `count` strategy with a note about adding effort later
 4. If an Iteration field is found, suggest `project-field` iteration strategy
 5. Else suggest `fixed` with a 14-day default
@@ -266,7 +175,7 @@ velocity:
     count: 6
 ```
 
-Only the fields for your chosen strategies need to be present. If you use `strategy: attribute`, you do not need the `numeric` section, and vice versa.
+Only fields for your chosen strategies need to be present. The `numeric` and `attribute` sections are mutually exclusive.
 
 ## Next steps
 
