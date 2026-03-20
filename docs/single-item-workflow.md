@@ -2,6 +2,8 @@
 
 Post composite detail comments automatically when issues close or PRs merge. Each comment appears on the item itself — no bulk reports, no manual steps.
 
+**Per-repo setup.** This workflow uses GitHub Actions event triggers (`issues: [closed]`, `pull_request: [closed]`) which only fire for events in their own repository. Each repo that wants automatic metrics needs its own `.gh-velocity.yml` config and `.github/workflows/velocity-item.yaml` workflow file committed. There is no cross-repo mechanism — if you have multiple repos, repeat the setup below in each one.
+
 **Already have a working `.gh-velocity.yml`?** Skip to [The workflow](#the-workflow).
 
 ## Prerequisites
