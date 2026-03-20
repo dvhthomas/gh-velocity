@@ -201,6 +201,36 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 		}
 	}
 
+	// Waiting on: your PRs/issues that are blocked or idle — show early for visibility
+	var waitingPRs []model.PR
+	for _, pr := range r.PRsNeedingReview {
+		waitingPRs = append(waitingPRs, pr)
+	}
+	var staleIssues []model.Issue
+	for _, iss := range r.IssuesOpen {
+		if iss.IsStale(r.Until) {
+			staleIssues = append(staleIssues, iss)
+		}
+	}
+	if len(waitingPRs) > 0 || len(staleIssues) > 0 {
+		fmt.Fprintf(w, "\n── Waiting on ──────────────────────────────\n")
+		if len(waitingPRs) > 0 {
+			fmt.Fprintf(w, "\nPRs Waiting for Review: %d\n", len(waitingPRs))
+			for _, pr := range waitingPRs {
+				age := model.DaysBetween(pr.CreatedAt, r.Until)
+				ai := aiSuffix(pr.AIAssisted)
+				fmt.Fprintf(w, "  %s  %s%s  (%s, no reviews)\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title, ai, formatAge(age))
+			}
+		}
+		if len(staleIssues) > 0 {
+			fmt.Fprintf(w, "\nStale Issues: %d\n", len(staleIssues))
+			for _, iss := range staleIssues {
+				staleDays := model.DaysBetween(iss.UpdatedAt, r.Until)
+				fmt.Fprintf(w, "  %s  %s  (no update in %dd)\n", FormatItemLink(iss.Number, iss.URL, rc), iss.Title, staleDays)
+			}
+		}
+	}
+
 	// Lookback
 	hasLookback := len(r.IssuesClosed) > 0 || len(r.PRsMerged) > 0 || len(r.PRsReviewed) > 0
 	fmt.Fprintf(w, "\n── What I shipped ──────────────────────────\n")
@@ -296,36 +326,6 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 		fmt.Fprintf(w, "\n  Nothing planned.\n")
 	}
 
-	// Waiting on: your PRs/issues that are blocked or idle
-	var waitingPRs []model.PR
-	for _, pr := range r.PRsNeedingReview {
-		waitingPRs = append(waitingPRs, pr)
-	}
-	var staleIssues []model.Issue
-	for _, iss := range r.IssuesOpen {
-		if iss.IsStale(r.Until) {
-			staleIssues = append(staleIssues, iss)
-		}
-	}
-	if len(waitingPRs) > 0 || len(staleIssues) > 0 {
-		fmt.Fprintf(w, "\n── Waiting on ──────────────────────────────\n")
-		if len(waitingPRs) > 0 {
-			fmt.Fprintf(w, "\nPRs Waiting for Review: %d\n", len(waitingPRs))
-			for _, pr := range waitingPRs {
-				age := model.DaysBetween(pr.CreatedAt, r.Until)
-				ai := aiSuffix(pr.AIAssisted)
-				fmt.Fprintf(w, "  %s  %s%s  (%s, no reviews)\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title, ai, formatAge(age))
-			}
-		}
-		if len(staleIssues) > 0 {
-			fmt.Fprintf(w, "\nStale Issues: %d\n", len(staleIssues))
-			for _, iss := range staleIssues {
-				staleDays := model.DaysBetween(iss.UpdatedAt, r.Until)
-				fmt.Fprintf(w, "  %s  %s  (no update in %dd)\n", FormatItemLink(iss.Number, iss.URL, rc), iss.Title, staleDays)
-			}
-		}
-	}
-
 	// Review queue: PRs from others waiting on you
 	if len(r.PRsAwaitingMyReview) > 0 {
 		fmt.Fprintf(w, "\n── Review queue ────────────────────────────\n")
@@ -360,9 +360,9 @@ type jsonMyWeekResult struct {
 	Since    string             `json:"since"`
 	Until    string             `json:"until"`
 	Insights  jsonMyWeekInsights  `json:"insights"`
+	WaitingOn jsonMyWeekWaitingOn `json:"waiting_on"`
 	Lookback  jsonMyWeekLookback  `json:"lookback"`
 	Ahead     jsonMyWeekAhead     `json:"ahead"`
-	WaitingOn jsonMyWeekWaitingOn `json:"waiting_on"`
 	Summary   jsonMyWeekSummary   `json:"summary"`
 	Warnings []string           `json:"warnings,omitempty"`
 }
