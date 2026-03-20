@@ -421,6 +421,8 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 		Target:  posting.DiscussionTarget,
 	})
 
+	prov := buildProvenance(cmd, map[string]string{"repository": deps.Owner + "/" + deps.Repo})
+
 	if deps.Output.WriteTo != "" {
 		// --write-to mode: render all formats to files, no stdout.
 
@@ -429,6 +431,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 			if err := renderReportToWriter(&pc.buf, format.Markdown); err != nil {
 				return err
 			}
+			writeProvenance(&pc.buf, format.Markdown, prov)
 		}
 
 		// Write requested formats.
@@ -436,7 +439,11 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 			name := "report." + formatExt(f)
 			path := filepath.Join(deps.Output.WriteTo, name)
 			if err := writeFileAtomic(path, func(w *os.File) error {
-				return renderReportToWriter(w, f)
+				if err := renderReportToWriter(w, f); err != nil {
+					return err
+				}
+				writeProvenance(w, f, prov)
+				return nil
 			}); err != nil {
 				return fmt.Errorf("writing %s: %w", path, err)
 			}
@@ -463,9 +470,11 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 		if pc != nil {
 			w = pc.postWriter(stdout)
 		}
-		if err := renderReportToWriter(w, deps.ResultFormat()); err != nil {
+		f := deps.ResultFormat()
+		if err := renderReportToWriter(w, f); err != nil {
 			return err
 		}
+		writeProvenance(w, f, prov)
 	}
 
 	return postFn()

@@ -145,15 +145,23 @@ func runWIP(cmd *cobra.Command) error {
 	// Output.
 	repo := fmt.Sprintf("%s/%s", deps.Owner, deps.Repo)
 	rc := deps.RenderCtx(os.Stdout)
+	prov := buildProvenance(cmd, map[string]string{"repository": repo})
+	f := deps.ResultFormat()
 
-	switch deps.ResultFormat() {
+	var renderErr error
+	switch f {
 	case format.JSON:
-		return format.WriteWIPJSON(os.Stdout, repo, wipItems)
+		renderErr = format.WriteWIPJSON(os.Stdout, repo, wipItems)
 	case format.Markdown:
-		return format.WriteWIPMarkdown(rc, repo, wipItems)
+		renderErr = format.WriteWIPMarkdown(rc, repo, wipItems)
 	default:
-		return format.WriteWIPPretty(rc, repo, wipItems)
+		renderErr = format.WriteWIPPretty(rc, repo, wipItems)
 	}
+	if renderErr != nil {
+		return renderErr
+	}
+	writeProvenance(rc.Writer, f, prov)
+	return nil
 }
 
 // classifyWIPStage determines whether an issue is "in-progress" or "in-review"

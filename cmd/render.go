@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/format"
 	gh "github.com/dvhthomas/gh-velocity/internal/github"
 	"github.com/dvhthomas/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 	"github.com/dvhthomas/gh-velocity/internal/pipeline"
 	"github.com/dvhthomas/gh-velocity/internal/posting"
 	"github.com/spf13/cobra"
@@ -19,6 +21,10 @@ import (
 // handles --write-to file routing, and posts if --post is set.
 // Pass nil for client and empty PostOptions for commands without --post.
 func renderPipeline(cmd *cobra.Command, deps *Deps, p pipeline.Pipeline, client *gh.Client, postOpts posting.PostOptions) error {
+	prov := buildProvenance(cmd, map[string]string{
+		"repository": deps.Owner + "/" + deps.Repo,
+	})
+
 	pc, postFn := setupPost(cmd, deps, client, postOpts)
 
 	if deps.Output.WriteTo == "" {
@@ -28,9 +34,11 @@ func renderPipeline(cmd *cobra.Command, deps *Deps, p pipeline.Pipeline, client 
 		if pc != nil {
 			w = pc.postWriter(stdout)
 		}
-		if err := renderFormat(w, deps, p, deps.ResultFormat()); err != nil {
+		f := deps.ResultFormat()
+		if err := renderFormat(w, deps, p, f); err != nil {
 			return err
 		}
+		writeProvenance(w, f, prov)
 		return postFn()
 	}
 
@@ -39,6 +47,7 @@ func renderPipeline(cmd *cobra.Command, deps *Deps, p pipeline.Pipeline, client 
 		if err := renderFormat(&pc.buf, deps, p, format.Markdown); err != nil {
 			return err
 		}
+		writeProvenance(&pc.buf, format.Markdown, prov)
 	}
 
 	slug := commandSlug(cmd)
@@ -48,7 +57,11 @@ func renderPipeline(cmd *cobra.Command, deps *Deps, p pipeline.Pipeline, client 
 		path := filepath.Join(deps.Output.WriteTo, name)
 
 		if err := writeFileAtomic(path, func(w *os.File) error {
-			return renderFormat(w, deps, p, f)
+			if err := renderFormat(w, deps, p, f); err != nil {
+				return err
+			}
+			writeProvenance(w, f, prov)
+			return nil
 		}); err != nil {
 			return fmt.Errorf("writing %s: %w", path, err)
 		}
@@ -89,6 +102,25 @@ func renderFormat(w interface{ Write([]byte) (int, error) }, deps *Deps, p pipel
 	}
 	return p.Render(rc)
 }
+
+// writeProvenance writes provenance metadata after the main output.
+// For pretty: single-line footer. For markdown: <details> block.
+// For JSON: caller must include provenance in its JSON struct.
+func writeProvenance(w io.Writer, f format.Format, prov model.Provenance) {
+	if prov.Command == "" {
+		return
+	}
+	switch f {
+	case format.Pretty:
+		prov.WriteFooter(w)
+	case format.Markdown:
+		format.RenderProvenanceMarkdown(w, prov, "")
+	case format.JSON:
+		// JSON provenance is embedded in the JSON struct by the caller,
+		// not appended separately. Write nothing here.
+	}
+}
+
 
 // commandSlug derives a file-name stem from the command's path.
 // "gh-velocity flow lead-time" → "flow-lead-time"
