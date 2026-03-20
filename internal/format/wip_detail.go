@@ -190,31 +190,42 @@ func WriteWIPDetailJSON(w io.Writer, result model.WIPResult) error {
 func WriteWIPDetailMarkdown(rc RenderContext, result model.WIPResult) error {
 	w := rc.Writer
 	sorted := sortWIPByAgeDesc(result.Items)
+	issueCount, prCount := countByKind(result.Items)
 
+	// Summary.
 	staleCount := result.Staleness.Stale
 	if staleCount > 0 {
-		fmt.Fprintf(w, "**%d items** in progress (%d stale)\n", len(result.Items), staleCount)
+		fmt.Fprintf(w, "**%d items** in progress (%d issues, %d PRs — %d %s)\n",
+			len(result.Items), issueCount, prCount, staleCount,
+			DocLink("stale", "/reference/metrics/staleness/"))
 	} else {
-		fmt.Fprintf(w, "**%d items** in progress\n", len(result.Items))
+		fmt.Fprintf(w, "**%d items** in progress (%d issues, %d PRs)\n",
+			len(result.Items), issueCount, prCount)
 	}
-	// Human/bot breakdown.
+
+	// Human/bot breakdown table.
 	if result.BotItemCount > 0 {
-		fmt.Fprintf(w, "\n| | Items | Stale |\n")
-		fmt.Fprintf(w, "| --- | ---: | ---: |\n")
-		fmt.Fprintf(w, "| Human | %d | %d |\n", result.HumanItemCount, result.HumanStaleness.Stale)
-		fmt.Fprintf(w, "| Bot | %d | %d |\n", result.BotItemCount, result.BotStaleness.Stale)
+		hIssues, hPRs := countByKindFromSubset(result.Items, false, result)
+		bIssues, bPRs := countByKindFromSubset(result.Items, true, result)
+		fmt.Fprintf(w, "\n| | Items | Issues | PRs | %s |\n", DocLink("Stale", "/reference/metrics/staleness/"))
+		fmt.Fprintf(w, "| --- | ---: | ---: | ---: | ---: |\n")
+		fmt.Fprintf(w, "| Human | %d | %d | %d | %d |\n", result.HumanItemCount, hIssues, hPRs, result.HumanStaleness.Stale)
+		fmt.Fprintf(w, "| %s | %d | %d | %d | %d |\n",
+			DocLink("Bot", "/reference/metrics/staleness/#bot-owners"), result.BotItemCount, bIssues, bPRs, result.BotStaleness.Stale)
 	}
 	fmt.Fprintln(w)
 
-	// Stage counts.
+	// Stage counts with issue/PR breakdown.
 	if len(result.StageCounts) > 0 {
 		fmt.Fprint(w, "### Stages\n\n")
-		fmt.Fprintln(w, "| Stage | Count |")
-		fmt.Fprintln(w, "| --- | ---: |")
+		fmt.Fprintln(w, "| Stage | Issues | PRs | Total |")
+		fmt.Fprintln(w, "| --- | ---: | ---: | ---: |")
 		for _, sc := range result.StageCounts {
-			fmt.Fprintf(w, "| %s | %d |\n", SanitizeMarkdown(sc.Stage), sc.Count)
+			si, sp := countByKindForStage(result.Items, sc.Stage)
+			fmt.Fprintf(w, "| **%s** | %d | %d | %d |\n", SanitizeMarkdown(sc.Stage), si, sp, sc.Count)
 			for _, mc := range sc.MatcherCounts {
-				fmt.Fprintf(w, "| &nbsp;&nbsp;%s | %d |\n", SanitizeMarkdown(mc.Label), mc.Count)
+				mi, mp := countByKindForMatcher(result.Items, mc.Matcher)
+				fmt.Fprintf(w, "| &nbsp;&nbsp;%s | %d | %d | %d |\n", SanitizeMarkdown(mc.Label), mi, mp, mc.Count)
 			}
 		}
 		fmt.Fprintln(w)
@@ -237,7 +248,7 @@ func WriteWIPDetailMarkdown(rc RenderContext, result model.WIPResult) error {
 
 	// Bot owners.
 	if len(result.BotAssignees) > 0 {
-		fmt.Fprint(w, "### Bot Owners\n\n")
+		fmt.Fprintf(w, "### %s\n\n", DocLink("Bot Owners", "/reference/metrics/staleness/#bot-owners"))
 		fmt.Fprintln(w, "| Owner | Items | Effort |")
 		fmt.Fprintln(w, "| --- | ---: | ---: |")
 		for _, a := range result.BotAssignees {
@@ -247,12 +258,12 @@ func WriteWIPDetailMarkdown(rc RenderContext, result model.WIPResult) error {
 	}
 
 	// Staleness.
-	fmt.Fprint(w, "### Staleness\n\n")
-	fmt.Fprintln(w, "| Signal | Count |")
-	fmt.Fprintln(w, "| --- | ---: |")
-	fmt.Fprintf(w, "| Active (<3d) | %d |\n", result.Staleness.Active)
-	fmt.Fprintf(w, "| Aging (3-7d) | %d |\n", result.Staleness.Aging)
-	fmt.Fprintf(w, "| Stale (>7d) | %d |\n", result.Staleness.Stale)
+	fmt.Fprintf(w, "### %s\n\n", DocLink("Staleness", "/reference/metrics/staleness/"))
+	fmt.Fprintln(w, "| Signal | Threshold | Count |")
+	fmt.Fprintln(w, "| --- | --- | ---: |")
+	fmt.Fprintf(w, "| Active | updated < 3 days ago | %d |\n", result.Staleness.Active)
+	fmt.Fprintf(w, "| Aging | updated 3–7 days ago | %d |\n", result.Staleness.Aging)
+	fmt.Fprintf(w, "| Stale | updated > 7 days ago | %d |\n", result.Staleness.Stale)
 	fmt.Fprintln(w)
 
 	// WIP limits — apply to human effort.
@@ -277,7 +288,7 @@ func WriteWIPDetailMarkdown(rc RenderContext, result model.WIPResult) error {
 	if len(result.Insights) > 0 {
 		fmt.Fprint(w, "### Insights\n\n")
 		for _, ins := range result.Insights {
-			fmt.Fprintf(w, "- %s\n", ins.Message)
+			fmt.Fprintf(w, "- %s\n", LinkStatTerms(ins.Message))
 		}
 		fmt.Fprintln(w)
 	}
@@ -314,47 +325,17 @@ func WriteWIPDetailMarkdown(rc RenderContext, result model.WIPResult) error {
 func WriteWIPDetailPretty(rc RenderContext, result model.WIPResult) error {
 	w := rc.Writer
 	sorted := sortWIPByAgeDesc(result.Items)
+	issueCount, prCount := countByKind(result.Items)
 
 	termWidth := rc.Width
 	if termWidth == 0 {
 		termWidth = 80
 	}
 
-	// Summary line.
-	staleCount := result.Staleness.Stale
-	if staleCount > 0 {
-		fmt.Fprintf(w, "Work in Progress: %s (%d items, %d stale)\n", result.Repository, len(result.Items), staleCount)
-	} else {
-		fmt.Fprintf(w, "Work in Progress: %s (%d items)\n", result.Repository, len(result.Items))
-	}
-	// Human/bot breakdown.
-	if result.BotItemCount > 0 {
-		fmt.Fprintf(w, "  Human: %d items (%d stale)\n", result.HumanItemCount, result.HumanStaleness.Stale)
-		fmt.Fprintf(w, "  Bot:   %d items (%d stale)\n", result.BotItemCount, result.BotStaleness.Stale)
-	}
-	fmt.Fprintln(w)
-
-	if len(result.Items) == 0 {
-		fmt.Fprintln(w, "  No items in progress.")
-		return nil
-	}
-
-	// Stage counts.
-	if len(result.StageCounts) > 0 {
-		fmt.Fprintln(w, "Stages:")
-		for _, sc := range result.StageCounts {
-			fmt.Fprintf(w, "  %s: %d\n", sc.Stage, sc.Count)
-			for _, mc := range sc.MatcherCounts {
-				fmt.Fprintf(w, "    %s: %d\n", mc.Label, mc.Count)
-			}
-		}
-		fmt.Fprintln(w)
-	}
-
-	// ownerStyleFunc returns a StyleFunc for owner tables (3 columns: Owner, Items, Effort).
-	ownerStyleFunc := func(row, col int) lipgloss.Style {
+	// Shared style funcs.
+	numericRightStyle := func(row, col int) lipgloss.Style {
 		s := lipgloss.NewStyle().Padding(0, 1)
-		if col >= 1 { // right-align numeric columns
+		if col >= 1 {
 			s = s.Align(lipgloss.Right)
 		}
 		if row == table.HeaderRow {
@@ -363,20 +344,68 @@ func WriteWIPDetailPretty(rc RenderContext, result model.WIPResult) error {
 		return s
 	}
 
-	// Owners (human).
-	if len(result.Assignees) > 0 {
-		fmt.Fprintln(w, "Owners:")
+	// Summary line.
+	staleCount := result.Staleness.Stale
+	if staleCount > 0 {
+		fmt.Fprintf(w, "Work in Progress: %s (%d items — %d issues, %d PRs — %d stale)\n",
+			result.Repository, len(result.Items), issueCount, prCount, staleCount)
+	} else {
+		fmt.Fprintf(w, "Work in Progress: %s (%d items — %d issues, %d PRs)\n",
+			result.Repository, len(result.Items), issueCount, prCount)
+	}
+
+	// Human/bot breakdown table.
+	if result.BotItemCount > 0 {
+		hIssues, hPRs := countByKindFromSubset(result.Items, false, result)
+		bIssues, bPRs := countByKindFromSubset(result.Items, true, result)
 		t := table.New().
 			Border(lipgloss.RoundedBorder()).
-			Headers("Owner", "Items", "Effort").
+			Headers("", "Items", "Issues", "PRs", "Stale").
 			Width(termWidth).
-			StyleFunc(ownerStyleFunc)
-		for _, a := range result.Assignees {
-			name := a.Login
-			if a.OverLimit {
-				name += " (over limit)"
+			StyleFunc(numericRightStyle).
+			Row("Human", itoa(result.HumanItemCount), itoa(hIssues), itoa(hPRs), itoa(result.HumanStaleness.Stale)).
+			Row("Bot", itoa(result.BotItemCount), itoa(bIssues), itoa(bPRs), itoa(result.BotStaleness.Stale))
+		fmt.Fprintln(w, t)
+	}
+	fmt.Fprintln(w)
+
+	if len(result.Items) == 0 {
+		fmt.Fprintln(w, "  No items in progress.")
+		return nil
+	}
+
+	// Stage counts table with issue/PR breakdown.
+	if len(result.StageCounts) > 0 {
+		t := table.New().
+			Border(lipgloss.RoundedBorder()).
+			Headers("Stage", "Issues", "PRs", "Total").
+			Width(termWidth).
+			StyleFunc(numericRightStyle)
+		for _, sc := range result.StageCounts {
+			si, sp := countByKindForStage(result.Items, sc.Stage)
+			t.Row(sc.Stage, itoa(si), itoa(sp), itoa(sc.Count))
+			for _, mc := range sc.MatcherCounts {
+				mi, mp := countByKindForMatcher(result.Items, mc.Matcher)
+				t.Row("  "+mc.Label, itoa(mi), itoa(mp), itoa(mc.Count))
 			}
-			t.Row(name, fmt.Sprintf("%d", a.ItemCount), fmt.Sprintf("%.0f", a.TotalEffort))
+		}
+		fmt.Fprintln(w, t)
+		fmt.Fprintln(w)
+	}
+
+	// Owners (human).
+	if len(result.Assignees) > 0 {
+		t := table.New().
+			Border(lipgloss.RoundedBorder()).
+			Headers("Owner", "Items", "Effort", "").
+			Width(termWidth).
+			StyleFunc(numericRightStyle)
+		for _, a := range result.Assignees {
+			flag := ""
+			if a.OverLimit {
+				flag = "⚠ over limit"
+			}
+			t.Row(a.Login, itoa(a.ItemCount), ftoa(a.TotalEffort), flag)
 		}
 		fmt.Fprintln(w, t)
 		fmt.Fprintln(w)
@@ -389,17 +418,35 @@ func WriteWIPDetailPretty(rc RenderContext, result model.WIPResult) error {
 			Border(lipgloss.RoundedBorder()).
 			Headers("Owner", "Items", "Effort").
 			Width(termWidth).
-			StyleFunc(ownerStyleFunc)
+			StyleFunc(numericRightStyle)
 		for _, a := range result.BotAssignees {
-			t.Row(a.Login, fmt.Sprintf("%d", a.ItemCount), fmt.Sprintf("%.0f", a.TotalEffort))
+			t.Row(a.Login, itoa(a.ItemCount), ftoa(a.TotalEffort))
 		}
 		fmt.Fprintln(w, t)
 		fmt.Fprintln(w)
 	}
 
-	// Staleness.
-	fmt.Fprintf(w, "Staleness:  active=%d  aging=%d  stale=%d\n",
-		result.Staleness.Active, result.Staleness.Aging, result.Staleness.Stale)
+	// Staleness table.
+	{
+		t := table.New().
+			Border(lipgloss.RoundedBorder()).
+			Headers("Signal", "Threshold", "Count").
+			Width(termWidth).
+			StyleFunc(func(row, col int) lipgloss.Style {
+				s := lipgloss.NewStyle().Padding(0, 1)
+				if col == 2 {
+					s = s.Align(lipgloss.Right)
+				}
+				if row == table.HeaderRow {
+					s = s.Bold(true)
+				}
+				return s
+			}).
+			Row("Active", "updated < 3 days ago", itoa(result.Staleness.Active)).
+			Row("Aging", "updated 3–7 days ago", itoa(result.Staleness.Aging)).
+			Row("Stale", "updated > 7 days ago", itoa(result.Staleness.Stale))
+		fmt.Fprintln(w, t)
+	}
 
 	// WIP limits — apply to human effort.
 	if result.TeamLimit != nil {
@@ -418,7 +465,7 @@ func WriteWIPDetailPretty(rc RenderContext, result model.WIPResult) error {
 	if len(result.Insights) > 0 {
 		fmt.Fprintln(w, "Insights:")
 		for _, ins := range result.Insights {
-			fmt.Fprintf(w, "  -> %s\n", ins.Message)
+			fmt.Fprintf(w, "  → %s\n", ins.Message)
 		}
 		fmt.Fprintln(w)
 	}
@@ -469,3 +516,80 @@ func formatOwnerMarkdown(login string) string {
 	}
 	return "@" + login
 }
+
+// countByKind counts issues and PRs in the item list.
+func countByKind(items []model.WIPItem) (issues, prs int) {
+	for _, item := range items {
+		if item.Kind == "PR" {
+			prs++
+		} else {
+			issues++
+		}
+	}
+	return
+}
+
+// countByKindFromSubset counts issues/PRs for either human or bot items.
+// isBot=true counts bot items; isBot=false counts human items.
+func countByKindFromSubset(items []model.WIPItem, isBot bool, result model.WIPResult) (issues, prs int) {
+	// Build a set of bot logins from BotAssignees.
+	botLogins := make(map[string]bool)
+	for _, a := range result.BotAssignees {
+		botLogins[strings.ToLower(a.Login)] = true
+	}
+	for _, item := range items {
+		itemIsBot := false
+		if len(item.Assignees) > 0 {
+			allBot := true
+			for _, a := range item.Assignees {
+				if !botLogins[strings.ToLower(a)] {
+					allBot = false
+					break
+				}
+			}
+			itemIsBot = allBot
+		}
+		if itemIsBot != isBot {
+			continue
+		}
+		if item.Kind == "PR" {
+			prs++
+		} else {
+			issues++
+		}
+	}
+	return
+}
+
+// countByKindForStage counts issues/PRs matching a specific stage.
+func countByKindForStage(items []model.WIPItem, stage string) (issues, prs int) {
+	for _, item := range items {
+		if item.Status != stage {
+			continue
+		}
+		if item.Kind == "PR" {
+			prs++
+		} else {
+			issues++
+		}
+	}
+	return
+}
+
+// countByKindForMatcher counts issues/PRs matching a specific matcher.
+func countByKindForMatcher(items []model.WIPItem, matcher string) (issues, prs int) {
+	for _, item := range items {
+		if item.MatchedMatcher != matcher {
+			continue
+		}
+		if item.Kind == "PR" {
+			prs++
+		} else {
+			issues++
+		}
+	}
+	return
+}
+
+func itoa(n int) string  { return fmt.Sprintf("%d", n) }
+func ftoa(f float64) string { return fmt.Sprintf("%.0f", f) }
