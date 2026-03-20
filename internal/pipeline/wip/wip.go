@@ -249,9 +249,16 @@ func (p *Pipeline) ProcessData() error {
 	return nil
 }
 
-// Render writes the processed result. Stub for Phase 4.
-func (p *Pipeline) Render(_ format.RenderContext) error {
-	return nil
+// Render writes the processed result in the requested format.
+func (p *Pipeline) Render(rc format.RenderContext) error {
+	switch rc.Format {
+	case format.JSON:
+		return format.WriteWIPDetailJSON(rc.Writer, p.Result)
+	case format.Markdown:
+		return format.WriteWIPDetailMarkdown(rc, p.Result)
+	default:
+		return format.WriteWIPDetailPretty(rc, p.Result)
+	}
 }
 
 // --- helpers ---
