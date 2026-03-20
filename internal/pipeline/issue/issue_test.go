@@ -175,20 +175,21 @@ func TestRenderMarkdown(t *testing.T) {
 
 	out := buf.String()
 	// Check key elements
-	if !strings.Contains(out, "## Issue #119: test issue") {
-		t.Error("missing issue header")
+	checks := []struct {
+		label, contains string
+	}{
+		{"Metrics header", "**Metrics**"},
+		{"opened timestamp", "opened 2026-03-18"},
+		{"closed timestamp", "closed 2026-03-18"},
+		{"lead time row", "Lead Time"},
+		{"eng cycle time row", "Eng Cycle Time"},
+		{"PR link", "#120"},
+		{"footer", "gh-velocity"},
 	}
-	if !strings.Contains(out, "**Category:** feature") {
-		t.Error("missing category")
-	}
-	if !strings.Contains(out, "Lead Time") {
-		t.Error("missing lead time row")
-	}
-	if !strings.Contains(out, "Linked PRs") {
-		t.Error("missing linked PRs section")
-	}
-	if !strings.Contains(out, "#120") {
-		t.Error("missing PR link")
+	for _, c := range checks {
+		if !strings.Contains(out, c.contains) {
+			t.Errorf("missing %s: expected %q in output:\n%s", c.label, c.contains, out)
+		}
 	}
 }
 

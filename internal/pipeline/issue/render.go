@@ -10,46 +10,51 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
+const cycleTimeDocsURL = "https://dvhthomas.github.io/gh-velocity/guides/cycle-time-setup/"
+
 // WriteMarkdown writes the issue detail as GitHub-flavored markdown.
 func WriteMarkdown(rc format.RenderContext, p *Pipeline) error {
-	w := rc.Writer
-
-	// Header
-	fmt.Fprintf(w, "## Issue #%d: %s\n\n", p.IssueNumber, p.Issue.Title)
-
-	// Facts line
-	fmt.Fprintf(w, "**Created:** %s UTC", p.Issue.CreatedAt.UTC().Format("2006-01-02 15:04"))
+	// Facts
+	closedFact := ""
 	if p.Issue.ClosedAt != nil {
-		fmt.Fprintf(w, " · **Closed:** %s UTC", p.Issue.ClosedAt.UTC().Format("2006-01-02 15:04"))
+		closedFact = format.FormatTimeFact("closed", *p.Issue.ClosedAt)
 	}
-	fmt.Fprintf(w, " · **Category:** %s\n\n", p.Category)
+	facts := format.FormatFacts(
+		format.FormatTimeFact("opened", p.Issue.CreatedAt),
+		closedFact,
+	)
 
-	// Metrics table
-	fmt.Fprintf(w, "| Metric | Value |\n")
-	fmt.Fprintf(w, "|--------|-------|\n")
-
+	// Metrics rows
 	ltReason := ""
 	if p.Issue.ClosedAt == nil {
 		ltReason = "issue still open"
 	}
-	fmt.Fprintf(w, "| Lead Time | %s |\n", formatMetricOrDash(p.LeadTime, ltReason))
+	metrics := []format.MetricRow{
+		{Name: "Lead Time", Value: formatMetricOrDash(p.LeadTime, ltReason)},
+	}
 
-	ctReason := cycleTimeNAReason(p)
-	fmt.Fprintf(w, "| Cycle Time | %s |\n", formatMetricOrDash(p.CycleTime, ctReason))
+	ctDisplay := formatMetricOrDash(p.CycleTime, cycleTimeNAReason(p))
+	if p.CycleTime.Duration == nil && p.CycleTime.Start == nil {
+		ctDisplay = fmt.Sprintf("— ([configure](%s))", cycleTimeDocsURL)
+	}
+	metrics = append(metrics, format.MetricRow{Name: "Cycle Time", Value: ctDisplay})
 
-	// Linked PRs
-	if len(p.LinkedPRs) > 0 {
-		fmt.Fprintf(w, "\n### Linked PRs\n\n")
-		fmt.Fprintf(w, "| PR | Title | Cycle Time |\n")
-		fmt.Fprintf(w, "|----|-------|------------|\n")
-		for _, lpr := range p.LinkedPRs {
+	for _, lpr := range p.LinkedPRs {
+		if lpr.CycleTime.Duration != nil {
 			prLink := format.FormatItemLink(lpr.PR.Number, lpr.PR.URL, rc)
-			ctStr := formatMetricOrDash(lpr.CycleTime, "PR not merged")
-			fmt.Fprintf(w, "| %s | %s | %s |\n", prLink, lpr.PR.Title, ctStr)
+			metrics = append(metrics, format.MetricRow{
+				Name:  fmt.Sprintf("Eng Cycle Time (%s)", prLink),
+				Value: format.FormatMetric(lpr.CycleTime),
+			})
 		}
 	}
 
-	return nil
+	d := format.DetailData{
+		Facts:   facts,
+		Metrics: metrics,
+	}
+
+	return format.WriteDetail(rc.Writer, d)
 }
 
 // WritePretty writes the issue detail in human-readable text.

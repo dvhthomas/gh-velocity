@@ -273,21 +273,24 @@ func TestRenderMarkdown(t *testing.T) {
 		label    string
 		contains string
 	}{
-		{"PR header", "## PR #125: feat: HTML format"},
-		{"author", "**Author:** dvhthomas"},
+		{"Metrics header", "**Metrics**"},
+		{"author in facts", "dvhthomas"},
+		{"opened timestamp", "opened 2026-03-19"},
+		{"merged timestamp", "merged 2026-03-19"},
 		{"cycle time row", "Cycle Time"},
 		{"time to first review", "Time to First Review"},
 		{"review rounds", "Review Rounds"},
 		{"closed issues section", "Closed Issues"},
 		{"issue link", "#119"},
+		{"footer", "gh-velocity"},
 	}
 	for _, c := range checks {
 		if !strings.Contains(out, c.contains) {
 			t.Errorf("missing %s: expected %q in output:\n%s", c.label, c.contains, out)
 		}
 	}
-	// Human author type should NOT be surfaced in markdown
-	if strings.Contains(out, "agent") || strings.Contains(out, "bot") {
+	// Human author type should NOT show agent/bot suffix
+	if strings.Contains(out, "(agent") || strings.Contains(out, "(bot") {
 		t.Error("human author type should not show agent/bot label in markdown")
 	}
 }

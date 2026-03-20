@@ -12,46 +12,50 @@ import (
 
 // WriteMarkdown writes the PR detail as GitHub-flavored markdown.
 func WriteMarkdown(rc format.RenderContext, p *Pipeline) error {
-	w := rc.Writer
-
-	// Header
-	fmt.Fprintf(w, "## PR #%d: %s\n\n", p.PRNumber, p.PR.Title)
-
-	// Facts line
-	authorSuffix := authorTypeSuffix(p.AuthorType)
-	fmt.Fprintf(w, "**Author:** %s%s", p.PR.Author, authorSuffix)
-	fmt.Fprintf(w, " · **Opened:** %s UTC", p.PR.CreatedAt.UTC().Format("2006-01-02 15:04"))
+	// Facts
+	authorFact := p.PR.Author + authorTypeSuffix(p.AuthorType)
+	mergedFact := ""
 	if p.PR.MergedAt != nil {
-		fmt.Fprintf(w, " · **Merged:** %s UTC", p.PR.MergedAt.UTC().Format("2006-01-02 15:04"))
+		mergedFact = format.FormatTimeFact("merged", *p.PR.MergedAt)
 	}
-	fmt.Fprintf(w, "\n\n")
+	facts := format.FormatFacts(
+		authorFact,
+		format.FormatTimeFact("opened", p.PR.CreatedAt),
+		mergedFact,
+	)
 
-	// Metrics table
-	fmt.Fprintf(w, "| Metric | Value |\n")
-	fmt.Fprintf(w, "|--------|-------|\n")
-
+	// Metrics rows
 	ctReason := ""
 	if p.PR.MergedAt == nil {
 		ctReason = "PR not merged"
 	}
-	fmt.Fprintf(w, "| Cycle Time | %s |\n", formatMetricOrDash(p.CycleTime, ctReason))
-
-	ttfrReason := "no reviews"
-	fmt.Fprintf(w, "| Time to First Review | %s |\n", formatDurationOrDash(p.ReviewSummary.TimeToFirstReview, ttfrReason))
-	fmt.Fprintf(w, "| Review Rounds | %d |\n", p.ReviewSummary.ReviewRounds)
-
-	// Closed Issues
-	if len(p.ClosedIssues) > 0 {
-		fmt.Fprintf(w, "\n### Closed Issues\n\n")
-		fmt.Fprintf(w, "| Issue | Title |\n")
-		fmt.Fprintf(w, "|-------|-------|\n")
-		for _, issue := range p.ClosedIssues {
-			issueLink := format.FormatItemLink(issue.Number, issue.URL, rc)
-			fmt.Fprintf(w, "| %s | %s |\n", issueLink, issue.Title)
-		}
+	metrics := []format.MetricRow{
+		{Name: "Cycle Time", Value: formatMetricOrDash(p.CycleTime, ctReason)},
+		{Name: "Time to First Review", Value: formatDurationOrDash(p.ReviewSummary.TimeToFirstReview, "no reviews")},
+		{Name: "Review Rounds", Value: fmt.Sprintf("%d", p.ReviewSummary.ReviewRounds)},
 	}
 
-	return nil
+	// Sections
+	var sections []format.DetailSection
+	if len(p.ClosedIssues) > 0 {
+		sec := format.DetailSection{
+			Title:   "Closed Issues",
+			Headers: []string{"Issue", "Title"},
+		}
+		for _, issue := range p.ClosedIssues {
+			issueLink := format.FormatItemLink(issue.Number, issue.URL, rc)
+			sec.Rows = append(sec.Rows, []string{issueLink, issue.Title})
+		}
+		sections = append(sections, sec)
+	}
+
+	d := format.DetailData{
+		Facts:    facts,
+		Metrics:  metrics,
+		Sections: sections,
+	}
+
+	return format.WriteDetail(rc.Writer, d)
 }
 
 // WritePretty writes the PR detail in human-readable text.

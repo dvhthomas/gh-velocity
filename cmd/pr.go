@@ -80,5 +80,6 @@ func runPRDetail(cmd *cobra.Command, arg string) error {
 		Context: strconv.Itoa(prNumber),
 		Target:  posting.IssueBody,
 		Number:  prNumber,
+		Repo:    deps.Owner + "/" + deps.Repo,
 	})
 }

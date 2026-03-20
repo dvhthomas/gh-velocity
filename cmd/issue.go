@@ -97,5 +97,6 @@ func runIssueDetail(cmd *cobra.Command, arg string) error {
 		Context: strconv.Itoa(issueNumber),
 		Target:  posting.IssueBody,
 		Number:  issueNumber,
+		Repo:    deps.Owner + "/" + deps.Repo,
 	})
 }
