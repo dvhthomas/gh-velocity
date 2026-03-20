@@ -332,6 +332,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 			WIPConfig:       cfg.WIP,
 			ExcludeUsers:    cfg.ExcludeUsers,
 			Now:             now,
+			Truncated:       client.SearchTruncated(),
 			InjectedIssues:  throughputPipeline.OpenIssues,
 			InjectedPRs:     throughputPipeline.OpenPRs,
 		}
@@ -342,6 +343,12 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 		} else {
 			result.WIP = &wipPipeline.Result
 		}
+	}
+
+	// Surface search truncation as a general warning.
+	if client.SearchTruncated() {
+		result.Warnings = append(result.Warnings,
+			"Some search queries returned 1,000 results (GitHub API maximum). Data may be incomplete — narrow the date range or scope for complete results.")
 	}
 
 	// --- Render ---

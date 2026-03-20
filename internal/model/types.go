@@ -299,6 +299,7 @@ type WIPResult struct {
 	BotItemCount   int             // items assigned to bots
 	TeamLimit      *float64        // configured team limit (nil if not set)
 	PersonLimit    *float64        // configured person limit (nil if not set)
+	Truncated      bool            // true if any query hit the 1000-result API cap
 	Warnings       []string
 	Insights       []Insight
 }

@@ -122,6 +122,7 @@ func (c *Client) searchPaginated(ctx context.Context, query string) ([]searchIss
 		}
 		page++
 		if page > 10 { // search API returns max 1000 results
+			c.searchTruncated = true
 			log.Warn("results capped at 1000; narrow the date range or scope for complete data")
 			break
 		}

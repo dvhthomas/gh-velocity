@@ -53,6 +53,11 @@ type Client struct {
 	// SecondaryBackoff is the wait duration when a secondary rate limit is hit.
 	// Defaults to 60s. Override in tests for fast execution.
 	SecondaryBackoff time.Duration
+
+	// searchTruncated is set to true when any search query returns 1000 results
+	// (the GitHub Search API maximum). This is a data quality signal that
+	// consumers should surface to users.
+	searchTruncated bool
 }
 
 // ClientOptions configures optional behavior for a Client.
@@ -186,6 +191,12 @@ func (c *Client) RateLimit(ctx context.Context) (*RateLimitStatus, error) {
 		ResetAt:   resetAt,
 	}, nil
 }
+
+// SearchTruncated returns true if any search query during this client's
+// lifetime returned 1000 results (the GitHub Search API maximum).
+// This means the data set may be incomplete. Any command that uses
+// search data should check this and surface it as an insight.
+func (c *Client) SearchTruncated() bool { return c.searchTruncated }
 
 // Owner returns the repository owner.
 func (c *Client) Owner() string { return c.owner }

@@ -37,6 +37,11 @@ type Pipeline struct {
 	InjectedIssues []model.Issue
 	InjectedPRs    []model.PR
 
+	// Truncated is set when any query returns 1000 results (API cap).
+	// Set by GatherData (standalone) or by the caller for report context
+	// (from throughput pipeline warnings).
+	Truncated bool
+
 	// Internal
 	openIssues []model.Issue
 	openPRs    []model.PR
@@ -96,6 +101,7 @@ func (p *Pipeline) GatherData(ctx context.Context) error {
 			continue
 		}
 		if len(issues) >= 1000 {
+			p.Truncated = true
 			p.warn("wip: issue search for label %q returned 1000 results (GitHub cap) — some items may be missing", label)
 		}
 		for _, issue := range issues {
@@ -115,6 +121,7 @@ func (p *Pipeline) GatherData(ctx context.Context) error {
 			continue
 		}
 		if len(prs) >= 1000 {
+			p.Truncated = true
 			p.warn("wip: PR search for label %q returned 1000 results (GitHub cap) — some items may be missing", label)
 		}
 		for _, pr := range prs {
@@ -132,6 +139,7 @@ func (p *Pipeline) GatherData(ctx context.Context) error {
 		p.warn("wip: search for unlabeled PRs failed: %v", err)
 	} else {
 		if len(unlabeledPRs) >= 1000 {
+			p.Truncated = true
 			p.warn("wip: unlabeled PR search returned 1000 results (GitHub cap) — some items may be missing")
 		}
 		for _, pr := range unlabeledPRs {
@@ -264,6 +272,7 @@ func (p *Pipeline) ProcessData() error {
 		BotItemCount:   len(botItems),
 		TeamLimit:      p.WIPConfig.TeamLimit,
 		PersonLimit:    p.WIPConfig.PersonLimit,
+		Truncated:      p.Truncated,
 		Warnings:       p.Warnings,
 	}
 

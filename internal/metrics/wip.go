@@ -188,6 +188,14 @@ func GenerateWIPInsights(result model.WIPResult) []model.Insight {
 		return nil
 	}
 
+	// Data quality: truncation warning (most important signal — comes first).
+	if result.Truncated {
+		insights = append(insights, model.Insight{
+			Type:    "data_truncated",
+			Message: "Results may be incomplete — one or more queries hit the GitHub Search API limit of 1,000 results. Narrow the scope or add more specific lifecycle labels for complete data.",
+		})
+	}
+
 	// Count unique people (human assignees only).
 	people := make(map[string]bool)
 	for _, a := range result.Assignees {
