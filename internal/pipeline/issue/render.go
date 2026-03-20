@@ -10,9 +10,9 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
-const (
-	cycleTimeSetupURL = "https://dvhthomas.github.io/gh-velocity/guides/cycle-time-setup/"
-	cycleTimeRefURL   = "https://dvhthomas.github.io/gh-velocity/reference/metrics/cycle-time/"
+var (
+	cycleTimeSetupURL = format.DocSiteURL + format.DocPathCycleTimeSetup
+	cycleTimeRefURL   = format.DocSiteURL + format.DocPathCycleTimeRef
 )
 
 // WriteMarkdown writes the issue detail as GitHub-flavored markdown.
