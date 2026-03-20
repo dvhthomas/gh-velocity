@@ -355,6 +355,47 @@ out=$($BINARY config preflight --help 2>&1)
 out=$($BINARY flow throughput --help 2>&1)
 [[ "$out" == *"Examples:"* ]] && pass "throughput has examples" || fail "throughput has examples"
 
+# ── issue detail ──────────────────────────────────────────────────
+echo ""
+echo "issue detail (cli/cli#2)"
+
+out=$($BINARY issue 2 -R cli/cli --config "$CLI_CONFIG" 2>&1)
+show "$out"
+[[ "$out" == *"Issue #2"* ]] && pass "issue pretty" || fail "issue pretty"
+[[ "$out" == *"Lead Time"* ]] && pass "issue shows lead time" || fail "issue shows lead time"
+
+out=$($BINARY issue 2 -R cli/cli --config "$CLI_CONFIG" -r json 2>/dev/null)
+show "$out"
+echo "$out" | jq -e '.issue.number' >/dev/null 2>&1 && pass "issue json has issue" || fail "issue json has issue"
+echo "$out" | jq -e '.metrics.lead_time' >/dev/null 2>&1 && pass "issue json has lead_time" || fail "issue json has lead_time"
+echo "$out" | jq -e '.metrics.cycle_time' >/dev/null 2>&1 && pass "issue json has cycle_time" || fail "issue json has cycle_time"
+
+out=$($BINARY issue 2 -R cli/cli --config "$CLI_CONFIG" -r markdown 2>/dev/null)
+show "$out"
+[[ "$out" == *"## Issue #2"* ]] && pass "issue markdown" || fail "issue markdown"
+
+# ── pr detail ─────────────────────────────────────────────────────
+echo ""
+echo "pr detail (cli/cli PR#1)"
+
+out=$($BINARY pr 1 -R cli/cli --config "$CLI_CONFIG" 2>&1)
+show "$out"
+[[ "$out" == *"PR #1"* ]] && pass "pr pretty" || fail "pr pretty"
+[[ "$out" == *"Cycle Time"* ]] && pass "pr shows cycle time" || fail "pr shows cycle time"
+
+out=$($BINARY pr 1 -R cli/cli --config "$CLI_CONFIG" -r json 2>/dev/null)
+show "$out"
+echo "$out" | jq -e '.pr.number' >/dev/null 2>&1 && pass "pr json has pr" || fail "pr json has pr"
+echo "$out" | jq -e '.pr.author_type' >/dev/null 2>&1 && pass "pr json has author_type" || fail "pr json has author_type"
+echo "$out" | jq -e '.metrics.cycle_time' >/dev/null 2>&1 && pass "pr json has cycle_time" || fail "pr json has cycle_time"
+echo "$out" | jq -e '.metrics.time_to_first_review' >/dev/null 2>&1 && pass "pr json has time_to_first_review" || fail "pr json has time_to_first_review"
+echo "$out" | jq -e '.metrics.review_rounds' >/dev/null 2>&1 && pass "pr json has review_rounds" || fail "pr json has review_rounds"
+echo "$out" | jq -e '.closed_issues' >/dev/null 2>&1 && pass "pr json has closed_issues" || fail "pr json has closed_issues"
+
+out=$($BINARY pr 1 -R cli/cli --config "$CLI_CONFIG" -r markdown 2>/dev/null)
+show "$out"
+[[ "$out" == *"## PR #1"* ]] && pass "pr markdown" || fail "pr markdown"
+
 # ── config required ────────────────────────────────────────────────
 echo ""
 echo "config required"
