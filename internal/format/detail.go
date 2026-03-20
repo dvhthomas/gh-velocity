@@ -43,9 +43,9 @@ type DetailLink struct {
 
 // DetailData is the input to the shared detail markdown template.
 type DetailData struct {
-	Facts        string          // "opened 2026-03-20 · closed 2026-03-20" etc.
+	Facts        string          // pre-built facts line (used by issue command)
 	Metrics      []MetricRow     // rows for the metrics table
-	ClosedIssues []DetailLink    // linked issues (rendered as inline sentence)
+	ClosedIssues []DetailLink    // linked issues (rendered inline on facts line)
 	Sections     []DetailSection // optional sub-tables
 }
 

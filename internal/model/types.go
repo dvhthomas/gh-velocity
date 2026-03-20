@@ -79,6 +79,7 @@ type PR struct {
 	State     string
 	Labels    []string
 	Author    string // GitHub login of the PR author
+	MergedBy  string // GitHub login of the user who merged (empty if not merged)
 	CreatedAt time.Time
 	MergedAt  *time.Time
 	URL       string

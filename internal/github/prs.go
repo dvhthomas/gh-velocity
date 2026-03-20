@@ -19,6 +19,9 @@ type prResponse struct {
 	User      *struct {
 		Login string `json:"login"`
 	} `json:"user"`
+	MergedBy *struct {
+		Login string `json:"login"`
+	} `json:"merged_by"`
 	Labels []struct {
 		Name string `json:"name"`
 	} `json:"labels"`
@@ -48,6 +51,9 @@ func (c *Client) GetPR(ctx context.Context, number int) (*model.PR, error) {
 	}
 	if resp.User != nil {
 		pr.Author = resp.User.Login
+	}
+	if resp.MergedBy != nil {
+		pr.MergedBy = resp.MergedBy.Login
 	}
 	return pr, nil
 }
