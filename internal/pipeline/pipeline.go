@@ -2,7 +2,7 @@
 // The three-phase lifecycle (GatherData → ProcessData → Render) provides compile-time
 // safety: forget to implement Render and it won't compile.
 //
-// Each subcommand has its own subdirectory (e.g., pipeline/busfactor/) containing
+// Each subcommand has its own subdirectory (e.g., pipeline/leadtime/) containing
 // its Pipeline implementation, computation logic, and format functions.
 // To add a new metric: create a new subdirectory, implement Pipeline, wire in cmd/.
 package pipeline
