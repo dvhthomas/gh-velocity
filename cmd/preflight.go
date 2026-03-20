@@ -14,6 +14,7 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/config"
 	gh "github.com/dvhthomas/gh-velocity/internal/github"
 	"github.com/dvhthomas/gh-velocity/internal/log"
+	"github.com/dvhthomas/gh-velocity/internal/metrics"
 	"github.com/dvhthomas/gh-velocity/internal/model"
 	"github.com/dvhthomas/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
@@ -180,6 +181,8 @@ type PreflightResult struct {
 	PostingReadiness *PostingReadiness   `json:"posting_readiness,omitempty"`
 	Verification     *VerificationResult `json:"verification,omitempty"`
 	ContributorCount int                 `json:"contributor_count,omitempty"`
+	CurrentHumanWIP  int                 `json:"current_human_wip,omitempty"`  // actual open human items matching lifecycle labels
+	MaxPersonWIP     int                 `json:"max_person_wip,omitempty"`     // highest per-person WIP count
 	RepoAutoDetected bool                `json:"repo_auto_detected"`
 	Hints            []string            `json:"hints"`
 
@@ -423,6 +426,13 @@ func runPreflight(ctx context.Context, client *gh.Client, owner, repo string, pr
 
 	// 5b. Count unique human contributors from recent activity.
 	result.ContributorCount = countContributors(issues, prs)
+
+	// 5b2. Probe current WIP: query open items matching lifecycle labels to
+	// ground the WIP limit suggestions in observable reality.
+	allLifecycleLabels := append(result.ActiveLabels, result.ReviewLabels...)
+	if len(allLifecycleLabels) > 0 {
+		probeWIPCounts(ctx, client, owner, repo, allLifecycleLabels, result)
+	}
 
 	// 5c. Collect match evidence: run each matcher against recent items
 	result.MatchEvidence = collectMatchEvidence(result.Categories, result.DiscoveredTypes, issues, prs)
@@ -816,6 +826,91 @@ func countContributors(issues []model.Issue, prs []model.PR) int {
 		}
 	}
 	return len(seen)
+}
+
+// probeWIPCounts queries actual open items matching lifecycle labels to determine
+// current human WIP and max per-person WIP. This grounds the WIP limit suggestions
+// in observable data rather than heuristics.
+func probeWIPCounts(ctx context.Context, client *gh.Client, owner, repo string, lifecycleLabels []string, result *PreflightResult) {
+	scopeStr := fmt.Sprintf("repo:%s/%s", owner, repo)
+	seen := make(map[int]bool)
+	var allIssues []model.Issue
+
+	// Query open issues for each lifecycle label.
+	for _, label := range lifecycleLabels {
+		query := fmt.Sprintf("%s is:open is:issue label:%q", scopeStr, label)
+		issues, err := client.SearchIssues(ctx, query)
+		if err != nil {
+			continue
+		}
+		for _, iss := range issues {
+			if !seen[iss.Number] {
+				seen[iss.Number] = true
+				allIssues = append(allIssues, iss)
+			}
+		}
+	}
+
+	// Also check open PRs (author-based ownership).
+	seenPRs := make(map[int]bool)
+	var allPRs []model.PR
+	for _, label := range lifecycleLabels {
+		query := fmt.Sprintf("%s is:open is:pr label:%q", scopeStr, label)
+		prs, err := client.SearchPRs(ctx, query)
+		if err != nil {
+			continue
+		}
+		for _, pr := range prs {
+			if !seenPRs[pr.Number] {
+				seenPRs[pr.Number] = true
+				allPRs = append(allPRs, pr)
+			}
+		}
+	}
+
+	// Count human items and per-person load.
+	personCount := make(map[string]int)
+	humanTotal := 0
+
+	for _, iss := range allIssues {
+		owners := iss.Assignees
+		if len(owners) == 0 {
+			humanTotal++ // unassigned = human
+			continue
+		}
+		isHuman := false
+		for _, a := range owners {
+			if !metrics.IsBotUser(a, nil, nil) {
+				isHuman = true
+				personCount[a]++
+			}
+		}
+		if isHuman {
+			humanTotal++
+		}
+	}
+	for _, pr := range allPRs {
+		owner := pr.Author
+		if owner == "" {
+			humanTotal++
+			continue
+		}
+		if !metrics.IsBotUser(owner, nil, nil) {
+			humanTotal++
+			personCount[owner]++
+		}
+	}
+
+	result.CurrentHumanWIP = humanTotal
+
+	// Find max per-person.
+	maxPerson := 0
+	for _, count := range personCount {
+		if count > maxPerson {
+			maxPerson = count
+		}
+	}
+	result.MaxPersonWIP = maxPerson
 }
 
 // containsAnyKeyword returns true if normalized label matches any keyword at a word boundary.
@@ -1345,10 +1440,33 @@ func renderWIPConfig(b *strings.Builder, r *PreflightResult) {
 
 	b.WriteString("# WIP limits: warn when work-in-progress exceeds these effort-weighted thresholds.\n")
 
-	if hasLifecycle && r.ContributorCount > 0 {
-		// Emit active (uncommented) wip section with contributor-based suggestions.
+	if hasLifecycle && r.CurrentHumanWIP > 0 {
+		// Ground suggestions in actual current WIP (best signal).
+		teamLimit := roundToNearest5(r.CurrentHumanWIP + r.CurrentHumanWIP/5) // current + 20% buffer
+		if teamLimit < 5 {
+			teamLimit = 5
+		}
+		personLimit := 5
+		if r.MaxPersonWIP > 0 {
+			personLimit = r.MaxPersonWIP + 2 // current max + small buffer
+		}
+		b.WriteString(fmt.Sprintf("# Based on %d human items currently in progress", r.CurrentHumanWIP))
+		if r.MaxPersonWIP > 0 {
+			b.WriteString(fmt.Sprintf(" (busiest person has %d)", r.MaxPersonWIP))
+		}
+		b.WriteString("\n")
+		b.WriteString("wip:\n")
+		b.WriteString(fmt.Sprintf("  team_limit: %d.0%s\n", teamLimit, wipUnitComment(effortUnit, true)))
+		b.WriteString(fmt.Sprintf("  person_limit: %d.0%s\n", personLimit, wipUnitComment(effortUnit, false)))
+		b.WriteString("  # bots: additional bot accounts (case-insensitive exact match)\n")
+		b.WriteString("  # bots:\n")
+		b.WriteString("  #   - \"claude-assistant\"\n")
+		b.WriteString("  #   - \"openai-bot\"\n")
+		b.WriteString("\n")
+	} else if hasLifecycle && r.ContributorCount > 0 {
+		// No current WIP but we know team size — use heuristic.
 		teamLimit := roundToNearest5(r.ContributorCount * 2)
-		b.WriteString(fmt.Sprintf("# Based on %d active contributors in last 30 days\n", r.ContributorCount))
+		b.WriteString(fmt.Sprintf("# No items currently in progress; estimated from %d active contributors\n", r.ContributorCount))
 		b.WriteString("wip:\n")
 		b.WriteString(fmt.Sprintf("  team_limit: %d.0%s\n", teamLimit, wipUnitComment(effortUnit, true)))
 		b.WriteString(fmt.Sprintf("  person_limit: 5.0%s\n", wipUnitComment(effortUnit, false)))
@@ -1358,7 +1476,7 @@ func renderWIPConfig(b *strings.Builder, r *PreflightResult) {
 		b.WriteString("  #   - \"openai-bot\"\n")
 		b.WriteString("\n")
 	} else if hasLifecycle {
-		// Lifecycle detected but no contributor data — emit active with defaults.
+		// Lifecycle detected but nothing in flight and no contributor data.
 		b.WriteString("# Adjust based on your team size (team_size x 2 is a common heuristic)\n")
 		b.WriteString("wip:\n")
 		b.WriteString(fmt.Sprintf("  team_limit: 50.0%s\n", wipUnitComment(effortUnit, true)))
