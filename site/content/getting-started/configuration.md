@@ -224,7 +224,7 @@ The default `gh auth login` token works for all local usage. In CI, different to
 | Capability | Default `GITHUB_TOKEN` | + `GH_VELOCITY_TOKEN` (PAT with `project` scope) |
 | --- | --- | --- |
 | Lead time, throughput, release quality | Yes | Yes |
-| Bus factor, reviews | Yes | Yes |
+| Reviews | Yes | Yes |
 | `--post` to issues/PRs/Discussions | Yes | Yes |
 | Velocity (project-field iteration or numeric effort) | No | Yes |
 | WIP command | No | Yes |

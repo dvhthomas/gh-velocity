@@ -602,7 +602,6 @@ Here's what each token can do:
 | --- | --- | --- |
 | Lead time, throughput | Yes | Yes |
 | Release quality metrics | Yes | Yes |
-| Bus factor | Yes | Yes |
 | `--post` to issues/PRs | Yes | Yes |
 | `--post` to Discussions | Yes | Yes |
 | **Cycle time (issue strategy)** | **No** — requires project board | **Yes** |

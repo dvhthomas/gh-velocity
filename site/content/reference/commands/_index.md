@@ -13,7 +13,6 @@ Commands are organized by the question they answer:
 | `flow` | How fast is work flowing? | `lead-time`, `cycle-time`, `throughput`, `velocity` |
 | `quality` | Is this release good? | `release` |
 | `status` | What's happening right now? | `wip`, `my-week`, `reviews` |
-| `risk` | Where are structural risks? | `bus-factor` |
 | `report` | Give me the full picture | Composite dashboard |
 | `config` | How do I set this up? | `preflight`, `discover`, `validate`, `show`, `create` |
 
