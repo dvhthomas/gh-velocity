@@ -189,7 +189,6 @@ func WriteWIPDetailJSON(w io.Writer, result model.WIPResult) error {
 // WriteWIPDetailMarkdown writes the full WIPResult as markdown.
 func WriteWIPDetailMarkdown(rc RenderContext, result model.WIPResult) error {
 	w := rc.Writer
-	sorted := sortWIPByAgeDesc(result.Items)
 	issueCount, prCount := countByKind(result.Items)
 
 	// Summary table — one table with everything at a glance.
@@ -294,25 +293,39 @@ func WriteWIPDetailMarkdown(rc RenderContext, result model.WIPResult) error {
 		fmt.Fprintln(w)
 	}
 
-	// Per-item table.
-	if len(sorted) > 0 {
-		fmt.Fprint(w, "### Items\n\n")
-		fmt.Fprintln(w, "| # | Title | Kind | Status | Age | Last Activity | Signal |")
-		fmt.Fprintln(w, "| ---: | --- | --- | --- | --- | --- | --- |")
-		for _, item := range sorted {
+	// Per-item table — sorted by needs-attention, capped.
+	needsAttention := sortWIPByNeedsAttention(result.Items)
+	total := len(needsAttention)
+	capped := total > maxWIPDetailItems
+	if capped {
+		needsAttention = needsAttention[:maxWIPDetailItems]
+	}
+
+	if len(needsAttention) > 0 {
+		if capped {
+			fmt.Fprintf(w, "### Items (showing %d of %d — oldest stale first)\n\n", maxWIPDetailItems, total)
+		} else {
+			fmt.Fprint(w, "### Items\n\n")
+		}
+		fmt.Fprintln(w, "| Signal | # | Title | Kind | Status | Age | Last Activity |")
+		fmt.Fprintln(w, "| --- | ---: | --- | --- | --- | --- | --- |")
+		for _, item := range needsAttention {
 			link := ""
 			if item.Number > 0 {
 				link = FormatItemLink(item.Number, item.URL, rc)
 			}
 			fmt.Fprintf(w, "| %s | %s | %s | %s | %s | %s | %s |\n",
+				string(item.Staleness),
 				link,
 				SanitizeMarkdown(item.Title),
 				item.Kind,
 				item.Status,
 				FormatDuration(item.Age),
 				formatLastActivity(item.UpdatedAt),
-				string(item.Staleness),
 			)
+		}
+		if capped {
+			fmt.Fprintf(w, "\n*%d more items not shown. Use `--format json` for complete data.*\n", total-maxWIPDetailItems)
 		}
 		fmt.Fprintln(w)
 	}
@@ -325,7 +338,6 @@ func WriteWIPDetailMarkdown(rc RenderContext, result model.WIPResult) error {
 // WriteWIPDetailPretty writes the full WIPResult as formatted text.
 func WriteWIPDetailPretty(rc RenderContext, result model.WIPResult) error {
 	w := rc.Writer
-	sorted := sortWIPByAgeDesc(result.Items)
 	issueCount, prCount := countByKind(result.Items)
 
 	termWidth := rc.Width
@@ -475,37 +487,54 @@ func WriteWIPDetailPretty(rc RenderContext, result model.WIPResult) error {
 	}
 	fmt.Fprintln(w)
 
-	// Per-item table.
-	t := table.New().
-		Border(lipgloss.RoundedBorder()).
-		Headers("#", "Title", "Kind", "Status", "Age", "Last Activity", "Signal").
-		Width(termWidth).
-		StyleFunc(func(row, col int) lipgloss.Style {
-			s := lipgloss.NewStyle().Padding(0, 1)
-			if col == 0 { // right-align # column
-				s = s.Align(lipgloss.Right)
-			}
-			if row == table.HeaderRow {
-				s = s.Bold(true)
-			}
-			return s
-		})
-	for _, item := range sorted {
-		num := ""
-		if item.Number > 0 {
-			num = FormatItemLink(item.Number, item.URL, rc)
-		}
-		t.Row(
-			num,
-			item.Title,
-			item.Kind,
-			item.Status,
-			FormatDuration(item.Age),
-			formatLastActivity(item.UpdatedAt),
-			string(item.Staleness),
-		)
+	// Per-item table — sorted by needs-attention, capped.
+	needsAttention := sortWIPByNeedsAttention(result.Items)
+	total := len(needsAttention)
+	capped := total > maxWIPDetailItems
+	if capped {
+		needsAttention = needsAttention[:maxWIPDetailItems]
 	}
-	fmt.Fprintln(w, t)
+
+	if len(needsAttention) > 0 {
+		if capped {
+			fmt.Fprintf(w, "Items (%d of %d — oldest stale first):\n", maxWIPDetailItems, total)
+		} else {
+			fmt.Fprintln(w, "Items:")
+		}
+		t := table.New().
+			Border(lipgloss.RoundedBorder()).
+			Headers("Signal", "#", "Title", "Kind", "Status", "Age", "Last Activity").
+			Width(termWidth).
+			StyleFunc(func(row, col int) lipgloss.Style {
+				s := lipgloss.NewStyle().Padding(0, 1)
+				if col == 1 { // right-align # column
+					s = s.Align(lipgloss.Right)
+				}
+				if row == table.HeaderRow {
+					s = s.Bold(true)
+				}
+				return s
+			})
+		for _, item := range needsAttention {
+			num := ""
+			if item.Number > 0 {
+				num = FormatItemLink(item.Number, item.URL, rc)
+			}
+			t.Row(
+				string(item.Staleness),
+				num,
+				item.Title,
+				item.Kind,
+				item.Status,
+				FormatDuration(item.Age),
+				formatLastActivity(item.UpdatedAt),
+			)
+		}
+		fmt.Fprintln(w, t)
+		if capped {
+			fmt.Fprintf(w, "  %d more items not shown. Use --format json for complete data.\n", total-maxWIPDetailItems)
+		}
+	}
 	return nil
 }
 
