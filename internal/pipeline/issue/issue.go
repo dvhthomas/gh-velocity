@@ -6,7 +6,6 @@ package issue
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/classify"
 	"github.com/dvhthomas/gh-velocity/internal/format"
@@ -24,12 +23,13 @@ type LinkedPR struct {
 // Pipeline implements pipeline.Pipeline for single-issue detail.
 type Pipeline struct {
 	// Constructor params
-	Client      *gh.Client
-	Owner       string
-	Repo        string
-	IssueNumber int
-	Strategy    metrics.CycleTimeStrategy
-	Classifier  *classify.Classifier
+	Client            *gh.Client
+	Owner             string
+	Repo              string
+	IssueNumber       int
+	Strategy          metrics.CycleTimeStrategy
+	Classifier        *classify.Classifier
+	HasLifecycleMatch bool // true when lifecycle.in-progress.match is configured
 
 	// GatherData output
 	Issue     *model.Issue
@@ -125,16 +125,3 @@ func (p *Pipeline) Render(rc format.RenderContext) error {
 	}
 }
 
-// formatMetricOrDash formats a metric, showing "—" with a reason when N/A.
-func formatMetricOrDash(m model.Metric, naReason string) string {
-	if m.Duration != nil {
-		return format.FormatMetric(m)
-	}
-	if m.Start != nil {
-		return fmt.Sprintf("in progress since %s", m.Start.Time.UTC().Format(time.DateOnly))
-	}
-	if naReason != "" {
-		return "— (" + naReason + ")"
-	}
-	return "—"
-}

@@ -25,14 +25,22 @@ func WriteMarkdown(rc format.RenderContext, p *Pipeline) error {
 	)
 
 	// Metrics rows
-	ctReason := ""
-	if p.PR.MergedAt == nil {
-		ctReason = "PR not merged"
+	ctRow := format.MetricRow{Name: "Cycle Time", Status: format.StatusOK, Value: format.FormatMetric(p.CycleTime)}
+	if p.CycleTime.Duration == nil {
+		ctRow.Status = format.StatusNA
 	}
+
+	ttfrRow := format.MetricRow{Name: "Time to First Review", Status: format.StatusOK}
+	if p.ReviewSummary.TimeToFirstReview != nil {
+		ttfrRow.Value = format.FormatDuration(*p.ReviewSummary.TimeToFirstReview)
+	} else {
+		ttfrRow.Status = format.StatusNA
+	}
+
 	metrics := []format.MetricRow{
-		{Name: "Cycle Time", Value: formatMetricOrDash(p.CycleTime, ctReason)},
-		{Name: "Time to First Review", Value: formatDurationOrDash(p.ReviewSummary.TimeToFirstReview, "no reviews")},
-		{Name: "Review Rounds", Value: fmt.Sprintf("%d", p.ReviewSummary.ReviewRounds)},
+		ctRow,
+		ttfrRow,
+		{Name: "Review Rounds", Status: format.StatusOK, Value: fmt.Sprintf("%d", p.ReviewSummary.ReviewRounds)},
 	}
 
 	// Sections
@@ -70,14 +78,17 @@ func WritePretty(rc format.RenderContext, p *Pipeline) error {
 		fmt.Fprintf(w, "  Merged:     %s UTC\n", p.PR.MergedAt.UTC().Format(time.RFC3339))
 	}
 
-	ctReason := ""
-	if p.PR.MergedAt == nil {
-		ctReason = "PR not merged"
+	if p.CycleTime.Duration != nil {
+		fmt.Fprintf(w, "  Cycle Time: %s\n", format.FormatMetric(p.CycleTime))
+	} else {
+		fmt.Fprintf(w, "  Cycle Time: n/a\n")
 	}
-	fmt.Fprintf(w, "  Cycle Time: %s\n", formatMetricOrDash(p.CycleTime, ctReason))
 
-	ttfrReason := "no reviews"
-	fmt.Fprintf(w, "  First Review: %s\n", formatDurationOrDash(p.ReviewSummary.TimeToFirstReview, ttfrReason))
+	if p.ReviewSummary.TimeToFirstReview != nil {
+		fmt.Fprintf(w, "  First Review: %s\n", format.FormatDuration(*p.ReviewSummary.TimeToFirstReview))
+	} else {
+		fmt.Fprintf(w, "  First Review: n/a\n")
+	}
 	fmt.Fprintf(w, "  Review Rounds: %d\n", p.ReviewSummary.ReviewRounds)
 
 	if len(p.ClosedIssues) > 0 {

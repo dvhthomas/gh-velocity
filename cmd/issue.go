@@ -72,12 +72,13 @@ func runIssueDetail(cmd *cobra.Command, arg string) error {
 	}
 
 	p := &issuepipe.Pipeline{
-		Client:      client,
-		Owner:       deps.Owner,
-		Repo:        deps.Repo,
-		IssueNumber: issueNumber,
-		Strategy:    strategy,
-		Classifier:  classifier,
+		Client:            client,
+		Owner:             deps.Owner,
+		Repo:              deps.Repo,
+		IssueNumber:       issueNumber,
+		Strategy:          strategy,
+		Classifier:        classifier,
+		HasLifecycleMatch: len(deps.Config.Lifecycle.InProgress.Match) > 0,
 	}
 
 	if err := p.GatherData(ctx); err != nil {

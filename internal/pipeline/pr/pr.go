@@ -155,27 +155,3 @@ func detectAuthorType(author string, commitMessages []string) model.AuthorType {
 	return model.AuthorHuman
 }
 
-// formatDurationOrDash formats a duration, showing "—" with a reason when nil.
-func formatDurationOrDash(d *time.Duration, naReason string) string {
-	if d != nil {
-		return format.FormatDuration(*d)
-	}
-	if naReason != "" {
-		return "— (" + naReason + ")"
-	}
-	return "—"
-}
-
-// formatMetricOrDash formats a metric, showing "—" with a reason when N/A.
-func formatMetricOrDash(m model.Metric, naReason string) string {
-	if m.Duration != nil {
-		return format.FormatMetric(m)
-	}
-	if m.Start != nil {
-		return fmt.Sprintf("in progress since %s", m.Start.Time.UTC().Format(time.DateOnly))
-	}
-	if naReason != "" {
-		return "— (" + naReason + ")"
-	}
-	return "—"
-}

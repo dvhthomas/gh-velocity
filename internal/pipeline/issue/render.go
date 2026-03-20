@@ -25,19 +25,26 @@ func WriteMarkdown(rc format.RenderContext, p *Pipeline) error {
 	)
 
 	// Metrics rows
-	ltReason := ""
-	if p.Issue.ClosedAt == nil {
-		ltReason = "issue still open"
+	ltRow := format.MetricRow{Name: "Lead Time", Status: format.StatusOK, Value: format.FormatMetric(p.LeadTime)}
+	if p.LeadTime.Duration == nil {
+		ltRow.Status = format.StatusNA
 	}
-	metrics := []format.MetricRow{
-		{Name: "Lead Time", Value: formatMetricOrDash(p.LeadTime, ltReason)},
-	}
+	metrics := []format.MetricRow{ltRow}
 
-	ctDisplay := formatMetricOrDash(p.CycleTime, cycleTimeNAReason(p))
-	if p.CycleTime.Duration == nil && p.CycleTime.Start == nil {
-		ctDisplay = fmt.Sprintf("— ([configure](%s))", cycleTimeDocsURL)
+	ctRow := format.MetricRow{Name: "Cycle Time"}
+	if p.CycleTime.Duration != nil {
+		ctRow.Status = format.StatusOK
+		ctRow.Value = format.FormatMetric(p.CycleTime)
+	} else if p.CycleTime.Start != nil {
+		ctRow.Status = format.StatusOK
+		ctRow.Value = fmt.Sprintf("in progress since %s", p.CycleTime.Start.Time.UTC().Format(time.DateOnly))
+	} else if !p.HasLifecycleMatch {
+		ctRow.Status = format.StatusNotConfigured
+		ctRow.HelpURL = cycleTimeDocsURL
+	} else {
+		ctRow.Status = format.StatusNA
 	}
-	metrics = append(metrics, format.MetricRow{Name: "Cycle Time", Value: ctDisplay})
+	metrics = append(metrics, ctRow)
 
 	for _, lpr := range p.LinkedPRs {
 		if lpr.CycleTime.Duration != nil {
@@ -68,19 +75,28 @@ func WritePretty(rc format.RenderContext, p *Pipeline) error {
 	}
 	fmt.Fprintf(w, "  Category:   %s\n", p.Category)
 
-	ltReason := ""
-	if p.Issue.ClosedAt == nil {
-		ltReason = "issue still open"
+	if p.LeadTime.Duration != nil {
+		fmt.Fprintf(w, "  Lead Time:  %s\n", format.FormatMetric(p.LeadTime))
+	} else {
+		fmt.Fprintf(w, "  Lead Time:  n/a\n")
 	}
-	fmt.Fprintf(w, "  Lead Time:  %s\n", formatMetricOrDash(p.LeadTime, ltReason))
 
 	ctReason := cycleTimeNAReason(p)
-	fmt.Fprintf(w, "  Cycle Time: %s\n", formatMetricOrDash(p.CycleTime, ctReason))
+	if p.CycleTime.Duration != nil {
+		fmt.Fprintf(w, "  Cycle Time: %s\n", format.FormatMetric(p.CycleTime))
+	} else if ctReason != "" {
+		fmt.Fprintf(w, "  Cycle Time: %s\n", ctReason)
+	} else {
+		fmt.Fprintf(w, "  Cycle Time: n/a\n")
+	}
 
 	if len(p.LinkedPRs) > 0 {
 		fmt.Fprintf(w, "\n  Linked PRs:\n")
 		for _, lpr := range p.LinkedPRs {
-			ctStr := formatMetricOrDash(lpr.CycleTime, "PR not merged")
+			ctStr := "n/a"
+			if lpr.CycleTime.Duration != nil {
+				ctStr = format.FormatMetric(lpr.CycleTime)
+			}
 			fmt.Fprintf(w, "    PR #%d  %s  (%s)\n", lpr.PR.Number, lpr.PR.Title, ctStr)
 		}
 	}
@@ -200,13 +216,13 @@ func metricToJSON(m model.Metric, naReason string) jsonMetricValue {
 // cycleTimeNAReason returns the N/A reason string for cycle time.
 func cycleTimeNAReason(p *Pipeline) string {
 	if p.CycleTime.Duration != nil || p.CycleTime.Start != nil {
-		return "" // not N/A
+		return ""
 	}
 	if p.CycleTimeFiltered {
 		return "negative cycle time filtered"
 	}
-	if p.Strategy == nil {
-		return "no cycle time strategy configured"
+	if !p.HasLifecycleMatch {
+		return "not configured"
 	}
-	return "configure lifecycle.in-progress.match for cycle time"
+	return "no in-progress signal found"
 }

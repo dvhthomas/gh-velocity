@@ -9,10 +9,19 @@ import (
 
 const siteURL = "https://dvhthomas.github.io/gh-velocity/"
 
+// Metric status constants — drive rendering in template and JSON.
+const (
+	StatusOK            = "ok"
+	StatusNA            = "na"
+	StatusNotConfigured = "not_configured"
+)
+
 // MetricRow is a single row in the metrics table.
 type MetricRow struct {
-	Name  string
-	Value string
+	Name    string
+	Value   string // display value when Status is StatusOK
+	Status  string // StatusOK, StatusNA, StatusNotConfigured
+	HelpURL string // docs link when Status is StatusNotConfigured
 }
 
 // DetailSection is an optional sub-table (e.g., "Closed Issues", "Linked PRs").
@@ -31,6 +40,9 @@ type DetailData struct {
 
 var templateFuncs = template.FuncMap{
 	"join": strings.Join,
+	"isOK":            func() string { return StatusOK },
+	"isNA":            func() string { return StatusNA },
+	"isNotConfigured": func() string { return StatusNotConfigured },
 	"dashes": func(headers []string) string {
 		parts := make([]string, len(headers))
 		for i := range headers {
@@ -51,8 +63,14 @@ var detailTemplate = template.Must(template.New("detail").Funcs(templateFuncs).P
 | Metric | Value |
 |--------|-------|
 {{ range .Metrics -}}
+{{- if eq .Status (isNotConfigured) -}}
+| {{ .Name }} | [not configured]({{ .HelpURL }}) |
+{{ else if eq .Status (isNA) -}}
+| {{ .Name }} | n/a |
+{{ else -}}
 | {{ .Name }} | {{ .Value }} |
-{{ end }}
+{{ end -}}
+{{- end }}
 {{- range .Sections }}
 ### {{ .Title }}
 
