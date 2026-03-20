@@ -59,6 +59,7 @@ type Config struct {
 type WIPConfig struct {
 	TeamLimit   *float64 `yaml:"team_limit" json:"team_limit"`
 	PersonLimit *float64 `yaml:"person_limit" json:"person_limit"`
+	Bots        []string `yaml:"bots" json:"bots"` // additional bot logins (case-insensitive exact match)
 }
 
 // VelocityConfig controls how velocity (effort per iteration) is measured.

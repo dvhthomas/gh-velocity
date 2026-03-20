@@ -68,12 +68,8 @@ func ComputeWIPStageCounts(items []model.WIPItem, inProgressMatchers, inReviewMa
 // Items with multiple assignees count for each. Items with no assignees
 // count under "unassigned". Returns top `limit` entries sorted by ItemCount
 // descending, then Login ascending.
-// The excludeUsers parameter is used to detect bot accounts via IsBotUser.
-func ComputeWIPAssignees(items []model.WIPItem, limit int, excludeUsers ...[]string) []model.WIPAssignee {
-	var eu []string
-	if len(excludeUsers) > 0 {
-		eu = excludeUsers[0]
-	}
+// configBots and excludeUsers are used to detect bot accounts via IsBotUser.
+func ComputeWIPAssignees(items []model.WIPItem, limit int, configBots, excludeUsers []string) []model.WIPAssignee {
 
 	type accumulator struct {
 		count       int
@@ -103,7 +99,7 @@ func ComputeWIPAssignees(items []model.WIPItem, limit int, excludeUsers ...[]str
 	for login, a := range agg {
 		result = append(result, model.WIPAssignee{
 			Login:       login,
-			IsBot:       IsBotUser(login, eu),
+			IsBot:       IsBotUser(login, configBots, excludeUsers),
 			ItemCount:   a.count,
 			TotalEffort: a.totalEffort,
 			ByStage:     a.byStage,
@@ -144,9 +140,9 @@ func PartitionAssignees(all []model.WIPAssignee, limit int) (human, bot []model.
 // based on assignee bot detection. Items with no assignees or at least one
 // human assignee are classified as human. Items where ALL assignees are bots
 // are classified as bot.
-func ClassifyItemsByBot(items []model.WIPItem, excludeUsers []string) (humanItems, botItems []model.WIPItem) {
+func ClassifyItemsByBot(items []model.WIPItem, configBots, excludeUsers []string) (humanItems, botItems []model.WIPItem) {
 	for _, item := range items {
-		if isAllBotAssigned(item.Assignees, excludeUsers) {
+		if isAllBotAssigned(item.Assignees, configBots, excludeUsers) {
 			botItems = append(botItems, item)
 		} else {
 			humanItems = append(humanItems, item)
@@ -156,12 +152,12 @@ func ClassifyItemsByBot(items []model.WIPItem, excludeUsers []string) (humanItem
 }
 
 // isAllBotAssigned returns true if the item has assignees and all of them are bots.
-func isAllBotAssigned(assignees []string, excludeUsers []string) bool {
+func isAllBotAssigned(assignees []string, configBots, excludeUsers []string) bool {
 	if len(assignees) == 0 {
 		return false // unassigned items are "human"
 	}
 	for _, login := range assignees {
-		if !IsBotUser(login, excludeUsers) {
+		if !IsBotUser(login, configBots, excludeUsers) {
 			return false
 		}
 	}

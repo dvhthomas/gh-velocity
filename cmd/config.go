@@ -103,6 +103,9 @@ The JSON output (-r json) is useful for debugging or piping into other tools.`,
 			if cfg.WIP.PersonLimit != nil {
 				fmt.Fprintf(w, "wip.person_limit:            %g\n", *cfg.WIP.PersonLimit)
 			}
+			if len(cfg.WIP.Bots) > 0 {
+				fmt.Fprintf(w, "wip.bots:                    %v\n", cfg.WIP.Bots)
+			}
 			fmt.Fprintf(w, "velocity.unit:               %s\n", cfg.Velocity.Unit)
 			fmt.Fprintf(w, "velocity.iteration.strategy: %s\n", cfg.Velocity.Iteration.Strategy)
 			if cfg.Velocity.Iteration.Strategy == "project-field" {
@@ -266,6 +269,9 @@ commit_ref:
 # wip:
 #   team_limit: 50.0                # total effort across all assignees
 #   person_limit: 8.0               # max effort per individual assignee
+#   bots:                            # additional bot accounts (case-insensitive exact match)
+#     - "claude-assistant"
+#     - "openai-bot"
 
 # Velocity: effort completed per iteration (sprint velocity).
 # velocity:

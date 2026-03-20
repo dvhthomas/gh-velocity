@@ -1352,6 +1352,10 @@ func renderWIPConfig(b *strings.Builder, r *PreflightResult) {
 		b.WriteString("wip:\n")
 		b.WriteString(fmt.Sprintf("  team_limit: %d.0%s\n", teamLimit, wipUnitComment(effortUnit, true)))
 		b.WriteString(fmt.Sprintf("  person_limit: 5.0%s\n", wipUnitComment(effortUnit, false)))
+		b.WriteString("  # bots: additional bot accounts (case-insensitive exact match)\n")
+		b.WriteString("  # bots:\n")
+		b.WriteString("  #   - \"claude-assistant\"\n")
+		b.WriteString("  #   - \"openai-bot\"\n")
 		b.WriteString("\n")
 	} else if hasLifecycle {
 		// Lifecycle detected but no contributor data — emit active with defaults.
@@ -1359,12 +1363,19 @@ func renderWIPConfig(b *strings.Builder, r *PreflightResult) {
 		b.WriteString("wip:\n")
 		b.WriteString(fmt.Sprintf("  team_limit: 50.0%s\n", wipUnitComment(effortUnit, true)))
 		b.WriteString(fmt.Sprintf("  person_limit: 5.0%s\n", wipUnitComment(effortUnit, false)))
+		b.WriteString("  # bots: additional bot accounts (case-insensitive exact match)\n")
+		b.WriteString("  # bots:\n")
+		b.WriteString("  #   - \"claude-assistant\"\n")
+		b.WriteString("  #   - \"openai-bot\"\n")
 		b.WriteString("\n")
 	} else {
 		// No lifecycle — keep commented.
 		b.WriteString("# wip:\n")
 		b.WriteString(fmt.Sprintf("#   team_limit: 50.0%s\n", wipUnitComment(effortUnit, true)))
 		b.WriteString(fmt.Sprintf("#   person_limit: 5.0%s\n", wipUnitComment(effortUnit, false)))
+		b.WriteString("#   bots:                          # additional bot accounts (case-insensitive exact match)\n")
+		b.WriteString("#     - \"claude-assistant\"\n")
+		b.WriteString("#     - \"openai-bot\"\n")
 		b.WriteString("\n")
 	}
 }

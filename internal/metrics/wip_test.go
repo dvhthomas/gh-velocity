@@ -204,7 +204,7 @@ func TestComputeWIPAssignees(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			result := ComputeWIPAssignees(tt.items, tt.limit)
+			result := ComputeWIPAssignees(tt.items, tt.limit, nil, nil)
 
 			if len(result) != len(tt.wantLogins) {
 				t.Fatalf("got %d assignees, want %d", len(result), len(tt.wantLogins))
@@ -229,7 +229,7 @@ func TestComputeWIPAssignees_EffortAggregation(t *testing.T) {
 		{Assignees: []string{"alice"}, EffortValue: 5, Status: "In Review"},
 	}
 
-	result := ComputeWIPAssignees(items, 10)
+	result := ComputeWIPAssignees(items, 10, nil, nil)
 	if len(result) != 1 {
 		t.Fatalf("got %d, want 1", len(result))
 	}
@@ -559,7 +559,7 @@ func TestClassifyItemsByBot(t *testing.T) {
 		{Number: 6, Assignees: []string{"alice", "dependabot[bot]"}},    // mixed -> human
 	}
 
-	human, bot := ClassifyItemsByBot(items, nil)
+	human, bot := ClassifyItemsByBot(items, nil, nil)
 	if len(human) != 4 {
 		t.Errorf("human count = %d, want 4", len(human))
 	}
@@ -587,7 +587,7 @@ func TestClassifyItemsByBot_ExcludeUsers(t *testing.T) {
 		{Number: 1, Assignees: []string{"my-ci-bot"}},
 	}
 
-	human, bot := ClassifyItemsByBot(items, []string{"my-ci-bot"})
+	human, bot := ClassifyItemsByBot(items, nil, []string{"my-ci-bot"})
 	if len(human) != 0 {
 		t.Errorf("human count = %d, want 0", len(human))
 	}

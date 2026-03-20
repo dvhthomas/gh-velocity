@@ -208,14 +208,14 @@ func (p *Pipeline) ProcessData() error {
 
 	// Compute aggregates.
 	stageCounts := metrics.ComputeWIPStageCounts(items, inProgressMatchers, inReviewMatchers)
-	allAssignees := metrics.ComputeWIPAssignees(items, 0, p.ExcludeUsers) // no limit yet, partition first
+	allAssignees := metrics.ComputeWIPAssignees(items, 0, p.WIPConfig.Bots, p.ExcludeUsers) // no limit yet, partition first
 	staleness := metrics.ComputeWIPStaleness(items)
 
 	// Partition assignees into human and bot.
 	humanAssignees, botAssignees := metrics.PartitionAssignees(allAssignees, 10)
 
 	// Classify items as human or bot.
-	humanItems, botItems := metrics.ClassifyItemsByBot(items, p.ExcludeUsers)
+	humanItems, botItems := metrics.ClassifyItemsByBot(items, p.WIPConfig.Bots, p.ExcludeUsers)
 
 	// Total effort.
 	var totalEffort, humanEffort, botEffort float64
