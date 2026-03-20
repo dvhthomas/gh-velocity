@@ -321,6 +321,7 @@ type myweekItemRow struct {
 	Link  string
 	Title string
 	Date  string
+	AI    string // AI-assisted annotation suffix
 }
 
 type myweekReleaseRow struct {
@@ -331,6 +332,7 @@ type myweekReleaseRow struct {
 type myweekAnnotatedRow struct {
 	Link   string
 	Title  string
+	AI     string // AI-assisted annotation suffix
 	Status string
 }
 
@@ -376,6 +378,7 @@ func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult, i
 			Link:  FormatItemLink(pr.Number, pr.URL, rc),
 			Title: SanitizeMarkdown(pr.Title),
 			Date:  dateStr,
+			AI:    aiSuffixMarkdown(pr.AIAssisted),
 		})
 	}
 
@@ -384,6 +387,7 @@ func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult, i
 		data.PRsReviewed = append(data.PRsReviewed, myweekItemRow{
 			Link:  FormatItemLink(pr.Number, pr.URL, rc),
 			Title: SanitizeMarkdown(pr.Title),
+			AI:    aiSuffixMarkdown(pr.AIAssisted),
 		})
 	}
 
@@ -424,6 +428,7 @@ func renderMyWeekMarkdown(w io.Writer, rc RenderContext, r model.MyWeekResult, i
 		data.PRsOpen = append(data.PRsOpen, myweekAnnotatedRow{
 			Link:   FormatItemLink(pr.Number, pr.URL, rc),
 			Title:  SanitizeMarkdown(pr.Title),
+			AI:     aiSuffixMarkdown(pr.AIAssisted),
 			Status: formatStatusMarkdown(s),
 		})
 	}

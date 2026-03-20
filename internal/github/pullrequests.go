@@ -15,6 +15,7 @@ import (
 type searchIssueResponse struct {
 	Number      int        `json:"number"`
 	Title       string     `json:"title"`
+	Body        string     `json:"body"` // PR/issue body text (used for AI-assisted detection)
 	State       string     `json:"state"`
 	StateReason string     `json:"state_reason"` // "completed", "not_planned", or null
 	CreatedAt   time.Time  `json:"created_at"`

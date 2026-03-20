@@ -6,7 +6,6 @@ package pr
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/format"
@@ -84,7 +83,7 @@ func (p *Pipeline) ProcessData() error {
 	p.ReviewSummary = computeReviewSummary(p.PR.CreatedAt, p.Reviews)
 
 	// Author type detection
-	p.AuthorType = detectAuthorType(p.PR.Author, p.CommitMessages)
+	p.AuthorType = model.DetectAuthorType(p.PR.Author, p.CommitMessages...)
 
 	return nil
 }
@@ -128,30 +127,4 @@ func computeReviewSummary(prCreated time.Time, reviews []model.Review) model.Rev
 	return summary
 }
 
-// detectAuthorType classifies the PR author based on login and commit trailers.
-func detectAuthorType(author string, commitMessages []string) model.AuthorType {
-	// Bot: login ends with [bot]
-	if strings.HasSuffix(author, "[bot]") {
-		return model.AuthorBot
-	}
-
-	// Agent-assisted: Co-Authored-By trailer matching known AI patterns
-	aiPatterns := []string{
-		"noreply@anthropic.com",
-		"noreply@github.com",
-	}
-	for _, msg := range commitMessages {
-		lower := strings.ToLower(msg)
-		if !strings.Contains(lower, "co-authored-by") {
-			continue
-		}
-		for _, pattern := range aiPatterns {
-			if strings.Contains(lower, strings.ToLower(pattern)) {
-				return model.AuthorAgentAssisted
-			}
-		}
-	}
-
-	return model.AuthorHuman
-}
 

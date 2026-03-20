@@ -130,6 +130,22 @@ func joinWith(parts []string, sep string) string {
 	return parts[0] + sep + parts[1]
 }
 
+// aiSuffix returns a display suffix for AI-assisted PRs.
+func aiSuffix(aiAssisted bool) string {
+	if aiAssisted {
+		return "  [ai]"
+	}
+	return ""
+}
+
+// aiSuffixMarkdown returns a markdown annotation for AI-assisted PRs.
+func aiSuffixMarkdown(aiAssisted bool) string {
+	if aiAssisted {
+		return " `ai`"
+	}
+	return ""
+}
+
 // MyWeekSearchURLs holds verify URLs for each lookback section.
 type MyWeekSearchURLs struct {
 	IssuesClosed string
@@ -182,7 +198,8 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 			if pr.MergedAt != nil {
 				dateStr = pr.MergedAt.Format(time.DateOnly) + "  "
 			}
-			fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), dateStr, pr.Title)
+			ai := aiSuffix(pr.AIAssisted)
+			fmt.Fprintf(w, "  %s  %s%s%s\n", FormatItemLink(pr.Number, pr.URL, rc), dateStr, pr.Title, ai)
 		}
 	} else {
 		fmt.Fprintf(w, "\nPRs Merged: 0\n")
@@ -194,7 +211,8 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 	if len(r.PRsReviewed) > 0 {
 		fmt.Fprintf(w, "\nPRs Reviewed: %d\n", len(r.PRsReviewed))
 		for _, pr := range r.PRsReviewed {
-			fmt.Fprintf(w, "  %s  %s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title)
+			ai := aiSuffix(pr.AIAssisted)
+			fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title, ai)
 		}
 	} else {
 		fmt.Fprintf(w, "\nPRs Reviewed: 0\n")
@@ -238,7 +256,8 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 		for _, pr := range r.PRsOpen {
 			nr := model.PRNeedsReview(pr, r.PRsNeedingReview)
 			s := model.PRStatus(pr, nr, r.Since, r.Until)
-			fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title, formatStatus(s))
+			ai := aiSuffix(pr.AIAssisted)
+			fmt.Fprintf(w, "  %s  %s%s%s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title, ai, formatStatus(s))
 		}
 	}
 
@@ -315,21 +334,23 @@ type jsonMyWeekReviewItem struct {
 }
 
 type jsonMyWeekItem struct {
-	Number int      `json:"number"`
-	Title  string   `json:"title"`
-	URL    string   `json:"url"`
-	Date   string   `json:"date,omitempty"`
-	Labels []string `json:"labels,omitempty"`
+	Number     int      `json:"number"`
+	Title      string   `json:"title"`
+	URL        string   `json:"url"`
+	Date       string   `json:"date,omitempty"`
+	Labels     []string `json:"labels,omitempty"`
+	AIAssisted bool     `json:"ai_assisted,omitempty"`
 }
 
 type jsonMyWeekAheadItem struct {
-	Number    int      `json:"number"`
-	Title     string   `json:"title"`
-	URL       string   `json:"url"`
-	Labels    []string `json:"labels,omitempty"`
-	AgeDays   int      `json:"age_days"`
-	StaleDays int      `json:"stale_days,omitempty"`
-	Status    string   `json:"status"` // "new", "needs_review", "stale", "active"
+	Number     int      `json:"number"`
+	Title      string   `json:"title"`
+	URL        string   `json:"url"`
+	Labels     []string `json:"labels,omitempty"`
+	AIAssisted bool     `json:"ai_assisted,omitempty"`
+	AgeDays    int      `json:"age_days"`
+	StaleDays  int      `json:"stale_days,omitempty"`
+	Status     string   `json:"status"` // "new", "needs_review", "stale", "active"
 }
 
 type jsonMyWeekSummary struct {
@@ -411,7 +432,7 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights
 		out.Lookback.IssuesClosed = append(out.Lookback.IssuesClosed, item)
 	}
 	for _, pr := range r.PRsMerged {
-		item := jsonMyWeekItem{Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels}
+		item := jsonMyWeekItem{Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels, AIAssisted: pr.AIAssisted}
 		if pr.MergedAt != nil {
 			item.Date = pr.MergedAt.UTC().Format(time.RFC3339)
 		}
@@ -419,7 +440,7 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights
 	}
 	for _, pr := range r.PRsReviewed {
 		out.Lookback.PRsReviewed = append(out.Lookback.PRsReviewed, jsonMyWeekItem{
-			Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels,
+			Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels, AIAssisted: pr.AIAssisted,
 		})
 	}
 	for _, rel := range r.Releases {
@@ -449,7 +470,7 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights
 		nr := model.PRNeedsReview(pr, r.PRsNeedingReview)
 		s := model.PRStatus(pr, nr, r.Since, r.Until)
 		out.Ahead.PRsOpen = append(out.Ahead.PRsOpen, jsonMyWeekAheadItem{
-			Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels,
+			Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels, AIAssisted: pr.AIAssisted,
 			AgeDays: s.AgeDays, StaleDays: s.StaleDays, Status: s.Status,
 		})
 	}

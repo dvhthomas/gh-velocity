@@ -47,13 +47,14 @@ func searchItemToPR(item searchIssueResponse) model.PR {
 		author = item.User.Login
 	}
 	pr := model.PR{
-		Number:    item.Number,
-		Title:     item.Title,
-		State:     item.State,
-		Labels:    labels,
-		Author:    author,
-		CreatedAt: item.CreatedAt.UTC(),
-		URL:       item.HTMLURL,
+		Number:     item.Number,
+		Title:      item.Title,
+		State:      item.State,
+		Labels:     labels,
+		Author:     author,
+		AIAssisted: model.DetectAuthorType(author, item.Body) == model.AuthorAgentAssisted,
+		CreatedAt:  item.CreatedAt.UTC(),
+		URL:        item.HTMLURL,
 	}
 	if item.PullRequest != nil {
 		pr.MergedAt = item.PullRequest.MergedAt
