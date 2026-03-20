@@ -7,7 +7,7 @@ weight: 2
 
 The `flow velocity` command measures [effort]({{< relref "/concepts/terminology" >}}#effort) completed per [iteration]({{< relref "/concepts/terminology" >}}#iteration) -- a number, not a ratio. It answers "how much work did we ship this period?" in effort units. A related metric, completion rate (done / committed), measures predictability. Both appear in the output. For the metric definition and formula, see the [Velocity reference]({{< relref "/reference/metrics/velocity" >}}).
 
-Iteration and effort are independent of [scope and lifecycle]({{< relref "/concepts/terminology" >}}) -- they control *how* velocity is computed, not *which* items are measured. See [Key Concepts]({{< relref "/concepts/terminology" >}}) for definitions.
+Iteration and effort are independent of [scope and lifecycle]({{< relref "/concepts/terminology" >}}) -- they control *how* velocity is computed, not *which* items are measured. See [Definitions]({{< relref "/concepts/terminology" >}}) for details.
 
 ## How velocity differs from throughput
 
