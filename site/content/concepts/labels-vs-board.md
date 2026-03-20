@@ -5,15 +5,15 @@ weight: 4
 
 # Labels Are the Lifecycle Signal
 
-Labels are the sole source of truth for lifecycle and cycle-time signals in gh-velocity. Project boards remain useful for visibility and velocity reads (iteration tracking, effort fields), but they are not used for lifecycle or cycle-time measurement.
+Labels are the sole source of truth for lifecycle and cycle-time signals in gh-velocity. Project boards remain useful for velocity reads (iteration tracking, effort fields) but play no role in lifecycle or cycle-time measurement.
 
 ## Why labels won
 
-Label event timestamps (`LABELED_EVENT.createdAt`) are **immutable**. Once a label is applied, the timestamp never changes -- not when you remove the label, not when you re-add it, not when anything else changes. The first application of that label is permanently recorded.
+Label event timestamps (`LABELED_EVENT.createdAt`) are **immutable**. Once a label is applied, the timestamp never changes -- not when the label is removed, not when it is re-added, not when anything else changes. The first application is permanently recorded.
 
 Project board timestamps, by contrast, are mutable. The GitHub Projects v2 API only exposes `updatedAt` on field values -- the timestamp of the **last** status change, not the original transition to "In Progress." If someone moves a card after the issue is closed, `updatedAt` reflects that post-closure move, producing negative cycle times (`start > end`). There is no field change history API to retrieve the original transition date.
 
-This is a fundamental GitHub API limitation that cannot be worked around at the application level. Labels are the only reliable answer to "when did work start?"
+This is a fundamental GitHub API limitation. Labels are the only reliable answer to "when did work start?"
 
 ## What labels do
 
@@ -26,22 +26,10 @@ This is a fundamental GitHub API limitation that cannot be worked around at the 
 
 ## What project boards do
 
-Project boards remain valuable for velocity and visibility -- they are just not lifecycle signals:
+Project boards serve two read-only roles in gh-velocity -- they are never used as lifecycle or cycle-time signals:
 
-| Use case | How it works |
-|----------|-------------|
-| Iteration tracking | `velocity.iteration.strategy: project-field` reads an Iteration field from the board |
-| Effort classification | `field:Size/M` matchers read SingleSelect fields from the board |
-| Team visibility | Board columns give a visual overview of work status |
-
-## What project boards ARE used for
-
-Project boards serve two concrete roles in gh-velocity:
-
-1. **Iteration tracking** — the `velocity.iteration.strategy: project-field` setting reads an Iteration field from the board to group issues into sprints for velocity measurement.
-2. **Effort fields** — the `numeric` effort strategy reads a Number field from the board (e.g., story points), and `field:Size/M` matchers read SingleSelect fields for the `attribute` effort strategy.
-
-Both are read-only data sources. The board is never used as a lifecycle or cycle-time signal.
+1. **Iteration tracking** -- `velocity.iteration.strategy: project-field` reads an Iteration field from the board to group issues into sprints.
+2. **Effort fields** -- the `numeric` effort strategy reads a Number field (e.g., story points), and `field:Size/M` matchers read SingleSelect fields for the `attribute` effort strategy.
 
 ## Suggested labels
 
@@ -64,17 +52,15 @@ lifecycle:
 
 ## If you use a project board
 
-If your team uses a project board as the primary workflow tool and does not want to manually apply labels, use a label-sync GitHub Action to keep labels in sync with board column changes. This way the board drives your workflow while labels provide the immutable timestamps gh-velocity needs.
-
-Use [gh-project-label-sync](https://github.com/dvhthomas/gh-project-label-sync) to automatically apply lifecycle labels when cards move on the board.
+If your team uses a project board as the primary workflow tool and does not want to manually apply labels, use [gh-project-label-sync](https://github.com/dvhthomas/gh-project-label-sync) to automatically apply lifecycle labels when cards move on the board. The board drives your workflow while labels provide the immutable timestamps gh-velocity needs.
 
 The `projects_v2_item` webhook event requires a **GitHub App** or a **classic PAT** with `project` scope. The default `GITHUB_TOKEN` in GitHub Actions **cannot** receive project board events. This is a GitHub platform limitation.
 
-If setting up a GitHub App or PAT is not feasible, the simplest alternative is to manually apply the `in-progress` label when you start work. Applying a label is a single click in the GitHub issue sidebar.
+If setting up a GitHub App or PAT is not feasible, manually apply the `in-progress` label when work starts -- a single click in the GitHub issue sidebar.
 
 ## Project board with velocity reads
 
-You can use a project board for velocity without using it for lifecycle. This is the recommended pattern for teams that use boards:
+Use a project board for velocity without using it for lifecycle. This is the recommended pattern for teams that use boards:
 
 ```yaml
 # Project board for velocity iteration/effort reads
@@ -105,7 +91,6 @@ velocity:
 
 ## See also
 
-- [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) -- step-by-step guide to configuring cycle time with labels
-- [Cycle Time Reference]({{< relref "/reference/metrics/cycle-time" >}}) -- metric definition, signals, and strategies
+- [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) -- configuring cycle time with labels
 - [Configuration Reference: lifecycle]({{< relref "/reference/config" >}}#lifecycle) -- full schema for lifecycle stages
-- [GitHub's Capabilities & Limits]({{< relref "/concepts/github-capabilities" >}}) -- broader context on what the API can and cannot do
+- [GitHub's Capabilities & Limits]({{< relref "/concepts/github-capabilities" >}}) -- broader context on API constraints

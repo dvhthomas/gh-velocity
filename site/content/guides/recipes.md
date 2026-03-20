@@ -5,7 +5,7 @@ weight: 6
 
 # How-To Recipes
 
-Practical patterns for common tasks with gh-velocity. For understanding what the output means, see [Interpreting Results]({{< relref "/guides/interpreting-results" >}}). For CI automation, see [CI Setup]({{< relref "/getting-started/ci-setup" >}}).
+Practical patterns for common gh-velocity tasks.
 
 ## Compare two releases
 
@@ -39,11 +39,11 @@ gh velocity quality release v1.2.0 --results json | \
   jq '"Bug: \(.composition.bug_count), Feature: \(.composition.feature_count), Unlabeled: \(.composition.other_count)"'
 ```
 
-If `other_count` is high, label your issues before publishing the release for more useful composition metrics. Run `gh velocity config preflight` to discover available labels and generate matching category matchers.
+If `other_count` is high, label your issues before publishing the release. Run `gh velocity config preflight` to discover available labels and generate matching category matchers.
 
 ## Use --since to override the previous tag
 
-When the auto-detected previous tag is wrong (non-linear tag history, pre-releases mixed with stable releases), override it explicitly:
+When the auto-detected previous tag is wrong (non-linear tag history, pre-releases mixed with stable), override explicitly:
 
 ```bash
 gh velocity quality release v2.0.0 --since v1.9.0
@@ -63,7 +63,7 @@ gh velocity quality release v5.2.1 -R go-chi/chi --discover
 gh velocity flow throughput --since 30d -R cli/cli
 ```
 
-All commands work remotely. Cycle time uses API-based signals (PR creation date, label events, project status). Running from inside a local checkout adds commit counts and a fallback signal from commit history.
+All commands work remotely. Cycle time uses API-based signals (PR creation date, label events, project status). Running from a local checkout adds commit counts and a fallback signal from commit history.
 
 ## Generate a report for every release
 
@@ -134,14 +134,14 @@ gh velocity flow lead-time --since 30d --results json | \
 
 ## Cycle time for a specific PR
 
-Override the configured strategy and measure a single PR directly:
+Measure a single PR directly (ignores the configured strategy):
 
 ```bash
 gh velocity flow cycle-time --pr 99
 gh velocity flow cycle-time --pr 99 --results json
 ```
 
-This always uses PR created-to-merged timing, regardless of what `cycle_time.strategy` is set to in config.
+Always uses PR created-to-merged timing, regardless of `cycle_time.strategy` in config.
 
 ## Weekly velocity in JSON for dashboards
 
@@ -170,7 +170,7 @@ gh velocity report --since 30d --results markdown | tee report.md | \
 
 ## Prep for a 1:1 with my-week
 
-Get a personal summary of your recent activity — issues closed, PRs merged, reviews done — plus what's on your plate:
+Get a personal summary of recent activity -- issues closed, PRs merged, reviews done -- plus what's on your plate:
 
 ```bash
 gh velocity status my-week

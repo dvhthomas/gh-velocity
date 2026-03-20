@@ -9,9 +9,9 @@ Quality metrics analyze the composition and health of a release. They answer: "W
 
 ## What this tells you
 
-Release quality metrics help you understand whether you're shipping improvements or fighting fires. A rising bug ratio across releases signals growing technical debt. Frequent hotfixes suggest inadequate testing or overly aggressive release schedules. High release lag means finished work is sitting unreleased, increasing the risk of stale branches and merge conflicts.
+These metrics reveal whether the team is shipping improvements or fighting fires. A rising bug ratio signals growing technical debt. Frequent hotfixes suggest inadequate testing or overly aggressive release schedules. High release lag means finished work sits unreleased, increasing the risk of stale branches and merge conflicts.
 
-For a PM, these metrics answer: "Is our release process healthy?" Track bug ratio and composition over multiple releases to spot trends.
+Track bug ratio and composition over multiple releases to spot trends.
 
 ## Per-release bug ratio
 
@@ -41,7 +41,7 @@ Bug ratio: 20%.
 
 ## Category composition
 
-Every issue in a release is classified into exactly one category using the configured matchers. The first matching category wins; unmatched issues are classified as "other."
+Every issue in a release is classified into exactly one category. The first matching category wins; unmatched issues become "other."
 
 ### Classification matchers
 
@@ -80,13 +80,13 @@ quality:
 
 ### Low coverage warning
 
-When more than 50% of issues in a release are classified as "other" (unmatched), the tool emits a warning:
+When more than 50% of issues are "other" (unmatched), the tool warns:
 
 ```
 Low classification coverage: 12/20 issues are unclassified
 ```
 
-This indicates your category matchers do not cover enough of your issue labeling. Add more matchers or improve your team's labeling practice.
+Add more matchers or improve labeling practice to increase coverage.
 
 ## Hotfix detection
 
@@ -107,7 +107,7 @@ quality:
 |---|---|---|---|
 | `quality.hotfix_window_hours` | number | `72` | > 0, <= 8760 (1 year) |
 
-A release published 48 hours after the previous release with a 72-hour window is flagged as a hotfix. This helps identify emergency patches versus planned releases.
+A release published 48 hours after the previous release with a 72-hour window is flagged as a hotfix, distinguishing emergency patches from planned releases.
 
 ### Example
 
@@ -122,13 +122,13 @@ A release published 48 hours after the previous release with a 72-hour window is
 
 ## Release cadence
 
-When a previous release exists, the tool computes the time between the two releases:
+When a previous release exists, the tool computes the interval:
 
 ```
 cadence = current_release.created_at - previous_release.created_at
 ```
 
-This is reported as `cadence_seconds` in JSON and as a human-readable duration in pretty/markdown formats. Tracking cadence over multiple releases reveals whether your team is shipping faster or slower.
+Reported as `cadence_seconds` in JSON and as a human-readable duration in pretty/markdown formats.
 
 ## Release lag
 
@@ -138,7 +138,7 @@ Release lag measures the delay between an issue being closed and the release tha
 release_lag = release.created_at - issue.closed_at
 ```
 
-A long release lag means finished work is sitting unreleased. This is common in teams with infrequent release cadences or manual release processes.
+A long release lag means finished work sits unreleased -- common with infrequent release cadences or manual release processes.
 
 Release lag is computed per-issue and aggregated with the same statistics as lead time (mean, median, P90, P95, outlier detection).
 
@@ -153,7 +153,7 @@ Both lead time and cycle time within a release use IQR-based outlier detection:
 
 Outlier detection requires at least 4 data points to compute meaningful quartiles.
 
-Individual issues are flagged with `lead_time_outlier: true` and/or `cycle_time_outlier: true` in the output, making it easy to identify items that took disproportionately long.
+Individual issues are flagged with `lead_time_outlier: true` and/or `cycle_time_outlier: true` in the output.
 
 ## Configuration reference
 
@@ -222,12 +222,10 @@ Release v1.2.0 (2026-03-01)
 | **Bug fix speed** | 2+ bugs and 2+ non-bugs with duration data | Compares median resolution time between bugs and other work. Bugs faster than features suggests good triage; bugs slower suggests debugging bottlenecks. |
 | **Hotfix count** | Items resolved within the hotfix window (default 72h) | Counts issues closed very quickly after creation. High counts may indicate reactive firefighting or a healthy rapid-response process, depending on context. |
 
-The `bug_ratio_threshold` and `hotfix_window_hours` are configurable in `.gh-velocity.yml` under the `quality` section.
+Both `bug_ratio_threshold` and `hotfix_window_hours` are configurable under the `quality` section.
 
 ## See also
 
-- [Linking Strategies]({{< relref "/concepts/linking-strategies" >}}) -- how the tool finds which issues belong to a release
-- [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) -- what healthy bug ratios and composition look like
+- [Linking Strategies]({{< relref "/concepts/linking-strategies" >}}) -- how issues are matched to releases
 - [Understanding Statistics]({{< relref "/concepts/statistics" >}}) -- outlier detection, percentiles, and median vs. mean
 - [Configuration Reference: quality]({{< relref "/reference/config" >}}#quality) -- category matchers and hotfix window
-- [Troubleshooting: Bug ratio shows 0%]({{< relref "/guides/troubleshooting" >}}#defect-rate-shows-0) -- common configuration fix

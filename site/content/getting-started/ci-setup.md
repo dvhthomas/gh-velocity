@@ -9,13 +9,13 @@ Run gh-velocity in CI to post automated reports on releases, PRs, and schedules.
 
 ## How authentication works
 
-gh-velocity uses the `GH_TOKEN` environment variable for all GitHub API calls -- the same variable that powers the `gh` CLI. Locally, `gh auth login` handles this automatically. In CI, you set `GH_TOKEN` in your workflow. For details on what each token can access, see the [Configuration: Token permissions]({{< relref "/getting-started/configuration" >}}#token-permissions) section.
+gh-velocity uses the `GH_TOKEN` environment variable for all GitHub API calls -- the same variable that powers the `gh` CLI. Locally, `gh auth login` handles this. In CI, set `GH_TOKEN` in your workflow. See [Token permissions]({{< relref "/getting-started/configuration" >}}#token-permissions) for what each token can access.
 
 ## Token setup
 
-The default `GITHUB_TOKEN` provided by GitHub Actions works for most commands. However, **`GITHUB_TOKEN` cannot access Projects v2 boards** -- this is a GitHub platform limitation.
+The default `GITHUB_TOKEN` works for most commands. However, **`GITHUB_TOKEN` cannot access Projects v2 boards** -- a GitHub platform limitation.
 
-gh-velocity handles this with the `GH_VELOCITY_TOKEN` environment variable. When set, the binary automatically uses it instead of `GH_TOKEN` for all API calls. No workflow fallback logic needed -- just pass both:
+gh-velocity handles this with `GH_VELOCITY_TOKEN`. When set, the binary uses it instead of `GH_TOKEN` for all API calls. Pass both:
 
 ```yaml
 env:
@@ -25,7 +25,7 @@ env:
 
 ### What each token can do
 
-See the [token permissions table]({{< relref "/getting-started/configuration" >}}#token-permissions) in the Configuration page for the full breakdown. The key distinction: `GITHUB_TOKEN` handles everything except Projects v2 board access. Add `GH_VELOCITY_TOKEN` only if your config has a `project:` section.
+`GITHUB_TOKEN` handles everything except Projects v2 board access. Add `GH_VELOCITY_TOKEN` only if your config has a `project:` section.
 
 ### Setting up GH_VELOCITY_TOKEN
 
@@ -38,7 +38,7 @@ See the [token permissions table]({{< relref "/getting-started/configuration" >}
    [Create token](https://github.com/settings/tokens/new?scopes=project,public_repo,write:discussion&description=gh-velocity) -- this link pre-fills the scopes and description.
 
    > [!NOTE]
-   > Fine-grained PATs do not currently support user-owned projects or the `createDiscussion` GraphQL mutation. Use a classic PAT for these features.
+   > Fine-grained PATs do not support user-owned projects or the `createDiscussion` GraphQL mutation. Use a classic PAT.
 
 2. **Add it as a repository secret** named `GH_VELOCITY_TOKEN`:
 
@@ -52,7 +52,7 @@ See the [token permissions table]({{< relref "/getting-started/configuration" >}
      GH_VELOCITY_TOKEN: ${{ secrets.GH_VELOCITY_TOKEN }}
    ```
 
-   The binary prefers `GH_VELOCITY_TOKEN` when set. If it is empty or missing, it falls back to `GH_TOKEN` transparently.
+   `GH_VELOCITY_TOKEN` takes precedence when set. If empty or missing, the binary falls back to `GH_TOKEN`.
 
 ## Workflow permissions
 
@@ -65,7 +65,7 @@ permissions:
   discussions: write      # --post bulk reports as Discussions
 ```
 
-These are `GITHUB_TOKEN` permissions set in the workflow file. `GH_VELOCITY_TOKEN` needs `project` (board access), `public_repo` (Discussion creation via GraphQL), and `write:discussion` (posting comments to Discussions).
+`GH_VELOCITY_TOKEN` (a classic PAT) needs `project`, `public_repo`, and `write:discussion` scopes -- these are set when creating the token, not in the workflow file.
 
 ## Which workflow should you use?
 
@@ -76,13 +76,13 @@ These are `GITHUB_TOKEN` permissions set in the workflow file. `GH_VELOCITY_TOKE
 | PR-level feedback | [PR lead-time check](#pr-lead-time-check) | `pull_request` |
 | Long-term trend data | [Scheduled trend reports](#scheduled-trend-reports) | `schedule` (cron) |
 
-Start with the **weekly velocity report** — it covers the most ground with the least setup.
+Start with the **weekly velocity report** -- it covers the most ground with the least setup.
 
 ## Example workflows
 
 ### Weekly velocity report
 
-Post a velocity report to GitHub Discussions every week. This is the most common CI use case.
+Post a velocity report to GitHub Discussions every week:
 
 ```yaml
 name: Velocity Report
@@ -116,11 +116,11 @@ jobs:
 ```
 
 > [!NOTE]
-> The `GH_VELOCITY_POST_LIVE` environment variable is required for `--post` to actually write to GitHub. Without it, `--post` runs in dry-run mode. This is a safety net to prevent accidental posts during local testing. See [Posting Reports]({{< relref "/guides/posting-reports" >}}) for all `--post` options and patterns.
+> `GH_VELOCITY_POST_LIVE` is required for `--post` to write to GitHub. Without it, `--post` runs in dry-run mode -- a safety net against accidental posts during local testing. See [Posting Reports]({{< relref "/guides/posting-reports" >}}) for all `--post` options.
 
 ### Release metrics comment
 
-Post a quality report automatically when a release is published:
+Post a quality report when a release is published:
 
 ```yaml
 name: Release Metrics
@@ -242,11 +242,11 @@ jobs:
 
 ## Real-world example
 
-The gh-velocity repo itself uses a CI workflow for velocity reports. See [`docs/examples/velocity-report.yml`](https://github.com/dvhthomas/gh-velocity/blob/main/docs/examples/velocity-report.yml) for a production-ready workflow you can copy into your `.github/workflows/` directory.
+The gh-velocity repo uses this pattern itself. See [`docs/examples/velocity-report.yml`](https://github.com/dvhthomas/gh-velocity/blob/main/docs/examples/velocity-report.yml) for a production-ready workflow to copy into `.github/workflows/`.
 
 ## Tips
 
-**Use `fetch-depth: 0` for commit analysis.** If you want the `commit-ref` linking strategy or commit-enriched cycle time, check out the full git history. Without it, the tool warns about a shallow clone and skips commit-based analysis. Lead time (which only uses issue dates) is unaffected.
+**Use `fetch-depth: 0` for commit analysis.** The `commit-ref` linking strategy and commit-enriched cycle time require full git history. Without it, the tool warns about a shallow clone and skips commit-based analysis. Lead time is unaffected.
 
 ```yaml
 - uses: actions/checkout@v4
@@ -254,13 +254,11 @@ The gh-velocity repo itself uses a CI workflow for velocity reports. See [`docs/
     fetch-depth: 0
 ```
 
-**Start with `GITHUB_TOKEN` only.** If your config has no `project:` section, you do not need `GH_VELOCITY_TOKEN` at all. Add it later if you enable project board features.
+**Start with `GITHUB_TOKEN` only.** No `project:` section means no `GH_VELOCITY_TOKEN` needed. Add it later if you enable project board features.
 
-**Use `workflow_dispatch` for testing.** Adding `workflow_dispatch` to your workflow triggers lets you run the workflow manually from the GitHub UI while debugging.
+**Use `workflow_dispatch` for testing.** Adding `workflow_dispatch` lets you run the workflow manually from the GitHub UI while debugging.
 
 ## Next steps
 
-- [Configuration]({{< relref "/getting-started/configuration" >}}) -- set up your `.gh-velocity.yml`
 - [Posting Reports]({{< relref "/guides/posting-reports" >}}) -- `--post` options, idempotent posting, and manual patterns
 - [Troubleshooting]({{< relref "/guides/troubleshooting" >}}) -- fix common CI errors like "Resource not accessible" and dry-run `--post`
-- [How It Works]({{< relref "/getting-started/how-it-works" >}}) -- understand the metrics and strategies

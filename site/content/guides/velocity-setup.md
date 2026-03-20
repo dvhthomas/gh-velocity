@@ -5,29 +5,29 @@ weight: 2
 
 # Setting Up Velocity
 
-The `flow velocity` command measures effort completed per iteration -- a number, not a ratio. It answers "how much work did we ship this sprint?" expressed in effort units. A related metric, completion rate (done / committed), measures predictability. Both are shown in the output. For the metric definition and formula, see the [Velocity reference]({{< relref "/reference/metrics/velocity" >}}).
+The `flow velocity` command measures effort completed per iteration -- a number, not a ratio. It answers "how much work did we ship this sprint?" in effort units. A related metric, completion rate (done / committed), measures predictability. Both appear in the output. For the metric definition and formula, see the [Velocity reference]({{< relref "/reference/metrics/velocity" >}}).
 
 ## How velocity differs from throughput
 
 Throughput counts items in a sliding window. Velocity is effort-weighted and iteration-aligned:
 
 - **[Throughput]({{< relref "/reference/metrics/throughput" >}})**: "12 issues closed in the last 30 days"
-- **Velocity**: "31 story points completed in Sprint 12"
+- **Velocity**: "31 effort points completed in Sprint 12"
 
-If you do not size your work items, velocity with the `count` strategy is effectively throughput sliced into iterations.
+Without effort estimates, velocity with the `count` strategy is effectively throughput sliced into iterations.
 
 ## Choosing your strategies
 
-Velocity requires two choices: how to measure **effort** and how to define **iterations**. For full details on each strategy, see the [Velocity reference]({{< relref "/reference/metrics/velocity" >}}).
+Velocity requires two choices: how to measure **effort** and how to define **iterations**.
 
 ### Effort strategy
 
 | Your workflow | Recommended strategy | Why |
 |---|---|---|
-| No estimation or sizing | `count` | Works immediately, no labels needed |
-| T-shirt size labels (S/M/L/XL) | `attribute` | Maps labels to fibonacci-ish effort values |
+| No estimation | `count` | Works immediately, no labels needed |
+| T-shirt effort labels (S/M/L/XL) | `attribute` | Maps labels to fibonacci-ish effort values |
 | Story points on a project board | `numeric` | Reads the actual number field value |
-| Mixed: some items labeled, some on a board | `attribute` | Covers items with labels; board-only items show as "not assessed" |
+| Mixed: some items labeled, some on a board | `attribute` | Covers labeled items; board-only items show as "not assessed" |
 
 ### Iteration strategy
 
@@ -104,11 +104,11 @@ velocity:
 
 ## Carry-over and scope
 
-Items committed but not completed in an iteration roll forward into the next one with no cap. The `--scope` flag and `scope.query` in config filter both committed and completed items uniformly, so stale work outside your scope is naturally excluded.
+Items committed but not completed roll forward into the next iteration with no cap. The `--scope` flag and `scope.query` filter both committed and completed items uniformly, so stale work outside your scope is naturally excluded.
 
 ## Preflight suggestions
 
-When no `velocity` section exists in your config, `preflight` scans the repo and suggests a starting configuration.
+When no `velocity` section exists in config, `preflight` scans the repo and suggests a starting configuration.
 
 ```bash
 gh velocity config preflight -R owner/repo
@@ -116,13 +116,13 @@ gh velocity config preflight -R owner/repo
 
 Preflight detects:
 
-- **Labels** with common sizing patterns: prefixes like `size/*`, `effort:*`, `points-*`, `estimate-*`; standalone t-shirt sizes (XS, S, M, L, XL). Digit-only labels are skipped as too ambiguous. Detected labels are mapped to fibonacci-ish defaults (1, 2, 3, 5, 8, 13).
+- **Labels** with common effort patterns: prefixes like `size/*`, `effort:*`, `points-*`, `estimate-*`; standalone t-shirt sizes (XS, S, M, L, XL). Digit-only labels are skipped as too ambiguous. Detected labels map to fibonacci-ish defaults (1, 2, 3, 5, 8, 13).
 - **Project Number fields** (candidates for numeric effort): fields named "points", "story points", "estimate", "effort", or "size" rank higher.
 - **Project Iteration fields** (candidates for iteration strategy).
 
 The suggestion logic:
 1. If a Number field is found, suggest `numeric` strategy
-2. Else if sizing labels are found, suggest `attribute` strategy with mapped values
+2. Else if effort labels are found, suggest `attribute` strategy with mapped values
 3. Else suggest `count` strategy with a note about adding effort later
 4. If an Iteration field is found, suggest `project-field` iteration strategy
 5. Else suggest `fixed` with a 14-day default
@@ -175,7 +175,7 @@ velocity:
     count: 6
 ```
 
-Only the fields for your chosen strategies need to be present. If you use `strategy: attribute`, you do not need the `numeric` section, and vice versa.
+Only fields for your chosen strategies need to be present. The `numeric` and `attribute` sections are mutually exclusive.
 
 ## Next steps
 

@@ -5,7 +5,7 @@ weight: 1
 
 # Lead Time
 
-Lead time is the total elapsed time from when an issue is created to when it is closed. It measures how long a piece of work existed in your system, including time spent in backlog, waiting for prioritization, blocked by dependencies, in active development, in review, and waiting for release.
+Lead time is the total elapsed time from issue creation to closure. It includes time in backlog, waiting for prioritization, blocked by dependencies, in active development, in review, and waiting for release.
 
 ## Definition
 
@@ -17,13 +17,13 @@ lead_time = issue.closed_at - issue.created_at
 
 **End signal**: `issue-closed` -- the timestamp when the issue was closed (by any means: a merged PR, manual close, or bot).
 
-Lead time is always measured on issues, regardless of which `cycle_time.strategy` you use. The strategy choice does not affect lead time.
+Lead time is always measured on issues, regardless of `cycle_time.strategy`.
 
 ## What it tells you
 
-A long lead time does not necessarily mean slow development. It often means slow prioritization or long backlog queues. An issue that sits in "Backlog" for 60 days and takes 2 days to implement has a 62-day lead time but only a 2-day cycle time.
+A long lead time does not necessarily mean slow development -- it often means slow prioritization or long backlog queues. An issue in "Backlog" for 60 days that takes 2 days to implement has a 62-day lead time but only a 2-day cycle time.
 
-Comparing lead time to cycle time reveals how much of the total elapsed time is active work versus waiting. A large gap between the two indicates process bottlenecks outside of development.
+A large gap between lead time and cycle time indicates process bottlenecks outside development.
 
 ## Signals used
 
@@ -36,11 +36,11 @@ Both timestamps come from the GitHub REST Search API and are precise to the seco
 
 ## Open issues
 
-If an issue is still open (`closed_at` is null), the lead time metric is returned with a start event but no end event and no duration. In JSON output, `lead_time_seconds` will be `null`. In pretty output, it displays as "N/A".
+If an issue is still open (`closed_at` is null), lead time has a start event but no end event or duration. JSON output: `lead_time_seconds` is `null`. Pretty output: "N/A".
 
 ## Statistical aggregation
 
-When lead time is computed across multiple issues (e.g., in a release report), the tool calculates:
+When computed across multiple issues (e.g., in a release report):
 
 - **Count**: Number of issues with a valid lead time
 - **Mean**: Average lead time
@@ -50,11 +50,11 @@ When lead time is computed across multiple issues (e.g., in a release report), t
 - **Outlier cutoff**: Q3 + 1.5 * IQR (requires 4+ data points)
 - **Outlier count**: Issues exceeding the cutoff
 
-Negative durations (which should not occur for lead time but are guarded against) are filtered from statistics and counted separately.
+Negative durations are filtered from statistics and counted separately.
 
 ## Configuration that affects lead time
 
-Lead time itself requires no configuration -- it uses only the issue's creation and closure timestamps. However, other configuration affects which issues are included in lead time calculations:
+Lead time requires no configuration -- it uses only the issue's creation and closure timestamps. Other config fields affect which issues are included:
 
 | Config field | Effect |
 |---|---|
@@ -119,7 +119,7 @@ Lead Time
 
 ## Insights
 
-The lead time section generates these automated observations:
+Automated observations generated in the lead time section:
 
 | Insight | When it fires | What it means |
 |---------|--------------|---------------|
@@ -134,7 +134,6 @@ The lead time section generates these automated observations:
 
 ## See also
 
-- [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) -- what healthy lead time looks like and common patterns
-- [Understanding Statistics]({{< relref "/concepts/statistics" >}}) -- median, percentiles, and outlier detection explained
+- [Understanding Statistics]({{< relref "/concepts/statistics" >}}) -- median, percentiles, and outlier detection
 - [Cycle Time]({{< relref "/reference/metrics/cycle-time" >}}) -- the active-work subset of lead time
 - [Configuration Reference]({{< relref "/reference/config" >}}) -- config fields that affect which issues are included

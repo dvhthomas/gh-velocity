@@ -5,15 +5,15 @@ weight: 2
 
 # Cycle Time
 
-Cycle time measures how long active work took on an issue. Unlike [lead time]({{< relref "lead-time" >}}), which includes all waiting time from creation, cycle time starts when someone begins working on the issue.
+Cycle time measures how long active work took on an issue. Unlike [lead time]({{< relref "lead-time" >}}), which includes all waiting time from creation, cycle time starts when work begins.
 
-gh-velocity supports two strategies for detecting when work starts. Choose the one that fits your workflow.
+Two strategies detect when work starts.
 
 ## What it tells you
 
-Cycle time reveals how long your team's active work takes, stripped of backlog wait time. A low, consistent cycle time means your team delivers quickly once work begins. High variability suggests inconsistent scope or frequent context-switching.
+Cycle time reveals how long active work takes, stripped of backlog wait time. A low, consistent cycle time means the team delivers quickly once work begins. High variability suggests inconsistent scope or frequent context-switching.
 
-Comparing cycle time to [lead time]({{< relref "lead-time" >}}) shows how much of total elapsed time is spent working versus waiting. If lead time is 30 days but cycle time is 3 days, 90% of the time is spent in backlog -- a signal to improve prioritization, not development speed.
+Comparing cycle time to lead time shows how much elapsed time is active work versus waiting. If lead time is 30 days but cycle time is 3 days, 90% of the time is spent in backlog -- a signal to improve prioritization, not development speed.
 
 ## Strategies
 
@@ -23,7 +23,7 @@ Comparing cycle time to [lead time]({{< relref "lead-time" >}}) shows how much o
 cycle_time = issue.closed_at - work_started
 ```
 
-The issue strategy detects "work started" from labels. When an issue receives a label matching `lifecycle.in-progress.match`, the label's `createdAt` timestamp becomes the cycle start. Label event timestamps are **immutable** -- they never change once the label is applied, making them the most reliable signal.
+Detects "work started" from labels. When an issue receives a label matching `lifecycle.in-progress.match`, the label's `createdAt` timestamp becomes the cycle start. Label event timestamps are **immutable** -- they never change once applied.
 
 **Start signal**: `label-added` (label match)
 
@@ -47,7 +47,7 @@ The `match` field uses [matcher syntax]({{< relref "../config#matcher-syntax" >}
 cycle_time = pr.merged_at - pr.created_at
 ```
 
-The PR strategy uses the closing PR's lifecycle as a proxy for active work time. It requires no extra configuration -- just link PRs to issues with "Closes #N" or "Fixes #N" in the PR description.
+Uses the closing PR's lifecycle as a proxy for active work time. Requires no extra configuration -- just link PRs to issues with "Closes #N" or "Fixes #N" in the PR description.
 
 **Start signal**: `pr-created` -- the timestamp when the closing PR was opened.
 
@@ -62,7 +62,7 @@ cycle_time:
   strategy: pr
 ```
 
-No other configuration is needed. The tool discovers PR-to-issue links through GitHub's timeline events (`closingIssuesReferences`).
+No other configuration needed. PR-to-issue links are discovered through GitHub's `closingIssuesReferences`.
 
 ## Choosing a strategy
 
@@ -83,7 +83,7 @@ No other configuration is needed. The tool discovers PR-to-issue links through G
 
 ## How cycle start signals are resolved {#signal-hierarchy}
 
-When using the issue strategy, the tool resolves the cycle start signal using a priority hierarchy. The first available signal wins:
+With the issue strategy, the cycle start signal is resolved using a priority hierarchy. The first available signal wins:
 
 | Priority | Signal | Source | Config required |
 |----------|--------|--------|-----------------|
@@ -92,7 +92,7 @@ When using the issue strategy, the tool resolves the cycle start signal using a 
 | 3 | First assigned | Issue timeline `AssignedEvent.createdAt` | None -- automatic |
 | 4 (lowest) | First commit mentioning issue | Commit date from local git history | Local clone required |
 
-**Backlog suppression:** If an issue is currently in backlog (matches backlog labels), cycle time is N/A regardless of other signals. This prevents issues that were started and then deprioritized from showing misleading cycle times.
+**Backlog suppression:** If an issue is currently in backlog (matches backlog labels), cycle time is N/A regardless of other signals. This prevents deprioritized issues from showing misleading cycle times.
 
 > [!TIP]
 > If cycle time shows N/A for an issue despite having a PR, check whether the issue is in a backlog state. Backlog suppression intentionally overrides all other signals.
@@ -156,18 +156,16 @@ Cycle time uses the same aggregation as lead time: mean, median, std dev, P90, P
 
 ## Insights
 
-Cycle time shares the same statistical insights as [lead time]({{< relref "/reference/metrics/lead-time" >}}#insights) (noise detection, outliers, predictability, skew, fastest/slowest, category comparison). It also adds:
+Cycle time shares the same insights as [lead time]({{< relref "/reference/metrics/lead-time" >}}#insights) (noise detection, outliers, predictability, skew, fastest/slowest, category comparison), plus:
 
 | Insight | When it fires | What it means |
 |---------|--------------|---------------|
-| **No data** | No cycle time measurements available | Strategy-specific guidance: issue strategy needs `lifecycle.in-progress` config; PR strategy needs closing PRs linked to issues. |
-| **Strategy callout** | PR strategy with data | States what the metric measures ("first PR to issue close") so the reader knows the methodology. |
+| **No data** | No cycle time measurements available | Strategy-specific guidance: issue strategy needs `lifecycle.in-progress` config; PR strategy needs linked closing PRs. |
+| **Strategy callout** | PR strategy with data | States what the metric measures ("first PR to issue close") so readers know the methodology. |
 
 ## See also
 
-- [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) -- step-by-step guide to choosing and configuring a strategy
+- [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) -- choosing and configuring a strategy
 - [Labels as Lifecycle Signal]({{< relref "/concepts/labels-vs-board" >}}) -- why labels are the sole lifecycle signal
-- [Interpreting Results]({{< relref "/guides/interpreting-results" >}}) -- what healthy cycle time looks like
 - [Lead Time]({{< relref "/reference/metrics/lead-time" >}}) -- the full elapsed duration (superset of cycle time)
-- [Troubleshooting: Cycle time shows N/A]({{< relref "/guides/troubleshooting" >}}#cycle-time-shows-na-for-all-issues) -- common fixes
 - [Configuration Reference: cycle_time]({{< relref "/reference/config" >}}#cycle_time) -- all config fields

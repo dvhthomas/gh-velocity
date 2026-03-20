@@ -5,20 +5,20 @@ weight: 3
 
 # Configuration
 
-All metric commands require a `.gh-velocity.yml` file. Run `gh velocity config preflight --write` to generate one. This page covers first-time setup; for the full schema, see [Configuration Reference]({{< relref "/reference/config" >}}).
+All metric commands require a `.gh-velocity.yml` file. Run `gh velocity config preflight --write` to generate one. This page covers first-time setup; see [Configuration Reference]({{< relref "/reference/config" >}}) for the full schema.
 
 ## Generate a config with preflight
 
-The fastest way to get started is to let preflight inspect your repo and generate a tailored config:
+Let preflight inspect your repo and generate a tailored config:
 
 ```bash
 cd your-repo
 gh velocity config preflight --write
 ```
 
-Preflight examines your repo's labels, project boards, and recent activity, then generates a `.gh-velocity.yml` with appropriate **matchers** (patterns like `label:bug` that classify issues), lifecycle labels, and project board settings.
+Preflight examines labels, project boards, and recent activity, then generates a `.gh-velocity.yml` with **matchers** (patterns like `label:bug` that classify issues), lifecycle labels, and project board settings.
 
-The generated config includes **match evidence** — comments showing how many issues each matcher would catch:
+The generated config includes **match evidence** -- comments showing how many issues each matcher would catch:
 
 ```yaml
 # Match evidence (last 30 days of issues + PRs):
@@ -28,9 +28,9 @@ The generated config includes **match evidence** — comments showing how many i
 ```
 
 > [!TIP]
-> Check these evidence comments before you commit your config. Matchers with 20+ matches are solid. Zero-match matchers may need a different label name — check your repo's actual labels with `gh label list`.
+> Check these evidence comments before you commit your config. Matchers with 20+ matches are solid. Zero-match matchers may need a different label name -- check your repo's actual labels with `gh label list`.
 
-You can also preview what preflight would generate without writing the file (dry-run):
+To dry-run without writing the file:
 
 ```bash
 gh velocity config preflight
@@ -38,23 +38,23 @@ gh velocity config preflight
 
 ## Discover project board settings
 
-If you use a GitHub Projects v2 board, the `config discover` command finds your project URL, status field name, and available status values:
+If you use a GitHub Projects v2 board, `config discover` finds your project URL, status field name, and available status values:
 
 ```bash
-gh velocity config discover -R owner/repo
+gh velocity config discover --repo owner/repo
 ```
 
 Use this output to fill in the `project` and `lifecycle` sections of your config.
 
 ## Validate your config
 
-After writing or editing your config, validate it:
+After writing or editing your config:
 
 ```bash
 gh velocity config validate
 ```
 
-This checks all fields for correct types, valid ranges, and proper formats. It does not make API calls.
+This checks field types, valid ranges, and formats. It makes no API calls.
 
 To see the resolved configuration with all defaults applied:
 
@@ -65,11 +65,11 @@ gh velocity config show -r json
 
 ### Common validation errors
 
-**`quality.categories[0].match: unknown matcher type "bug"`** — Matchers need a prefix. Use `label:bug` instead of bare `bug`.
+**`quality.categories[0].match: unknown matcher type "bug"`** -- Matchers need a prefix. Use `label:bug`, not bare `bug`.
 
-**`velocity.effort.attribute[0].value: must be positive`** — Effort values must be greater than zero. Change `value: 0` to `value: 1` or remove the entry.
+**`velocity.effort.attribute[0].value: must be positive`** -- Effort values must be greater than zero. Change `value: 0` to `value: 1` or remove the entry.
 
-**`lifecycle.in-progress.match: empty match list`** — The `in-progress` stage is declared but has no matchers. Add at least one, e.g., `["label:in-progress"]`.
+**`lifecycle.in-progress.match: empty match list`** -- The `in-progress` stage is declared but has no matchers. Add at least one, e.g., `["label:in-progress"]`.
 
 ## Minimal config
 
@@ -86,11 +86,11 @@ quality:
         - "label:enhancement"
 ```
 
-This is equivalent to what preflight generates for repos with standard labels.
+This is what preflight generates for repos with standard labels.
 
 ## What each section does
 
-Each config section represents a decision about how gh-velocity should measure your project. Most have sensible defaults — you only need to configure what matters for your workflow. See [Configuration Reference]({{< relref "/reference/config" >}}) for the full schema.
+Each config section controls how gh-velocity measures your project. Most have sensible defaults -- only configure what matters for your workflow.
 
 ### `workflow`
 
@@ -107,12 +107,12 @@ scope:
 
 ### `quality.categories`
 
-Ordered list of classification categories. The first matching category wins; unmatched issues are classified as "other." Matcher types:
+Ordered list of classification categories. First match wins; unmatched issues become "other." Matcher types:
 
-- `label:<name>` — exact label match
-- `type:<name>` — GitHub Issue Type
-- `title:/<regex>/i` — title regex, case-insensitive
-- `field:<Name>/<Value>` — GitHub Projects v2 SingleSelect field value (e.g., `field:Size/M`). See [Labels as Lifecycle Signal]({{< relref "/concepts/labels-vs-board" >}})
+- `label:<name>` -- exact label match
+- `type:<name>` -- GitHub Issue Type
+- `title:/<regex>/i` -- title regex, case-insensitive
+- `field:<Name>/<Value>` -- GitHub Projects v2 SingleSelect field value (e.g., `field:Size/M`)
 
 ```yaml
 quality:
@@ -139,7 +139,7 @@ A release is flagged as a hotfix if published within this many hours of the prev
 
 ### `cycle_time`
 
-Which strategy to use: `issue` (label-based) or `pr` (PR creation to merge). See [How It Works]({{< relref "/getting-started/how-it-works" >}}) for guidance on choosing, and [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) for step-by-step configuration.
+Which strategy to use: `issue` (label-based) or `pr` (PR creation to merge). See [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) for step-by-step configuration.
 
 ```yaml
 cycle_time:
@@ -158,7 +158,7 @@ project:
 
 ### `lifecycle`
 
-Maps labels to workflow stages. Labels are the sole source of truth for lifecycle signals -- they provide immutable timestamps for cycle time measurement. See [Labels as Lifecycle Signal]({{< relref "/concepts/labels-vs-board" >}}) for details:
+Maps labels to workflow stages. Labels are the sole lifecycle signal -- they provide immutable timestamps for cycle time measurement:
 
 ```yaml
 lifecycle:
@@ -173,7 +173,7 @@ lifecycle:
 
 ### `velocity`
 
-How to measure effort per iteration. Three effort strategies: `count` (just count items), `attribute` (labels like `size:M` with point values), or `numeric` (a project board number field). See [Velocity Setup]({{< relref "/guides/velocity-setup" >}}) for a walkthrough.
+How to measure effort per iteration. Three effort strategies: `count` (count items), `attribute` (labels like `size:M` with point values), or `numeric` (a project board number field). See [Velocity Setup]({{< relref "/guides/velocity-setup" >}}) for a walkthrough.
 
 ```yaml
 velocity:
@@ -219,7 +219,7 @@ discussions:
 
 ## Token permissions
 
-The default `gh auth login` token works for all local usage. In CI, different tokens cover different capabilities.
+The default `gh auth login` token works for all local usage. In CI, different tokens cover different capabilities:
 
 | Capability | Default `GITHUB_TOKEN` | + `GH_VELOCITY_TOKEN` (PAT with `project` scope) |
 | --- | --- | --- |
@@ -229,11 +229,11 @@ The default `gh auth login` token works for all local usage. In CI, different to
 | Velocity (project-field iteration or numeric effort) | No | Yes |
 | WIP command | No | Yes |
 
-**If your config has no `project:` section**, you do not need `GH_VELOCITY_TOKEN`.
+**No `project:` section** -- `GH_VELOCITY_TOKEN` is not needed.
 
-**If your config has a `project:` section**, commands that need the board will warn and skip that data unless `GH_VELOCITY_TOKEN` is set. The rest of the report still works.
+**With a `project:` section** -- commands that need the board warn and skip unless `GH_VELOCITY_TOKEN` is set. The rest of the report still works.
 
-For CI token setup details, see [CI Setup]({{< relref "/getting-started/ci-setup" >}}).
+For CI token setup, see [CI Setup]({{< relref "/getting-started/ci-setup" >}}).
 
 ## Next steps
 
@@ -241,4 +241,3 @@ For CI token setup details, see [CI Setup]({{< relref "/getting-started/ci-setup
 - [CI Setup]({{< relref "/getting-started/ci-setup" >}}) -- automate reports with GitHub Actions
 - [Velocity Setup]({{< relref "/guides/velocity-setup" >}}) -- configure effort-weighted sprint metrics
 - [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) -- configure cycle time measurement
-- [How It Works]({{< relref "/getting-started/how-it-works" >}}) -- understand the metrics and strategies

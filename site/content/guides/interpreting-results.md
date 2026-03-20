@@ -5,11 +5,9 @@ weight: 1
 
 # Interpreting Results
 
-gh-velocity produces output in three formats: pretty (default), JSON, and markdown. Each format contains the same data, structured for different consumers. This guide explains how to read the output, what healthy metrics look like, and what common patterns mean.
+gh-velocity produces output in four formats: pretty (default), JSON, markdown, and HTML. Each format contains the same data, structured for different consumers. This guide explains how to read the output, what healthy metrics look like, and what common patterns mean.
 
 ## Reading your output
-
-This section covers the mechanics of each output format, metric states, and output layers so you can parse what the tool is telling you.
 
 ### Output formats at a glance
 
@@ -28,16 +26,16 @@ Every timing metric (lead time, cycle time) can be in one of three states:
 
 | State | Pretty output | JSON | Meaning |
 |-------|--------------|------|---------|
-| **Completed** | `2d 4h` | `"duration_seconds": 187200` | Work started and finished — you have a real measurement |
-| **In progress** | `in progress` | `"started_at": "...", "duration_seconds": null` | Work started but isn't done yet — the clock is still running |
-| **N/A** | `N/A` | `"started_at": null, "duration_seconds": null` | No start signal found — the tool can't measure this item |
+| **Completed** | `2d 4h` | `"duration_seconds": 187200` | Work started and finished |
+| **In progress** | `in progress` | `"started_at": "...", "duration_seconds": null` | Work started, clock still running |
+| **N/A** | `N/A` | `"started_at": null, "duration_seconds": null` | No start signal found |
 
-N/A usually means your cycle time strategy doesn't have a signal for that issue. The full list of reasons cycle time can show N/A:
+N/A usually means your cycle time strategy has no signal for that issue. Possible causes:
 
-- **No `lifecycle.in-progress.match` configured** — the tool has no label to look for, so every issue is N/A
+- **No `lifecycle.in-progress.match` configured** — no label to look for, so every issue is N/A
 - **Configured but no matching label event found** — the label exists in config but was never applied to this issue
-- **Issue is in backlog** — the issue matches a backlog label, so it is excluded from cycle time measurement
-- **Negative cycle time was filtered** — the computed duration was negative (start after close) and was discarded as invalid
+- **Issue is in backlog** — matches a backlog label, excluded from cycle time
+- **Negative cycle time was filtered** — start after close, discarded as invalid
 
 See [Cycle Time Setup]({{< relref "cycle-time-setup" >}}) to fix this.
 
@@ -82,16 +80,16 @@ Aggregates:
   Outliers: 1 (threshold: 98d)
 ```
 
-Key things to notice:
+Key elements:
 
-- **Per-issue rows** show each issue with its individual metrics. Issues flagged as statistical outliers are marked with `OUTLIER`.
-- **Aggregates** at the bottom summarize the distribution. Median is the primary number to watch; mean is shown for comparison.
-- **Composition** shows category breakdown and bug ratio.
-- **Cadence** and **hotfix** describe the release rhythm.
+- **Per-issue rows** -- individual metrics per issue. Statistical outliers are marked `OUTLIER`.
+- **Aggregates** -- distribution summary. Median is the primary number; mean is shown for comparison.
+- **Composition** -- category breakdown and bug ratio.
+- **Cadence** and **hotfix** -- release rhythm.
 
 ### Reading JSON output
 
-JSON is the richest format. Every field that appears in pretty output is present in JSON, plus additional fields for programmatic use.
+JSON is the richest format -- every pretty-output field is present, plus additional fields for programmatic use.
 
 ```bash
 gh velocity quality release v1.2.0 --results json | jq '.aggregates.lead_time'
@@ -117,17 +115,17 @@ gh velocity quality release v1.2.0 --results json | \
   jq '[.issues[] | select(.lead_time_outlier) | {number, title, lead_time_seconds}]'
 ```
 
-When errors occur in JSON mode, they appear as structured `ErrorEnvelope` objects on stderr, not as plain text. See [Agent Integration]({{< relref "agent-integration" >}}) for details on parsing JSON errors.
+In JSON mode, errors appear as structured `ErrorEnvelope` objects on stderr. See [Agent Integration]({{< relref "agent-integration" >}}) for parsing details.
 
 ### Reading markdown output
 
-Markdown is designed for pasting into GitHub Issues, PRs, or Discussions:
+Markdown output is ready to paste into GitHub Issues, PRs, or Discussions:
 
 ```bash
 gh velocity quality release v1.2.0 --results markdown
 ```
 
-The output uses GitHub-flavored markdown tables and is ready to paste directly. Use it with `--post` to have gh-velocity post it for you, or pipe it into `gh issue comment`:
+Use with `--post` to have gh-velocity post it automatically, or pipe into `gh issue comment`:
 
 ```bash
 gh velocity quality release v1.2.0 --results markdown | \
@@ -136,29 +134,29 @@ gh velocity quality release v1.2.0 --results markdown | \
 
 ## What healthy metrics look like
 
-Now that you can read the output, here is how to judge whether the numbers are cause for celebration or concern. There are no universal benchmarks — what matters is your trend over time and whether the numbers match your team's experience. That said, here are patterns that indicate healthy delivery:
+There are no universal benchmarks -- what matters is your trend over time and whether the numbers match your team's experience. These patterns indicate healthy delivery:
 
 ### [Lead time]({{< relref "/reference/metrics/lead-time" >}})
 
-- **Median under 30 days** for most product teams. This means a typical issue goes from creation to close within a month.
-- **P95 under 90 days**. If your P95 is over 90 days, old issues are being closed alongside new work, which is normal but worth understanding.
-- **Predictability label is not "low"**. The predictability label is derived from the coefficient of variation (CV = stddev / mean). A "low" label means individual item durations are hard to predict. See [Understanding Statistics]({{< relref "/concepts/statistics#standard-deviation-and-predictability-cv" >}}) for details.
+- **Median under 30 days** for most product teams -- a typical issue goes from creation to close within a month.
+- **P95 under 90 days**. A P95 over 90 days means old issues are being closed alongside new work -- normal, but worth understanding.
+- **Predictability label is not "low"**. Derived from the coefficient of variation (CV = stddev / mean). "Low" means individual item durations are hard to predict. See [Understanding Statistics]({{< relref "/concepts/statistics#standard-deviation-and-predictability-cv" >}}).
 
 ### [Cycle time]({{< relref "/reference/metrics/cycle-time" >}})
 
 - **Median under 7 days** means active work on a typical issue completes within a week.
-- **Cycle time much shorter than lead time** is normal and expected. The gap represents backlog time (waiting before work starts).
-- **N/A cycle times** mean the configured strategy has no signal for those issues. See [Cycle Time Setup]({{< relref "cycle-time-setup" >}}) to fix this.
+- **Cycle time much shorter than lead time** is normal. The gap is backlog time (waiting before work starts).
+- **N/A cycle times** mean the configured strategy has no signal for those issues. See [Cycle Time Setup]({{< relref "cycle-time-setup" >}}).
 
 ### [Release lag]({{< relref "/reference/metrics/quality" >}})
 
 - **Median under 7 days** means completed work reaches users within a week.
-- **High release lag with low cadence** means work is done but sits waiting for a release. Consider releasing more frequently.
+- **High release lag with low cadence** means completed work sits waiting for a release. Consider releasing more frequently.
 
 ### [Composition and bug ratio]({{< relref "/reference/metrics/quality" >}})
 
 - **Bug ratio under 30%** is typical for product-focused teams.
-- **High "other" count** means your issues lack classification labels. Run `gh velocity config preflight` to generate category matchers, or label issues before releasing. See [Recipes: Check label coverage]({{< relref "recipes" >}}#check-label-coverage-before-a-release).
+- **High "other" count** means issues lack classification labels. Run `gh velocity config preflight` to generate category matchers, or label issues before releasing.
 
 ### [Velocity]({{< relref "/reference/metrics/velocity" >}})
 
@@ -168,13 +166,13 @@ Now that you can read the output, here is how to judge whether the numbers are c
 
 ### [Throughput]({{< relref "/reference/metrics/throughput" >}})
 
-- **Steady or growing item count** over time means consistent output. A sudden drop may indicate blockers or context switching.
+- **Steady or growing item count** means consistent output. A sudden drop may indicate blockers or context switching.
 
 ## Common patterns and what they mean
 
 ### Large gap between mean and median lead time
 
-Your data is right-skewed. A few old issues closed in this release are pulling the mean up. The median is the better measure of "typical." See [Understanding Statistics]({{< relref "/concepts/statistics" >}}) for why.
+Your data is right-skewed -- a few old issues are pulling the mean up. The median is the better measure of "typical." See [Understanding Statistics]({{< relref "/concepts/statistics" >}}).
 
 Example from a real repo:
 - Mean lead time: 280 days
@@ -184,14 +182,14 @@ Two issues open for 4+ years were closed in the release. The median tells you th
 
 ### Many outliers in one release
 
-Outliers are flagged using the IQR method. Multiple outliers in a single release often mean a backlog cleanup happened alongside normal work. Check the outlier issues to see if they are old issues finally closed or genuinely slow work.
+Outliers are flagged using the IQR method. Multiple outliers in a single release often indicate a backlog cleanup alongside normal work. Check whether they are old issues finally closed or genuinely slow work.
 
 ### Cycle time is N/A for most issues
 
 > [!TIP]
-> N/A means "no start signal found" — not "zero." The tool can't measure what it can't see. Check your strategy configuration.
+> N/A means "no start signal found" — not "zero." Check your strategy configuration.
 
-The configured strategy does not have a signal for those issues. Common causes:
+Common causes:
 
 - **Issue strategy**: No `lifecycle.in-progress.match` configured, or labels are not applied to issues. Fix by adding lifecycle labels.
 - **PR strategy**: PRs do not reference issues with "Closes #N" or "Fixes #N". Fix by adding closing keywords to PR descriptions.
@@ -200,19 +198,19 @@ See [Troubleshooting]({{< relref "troubleshooting" >}}#cycle-time-shows-na-for-a
 
 ### High release lag despite fast cycle time
 
-Work finishes quickly but waits before being released. This typically indicates a batch release process. The fix is organizational: release more often, or automate releases on merge.
+Work finishes quickly but waits before release. This typically indicates a batch release process. Release more often, or automate releases on merge.
 
 ### Bug ratio of 0%
 
-Either there are genuinely no bugs in this release, or your bug category matchers are not configured correctly. Check that your config has a category named `bug` with appropriate `match` rules. See [Troubleshooting]({{< relref "troubleshooting" >}}#defect-rate-shows-0).
+Either there are genuinely no bugs, or your bug category matchers are misconfigured. Check that your config has a category named `bug` with appropriate `match` rules. See [Troubleshooting]({{< relref "troubleshooting" >}}#defect-rate-shows-0).
 
 ### "Not assessed" items in velocity output
 
-Items that do not match any effort query are excluded from velocity and committed totals and reported separately. A high not-assessed count means your effort matchers need tuning. Run `gh velocity config validate --velocity` to see which issues are unmatched. See [Setting Up Velocity: Validating effort matchers]({{< relref "/guides/velocity-setup" >}}#validating-effort-matchers) for details.
+Items matching no effort query are excluded from velocity and committed totals, reported separately. A high not-assessed count means your effort matchers need tuning. Run `gh velocity config validate --velocity` to see unmatched issues.
 
 ## Why noise exclusion matters
 
-Repos with spam, duplicate, or invalid issues can produce misleading metrics. The `preflight` command detects these labels and adds `-label:` exclusions to the scope query automatically. Here is a real example from **cli/cli** (30-day window):
+Repos with spam, duplicate, or invalid issues produce misleading metrics. The `preflight` command detects these labels and adds `-label:` exclusions to the scope query automatically. Example from **cli/cli** (30-day window):
 
 | Metric | Before (no exclusions) | After (noise excluded) |
 |--------|----------------------|----------------------|
@@ -243,7 +241,7 @@ scope:
   # Excluded 3 noise label(s) detected in this repo: duplicate, invalid, suspected-spam
 ```
 
-The detected patterns are: `spam`, `duplicate`, and `invalid` (matched at word boundaries). If your repo has different noise labels, add manual exclusions to the scope query.
+Detected patterns: `spam`, `duplicate`, and `invalid` (matched at word boundaries). For different noise labels, add manual exclusions to the scope query.
 
 ## Comparing across releases
 

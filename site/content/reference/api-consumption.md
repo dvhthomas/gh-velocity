@@ -5,7 +5,7 @@ weight: 4
 
 # API Consumption
 
-How gh-velocity uses the GitHub API, rate limit budget, caching, and optimization tips.
+How gh-velocity uses the GitHub API: rate limits, per-command costs, caching, and optimization.
 
 ## API types used
 
@@ -16,11 +16,11 @@ gh-velocity uses two GitHub API interfaces:
 | **REST Search API** | 30 requests/minute, 1000 results/query | Finding issues, PRs by date range, scope, lifecycle |
 | **GraphQL API** | 5,000 points/hour | Project board data, timeline events, closing references, iteration fields |
 
-The Search API is the primary bottleneck. Each paginated search query (up to 10 pages of 100 results) counts as one request per page against the 30/minute limit. The GraphQL API is used for richer data that the Search API cannot provide.
+The Search API is the primary bottleneck. Each paginated search query (up to 10 pages of 100 results) counts as one request per page against the 30/minute limit.
 
 ## Per-command cost estimates
 
-These are approximate upper bounds. Actual costs depend on the number of results returned and how much data is cached from prior calls in the same process.
+Approximate upper bounds. Actual costs depend on result count and in-process cache hits.
 
 ### `gh velocity quality release <tag>`
 
@@ -56,7 +56,7 @@ These are approximate upper bounds. Actual costs depend on the number of results
 
 ### `gh velocity flow velocity`
 
-Cost depends heavily on the iteration strategy and count:
+Cost depends on iteration strategy and count:
 
 **Fixed iterations (search-based)**:
 
@@ -64,7 +64,7 @@ Cost depends heavily on the iteration strategy and count:
 |----------|----------|-------|
 | Search per iteration | 1-10 REST per iteration | One search query per iteration window |
 
-With the default `count: 6` and current iteration, that is up to 7 search queries. Each query is throttled by `api_throttle_seconds`.
+With the default `count: 6` plus the current iteration, that is up to 7 search queries, each throttled by `api_throttle_seconds`.
 
 **Project-field iterations (board-based)**:
 
@@ -109,22 +109,22 @@ GitHub's Search API has two rate limit tiers:
 
 2. **Secondary (abuse detection)**: Undocumented thresholds based on request patterns. Triggered by rapid bursts of search queries. Produces HTTP 403 with "secondary rate limit" in the body. Lockouts typically last 1-5 minutes.
 
-To avoid secondary rate limits, gh-velocity throttles search API calls with a configurable delay:
+gh-velocity throttles Search API calls with a configurable delay to avoid secondary rate limits:
 
 ```yaml
 api_throttle_seconds: 2   # 2-second gap between search calls
 ```
 
-The throttle serializes search calls through a mutex. Concurrent goroutines queue behind it, ensuring only one search request is in-flight at a time with spacing between them.
+The throttle serializes search calls through a mutex, ensuring only one search request is in-flight at a time.
 
-If a rate limit is hit despite throttling, the tool:
+If a rate limit is hit despite throttling:
 1. Waits for the reset period (primary) or 60 seconds (secondary)
 2. Retries the failed request once
 3. If the retry also fails, returns an actionable error with suggestions
 
 ### Rate limit error suggestions
 
-When rate-limited, the tool provides specific guidance:
+When rate-limited, the error message suggests:
 
 - Use `--current` to fetch only the current iteration (fewer API calls)
 - Use a board-based strategy (`project.url` in config) which uses GraphQL instead of the Search API
@@ -133,9 +133,9 @@ When rate-limited, the tool provides specific guidance:
 
 ## GraphQL rate limit budget
 
-The GraphQL API uses a point-based system: 5,000 points per hour. Each query costs approximately 1 point per node requested. Typical gh-velocity GraphQL operations cost 1-5 points each.
+The GraphQL API uses a point-based system: 5,000 points per hour. Each query costs approximately 1 point per node requested.
 
-For a worst-case release with 100 issues using the issue cycle time strategy, the GraphQL cost is approximately:
+For a worst-case release with 100 issues using the issue strategy:
 - 1 point for project resolution
 - 100 points for label timeline events (1 per issue)
 - ~5 points for PR closing references
@@ -144,14 +144,14 @@ Total: ~106 points out of 5,000 -- well within budget for any reasonable usage.
 
 ## Caching
 
-gh-velocity uses an in-process query cache to deduplicate identical API calls within a single invocation. The cache key is computed from the API call type and parameters.
+gh-velocity uses an in-process query cache to deduplicate identical API calls within a single invocation. The cache key is the API call type and parameters.
 
-Cached operations include:
-- Search queries (identical query strings return cached results)
+Cached operations:
+- Search queries (identical query strings)
 - Project item listings (same project ID and field names)
 - Repository node ID resolution
 
-The cache is **per-process** -- it does not persist between invocations. There is no disk cache. Running the same command twice makes the same API calls both times.
+The cache is **per-process** -- it does not persist between invocations. There is no disk cache.
 
 ### Cache benefits
 
@@ -161,7 +161,7 @@ The cache is **per-process** -- it does not persist between invocations. There i
 
 ## Search result cap
 
-The GitHub Search API returns at most **1,000 results per query** (10 pages of 100 results). If a query matches more than 1,000 items, the tool warns:
+The GitHub Search API returns at most **1,000 results per query** (10 pages of 100). If a query exceeds this, the tool warns:
 
 ```
 results capped at 1000; narrow the date range or scope for complete data
@@ -175,18 +175,12 @@ Strategies to stay under the cap:
 ## Optimization tips
 
 1. **Use board-based velocity** when possible. `iteration.strategy: project-field` fetches all items in one paginated GraphQL query instead of one search per iteration.
-
-2. **Set `api_throttle_seconds: 2`** to avoid secondary rate limit lockouts. The 2-second delay adds ~14 seconds for 7 iterations but prevents multi-minute lockouts.
-
+2. **Set `api_throttle_seconds: 2`**. The 2-second delay adds ~14 seconds for 7 iterations but prevents multi-minute lockouts.
 3. **Use `--current`** during development to test with minimal API calls.
-
-4. **Reduce `velocity.iteration.count`** if you only need recent history. Each iteration costs one search query (fixed strategy).
-
-5. **Narrow scope** with `scope.query` to reduce result counts per search.
-
-6. **In CI, space invocations**. If your workflow runs multiple gh-velocity commands, add 60+ second gaps between them to avoid secondary rate limits.
-
-7. **Use `--config`** with pre-built example configs to avoid repeated `preflight` runs against the API.
+4. **Reduce `velocity.iteration.count`** if only recent history is needed. Each iteration costs one search query (fixed strategy).
+5. **Narrow scope** with `scope.query` to reduce result counts.
+6. **In CI, space invocations** with 60+ second gaps between gh-velocity commands.
+7. **Use `--config`** with pre-built example configs to avoid repeated `preflight` runs.
 
 ## See also
 

@@ -5,18 +5,18 @@ weight: 3
 
 # Linking Strategies
 
-The `quality release` command needs to determine which issues belong to a release. This is harder than it sounds -- different teams use different workflows, and no single method works everywhere. `gh-velocity` uses three strategies and merges the results.
+The `quality release` command determines which issues belong to a release. Different teams use different workflows, and no single method works everywhere, so gh-velocity uses three strategies and merges the results.
 
 ## Connecting PRs to issues
 
-Before diving into the strategies, it helps to understand how the tool finds PR-to-issue connections. GitHub tracks these through timeline events. A PR becomes linked to an issue when you:
+GitHub tracks PR-to-issue connections through timeline events. A PR becomes linked to an issue when you:
 
 - Write `Fixes #42`, `Closes #42`, or `Resolves #42` in the PR description
 - Use GitHub's sidebar "Development" section to link a PR to an issue
 - Mention `#42` anywhere in the PR (creates a cross-reference event)
 - Use any casing variation: `fix #42`, `close #42`, `resolve #42`
 
-The PR does **not** need to be merged, closed, or even out of draft. Opening a draft PR that mentions an issue is enough for the tool to find the connection.
+The PR does **not** need to be merged, closed, or even out of draft. A draft PR that mentions an issue is enough.
 
 You do **not** need to:
 
@@ -35,9 +35,9 @@ The highest-fidelity strategy. It works by:
 2. Querying each PR's `closingIssuesReferences` via GraphQL
 3. Returning issues with full metadata (title, labels, dates)
 
-This works well for teams that use "Fixes #N" in PR descriptions or GitHub's sidebar linking. It requires that your tags correspond to GitHub Releases (or at least that the tag's commit has a resolvable date).
+Works well for teams that use "Fixes #N" in PR descriptions or GitHub's sidebar linking. Requires that your tags correspond to GitHub Releases (or at least that the tag's commit has a resolvable date).
 
-**Limitation**: The GitHub search API returns at most 1000 results per query. If your release window contains more than 1000 merged PRs, results are partial. The tool warns when this happens.
+**Limitation**: The GitHub Search API returns at most 1,000 results per query. If your release window contains more than 1,000 merged PRs, results are partial. The tool warns when this happens.
 
 ### commit-ref
 
@@ -58,13 +58,13 @@ update #7
 
 Commits are grouped by issue number. If three commits all reference `#42`, the tool returns one item with three associated commits.
 
-The `commit-ref` strategy is especially useful when PRs are squash-merged and the commit message contains the issue reference, or when developers commit directly to the main branch.
+The commit-ref strategy is especially useful when PRs are squash-merged and the commit message contains the issue reference, or when developers commit directly to the main branch.
 
 ### changelog
 
 Parses the GitHub Release body (the release notes text) for `#N` references. This catches issues mentioned in release notes that are not linked via PRs or commit messages.
 
-This strategy is low-fidelity -- it only finds the issue number from the release body, not full issue data. The tool fetches issue details separately after extracting the references.
+This strategy is low-fidelity -- it extracts only the issue number from the release body. The tool fetches issue details separately afterward.
 
 ## How merge works
 
@@ -86,7 +86,7 @@ The output lists what each strategy found independently, then shows the merged r
 
 ## When to use each strategy
 
-Most teams do not need to think about strategies -- all three run automatically and results are merged. But understanding them helps when debugging gaps in your release reports.
+Most teams do not need to think about strategies -- all three run automatically and results merge. Understanding them helps when debugging gaps in release reports.
 
 | Scenario | Primary strategy | Notes |
 |----------|-----------------|-------|
@@ -114,5 +114,4 @@ The broader setting catches commits like "implement #42" but can produce false p
 ## See also
 
 - [Configuration Reference: commit_ref]({{< relref "/reference/config" >}}#commit_ref) -- full schema for commit_ref patterns
-- [Quality Metrics]({{< relref "/reference/metrics/quality" >}}) -- how linking strategies feed into release quality reports
 - [Troubleshooting]({{< relref "/guides/troubleshooting" >}}) -- debugging missing issues in release reports
