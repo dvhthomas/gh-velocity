@@ -65,6 +65,15 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 		return &model.AppError{Code: model.ErrConfigInvalid, Message: err.Error()}
 	}
 
+	// Reject flags that my-week does not support (these are validated
+	// by PersistentPreRunE for other commands, but my-week skips it).
+	if flagBool(cmd, "post") || flagBool(cmd, "new-post") {
+		return &model.AppError{Code: model.ErrConfigInvalid, Message: "my-week does not support --post"}
+	}
+	if flagString(cmd, "write-to") != "" {
+		return &model.AppError{Code: model.ErrConfigInvalid, Message: "my-week does not support --write-to"}
+	}
+
 	// Read persistent flags from the root command.
 	debugFlag := flagBool(cmd, "debug")
 	noCacheFlag := flagBool(cmd, "no-cache")
@@ -92,10 +101,18 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 		}
 	}
 
-	// Optional repo: -R flag > GH_REPO > git remote > empty.
+	// Optional repo: only resolve when -R or GH_REPO is set.
+	// Skip git remote detection (50-200ms subprocess) in cross-repo mode.
 	repoFlag := flagString(cmd, "repo")
-	owner, repo, repoErr := resolveRepo(repoFlag)
-	hasRepo := repoErr == nil && owner != "" && repo != ""
+	var owner, repo string
+	var hasRepo bool
+	if repoFlag != "" || os.Getenv("GH_REPO") != "" {
+		o, r, err := resolveRepo(repoFlag)
+		if err != nil {
+			return err
+		}
+		owner, repo, hasRepo = o, r, true
+	}
 
 	// Build scope: merge config scope + --scope flag.
 	var repoScope string
@@ -349,21 +366,6 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 	default:
 		return format.WriteMyWeekPretty(rc, result, ins, urls)
 	}
-}
-
-// flagBool reads a bool persistent flag, returning false if not found.
-func flagBool(cmd *cobra.Command, name string) bool {
-	v, _ := cmd.Flags().GetBool(name)
-	return v
-}
-
-// flagString reads a string persistent flag, returning "" if not found or not changed.
-func flagString(cmd *cobra.Command, name string) string {
-	f := cmd.Flag(name)
-	if f == nil || !f.Changed {
-		return ""
-	}
-	return f.Value.String()
 }
 
 // computeMyWeekCycleTime computes cycle-time durations for closed issues
