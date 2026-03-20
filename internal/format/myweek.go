@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/model"
@@ -70,9 +71,19 @@ func buildInsightLines(r model.MyWeekResult, ins model.MyWeekInsights) []string 
 		lines = append(lines, fmt.Sprintf("%d release(s) published.", ins.Releases))
 	}
 
+	// AI-assisted
+	if ins.AIAssisted > 0 && len(r.PRsMerged) > 0 {
+		pct := ins.AIAssisted * 100 / len(r.PRsMerged)
+		lines = append(lines, fmt.Sprintf("%d of %d PRs were AI-assisted (%d%%).", ins.AIAssisted, len(r.PRsMerged), pct))
+	}
+
 	// Lead time & cycle time
 	if ins.LeadTime != nil {
-		lines = append(lines, fmt.Sprintf("Median lead time: %s (issue created → closed).", formatDuration(*ins.LeadTime)))
+		lt := fmt.Sprintf("Median lead time: %s (issue created → closed).", formatDuration(*ins.LeadTime))
+		if ins.LeadTimeP90 != nil {
+			lt = fmt.Sprintf("Median lead time: %s, p90: %s (issue created → closed).", formatDuration(*ins.LeadTime), formatDuration(*ins.LeadTimeP90))
+		}
+		lines = append(lines, lt)
 	}
 	if ins.CycleTime != nil {
 		lines = append(lines, fmt.Sprintf("Median cycle time: %s (work started → done).", formatDuration(*ins.CycleTime)))
@@ -80,27 +91,32 @@ func buildInsightLines(r model.MyWeekResult, ins model.MyWeekInsights) []string 
 		lines = append(lines, "Cycle time not available — run: gh velocity config preflight -R <repo> for setup guidance.")
 	}
 
-	// Blockers / attention needed
-	if ins.PRsAwaitingMyReview > 0 {
-		lines = append(lines, fmt.Sprintf("%d PR(s) from others waiting on your review.", ins.PRsAwaitingMyReview))
-	}
-	if ins.PRsNeedingReview > 0 {
-		lines = append(lines, fmt.Sprintf("%d of your open PR(s) waiting for first review.", ins.PRsNeedingReview))
-	}
-	if ins.StaleIssues > 0 {
-		lines = append(lines, fmt.Sprintf("%d open issue(s) stale (no update in %d+ days).", ins.StaleIssues, model.StaleThresholdDays))
+	// Waiting — prominently surface items blocking progress
+	waiting := ins.PRsAwaitingMyReview + ins.PRsNeedingReview + ins.StaleIssues
+	if waiting > 0 {
+		var parts []string
+		if ins.PRsAwaitingMyReview > 0 {
+			parts = append(parts, fmt.Sprintf("%d PR(s) awaiting your review", ins.PRsAwaitingMyReview))
+		}
+		if ins.PRsNeedingReview > 0 {
+			parts = append(parts, fmt.Sprintf("%d of your PR(s) waiting for first review", ins.PRsNeedingReview))
+		}
+		if ins.StaleIssues > 0 {
+			parts = append(parts, fmt.Sprintf("%d stale issue(s) (%d+ days idle)", ins.StaleIssues, model.StaleThresholdDays))
+		}
+		lines = append(lines, fmt.Sprintf("WAITING: %s.", joinParts(parts)))
 	}
 
 	// New scope
 	if ins.NewIssues > 0 || ins.NewPRs > 0 {
-		parts := []string{}
+		var parts []string
 		if ins.NewIssues > 0 {
 			parts = append(parts, fmt.Sprintf("%d issue(s)", ins.NewIssues))
 		}
 		if ins.NewPRs > 0 {
 			parts = append(parts, fmt.Sprintf("%d PR(s)", ins.NewPRs))
 		}
-		lines = append(lines, fmt.Sprintf("New work picked up: %s.", joinWith(parts, " and ")))
+		lines = append(lines, fmt.Sprintf("New work picked up: %s.", joinParts(parts)))
 	}
 
 	return lines
@@ -128,6 +144,20 @@ func joinWith(parts []string, sep string) string {
 		return parts[0]
 	}
 	return parts[0] + sep + parts[1]
+}
+
+// joinParts joins 1-3 strings with commas and "and" for the last item.
+func joinParts(parts []string) string {
+	switch len(parts) {
+	case 0:
+		return ""
+	case 1:
+		return parts[0]
+	case 2:
+		return parts[0] + " and " + parts[1]
+	default:
+		return strings.Join(parts[:len(parts)-1], ", ") + ", and " + parts[len(parts)-1]
+	}
 }
 
 // aiSuffix returns a display suffix for AI-assisted PRs.
@@ -364,6 +394,7 @@ type jsonMyWeekSummary struct {
 type jsonMyWeekInsights struct {
 	Lines               []string `json:"lines"`
 	LeadTimeHours       *float64 `json:"lead_time_hours,omitempty"`
+	LeadTimeP90Hours    *float64 `json:"lead_time_p90_hours,omitempty"`
 	CycleTimeHours      *float64 `json:"cycle_time_hours,omitempty"`
 	StaleIssues         int      `json:"stale_issues"`
 	PRsNeedingReview    int      `json:"prs_needing_review"`
@@ -371,6 +402,7 @@ type jsonMyWeekInsights struct {
 	Releases            int      `json:"releases"`
 	NewIssues           int      `json:"new_issues"`
 	NewPRs              int      `json:"new_prs"`
+	AIAssisted          int      `json:"ai_assisted"`
 }
 
 type jsonMyWeekRelease struct {
@@ -396,10 +428,15 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights
 		h := ins.LeadTime.Hours()
 		jsonIns.LeadTimeHours = &h
 	}
+	if ins.LeadTimeP90 != nil {
+		h := ins.LeadTimeP90.Hours()
+		jsonIns.LeadTimeP90Hours = &h
+	}
 	if ins.CycleTime != nil {
 		h := ins.CycleTime.Hours()
 		jsonIns.CycleTimeHours = &h
 	}
+	jsonIns.AIAssisted = ins.AIAssisted
 	var repoPtr *string
 	if r.Repo != "" {
 		repoPtr = &r.Repo

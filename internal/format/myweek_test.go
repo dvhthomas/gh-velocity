@@ -149,9 +149,7 @@ func TestWriteMyWeekPretty(t *testing.T) {
 		"1 release(s) published",
 		"Median lead time:",
 		"Median cycle time:",
-		"2 PR(s) from others waiting on your review",
-		"1 of your open PR(s) waiting for first review",
-		"1 open issue(s) stale",
+		"WAITING:", "2 PR(s) awaiting your review", "1 of your PR(s) waiting for first review", "1 stale issue(s)",
 		"New work picked up: 1 issue(s)",
 		// Lookback
 		"What I shipped",
@@ -248,9 +246,7 @@ func TestWriteMyWeekMarkdown(t *testing.T) {
 		"Shipped 6 items",
 		"Median lead time:",
 		"Median cycle time:",
-		"waiting on your review",
-		"waiting for first review",
-		"stale",
+		"WAITING:", "awaiting your review", "waiting for first review", "stale issue",
 		"release(s) published",
 		// Lookback
 		"### What I shipped",

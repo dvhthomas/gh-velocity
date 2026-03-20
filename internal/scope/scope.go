@@ -30,12 +30,14 @@ func (q Query) Build() string {
 }
 
 // URL returns a clickable GitHub search URL for the assembled query.
+// Uses url.PathEscape (not QueryEscape) because GitHub search URLs
+// treat '+' as literal text, not as an encoded space.
 func (q Query) URL() string {
 	query := q.Build()
 	if query == "" {
 		return ""
 	}
-	return "https://github.com/search?q=" + url.QueryEscape(query)
+	return "https://github.com/search?q=" + url.PathEscape(query)
 }
 
 // Verbose returns a multi-line diagnostic string for --debug output.

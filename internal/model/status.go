@@ -84,9 +84,11 @@ type MyWeekInsights struct {
 	NewPRs              int // PRs opened in the lookback window
 	PRsAwaitingMyReview int // PRs from others waiting on my review
 	// Velocity metrics computed from lookback data
-	LeadTime  *time.Duration // median lead time of closed issues (created → closed)
-	CycleTime *time.Duration // median cycle time of merged PRs (created → merged)
-	Releases  int            // releases published in the lookback window
+	LeadTime    *time.Duration // median lead time of closed issues (created → closed)
+	LeadTimeP90 *time.Duration // p90 lead time (slowest 10% threshold)
+	CycleTime   *time.Duration // median cycle time of merged PRs (created → merged)
+	Releases    int            // releases published in the lookback window
+	AIAssisted  int            // PRs merged with AI assistance
 }
 
 // DaysBetween returns the number of whole days between two times.
