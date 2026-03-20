@@ -1,7 +1,7 @@
 ---
 title: "feat: my-week cross-repo by default"
 type: feat
-status: active
+status: completed
 date: 2026-03-20
 ---
 
