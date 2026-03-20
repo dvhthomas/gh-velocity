@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/model"
@@ -70,9 +71,19 @@ func buildInsightLines(r model.MyWeekResult, ins model.MyWeekInsights) []string 
 		lines = append(lines, fmt.Sprintf("%d release(s) published.", ins.Releases))
 	}
 
+	// AI-assisted
+	if ins.AIAssisted > 0 && len(r.PRsMerged) > 0 {
+		pct := ins.AIAssisted * 100 / len(r.PRsMerged)
+		lines = append(lines, fmt.Sprintf("%d of %d PRs were AI-assisted (%d%%).", ins.AIAssisted, len(r.PRsMerged), pct))
+	}
+
 	// Lead time & cycle time
 	if ins.LeadTime != nil {
-		lines = append(lines, fmt.Sprintf("Median lead time: %s (issue created → closed).", formatDuration(*ins.LeadTime)))
+		lt := fmt.Sprintf("Median lead time: %s (issue created → closed).", formatDuration(*ins.LeadTime))
+		if ins.LeadTimeP90 != nil {
+			lt = fmt.Sprintf("Median lead time: %s, p90: %s (issue created → closed).", formatDuration(*ins.LeadTime), formatDuration(*ins.LeadTimeP90))
+		}
+		lines = append(lines, lt)
 	}
 	if ins.CycleTime != nil {
 		lines = append(lines, fmt.Sprintf("Median cycle time: %s (work started → done).", formatDuration(*ins.CycleTime)))
@@ -80,27 +91,32 @@ func buildInsightLines(r model.MyWeekResult, ins model.MyWeekInsights) []string 
 		lines = append(lines, "Cycle time not available — run: gh velocity config preflight -R <repo> for setup guidance.")
 	}
 
-	// Blockers / attention needed
-	if ins.PRsAwaitingMyReview > 0 {
-		lines = append(lines, fmt.Sprintf("%d PR(s) from others waiting on your review.", ins.PRsAwaitingMyReview))
-	}
-	if ins.PRsNeedingReview > 0 {
-		lines = append(lines, fmt.Sprintf("%d of your open PR(s) waiting for first review.", ins.PRsNeedingReview))
-	}
-	if ins.StaleIssues > 0 {
-		lines = append(lines, fmt.Sprintf("%d open issue(s) stale (no update in %d+ days).", ins.StaleIssues, model.StaleThresholdDays))
+	// Waiting — prominently surface items blocking progress
+	waiting := ins.PRsAwaitingMyReview + ins.PRsNeedingReview + ins.StaleIssues
+	if waiting > 0 {
+		var parts []string
+		if ins.PRsAwaitingMyReview > 0 {
+			parts = append(parts, fmt.Sprintf("%d PR(s) awaiting your review", ins.PRsAwaitingMyReview))
+		}
+		if ins.PRsNeedingReview > 0 {
+			parts = append(parts, fmt.Sprintf("%d of your PR(s) waiting for first review", ins.PRsNeedingReview))
+		}
+		if ins.StaleIssues > 0 {
+			parts = append(parts, fmt.Sprintf("%d stale issue(s) (%d+ days idle)", ins.StaleIssues, model.StaleThresholdDays))
+		}
+		lines = append(lines, fmt.Sprintf("WAITING: %s.", joinParts(parts)))
 	}
 
 	// New scope
 	if ins.NewIssues > 0 || ins.NewPRs > 0 {
-		parts := []string{}
+		var parts []string
 		if ins.NewIssues > 0 {
 			parts = append(parts, fmt.Sprintf("%d issue(s)", ins.NewIssues))
 		}
 		if ins.NewPRs > 0 {
 			parts = append(parts, fmt.Sprintf("%d PR(s)", ins.NewPRs))
 		}
-		lines = append(lines, fmt.Sprintf("New work picked up: %s.", joinWith(parts, " and ")))
+		lines = append(lines, fmt.Sprintf("New work picked up: %s.", joinParts(parts)))
 	}
 
 	return lines
@@ -130,6 +146,36 @@ func joinWith(parts []string, sep string) string {
 	return parts[0] + sep + parts[1]
 }
 
+// joinParts joins 1-3 strings with commas and "and" for the last item.
+func joinParts(parts []string) string {
+	switch len(parts) {
+	case 0:
+		return ""
+	case 1:
+		return parts[0]
+	case 2:
+		return parts[0] + " and " + parts[1]
+	default:
+		return strings.Join(parts[:len(parts)-1], ", ") + ", and " + parts[len(parts)-1]
+	}
+}
+
+// aiSuffix returns a display suffix for AI-assisted PRs.
+func aiSuffix(aiAssisted bool) string {
+	if aiAssisted {
+		return "  [ai]"
+	}
+	return ""
+}
+
+// aiSuffixMarkdown returns a markdown annotation for AI-assisted PRs.
+func aiSuffixMarkdown(aiAssisted bool) string {
+	if aiAssisted {
+		return " `ai`"
+	}
+	return ""
+}
+
 // MyWeekSearchURLs holds verify URLs for each lookback section.
 type MyWeekSearchURLs struct {
 	IssuesClosed string
@@ -140,7 +186,11 @@ type MyWeekSearchURLs struct {
 // WriteMyWeekPretty writes a my-week summary as formatted text.
 func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekInsights, urls MyWeekSearchURLs) error {
 	w := rc.Writer
-	fmt.Fprintf(w, "My Week — %s (%s)\n", r.Login, r.Repo)
+	repoLabel := r.Repo
+	if repoLabel == "" {
+		repoLabel = "all repositories"
+	}
+	fmt.Fprintf(w, "My Week — %s (%s)\n", r.Login, repoLabel)
 	fmt.Fprintf(w, "  %s to %s\n", r.Since.Format(time.DateOnly), r.Until.Format(time.DateOnly))
 
 	// Insights
@@ -148,6 +198,36 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 		fmt.Fprintf(w, "\n── Insights ────────────────────────────────\n\n")
 		for _, line := range insights {
 			fmt.Fprintf(w, "  %s\n", line)
+		}
+	}
+
+	// Waiting on: your PRs/issues that are blocked or idle — show early for visibility
+	var waitingPRs []model.PR
+	for _, pr := range r.PRsNeedingReview {
+		waitingPRs = append(waitingPRs, pr)
+	}
+	var staleIssues []model.Issue
+	for _, iss := range r.IssuesOpen {
+		if iss.IsStale(r.Until) {
+			staleIssues = append(staleIssues, iss)
+		}
+	}
+	if len(waitingPRs) > 0 || len(staleIssues) > 0 {
+		fmt.Fprintf(w, "\n── Waiting on ──────────────────────────────\n")
+		if len(waitingPRs) > 0 {
+			fmt.Fprintf(w, "\nPRs Waiting for Review: %d\n", len(waitingPRs))
+			for _, pr := range waitingPRs {
+				age := model.DaysBetween(pr.CreatedAt, r.Until)
+				ai := aiSuffix(pr.AIAssisted)
+				fmt.Fprintf(w, "  %s  %s%s  (%s, no reviews)\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title, ai, formatAge(age))
+			}
+		}
+		if len(staleIssues) > 0 {
+			fmt.Fprintf(w, "\nStale Issues: %d\n", len(staleIssues))
+			for _, iss := range staleIssues {
+				staleDays := model.DaysBetween(iss.UpdatedAt, r.Until)
+				fmt.Fprintf(w, "  %s  %s  (no update in %dd)\n", FormatItemLink(iss.Number, iss.URL, rc), iss.Title, staleDays)
+			}
 		}
 	}
 
@@ -178,7 +258,8 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 			if pr.MergedAt != nil {
 				dateStr = pr.MergedAt.Format(time.DateOnly) + "  "
 			}
-			fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), dateStr, pr.Title)
+			ai := aiSuffix(pr.AIAssisted)
+			fmt.Fprintf(w, "  %s  %s%s%s\n", FormatItemLink(pr.Number, pr.URL, rc), dateStr, pr.Title, ai)
 		}
 	} else {
 		fmt.Fprintf(w, "\nPRs Merged: 0\n")
@@ -190,7 +271,8 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 	if len(r.PRsReviewed) > 0 {
 		fmt.Fprintf(w, "\nPRs Reviewed: %d\n", len(r.PRsReviewed))
 		for _, pr := range r.PRsReviewed {
-			fmt.Fprintf(w, "  %s  %s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title)
+			ai := aiSuffix(pr.AIAssisted)
+			fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title, ai)
 		}
 	} else {
 		fmt.Fprintf(w, "\nPRs Reviewed: 0\n")
@@ -200,9 +282,8 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 	}
 
 	if hasLookback {
-
 		if len(r.Releases) > 0 {
-			fmt.Fprintf(w, "\nReleases: %d\n", len(r.Releases))
+			fmt.Fprintf(w, "\nReleases: %d (published in %s)\n", len(r.Releases), r.Repo)
 			for _, rel := range r.Releases {
 				dateStr := rel.CreatedAt.Format(time.DateOnly)
 				if rel.PublishedAt != nil {
@@ -212,8 +293,10 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 				if name == "" {
 					name = rel.TagName
 				}
-				fmt.Fprintf(w, "  %s  %s\n", dateStr, name)
+				fmt.Fprintf(w, "  %s  %s\n", FormatReleaseLink(name, rel.URL, rc), dateStr)
 			}
+		} else if r.Repo == "" {
+			fmt.Fprintf(w, "\nReleases: use -R owner/repo to see releases for a specific repo.\n")
 		}
 	}
 
@@ -234,7 +317,8 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 		for _, pr := range r.PRsOpen {
 			nr := model.PRNeedsReview(pr, r.PRsNeedingReview)
 			s := model.PRStatus(pr, nr, r.Since, r.Until)
-			fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title, formatStatus(s))
+			ai := aiSuffix(pr.AIAssisted)
+			fmt.Fprintf(w, "  %s  %s%s%s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title, ai, formatStatus(s))
 		}
 	}
 
@@ -272,13 +356,14 @@ func WriteMyWeekMarkdown(rc RenderContext, r model.MyWeekResult, ins model.MyWee
 // jsonMyWeekResult is the JSON serialization of MyWeekResult.
 type jsonMyWeekResult struct {
 	Login    string             `json:"login"`
-	Repo     string             `json:"repo"`
+	Repo     *string            `json:"repo"`
 	Since    string             `json:"since"`
 	Until    string             `json:"until"`
-	Insights jsonMyWeekInsights `json:"insights"`
-	Lookback jsonMyWeekLookback `json:"lookback"`
-	Ahead    jsonMyWeekAhead    `json:"ahead"`
-	Summary  jsonMyWeekSummary  `json:"summary"`
+	Insights  jsonMyWeekInsights  `json:"insights"`
+	WaitingOn jsonMyWeekWaitingOn `json:"waiting_on"`
+	Lookback  jsonMyWeekLookback  `json:"lookback"`
+	Ahead     jsonMyWeekAhead     `json:"ahead"`
+	Summary   jsonMyWeekSummary   `json:"summary"`
 	Warnings []string           `json:"warnings,omitempty"`
 }
 
@@ -302,6 +387,20 @@ type jsonMyWeekAhead struct {
 	PRsAwaitingMyReview []jsonMyWeekReviewItem `json:"prs_awaiting_my_review"`
 }
 
+type jsonMyWeekWaitingOn struct {
+	PRsNeedingReview []jsonMyWeekWaitingItem `json:"prs_needing_review"`
+	StaleIssues      []jsonMyWeekWaitingItem `json:"stale_issues"`
+}
+
+type jsonMyWeekWaitingItem struct {
+	Number     int    `json:"number"`
+	Title      string `json:"title"`
+	URL        string `json:"url"`
+	AIAssisted bool   `json:"ai_assisted,omitempty"`
+	AgeDays    int    `json:"age_days"`
+	IdleDays   int    `json:"idle_days,omitempty"` // days since last update (stale issues)
+}
+
 type jsonMyWeekReviewItem struct {
 	Number  int    `json:"number"`
 	Title   string `json:"title"`
@@ -311,21 +410,23 @@ type jsonMyWeekReviewItem struct {
 }
 
 type jsonMyWeekItem struct {
-	Number int      `json:"number"`
-	Title  string   `json:"title"`
-	URL    string   `json:"url"`
-	Date   string   `json:"date,omitempty"`
-	Labels []string `json:"labels,omitempty"`
+	Number     int      `json:"number"`
+	Title      string   `json:"title"`
+	URL        string   `json:"url"`
+	Date       string   `json:"date,omitempty"`
+	Labels     []string `json:"labels,omitempty"`
+	AIAssisted bool     `json:"ai_assisted,omitempty"`
 }
 
 type jsonMyWeekAheadItem struct {
-	Number    int      `json:"number"`
-	Title     string   `json:"title"`
-	URL       string   `json:"url"`
-	Labels    []string `json:"labels,omitempty"`
-	AgeDays   int      `json:"age_days"`
-	StaleDays int      `json:"stale_days,omitempty"`
-	Status    string   `json:"status"` // "new", "needs_review", "stale", "active"
+	Number     int      `json:"number"`
+	Title      string   `json:"title"`
+	URL        string   `json:"url"`
+	Labels     []string `json:"labels,omitempty"`
+	AIAssisted bool     `json:"ai_assisted,omitempty"`
+	AgeDays    int      `json:"age_days"`
+	StaleDays  int      `json:"stale_days,omitempty"`
+	Status     string   `json:"status"` // "new", "needs_review", "stale", "active"
 }
 
 type jsonMyWeekSummary struct {
@@ -339,6 +440,7 @@ type jsonMyWeekSummary struct {
 type jsonMyWeekInsights struct {
 	Lines               []string `json:"lines"`
 	LeadTimeHours       *float64 `json:"lead_time_hours,omitempty"`
+	LeadTimeP90Hours    *float64 `json:"lead_time_p90_hours,omitempty"`
 	CycleTimeHours      *float64 `json:"cycle_time_hours,omitempty"`
 	StaleIssues         int      `json:"stale_issues"`
 	PRsNeedingReview    int      `json:"prs_needing_review"`
@@ -346,6 +448,7 @@ type jsonMyWeekInsights struct {
 	Releases            int      `json:"releases"`
 	NewIssues           int      `json:"new_issues"`
 	NewPRs              int      `json:"new_prs"`
+	AIAssisted          int      `json:"ai_assisted"`
 }
 
 type jsonMyWeekRelease struct {
@@ -371,13 +474,22 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights
 		h := ins.LeadTime.Hours()
 		jsonIns.LeadTimeHours = &h
 	}
+	if ins.LeadTimeP90 != nil {
+		h := ins.LeadTimeP90.Hours()
+		jsonIns.LeadTimeP90Hours = &h
+	}
 	if ins.CycleTime != nil {
 		h := ins.CycleTime.Hours()
 		jsonIns.CycleTimeHours = &h
 	}
+	jsonIns.AIAssisted = ins.AIAssisted
+	var repoPtr *string
+	if r.Repo != "" {
+		repoPtr = &r.Repo
+	}
 	out := jsonMyWeekResult{
 		Login:    r.Login,
-		Repo:     r.Repo,
+		Repo:     repoPtr,
 		Since:    r.Since.UTC().Format(time.RFC3339),
 		Until:    r.Until.UTC().Format(time.RFC3339),
 		Insights: jsonIns,
@@ -403,7 +515,7 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights
 		out.Lookback.IssuesClosed = append(out.Lookback.IssuesClosed, item)
 	}
 	for _, pr := range r.PRsMerged {
-		item := jsonMyWeekItem{Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels}
+		item := jsonMyWeekItem{Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels, AIAssisted: pr.AIAssisted}
 		if pr.MergedAt != nil {
 			item.Date = pr.MergedAt.UTC().Format(time.RFC3339)
 		}
@@ -411,7 +523,7 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights
 	}
 	for _, pr := range r.PRsReviewed {
 		out.Lookback.PRsReviewed = append(out.Lookback.PRsReviewed, jsonMyWeekItem{
-			Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels,
+			Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels, AIAssisted: pr.AIAssisted,
 		})
 	}
 	for _, rel := range r.Releases {
@@ -441,9 +553,31 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights
 		nr := model.PRNeedsReview(pr, r.PRsNeedingReview)
 		s := model.PRStatus(pr, nr, r.Since, r.Until)
 		out.Ahead.PRsOpen = append(out.Ahead.PRsOpen, jsonMyWeekAheadItem{
-			Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels,
+			Number: pr.Number, Title: pr.Title, URL: pr.URL, Labels: pr.Labels, AIAssisted: pr.AIAssisted,
 			AgeDays: s.AgeDays, StaleDays: s.StaleDays, Status: s.Status,
 		})
+	}
+
+	// Waiting on: PRs needing first review, stale issues
+	for _, pr := range r.PRsNeedingReview {
+		out.WaitingOn.PRsNeedingReview = append(out.WaitingOn.PRsNeedingReview, jsonMyWeekWaitingItem{
+			Number:     pr.Number,
+			Title:      pr.Title,
+			URL:        pr.URL,
+			AIAssisted: pr.AIAssisted,
+			AgeDays:    model.DaysBetween(pr.CreatedAt, r.Until),
+		})
+	}
+	for _, iss := range r.IssuesOpen {
+		if iss.IsStale(r.Until) {
+			out.WaitingOn.StaleIssues = append(out.WaitingOn.StaleIssues, jsonMyWeekWaitingItem{
+				Number:   iss.Number,
+				Title:    iss.Title,
+				URL:      iss.URL,
+				AgeDays:  model.DaysBetween(iss.CreatedAt, r.Until),
+				IdleDays: model.DaysBetween(iss.UpdatedAt, r.Until),
+			})
+		}
 	}
 
 	// Review queue

@@ -476,7 +476,7 @@ func TestDetectAuthorType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := detectAuthorType(tt.author, tt.messages)
+			got := model.DetectAuthorType(tt.author, tt.messages...)
 			if got != tt.want {
 				t.Errorf("detectAuthorType(%q, ...): got %q, want %q", tt.author, got, tt.want)
 			}

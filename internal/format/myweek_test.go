@@ -149,9 +149,7 @@ func TestWriteMyWeekPretty(t *testing.T) {
 		"1 release(s) published",
 		"Median lead time:",
 		"Median cycle time:",
-		"2 PR(s) from others waiting on your review",
-		"1 of your open PR(s) waiting for first review",
-		"1 open issue(s) stale",
+		"WAITING:", "2 PR(s) awaiting your review", "1 of your PR(s) waiting for first review", "1 stale issue(s)",
 		"New work picked up: 1 issue(s)",
 		// Lookback
 		"What I shipped",
@@ -248,9 +246,7 @@ func TestWriteMyWeekMarkdown(t *testing.T) {
 		"Shipped 6 items",
 		"Median lead time:",
 		"Median cycle time:",
-		"waiting on your review",
-		"waiting for first review",
-		"stale",
+		"WAITING:", "awaiting your review", "waiting for first review", "stale issue",
 		"release(s) published",
 		// Lookback
 		"### What I shipped",
@@ -411,6 +407,91 @@ func TestWriteMyWeekPretty_CycleTimeHintWhenNA(t *testing.T) {
 	}
 	if !contains(out, "preflight") {
 		t.Error("expected preflight guidance in hint")
+	}
+}
+
+func TestWriteMyWeekPretty_CrossRepo(t *testing.T) {
+	var buf bytes.Buffer
+	rc := RenderContext{Writer: &buf, Format: Pretty}
+	r := model.MyWeekResult{
+		Login: "testuser",
+		Repo:  "", // cross-repo mode
+		Since: testSince,
+		Until: testNow,
+	}
+	if err := WriteMyWeekPretty(rc, r, metrics.ComputeInsights(r, nil), MyWeekSearchURLs{}); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !contains(out, "all repositories") {
+		t.Error("expected 'all repositories' in header when Repo is empty")
+	}
+	if contains(out, "( )") || contains(out, "()") {
+		t.Error("header should not have empty parens")
+	}
+}
+
+func TestWriteMyWeekMarkdown_CrossRepo(t *testing.T) {
+	var buf bytes.Buffer
+	rc := RenderContext{Writer: &buf, Format: Markdown}
+	r := model.MyWeekResult{
+		Login: "testuser",
+		Repo:  "", // cross-repo mode
+		Since: testSince,
+		Until: testNow,
+	}
+	if err := WriteMyWeekMarkdown(rc, r, metrics.ComputeInsights(r, nil), MyWeekSearchURLs{}); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !contains(out, "all repositories") {
+		t.Errorf("expected 'all repositories' in markdown when Repo is empty, got:\n%s", out)
+	}
+}
+
+func TestWriteMyWeekJSON_CrossRepo(t *testing.T) {
+	var buf bytes.Buffer
+	r := model.MyWeekResult{
+		Login: "testuser",
+		Repo:  "", // cross-repo mode
+		Since: testSince,
+		Until: testNow,
+	}
+	if err := WriteMyWeekJSON(&buf, r, metrics.ComputeInsights(r, nil), MyWeekSearchURLs{}, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	// Parse as raw JSON to check repo is null.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(buf.Bytes(), &raw); err != nil {
+		t.Fatal(err)
+	}
+	repoVal := string(raw["repo"])
+	if repoVal != "null" {
+		t.Errorf("expected repo to be null for cross-repo, got %s", repoVal)
+	}
+}
+
+func TestWriteMyWeekJSON_SingleRepo(t *testing.T) {
+	var buf bytes.Buffer
+	r := model.MyWeekResult{
+		Login: "testuser",
+		Repo:  "owner/repo",
+		Since: testSince,
+		Until: testNow,
+	}
+	if err := WriteMyWeekJSON(&buf, r, metrics.ComputeInsights(r, nil), MyWeekSearchURLs{}, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	// Parse as raw JSON to check repo is a string.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(buf.Bytes(), &raw); err != nil {
+		t.Fatal(err)
+	}
+	repoVal := string(raw["repo"])
+	if repoVal != `"owner/repo"` {
+		t.Errorf("expected repo to be %q, got %s", "owner/repo", repoVal)
 	}
 }
 

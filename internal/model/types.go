@@ -2,7 +2,10 @@
 // These are pure data structs with no API or external dependency.
 package model
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // Signal name constants for consistent use across metrics.
 const (
@@ -74,15 +77,16 @@ type Commit struct {
 
 // PR represents a GitHub pull request with fields needed for metrics.
 type PR struct {
-	Number    int
-	Title     string
-	State     string
-	Labels    []string
-	Author    string // GitHub login of the PR author
-	MergedBy  string // GitHub login of the user who merged (empty if not merged)
-	CreatedAt time.Time
-	MergedAt  *time.Time
-	URL       string
+	Number     int
+	Title      string
+	State      string
+	Labels     []string
+	Author     string // GitHub login of the PR author
+	MergedBy   string // GitHub login of the user who merged (empty if not merged)
+	AIAssisted bool   // true when Co-Authored-By trailer indicates AI tooling
+	CreatedAt  time.Time
+	MergedAt   *time.Time
+	URL        string
 }
 
 // Review represents a single PR review submission.
@@ -107,6 +111,47 @@ const (
 	AuthorBot           AuthorType = "bot"
 	AuthorAgentAssisted AuthorType = "agent-assisted"
 )
+
+// DetectAuthorType classifies a PR author based on login and textual signals.
+// Signals can be commit messages, PR body, or any text containing Co-Authored-By
+// trailers or AI tool badges. Pass as many signal strings as available.
+func DetectAuthorType(author string, signals ...string) AuthorType {
+	// Bot: login ends with [bot]
+	if len(author) > 5 && author[len(author)-5:] == "[bot]" {
+		return AuthorBot
+	}
+
+	// Agent-assisted: Co-Authored-By trailer or tool badge in any signal text.
+	coAuthorPatterns := []string{
+		"noreply@anthropic.com",
+		"noreply@github.com",
+	}
+	badgePatterns := []string{
+		"generated with claude",
+		"generated with copilot",
+		"generated with cursor",
+		"generated with devin",
+	}
+	for _, text := range signals {
+		lower := strings.ToLower(text)
+		// Check Co-Authored-By trailers
+		if strings.Contains(lower, "co-authored-by") {
+			for _, pattern := range coAuthorPatterns {
+				if strings.Contains(lower, pattern) {
+					return AuthorAgentAssisted
+				}
+			}
+		}
+		// Check tool badges (common in PR bodies)
+		for _, badge := range badgePatterns {
+			if strings.Contains(lower, badge) {
+				return AuthorAgentAssisted
+			}
+		}
+	}
+
+	return AuthorHuman
+}
 
 // Release represents a GitHub release or git tag.
 type Release struct {

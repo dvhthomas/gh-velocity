@@ -35,7 +35,14 @@ func ComputeInsights(r model.MyWeekResult, cycleTimeDurations []time.Duration) m
 	ins.PRsAwaitingMyReview = len(r.PRsAwaitingMyReview)
 	ins.Releases = len(r.Releases)
 
-	// Lead time: median of created → closed for closed issues
+	// AI-assisted PRs count
+	for _, pr := range r.PRsMerged {
+		if pr.AIAssisted {
+			ins.AIAssisted++
+		}
+	}
+
+	// Lead time: median and p90 of created → closed for closed issues
 	if len(r.IssuesClosed) > 0 {
 		var durations []time.Duration
 		for _, iss := range r.IssuesClosed {
@@ -48,6 +55,7 @@ func ComputeInsights(r model.MyWeekResult, cycleTimeDurations []time.Duration) m
 		}
 		if stats := ComputeStats(durations); stats.Median != nil {
 			ins.LeadTime = stats.Median
+			ins.LeadTimeP90 = stats.P90
 		}
 	}
 

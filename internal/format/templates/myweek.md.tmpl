@@ -1,11 +1,27 @@
 ## My Week — {{.Login}}
 
-**{{.Repo}}** | {{date .Since}} to {{date .Until}}
+**{{if .Repo}}{{.Repo}}{{else}}all repositories{{end}}** | {{date .Since}} to {{date .Until}}
 {{- if .Insights}}
 
 ### Insights
 {{range .Insights}}
 - {{.}}
+{{- end}}
+{{- end}}
+{{- if or .WaitingPRs .StaleIssues}}
+
+### Waiting on
+{{if .WaitingPRs}}
+**PRs Waiting for Review ({{len .WaitingPRs}})**
+{{range .WaitingPRs}}
+- {{.Link}} {{.Title}}{{.AI}}{{.Status}}
+{{- end}}
+{{- end}}
+{{if .StaleIssues}}
+**Stale Issues ({{len .StaleIssues}})**
+{{range .StaleIssues}}
+- {{.Link}} {{.Title}}{{.Status}}
+{{- end}}
 {{- end}}
 {{- end}}
 
@@ -26,7 +42,7 @@ _None_
 **PRs Merged ({{len .PRsMerged}})**
 {{if .PRsMerged}}
 {{- range .PRsMerged}}
-- {{.Link}} {{.Title}}{{.Date}}
+- {{.Link}} {{.Title}}{{.AI}}{{.Date}}
 {{- end}}
 {{- else}}
 _None_
@@ -38,7 +54,7 @@ _None_
 **PRs Reviewed ({{len .PRsReviewed}})**
 {{if .PRsReviewed}}
 {{- range .PRsReviewed}}
-- {{.Link}} {{.Title}}
+- {{.Link}} {{.Title}}{{.AI}}
 {{- end}}
 {{- else}}
 _None_
@@ -48,10 +64,13 @@ _None_
 {{- end}}
 {{- if .Releases}}
 
-**Releases ({{len .Releases}})**
+**Releases ({{len .Releases}})** — published in {{.Repo}}
 {{range .Releases}}
 - {{.Link}} ({{.Date}})
 {{- end}}
+{{- else if not .Repo}}
+
+_Releases: use `-R owner/repo` to see releases for a specific repo._
 {{- end}}
 
 ### What's ahead
@@ -59,7 +78,7 @@ _None_
 **Open Issues ({{len .IssuesOpen}})**
 {{if .IssuesOpen}}
 {{- range .IssuesOpen}}
-- {{.Link}} {{.Title}}{{.Status}}
+- {{.Link}} {{.Title}}{{.AI}}{{.Status}}
 {{- end}}
 {{- else}}
 _None_
@@ -68,7 +87,7 @@ _None_
 **Open PRs ({{len .PRsOpen}})**
 {{if .PRsOpen}}
 {{- range .PRsOpen}}
-- {{.Link}} {{.Title}}{{.Status}}
+- {{.Link}} {{.Title}}{{.AI}}{{.Status}}
 {{- end}}
 {{- else}}
 _None_
