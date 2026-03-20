@@ -1209,10 +1209,100 @@ func renderPreflightConfig(r *PreflightResult) string {
 		b.WriteString("\n")
 	}
 
+	// Effort section (top-level, shared by velocity and WIP).
+	renderEffortConfig(&b, r)
+
+	// WIP limits section (commented out by default; active when lifecycle labels detected).
+	renderWIPConfig(&b, r)
+
 	// Velocity section.
 	renderVelocityConfig(&b, r)
 
 	return b.String()
+}
+
+// renderEffortConfig emits the top-level effort: section from heuristic results.
+func renderEffortConfig(b *strings.Builder, r *PreflightResult) {
+	vh := r.VelocityHeuristic
+	if vh == nil {
+		// No heuristic ran — emit commented defaults.
+		b.WriteString("# Effort: how effort is assigned to work items (shared by velocity and WIP).\n")
+		b.WriteString("# effort:\n")
+		b.WriteString("#   strategy: count\n")
+		b.WriteString("\n")
+		return
+	}
+
+	b.WriteString("# Effort: how effort is assigned to work items (shared by velocity and WIP).\n")
+	for _, ev := range vh.Evidence {
+		b.WriteString(fmt.Sprintf("# Evidence: %s\n", ev))
+	}
+	b.WriteString("effort:\n")
+	b.WriteString(fmt.Sprintf("  strategy: %s\n", vh.EffortStrategy))
+
+	switch vh.EffortStrategy {
+	case "numeric":
+		b.WriteString("  numeric:\n")
+		b.WriteString(fmt.Sprintf("    project_field: %q\n", vh.NumericField))
+		// If SingleSelect sizing was also detected, show it as a commented-out alternative.
+		if len(vh.SingleSelectMatchers) > 0 {
+			b.WriteString("  # Alternative: use the SingleSelect field instead of the Number field.\n")
+			b.WriteString("  # Change strategy to \"attribute\" and uncomment:\n")
+			b.WriteString("  # attribute:\n")
+			for _, sm := range vh.SingleSelectMatchers {
+				b.WriteString(fmt.Sprintf("  #   - query: %q\n", sm.Query))
+				b.WriteString(fmt.Sprintf("  #     value: %.0f\n", sm.Value))
+			}
+		}
+		// If sizing labels were also detected, show them as a commented-out alternative.
+		if len(vh.SizingLabels) > 0 && len(vh.SingleSelectMatchers) == 0 {
+			b.WriteString("  # Alternative: use sizing labels instead of the Number field.\n")
+			b.WriteString("  # Change strategy to \"attribute\" and uncomment:\n")
+			b.WriteString("  # attribute:\n")
+			for _, sl := range vh.SizingLabels {
+				b.WriteString(fmt.Sprintf("  #   - query: %q\n", sl.Query))
+				b.WriteString(fmt.Sprintf("  #     value: %.0f\n", sl.Value))
+			}
+		}
+	case "attribute":
+		b.WriteString("  attribute:\n")
+		// Prefer SingleSelect field matchers over label matchers.
+		if len(vh.SingleSelectMatchers) > 0 {
+			for _, sm := range vh.SingleSelectMatchers {
+				b.WriteString(fmt.Sprintf("    - query: %q\n", sm.Query))
+				b.WriteString(fmt.Sprintf("      value: %.0f\n", sm.Value))
+			}
+			// If sizing labels were also detected, show them as a commented-out alternative.
+			if len(vh.SizingLabels) > 0 {
+				b.WriteString("  # Alternative: use sizing labels instead of the project field.\n")
+				b.WriteString("  # No project board needed with label-based matchers.\n")
+				for _, sl := range vh.SizingLabels {
+					b.WriteString(fmt.Sprintf("  #   - query: %q\n", sl.Query))
+					b.WriteString(fmt.Sprintf("  #     value: %.0f\n", sl.Value))
+				}
+			}
+		} else {
+			for _, sl := range vh.SizingLabels {
+				b.WriteString(fmt.Sprintf("    - query: %q\n", sl.Query))
+				b.WriteString(fmt.Sprintf("      value: %.0f\n", sl.Value))
+			}
+		}
+	}
+	b.WriteString("\n")
+}
+
+// renderWIPConfig emits the wip: section. Commented out by default;
+// provides stubs when lifecycle labels are detected.
+func renderWIPConfig(b *strings.Builder, r *PreflightResult) {
+	hasLifecycle := len(r.ActiveLabels) > 0 || len(r.BacklogLabels) > 0
+	b.WriteString("# WIP limits: warn when work-in-progress exceeds these effort-weighted thresholds.\n")
+	if hasLifecycle {
+		b.WriteString("# Uncomment and adjust limits based on your team size.\n")
+	}
+	b.WriteString("# wip:\n")
+	b.WriteString("#   team_limit: 50.0              # total effort across all assignees\n")
+	b.WriteString("#   person_limit: 8.0             # max effort per individual assignee\n")
+	b.WriteString("\n")
 }
 
 // renderVelocityConfig emits the velocity: section from heuristic results.
@@ -1224,8 +1314,6 @@ func renderVelocityConfig(b *strings.Builder, r *PreflightResult) {
 		b.WriteString("# Run: gh velocity config preflight --project-url <url> --write\n")
 		b.WriteString("# velocity:\n")
 		b.WriteString("#   unit: issues\n")
-		b.WriteString("#   effort:\n")
-		b.WriteString("#     strategy: count\n")
 		b.WriteString("#   iteration:\n")
 		b.WriteString("#     strategy: fixed\n")
 		b.WriteString("#     fixed:\n")
@@ -1237,63 +1325,8 @@ func renderVelocityConfig(b *strings.Builder, r *PreflightResult) {
 	}
 
 	b.WriteString("# Velocity: effort completed per iteration.\n")
-	for _, ev := range vh.Evidence {
-		b.WriteString(fmt.Sprintf("# Evidence: %s\n", ev))
-	}
 	b.WriteString("velocity:\n")
 	b.WriteString("  unit: issues\n")
-	b.WriteString("  effort:\n")
-	b.WriteString(fmt.Sprintf("    strategy: %s\n", vh.EffortStrategy))
-
-	switch vh.EffortStrategy {
-	case "numeric":
-		b.WriteString("    numeric:\n")
-		b.WriteString(fmt.Sprintf("      project_field: %q\n", vh.NumericField))
-		// If SingleSelect sizing was also detected, show it as a commented-out alternative.
-		if len(vh.SingleSelectMatchers) > 0 {
-			b.WriteString("    # Alternative: use the SingleSelect field instead of the Number field.\n")
-			b.WriteString("    # Change strategy to \"attribute\" and uncomment:\n")
-			b.WriteString("    # attribute:\n")
-			for _, sm := range vh.SingleSelectMatchers {
-				b.WriteString(fmt.Sprintf("    #   - query: %q\n", sm.Query))
-				b.WriteString(fmt.Sprintf("    #     value: %.0f\n", sm.Value))
-			}
-		}
-		// If sizing labels were also detected, show them as a commented-out alternative.
-		if len(vh.SizingLabels) > 0 && len(vh.SingleSelectMatchers) == 0 {
-			b.WriteString("    # Alternative: use sizing labels instead of the Number field.\n")
-			b.WriteString("    # Change strategy to \"attribute\" and uncomment:\n")
-			b.WriteString("    # attribute:\n")
-			for _, sl := range vh.SizingLabels {
-				b.WriteString(fmt.Sprintf("    #   - query: %q\n", sl.Query))
-				b.WriteString(fmt.Sprintf("    #     value: %.0f\n", sl.Value))
-			}
-		}
-	case "attribute":
-		b.WriteString("    attribute:\n")
-		// Prefer SingleSelect field matchers over label matchers.
-		if len(vh.SingleSelectMatchers) > 0 {
-			for _, sm := range vh.SingleSelectMatchers {
-				b.WriteString(fmt.Sprintf("      - query: %q\n", sm.Query))
-				b.WriteString(fmt.Sprintf("        value: %.0f\n", sm.Value))
-			}
-			// If sizing labels were also detected, show them as a commented-out alternative.
-			if len(vh.SizingLabels) > 0 {
-				b.WriteString("    # Alternative: use sizing labels instead of the project field.\n")
-				b.WriteString("    # No project board needed with label-based matchers.\n")
-				for _, sl := range vh.SizingLabels {
-					b.WriteString(fmt.Sprintf("    #   - query: %q\n", sl.Query))
-					b.WriteString(fmt.Sprintf("    #     value: %.0f\n", sl.Value))
-				}
-			}
-		} else {
-			for _, sl := range vh.SizingLabels {
-				b.WriteString(fmt.Sprintf("      - query: %q\n", sl.Query))
-				b.WriteString(fmt.Sprintf("        value: %.0f\n", sl.Value))
-			}
-		}
-	}
-
 	b.WriteString("  iteration:\n")
 	b.WriteString(fmt.Sprintf("    strategy: %s\n", vh.IterationStrategy))
 

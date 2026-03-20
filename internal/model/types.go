@@ -61,6 +61,7 @@ type Issue struct {
 	StateReason string // "completed", "not_planned", or "" (for open issues)
 	Labels      []string
 	IssueType   string // GitHub Issue Type (from GraphQL); empty for REST-sourced issues
+	Assignees   []string
 	CreatedAt   time.Time
 	ClosedAt    *time.Time
 	UpdatedAt   time.Time // last activity timestamp from GitHub
@@ -84,7 +85,10 @@ type PR struct {
 	Author     string // GitHub login of the PR author
 	MergedBy   string // GitHub login of the user who merged (empty if not merged)
 	AIAssisted bool   // true when Co-Authored-By trailer indicates AI tooling
+	Assignees  []string
+	Draft      bool
 	CreatedAt  time.Time
+	UpdatedAt  time.Time // last activity timestamp from GitHub
 	MergedAt   *time.Time
 	URL        string
 }
@@ -263,16 +267,63 @@ const (
 
 // WIPItem represents an in-progress work item for display.
 type WIPItem struct {
-	Number    int
-	Title     string
-	Status    string
-	Age       time.Duration
-	Repo      string // populated for cross-repo board views
-	Kind      string // "Issue", "PullRequest", "DraftIssue"
-	URL       string
-	Labels    []string
-	UpdatedAt time.Time      // last activity timestamp, for staleness detection
-	Staleness StalenessLevel // computed from UpdatedAt
+	Number         int
+	Title          string
+	Status         string         // lifecycle stage, e.g. "In Progress" or "In Review"
+	MatchedMatcher string         // the specific matcher that classified this item
+	Age            time.Duration
+	Repo           string         // populated for cross-repo board views
+	Kind           string         // "ISSUE" or "PR"
+	URL            string
+	Labels         []string
+	Assignees      []string
+	EffortValue    float64        // effort weight from the effort evaluator
+	UpdatedAt      time.Time      // last activity timestamp, for staleness detection
+	Staleness      StalenessLevel // computed from UpdatedAt
+}
+
+// WIPResult holds the complete WIP analysis for output.
+type WIPResult struct {
+	Repository  string
+	Items       []WIPItem
+	StageCounts []WIPStageCount // per-stage with matcher sub-counts
+	Assignees   []WIPAssignee   // top N by item count
+	Staleness   WIPStaleness    // aggregate ACTIVE/AGING/STALE counts
+	TotalEffort float64         // sum of effort across all WIP items
+	TeamLimit   *float64        // configured team limit (nil if not set)
+	PersonLimit *float64        // configured person limit (nil if not set)
+	Warnings    []string
+	Insights    []Insight
+}
+
+// WIPStageCount holds counts for a lifecycle stage with per-matcher breakdown.
+type WIPStageCount struct {
+	Stage         string            // "In Progress" or "In Review"
+	Count         int
+	MatcherCounts []WIPMatcherCount // per-matcher breakdown within stage
+}
+
+// WIPMatcherCount holds a count for a single matcher within a stage.
+type WIPMatcherCount struct {
+	Matcher string // the matcher string, e.g. "label:design"
+	Label   string // human-readable display name, e.g. "Design"
+	Count   int
+}
+
+// WIPAssignee holds WIP load for a single assignee.
+type WIPAssignee struct {
+	Login       string
+	ItemCount   int
+	TotalEffort float64
+	ByStage     map[string]int // stage -> count
+	OverLimit   bool           // true if exceeds person_limit
+}
+
+// WIPStaleness holds aggregate staleness counts.
+type WIPStaleness struct {
+	Active int
+	Aging  int
+	Stale  int
 }
 
 // StatsResult holds all dashboard sections for output.
@@ -285,7 +336,7 @@ type StatsResult struct {
 	CycleTimeStrategy string // StrategyIssue or StrategyPR
 	Throughput        *StatsThroughput
 	Velocity          *VelocityResult
-	WIPCount          *int
+	WIP               *WIPResult
 	Quality           *StatsQuality
 	Warnings          []string
 

@@ -488,7 +488,7 @@ discussions:
 		{
 			name:    "velocity effort strategy invalid",
 			yaml:    "velocity:\n  effort:\n    strategy: fibonacci",
-			wantErr: "velocity.effort.strategy must be",
+			wantErr: "effort.strategy must be",
 		},
 		{
 			name:    "velocity attribute empty matchers",
@@ -513,7 +513,7 @@ discussions:
     attribute:
       - query: "unknown:foo"
         value: 3`,
-			wantErr: "velocity.effort.attribute[0].query",
+			wantErr: "effort.attribute[0].query",
 		},
 		{
 			name: "velocity attribute valid",
@@ -670,5 +670,204 @@ velocity:
 				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
 			}
 		})
+	}
+}
+
+func TestParse_TopLevelEffort(t *testing.T) {
+	data := []byte(`
+effort:
+  strategy: attribute
+  attribute:
+    - query: "label:size/S"
+      value: 2
+    - query: "label:size/L"
+      value: 5
+`)
+	// Suppress warnings.
+	origWarn := WarnFunc
+	WarnFunc = func(string, ...any) {}
+	defer func() { WarnFunc = origWarn }()
+
+	cfg, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Effort.Strategy != "attribute" {
+		t.Errorf("expected top-level effort strategy 'attribute', got %q", cfg.Effort.Strategy)
+	}
+	if len(cfg.Effort.Attribute) != 2 {
+		t.Fatalf("expected 2 effort attribute matchers, got %d", len(cfg.Effort.Attribute))
+	}
+	if cfg.Effort.Attribute[0].Query != "label:size/S" || cfg.Effort.Attribute[0].Value != 2 {
+		t.Errorf("unexpected first matcher: %+v", cfg.Effort.Attribute[0])
+	}
+	// Velocity.Effort should be synced from top-level.
+	if cfg.Velocity.Effort.Strategy != "attribute" {
+		t.Errorf("expected velocity.effort synced to 'attribute', got %q", cfg.Velocity.Effort.Strategy)
+	}
+	if len(cfg.Velocity.Effort.Attribute) != 2 {
+		t.Errorf("expected velocity.effort.attribute synced, got %d matchers", len(cfg.Velocity.Effort.Attribute))
+	}
+}
+
+func TestParse_VelocityEffortFallback(t *testing.T) {
+	data := []byte(`
+velocity:
+  effort:
+    strategy: attribute
+    attribute:
+      - query: "label:size/S"
+        value: 2
+`)
+	var warnings []string
+	origWarn := WarnFunc
+	WarnFunc = func(format string, args ...any) {
+		warnings = append(warnings, fmt.Sprintf(format, args...))
+	}
+	defer func() { WarnFunc = origWarn }()
+
+	cfg, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Top-level effort should have been populated from velocity.effort.
+	if cfg.Effort.Strategy != "attribute" {
+		t.Errorf("expected effort strategy 'attribute' from fallback, got %q", cfg.Effort.Strategy)
+	}
+	if len(cfg.Effort.Attribute) != 1 {
+		t.Errorf("expected 1 effort attribute from fallback, got %d", len(cfg.Effort.Attribute))
+	}
+
+	// Should have deprecation warning.
+	foundDeprecation := false
+	for _, w := range warnings {
+		if strings.Contains(w, "deprecated") && strings.Contains(w, "velocity.effort") {
+			foundDeprecation = true
+		}
+	}
+	if !foundDeprecation {
+		t.Errorf("expected deprecation warning for velocity.effort, got warnings: %v", warnings)
+	}
+}
+
+func TestParse_BothEffortTopLevelWins(t *testing.T) {
+	data := []byte(`
+effort:
+  strategy: attribute
+  attribute:
+    - query: "label:size/S"
+      value: 2
+velocity:
+  effort:
+    strategy: attribute
+    attribute:
+      - query: "label:size/M"
+        value: 3
+`)
+	var warnings []string
+	origWarn := WarnFunc
+	WarnFunc = func(format string, args ...any) {
+		warnings = append(warnings, fmt.Sprintf(format, args...))
+	}
+	defer func() { WarnFunc = origWarn }()
+
+	cfg, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Top-level should win.
+	if cfg.Effort.Strategy != "attribute" {
+		t.Errorf("expected top-level effort strategy 'attribute', got %q", cfg.Effort.Strategy)
+	}
+	if len(cfg.Effort.Attribute) != 1 || cfg.Effort.Attribute[0].Query != "label:size/S" {
+		t.Errorf("expected top-level effort attribute to win, got %+v", cfg.Effort.Attribute)
+	}
+
+	// Velocity.Effort should be synced from top-level (not the nested one).
+	if cfg.Velocity.Effort.Attribute[0].Query != "label:size/S" {
+		t.Errorf("expected velocity.effort synced from top-level, got %+v", cfg.Velocity.Effort.Attribute)
+	}
+
+	// Should have "ignoring" warning.
+	foundIgnoring := false
+	for _, w := range warnings {
+		if strings.Contains(w, "ignoring velocity.effort") {
+			foundIgnoring = true
+		}
+	}
+	if !foundIgnoring {
+		t.Errorf("expected 'ignoring velocity.effort' warning, got warnings: %v", warnings)
+	}
+}
+
+func TestParse_WIPConfig(t *testing.T) {
+	teamLimit := 50.0
+	personLimit := 8.0
+
+	data := []byte(`
+wip:
+  team_limit: 50.0
+  person_limit: 8.0
+`)
+	origWarn := WarnFunc
+	WarnFunc = func(string, ...any) {}
+	defer func() { WarnFunc = origWarn }()
+
+	cfg, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.WIP.TeamLimit == nil || *cfg.WIP.TeamLimit != teamLimit {
+		t.Errorf("expected wip.team_limit %v, got %v", teamLimit, cfg.WIP.TeamLimit)
+	}
+	if cfg.WIP.PersonLimit == nil || *cfg.WIP.PersonLimit != personLimit {
+		t.Errorf("expected wip.person_limit %v, got %v", personLimit, cfg.WIP.PersonLimit)
+	}
+}
+
+func TestParse_WIPConfigOmitted(t *testing.T) {
+	data := []byte(`workflow: pr`)
+	origWarn := WarnFunc
+	WarnFunc = func(string, ...any) {}
+	defer func() { WarnFunc = origWarn }()
+
+	cfg, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.WIP.TeamLimit != nil {
+		t.Errorf("expected nil wip.team_limit when omitted, got %v", *cfg.WIP.TeamLimit)
+	}
+	if cfg.WIP.PersonLimit != nil {
+		t.Errorf("expected nil wip.person_limit when omitted, got %v", *cfg.WIP.PersonLimit)
+	}
+}
+
+func TestParse_TopLevelEffortValidation(t *testing.T) {
+	// Top-level effort with invalid strategy should fail validation.
+	data := []byte(`
+effort:
+  strategy: fibonacci
+`)
+	origWarn := WarnFunc
+	WarnFunc = func(string, ...any) {}
+	defer func() { WarnFunc = origWarn }()
+
+	_, err := Parse(data)
+	if err == nil {
+		t.Fatal("expected error for invalid effort strategy")
+	}
+	if !strings.Contains(err.Error(), "effort.strategy must be") {
+		t.Errorf("expected effort.strategy validation error, got: %v", err)
+	}
+}
+
+func TestParse_TopLevelEffortDefault(t *testing.T) {
+	// Default config should have effort.strategy = "count".
+	cfg := Defaults()
+	if cfg.Effort.Strategy != "count" {
+		t.Errorf("expected default effort strategy 'count', got %q", cfg.Effort.Strategy)
 	}
 }
