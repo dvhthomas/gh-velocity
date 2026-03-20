@@ -12,8 +12,8 @@ const siteURL = "https://dvhthomas.github.io/gh-velocity/"
 // Metric status constants — drive rendering in template and JSON.
 const (
 	StatusOK            = "ok"
-	StatusNA            = "na"
-	StatusNotConfigured = "not_configured"
+	StatusNA            = "na"            // data not available for this item
+	StatusNotConfigured = "not_configured" // feature needs setup
 )
 
 // MetricRow is a single row in the metrics table.
@@ -66,7 +66,7 @@ var detailTemplate = template.Must(template.New("detail").Funcs(templateFuncs).P
 {{- if eq .Status (isNotConfigured) -}}
 | {{ .Name }} | [not configured]({{ .HelpURL }}) |
 {{ else if eq .Status (isNA) -}}
-| {{ .Name }} | n/a |
+| {{ .Name }} | [n/a]({{ .HelpURL }}) |
 {{ else -}}
 | {{ .Name }} | {{ .Value }} |
 {{ end -}}

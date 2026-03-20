@@ -10,7 +10,10 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
-const cycleTimeDocsURL = "https://dvhthomas.github.io/gh-velocity/guides/cycle-time-setup/"
+const (
+	cycleTimeSetupURL = "https://dvhthomas.github.io/gh-velocity/guides/cycle-time-setup/"
+	cycleTimeRefURL   = "https://dvhthomas.github.io/gh-velocity/reference/metrics/cycle-time/"
+)
 
 // WriteMarkdown writes the issue detail as GitHub-flavored markdown.
 func WriteMarkdown(rc format.RenderContext, p *Pipeline) error {
@@ -40,9 +43,10 @@ func WriteMarkdown(rc format.RenderContext, p *Pipeline) error {
 		ctRow.Value = fmt.Sprintf("in progress since %s", p.CycleTime.Start.Time.UTC().Format(time.DateOnly))
 	} else if !p.HasLifecycleMatch {
 		ctRow.Status = format.StatusNotConfigured
-		ctRow.HelpURL = cycleTimeDocsURL
+		ctRow.HelpURL = cycleTimeSetupURL
 	} else {
 		ctRow.Status = format.StatusNA
+		ctRow.HelpURL = cycleTimeRefURL
 	}
 	metrics = append(metrics, ctRow)
 
