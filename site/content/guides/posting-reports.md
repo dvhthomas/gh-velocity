@@ -153,4 +153,4 @@ See [CI Setup: Token setup]({{< relref "/getting-started/ci-setup" >}}#token-set
 
 - [CI Setup]({{< relref "/getting-started/ci-setup" >}}) -- complete workflow examples
 - [Agent Integration]({{< relref "agent-integration" >}}) -- programmatic use with JSON output
-- [Recipes]({{< relref "recipes" >}}) -- more patterns for generating and sharing reports
+- [Ad Hoc Queries]({{< relref "ad-hoc-queries" >}}) -- more patterns for generating and sharing reports

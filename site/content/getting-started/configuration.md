@@ -173,7 +173,7 @@ lifecycle:
 
 ### `velocity`
 
-How to measure effort per iteration. Three effort strategies: `count` (count items), `attribute` (labels like `size:M` with point values), or `numeric` (a project board number field). See [Velocity Setup]({{< relref "/guides/velocity-setup" >}}) for a walkthrough.
+How to measure effort per iteration. Three effort strategies: `count` (count items), `attribute` (labels like `size:M` with point values), or `numeric` (a project board number field). See [Flow Velocity Setup]({{< relref "/guides/velocity-setup" >}}) for a walkthrough.
 
 ```yaml
 velocity:
@@ -239,5 +239,5 @@ For CI token setup, see [CI Setup]({{< relref "/getting-started/ci-setup" >}}).
 
 - [Configuration Reference]({{< relref "/reference/config" >}}) -- full schema with all options and defaults
 - [CI Setup]({{< relref "/getting-started/ci-setup" >}}) -- automate reports with GitHub Actions
-- [Velocity Setup]({{< relref "/guides/velocity-setup" >}}) -- configure effort-weighted sprint metrics
+- [Flow Velocity Setup]({{< relref "/guides/velocity-setup" >}}) -- configure effort-weighted sprint metrics
 - [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) -- configure cycle time measurement

@@ -232,6 +232,6 @@ Velocity  dvhthomas/gh-velocity
 
 ## See also
 
-- [Setting Up Velocity]({{< relref "/guides/velocity-setup" >}}) -- effort and iteration strategy guide
+- [Setting Up Flow Velocity]({{< relref "/guides/velocity-setup" >}}) -- effort and iteration strategy guide
 - [Throughput]({{< relref "/reference/metrics/throughput" >}}) -- simpler unweighted count metric
 - [Configuration Reference: velocity]({{< relref "/reference/config" >}}#velocity) -- all config fields

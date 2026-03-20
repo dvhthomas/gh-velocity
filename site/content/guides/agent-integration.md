@@ -220,5 +220,5 @@ gh velocity report --since 7d --results json | \
 ## Next steps
 
 - [Interpreting Results]({{< relref "interpreting-results" >}}) -- understand what the JSON fields mean
-- [Recipes]({{< relref "recipes" >}}) -- more jq patterns and data extraction examples
+- [Ad Hoc Queries]({{< relref "ad-hoc-queries" >}}) -- more jq patterns and data extraction examples
 - [CI Setup]({{< relref "/getting-started/ci-setup" >}}) -- automate reports in GitHub Actions

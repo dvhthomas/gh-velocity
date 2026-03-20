@@ -260,5 +260,5 @@ For automated trend tracking, see the [CI Setup: Scheduled trend reports]({{< re
 ## Next steps
 
 - [Understanding Statistics]({{< relref "/concepts/statistics" >}}) -- deep dive on median, percentiles, IQR, and standard deviation
-- [Recipes]({{< relref "recipes" >}}) -- common jq patterns for extracting specific data
+- [Ad Hoc Queries]({{< relref "ad-hoc-queries" >}}) -- common jq patterns for extracting specific data
 - [Agent Integration]({{< relref "agent-integration" >}}) -- using JSON output with LLM agents and scripts

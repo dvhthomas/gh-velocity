@@ -606,6 +606,6 @@ api_throttle_seconds: 2
 ## See also
 
 - [Configuration (Getting Started)]({{< relref "/getting-started/configuration" >}}) -- first-time setup with preflight, discover, and validate
-- [Setting Up Velocity]({{< relref "/guides/velocity-setup" >}}) -- effort and iteration strategy guides
+- [Setting Up Flow Velocity]({{< relref "/guides/velocity-setup" >}}) -- effort and iteration strategy guides
 - [Cycle Time Setup]({{< relref "/guides/cycle-time-setup" >}}) -- choosing a cycle time strategy
 - [Examples]({{< relref "/examples" >}}) -- annotated real-world configs

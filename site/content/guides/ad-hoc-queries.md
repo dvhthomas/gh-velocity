@@ -1,9 +1,9 @@
 ---
-title: "Recipes"
+title: "Ad Hoc Queries"
 weight: 6
 ---
 
-# How-To Recipes
+# Ad Hoc Queries
 
 Practical patterns for common gh-velocity tasks.
 
@@ -187,5 +187,5 @@ The output includes cycle time for issues you closed, making it easy to discuss 
 ## Next steps
 
 - [Agent Integration]({{< relref "agent-integration" >}}) -- more jq patterns for programmatic use
-- [CI Setup]({{< relref "/getting-started/ci-setup" >}}) -- automate these recipes in GitHub Actions
+- [CI Setup]({{< relref "/getting-started/ci-setup" >}}) -- automate these queries in GitHub Actions
 - [Posting Reports]({{< relref "posting-reports" >}}) -- use `--post` for built-in posting
