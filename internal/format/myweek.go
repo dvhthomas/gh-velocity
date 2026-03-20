@@ -140,7 +140,11 @@ type MyWeekSearchURLs struct {
 // WriteMyWeekPretty writes a my-week summary as formatted text.
 func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekInsights, urls MyWeekSearchURLs) error {
 	w := rc.Writer
-	fmt.Fprintf(w, "My Week — %s (%s)\n", r.Login, r.Repo)
+	repoLabel := r.Repo
+	if repoLabel == "" {
+		repoLabel = "all repositories"
+	}
+	fmt.Fprintf(w, "My Week — %s (%s)\n", r.Login, repoLabel)
 	fmt.Fprintf(w, "  %s to %s\n", r.Since.Format(time.DateOnly), r.Until.Format(time.DateOnly))
 
 	// Insights
@@ -272,7 +276,7 @@ func WriteMyWeekMarkdown(rc RenderContext, r model.MyWeekResult, ins model.MyWee
 // jsonMyWeekResult is the JSON serialization of MyWeekResult.
 type jsonMyWeekResult struct {
 	Login    string             `json:"login"`
-	Repo     string             `json:"repo"`
+	Repo     *string            `json:"repo"`
 	Since    string             `json:"since"`
 	Until    string             `json:"until"`
 	Insights jsonMyWeekInsights `json:"insights"`
@@ -375,9 +379,13 @@ func WriteMyWeekJSON(w io.Writer, r model.MyWeekResult, ins model.MyWeekInsights
 		h := ins.CycleTime.Hours()
 		jsonIns.CycleTimeHours = &h
 	}
+	var repoPtr *string
+	if r.Repo != "" {
+		repoPtr = &r.Repo
+	}
 	out := jsonMyWeekResult{
 		Login:    r.Login,
-		Repo:     r.Repo,
+		Repo:     repoPtr,
 		Since:    r.Since.UTC().Format(time.RFC3339),
 		Until:    r.Until.UTC().Format(time.RFC3339),
 		Insights: jsonIns,

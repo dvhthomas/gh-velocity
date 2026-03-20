@@ -1,6 +1,6 @@
 ## My Week — {{.Login}}
 
-**{{.Repo}}** | {{date .Since}} to {{date .Until}}
+**{{if .Repo}}{{.Repo}}{{else}}all repositories{{end}}** | {{date .Since}} to {{date .Until}}
 {{- if .Insights}}
 
 ### Insights

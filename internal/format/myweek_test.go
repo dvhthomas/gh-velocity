@@ -414,6 +414,91 @@ func TestWriteMyWeekPretty_CycleTimeHintWhenNA(t *testing.T) {
 	}
 }
 
+func TestWriteMyWeekPretty_CrossRepo(t *testing.T) {
+	var buf bytes.Buffer
+	rc := RenderContext{Writer: &buf, Format: Pretty}
+	r := model.MyWeekResult{
+		Login: "testuser",
+		Repo:  "", // cross-repo mode
+		Since: testSince,
+		Until: testNow,
+	}
+	if err := WriteMyWeekPretty(rc, r, metrics.ComputeInsights(r, nil), MyWeekSearchURLs{}); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !contains(out, "all repositories") {
+		t.Error("expected 'all repositories' in header when Repo is empty")
+	}
+	if contains(out, "( )") || contains(out, "()") {
+		t.Error("header should not have empty parens")
+	}
+}
+
+func TestWriteMyWeekMarkdown_CrossRepo(t *testing.T) {
+	var buf bytes.Buffer
+	rc := RenderContext{Writer: &buf, Format: Markdown}
+	r := model.MyWeekResult{
+		Login: "testuser",
+		Repo:  "", // cross-repo mode
+		Since: testSince,
+		Until: testNow,
+	}
+	if err := WriteMyWeekMarkdown(rc, r, metrics.ComputeInsights(r, nil), MyWeekSearchURLs{}); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !contains(out, "all repositories") {
+		t.Errorf("expected 'all repositories' in markdown when Repo is empty, got:\n%s", out)
+	}
+}
+
+func TestWriteMyWeekJSON_CrossRepo(t *testing.T) {
+	var buf bytes.Buffer
+	r := model.MyWeekResult{
+		Login: "testuser",
+		Repo:  "", // cross-repo mode
+		Since: testSince,
+		Until: testNow,
+	}
+	if err := WriteMyWeekJSON(&buf, r, metrics.ComputeInsights(r, nil), MyWeekSearchURLs{}, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	// Parse as raw JSON to check repo is null.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(buf.Bytes(), &raw); err != nil {
+		t.Fatal(err)
+	}
+	repoVal := string(raw["repo"])
+	if repoVal != "null" {
+		t.Errorf("expected repo to be null for cross-repo, got %s", repoVal)
+	}
+}
+
+func TestWriteMyWeekJSON_SingleRepo(t *testing.T) {
+	var buf bytes.Buffer
+	r := model.MyWeekResult{
+		Login: "testuser",
+		Repo:  "owner/repo",
+		Since: testSince,
+		Until: testNow,
+	}
+	if err := WriteMyWeekJSON(&buf, r, metrics.ComputeInsights(r, nil), MyWeekSearchURLs{}, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	// Parse as raw JSON to check repo is a string.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(buf.Bytes(), &raw); err != nil {
+		t.Fatal(err)
+	}
+	repoVal := string(raw["repo"])
+	if repoVal != `"owner/repo"` {
+		t.Errorf("expected repo to be %q, got %s", "owner/repo", repoVal)
+	}
+}
+
 // Status logic tests are in internal/model/status_test.go.
 // Formatter tests above verify the rendering of status annotations.
 

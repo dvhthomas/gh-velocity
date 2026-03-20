@@ -182,6 +182,8 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				return nil
 			case cmd.Parent() != nil && cmd.Parent().Name() == "config":
 				return nil
+			case cmd.Name() == "my-week":
+				return nil // my-week handles its own setup (repo + config optional)
 			case cmd.RunE == nil && cmd.Run == nil:
 				return nil
 			}

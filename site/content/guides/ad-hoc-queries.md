@@ -170,10 +170,16 @@ gh velocity report --since 30d --results markdown | tee report.md | \
 
 ## Prep for a 1:1 with my-week
 
-Get a personal summary of recent activity -- issues closed, PRs merged, reviews done -- plus what's on your plate:
+Get a personal summary of your recent activity — issues closed, PRs merged, reviews done — plus what's blocked and what's ahead. Works from anywhere, no repo context needed:
 
 ```bash
 gh velocity status my-week
+```
+
+By default this shows **all your activity** across every repository. To limit to a single repo (which also shows releases):
+
+```bash
+gh velocity status my-week -R owner/repo
 ```
 
 Customize the lookback period:
@@ -182,7 +188,17 @@ Customize the lookback period:
 gh velocity status my-week --since 14d
 ```
 
-The output includes cycle time for issues you closed, making it easy to discuss delivery speed with your manager.
+The output includes:
+
+- **Insights** — shipping velocity, AI-assisted PR percentage, median and p90 lead time
+- **Waiting on** — PRs waiting for first review and stale issues, surfaced early for action
+- **What I shipped** — issues closed, PRs merged, PRs reviewed, releases (single-repo only)
+- **What's ahead** — open issues and PRs with status annotations (new, stale, needs review)
+- **Review queue** — PRs from others waiting on your review
+
+PRs authored with AI tools (Claude Code, Copilot, etc.) are tagged `[ai]` based on `Co-Authored-By` trailers and PR body badges. The insights section shows the overall AI-assisted percentage.
+
+If a `.gh-velocity.yml` config is present, its `scope.query` and `exclude_users` settings apply automatically. Without a config file, the command still works — you just won't get cycle time metrics or user exclusions.
 
 ## Next steps
 
