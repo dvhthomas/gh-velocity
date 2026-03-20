@@ -252,9 +252,8 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 	}
 
 	if hasLookback {
-
 		if len(r.Releases) > 0 {
-			fmt.Fprintf(w, "\nReleases: %d\n", len(r.Releases))
+			fmt.Fprintf(w, "\nReleases: %d (published in %s)\n", len(r.Releases), r.Repo)
 			for _, rel := range r.Releases {
 				dateStr := rel.CreatedAt.Format(time.DateOnly)
 				if rel.PublishedAt != nil {
@@ -264,8 +263,10 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 				if name == "" {
 					name = rel.TagName
 				}
-				fmt.Fprintf(w, "  %s  %s\n", dateStr, name)
+				fmt.Fprintf(w, "  %s  %s\n", FormatReleaseLink(name, rel.URL, rc), dateStr)
 			}
+		} else if r.Repo == "" {
+			fmt.Fprintf(w, "\nReleases: use -R owner/repo to see releases for a specific repo.\n")
 		}
 	}
 

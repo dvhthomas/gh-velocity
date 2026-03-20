@@ -48,10 +48,13 @@ _None_
 {{- end}}
 {{- if .Releases}}
 
-**Releases ({{len .Releases}})**
+**Releases ({{len .Releases}})** — published in {{.Repo}}
 {{range .Releases}}
 - {{.Link}} ({{.Date}})
 {{- end}}
+{{- else if not .Repo}}
+
+_Releases: use `-R owner/repo` to see releases for a specific repo._
 {{- end}}
 
 ### What's ahead
