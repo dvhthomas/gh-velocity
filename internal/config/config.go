@@ -14,6 +14,7 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/classify"
 	"github.com/dvhthomas/gh-velocity/internal/log"
 	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/posting"
 	"gopkg.in/yaml.v3"
 )
 
@@ -146,6 +147,7 @@ type QualityConfig struct {
 
 type DiscussionsConfig struct {
 	Category string `yaml:"category" json:"category"`
+	Title    string `yaml:"title" json:"title"`
 }
 
 // Load reads and parses the config file. Returns default config if file doesn't exist.
@@ -344,10 +346,17 @@ func validate(cfg *Config) error {
 		}
 	}
 
-	// Discussions category name validation.
-	if name := cfg.Discussions.Category; name != "" {
-		if strings.TrimSpace(name) == "" {
-			return fmt.Errorf("config: discussions.category must be a non-empty name, got %q", name)
+	// Discussions target validation: must be owner/repo/category.
+	if cat := cfg.Discussions.Category; cat != "" {
+		if _, err := posting.ParseTarget(cat); err != nil {
+			return fmt.Errorf("config: %w", err)
+		}
+	}
+
+	// Discussions title template validation.
+	if title := cfg.Discussions.Title; title != "" {
+		if err := posting.ValidateTitleTemplate(title); err != nil {
+			return fmt.Errorf("config: %w", err)
 		}
 	}
 

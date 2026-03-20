@@ -87,6 +87,7 @@ The JSON output (-r json) is useful for debugging or piping into other tools.`,
 				fmt.Fprintf(w, "  - %s: %v\n", cat.Name, cat.Matchers)
 			}
 			fmt.Fprintf(w, "discussions.category:        %s\n", cfg.Discussions.Category)
+			fmt.Fprintf(w, "discussions.title:           %s\n", cfg.Discussions.Title)
 			fmt.Fprintf(w, "cycle_time.strategy:         %s\n", cfg.CycleTime.Strategy)
 			fmt.Fprintf(w, "velocity.unit:               %s\n", cfg.Velocity.Unit)
 			fmt.Fprintf(w, "velocity.effort.strategy:    %s\n", cfg.Velocity.Effort.Strategy)
@@ -269,7 +270,8 @@ commit_ref:
 # CI/Actions: requires 'issues: write' for issue/PR comments,
 # 'discussions: write' for bulk reports.
 # discussions:
-#   category: General
+#   category: owner/repo/General    # owner/repo/category (quote category if it contains a slash)
+#   title: "Velocity Update {{date}}"
 `
 
 func newConfigCreateCmd() *cobra.Command {

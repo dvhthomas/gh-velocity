@@ -408,14 +408,59 @@ func TestLoad_Validation(t *testing.T) {
 			wantErr: "",
 		},
 		{
-			name:    "category valid",
-			yaml:    "discussions:\n  category: General",
+			name:    "category valid owner/repo/category",
+			yaml:    "discussions:\n  category: myorg/myrepo/General",
+			wantErr: "",
+		},
+		{
+			name:    "category with quoted slash",
+			yaml:    "discussions:\n  category: 'myorg/myrepo/\"Show / Tell\"'",
 			wantErr: "",
 		},
 		{
 			name:    "category empty is OK",
 			yaml:    "discussions:\n  category: \"\"",
 			wantErr: "",
+		},
+		{
+			name:    "category missing repo",
+			yaml:    "discussions:\n  category: General",
+			wantErr: "owner/repo/category",
+		},
+		{
+			name:    "category missing category part",
+			yaml:    "discussions:\n  category: myorg/myrepo",
+			wantErr: "owner/repo/category",
+		},
+		{
+			name:    "title valid template",
+			yaml:    "discussions:\n  category: myorg/myrepo/General\n  title: \"Velocity Update {{date}}\"",
+			wantErr: "",
+		},
+		{
+			name:    "title with format qualifier",
+			yaml:    "discussions:\n  category: myorg/myrepo/General\n  title: \"Weekly {{date:Jan 2}}\"",
+			wantErr: "",
+		},
+		{
+			name:    "title with repo and command",
+			yaml:    "discussions:\n  category: myorg/myrepo/General\n  title: \"{{command}}: {{repo}} ({{date}})\"",
+			wantErr: "",
+		},
+		{
+			name:    "title empty is OK (uses default)",
+			yaml:    "discussions:\n  category: myorg/myrepo/General\n  title: \"\"",
+			wantErr: "",
+		},
+		{
+			name:    "title unclosed delimiter",
+			yaml:    "discussions:\n  category: myorg/myrepo/General\n  title: \"Bad {{date\"",
+			wantErr: "unclosed",
+		},
+		{
+			name:    "title unknown variable",
+			yaml:    "discussions:\n  category: myorg/myrepo/General\n  title: \"Bad {{today}}\"",
+			wantErr: "unknown variable",
 		},
 		{
 			name:    "cycle_time.strategy issue",
@@ -466,7 +511,7 @@ project:
 quality:
   hotfix_window_hours: 48
 discussions:
-  category: General`,
+  category: testuser/testrepo/General`,
 			wantErr: "",
 		},
 		// --- Velocity config validation ---

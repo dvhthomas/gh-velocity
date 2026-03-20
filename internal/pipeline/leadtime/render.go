@@ -67,10 +67,10 @@ type jsonBulkOutput struct {
 	Window     format.JSONWindow    `json:"window"`
 	SearchURL  string               `json:"search_url"`
 	Insights   []format.JSONInsight `json:"insights,omitempty"`
-	Items      []jsonBulkItem    `json:"items"`
-	Stats      format.JSONStats  `json:"stats"`
-	Capped     bool              `json:"capped,omitempty"`
-	Warnings   []string          `json:"warnings,omitempty"`
+	Items      []jsonBulkItem       `json:"items"`
+	Stats      format.JSONStats     `json:"stats"`
+	Capped     bool                 `json:"capped,omitempty"`
+	Warnings   []string             `json:"warnings,omitempty"`
 }
 
 type jsonBulkItem struct {

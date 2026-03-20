@@ -214,8 +214,11 @@ GitHub Discussions integration for `--post` on bulk commands:
 
 ```yaml
 discussions:
-  category: General
+  category: myorg/myrepo/General
+  title: "Velocity Update {{date}}"
 ```
+
+The `category` is the full discussion target: `owner/repo/category`. The target repo can differ from the data source. The `title` is the deduplication key -- re-running a command updates the existing Discussion with the same title instead of creating a duplicate. Variables: `{{date}}`, `{{date:FORMAT}}`, `{{repo}}`, `{{owner}}`, `{{command}}`. See [Configuration Reference: discussions.title]({{< relref "/reference/config" >}}#discussionstitle) for details.
 
 ## Token permissions
 

@@ -33,6 +33,7 @@ type PostOptions struct {
 	ForceNew   bool   // --new-post: skip search, always create
 	CategoryID string // Discussion category node ID (required for DiscussionTarget)
 	Repo       string // "owner/repo" for discussion titles
+	Title      string // rendered discussion title (empty = default format)
 }
 
 // CommentClient abstracts the GitHub API calls needed by CommentPoster.
@@ -212,6 +213,8 @@ type DiscussionPoster struct {
 }
 
 // Post creates or updates a Discussion in the configured category.
+// Deduplication is title-based: if a discussion with the rendered title exists,
+// its body is updated via InjectMarkedSection (preserving human edits).
 // In dry-run mode, logs the intended action without executing it.
 func (p *DiscussionPoster) Post(ctx context.Context, opts PostOptions) error {
 	if opts.CategoryID == "" {
@@ -221,15 +224,20 @@ func (p *DiscussionPoster) Post(ctx context.Context, opts PostOptions) error {
 		}
 	}
 
-	body := WrapWithMarker(opts.Command, opts.Context, opts.Content)
-	title := fmt.Sprintf("gh-velocity %s: %s (%s)", opts.Command, opts.Repo, time.Now().UTC().Format("2006-01-02"))
+	wrappedContent := WrapWithMarker(opts.Command, opts.Context, opts.Content)
+
+	// Resolve title: caller-provided (from config template) or default.
+	title := opts.Title
+	if title == "" {
+		title = fmt.Sprintf("gh-velocity %s: %s (%s)", opts.Command, opts.Repo, time.Now().UTC().Format("2006-01-02"))
+	}
 
 	if opts.ForceNew {
 		if p.DryRun {
-			log.Notice("[dry-run] Would create new discussion %q (%d bytes)", title, len(body))
+			log.Notice("[dry-run] Would create new discussion %q (%d bytes)", title, len(wrappedContent))
 			return nil
 		}
-		url, err := p.Client.CreateDiscussion(ctx, opts.CategoryID, title, body)
+		url, err := p.Client.CreateDiscussion(ctx, opts.CategoryID, title, wrappedContent)
 		if err != nil {
 			return &model.AppError{
 				Code:    model.ErrPostFailed,
@@ -240,7 +248,7 @@ func (p *DiscussionPoster) Post(ctx context.Context, opts PostOptions) error {
 		return nil
 	}
 
-	// Search existing discussions for our marker.
+	// Search existing discussions and match on title.
 	discussions, err := p.Client.SearchDiscussions(ctx, opts.CategoryID, 50)
 	if err != nil {
 		return &model.AppError{
@@ -250,12 +258,14 @@ func (p *DiscussionPoster) Post(ctx context.Context, opts PostOptions) error {
 	}
 
 	for _, d := range discussions {
-		if FindMarker(d.Body, opts.Command, opts.Context) {
+		if d.Title == title {
+			// Title match — inject our marked section into the existing body.
+			newBody := InjectMarkedSection(d.Body, opts.Command, opts.Context, wrappedContent)
 			if p.DryRun {
-				log.Notice("[dry-run] Would update existing discussion %s (%d bytes)", d.URL, len(body))
+				log.Notice("[dry-run] Would update existing discussion %s (%d bytes)", d.URL, len(newBody))
 				return nil
 			}
-			if err := p.Client.UpdateDiscussion(ctx, d.ID, body); err != nil {
+			if err := p.Client.UpdateDiscussion(ctx, d.ID, newBody); err != nil {
 				return &model.AppError{
 					Code:    model.ErrPostFailed,
 					Message: fmt.Sprintf("update discussion: %v", err),
@@ -266,12 +276,12 @@ func (p *DiscussionPoster) Post(ctx context.Context, opts PostOptions) error {
 		}
 	}
 
-	// No existing marker found — create new.
+	// No title match — create new discussion.
 	if p.DryRun {
-		log.Notice("[dry-run] Would create new discussion %q (%d bytes)", title, len(body))
+		log.Notice("[dry-run] Would create new discussion %q (%d bytes)", title, len(wrappedContent))
 		return nil
 	}
-	url, err := p.Client.CreateDiscussion(ctx, opts.CategoryID, title, body)
+	url, err := p.Client.CreateDiscussion(ctx, opts.CategoryID, title, wrappedContent)
 	if err != nil {
 		return &model.AppError{
 			Code:    model.ErrPostFailed,

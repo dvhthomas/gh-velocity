@@ -8,10 +8,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/cli/go-gh/v2/pkg/repository"
+	"github.com/cli/go-gh/v2/pkg/term"
 	"github.com/dvhthomas/gh-velocity/internal/config"
 	"github.com/dvhthomas/gh-velocity/internal/format"
 	"github.com/dvhthomas/gh-velocity/internal/gitdata"
@@ -19,8 +22,6 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/log"
 	"github.com/dvhthomas/gh-velocity/internal/model"
 	"github.com/dvhthomas/gh-velocity/internal/scope"
-	"github.com/cli/go-gh/v2/pkg/repository"
-	"github.com/cli/go-gh/v2/pkg/term"
 	"github.com/spf13/cobra"
 )
 
@@ -204,12 +205,10 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 
 			// --write-to validation: fail fast before any API calls.
 			if writeToFlag != "" {
-				for _, f := range results {
-					if f == format.Pretty {
-						return &model.AppError{
-							Code:    model.ErrConfigInvalid,
-							Message: "--write-to does not support pretty format (terminal-only)",
-						}
+				if slices.Contains(results, format.Pretty) {
+					return &model.AppError{
+						Code:    model.ErrConfigInvalid,
+						Message: "--write-to does not support pretty format (terminal-only)",
 					}
 				}
 				if err := os.MkdirAll(writeToFlag, 0o755); err != nil {
@@ -230,13 +229,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 
 			// --post requires markdown in the results list.
 			if postFlag {
-				hasMarkdown := false
-				for _, f := range results {
-					if f == format.Markdown {
-						hasMarkdown = true
-						break
-					}
-				}
+				hasMarkdown := slices.Contains(results, format.Markdown)
 				if !hasMarkdown {
 					return &model.AppError{
 						Code:    model.ErrConfigInvalid,
@@ -303,6 +296,8 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 			// GH_VELOCITY_POST_LIVE=true is explicitly set. This prevents
 			// tests, agents, and accidental runs from mutating GitHub state.
 			dryRun := postFlag && os.Getenv("GH_VELOCITY_POST_LIVE") != "true"
+
+			log.SetDebug(debugFlag)
 
 			if debugFlag {
 				repoSource := ""

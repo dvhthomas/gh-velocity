@@ -241,4 +241,3 @@ func TestRenderJSON(t *testing.T) {
 		t.Errorf("linked PRs: got %d, want 0", len(out.LinkedPRs))
 	}
 }
-

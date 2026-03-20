@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	gh "github.com/dvhthomas/gh-velocity/internal/github"
 	"github.com/dvhthomas/gh-velocity/internal/model"
@@ -49,23 +50,42 @@ func setupPost(cmd *cobra.Command, deps *Deps, client *gh.Client, opts posting.P
 		var poster posting.Poster
 		switch opts.Target {
 		case posting.DiscussionTarget:
-			categoryName := deps.Config.Discussions.Category
-			if categoryName == "" {
+			targetStr := deps.Config.Discussions.Category
+			if targetStr == "" {
 				return &model.AppError{
 					Code:    model.ErrConfigInvalid,
-					Message: "posting to Discussions requires discussions.category in config",
+					Message: "posting to Discussions requires discussions.category in config (owner/repo/category)",
 				}
 			}
-			categoryID, err := client.ResolveDiscussionCategoryID(cmd.Context(), categoryName)
+			target, err := posting.ParseTarget(targetStr)
+			if err != nil {
+				return &model.AppError{
+					Code:    model.ErrConfigInvalid,
+					Message: fmt.Sprintf("discussions.category: %v", err),
+				}
+			}
+			categoryID, err := client.ResolveDiscussionCategoryIDForRepo(cmd.Context(), target.Owner, target.Repo, target.Category)
 			if err != nil {
 				return &model.AppError{
 					Code:    model.ErrPostFailed,
-					Message: fmt.Sprintf("resolve discussion category %q: %v", categoryName, err),
+					Message: fmt.Sprintf("resolve discussion category %q on %s/%s: %v", target.Category, target.Owner, target.Repo, err),
 				}
 			}
 			opts.CategoryID = categoryID
+			if titleTemplate := deps.Config.Discussions.Title; titleTemplate != "" {
+				opts.Title = posting.RenderTitle(titleTemplate, posting.TitleVars{
+					Date:    time.Now().UTC(),
+					Repo:    opts.Repo,
+					Owner:   deps.Owner,
+					Command: opts.Command,
+				})
+			}
 			poster = &posting.DiscussionPoster{
-				Client: &discussionAdapter{client: client},
+				Client: &discussionAdapter{
+					client: client,
+					owner:  target.Owner,
+					repo:   target.Repo,
+				},
 				DryRun: deps.DryRun,
 			}
 		case posting.IssueBody:
@@ -123,12 +143,15 @@ func (a *bodyAdapter) UpdateBody(ctx context.Context, number int, body string) e
 }
 
 // discussionAdapter adapts github.Client to posting.DiscussionClient.
+// owner/repo specify the target repository for cross-repo posting.
 type discussionAdapter struct {
 	client *gh.Client
+	owner  string
+	repo   string
 }
 
 func (a *discussionAdapter) SearchDiscussions(ctx context.Context, categoryID string, limit int) ([]posting.Discussion, error) {
-	discussions, err := a.client.SearchDiscussions(ctx, categoryID, limit)
+	discussions, err := a.client.SearchDiscussionsForRepo(ctx, a.owner, a.repo, categoryID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +163,7 @@ func (a *discussionAdapter) SearchDiscussions(ctx context.Context, categoryID st
 }
 
 func (a *discussionAdapter) CreateDiscussion(ctx context.Context, categoryID, title, body string) (string, error) {
-	return a.client.CreateDiscussion(ctx, categoryID, title, body)
+	return a.client.CreateDiscussionForRepo(ctx, a.owner, a.repo, categoryID, title, body)
 }
 
 func (a *discussionAdapter) UpdateDiscussion(ctx context.Context, discussionID, body string) error {

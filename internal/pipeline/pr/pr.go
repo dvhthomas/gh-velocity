@@ -154,4 +154,3 @@ func detectAuthorType(author string, commitMessages []string) model.AuthorType {
 
 	return model.AuthorHuman
 }
-

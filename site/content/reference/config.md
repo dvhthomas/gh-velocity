@@ -452,23 +452,90 @@ exclude_users:
 
 ## `discussions`
 
-Configuration for posting reports to GitHub Discussions.
+Configuration for posting reports to GitHub Discussions via the `--post` flag.
 
 ### `discussions.category`
 
 | Property | Value |
 |---|---|
 | **Type** | string |
+| **Format** | `owner/repo/category` |
 | **Default** | `""` (none) |
 
-Discussion category name to post to (e.g., `"General"`, `"Reports"`). Must already exist in the repository's Discussions settings.
+The full discussion target: repository owner, repository name, and discussion category name, separated by `/`. The target repository can differ from the data source -- for example, posting reports from multiple repos to a shared `engops` repository.
+
+If the category name contains a `/`, quote it:
+
+```yaml
+discussions:
+  category: myorg/myrepo/General
+```
+
+```yaml
+# Category name with a slash
+discussions:
+  category: myorg/myrepo/"Show / Tell"
+```
+
+The category must already exist in the target repository's Discussions settings. Invalid format (missing owner, repo, or category) is rejected at config validation time.
+
+### `discussions.title`
+
+| Property | Value |
+|---|---|
+| **Type** | string |
+| **Default** | `""` (uses built-in format: `gh-velocity {command}: {owner/repo} ({date})`) |
+
+Template for Discussion titles. The rendered title is the **deduplication key** -- if a Discussion with the same title already exists in the category, its body is updated instead of creating a new Discussion. Human edits and comments on the Discussion are preserved.
 
 ```yaml
 discussions:
   category: General
+  title: "Velocity Update {{date}}"
 ```
 
-Used by the `--post` flag on bulk commands to create or update Discussion posts.
+#### Title template variables
+
+Placeholders use `{{variable}}` syntax. Only the variables listed below are supported -- unknown variables are rejected at config validation time.
+
+| Variable | Description | Example output |
+|---|---|---|
+| `{{date}}` | Today's UTC date in `YYYY-MM-DD` format | `2026-03-20` |
+| `{{date:FORMAT}}` | Today's UTC date in a custom [Go time layout](https://pkg.go.dev/time#pkg-constants) | `{{date:Jan 2}}` → `Mar 20` |
+| `{{repo}}` | Repository in `owner/repo` format | `myorg/myrepo` |
+| `{{owner}}` | Repository owner | `myorg` |
+| `{{command}}` | The command being run | `report`, `lead-time` |
+
+#### Title template examples
+
+```yaml
+# Daily report -- creates a new Discussion each day, updates on re-run
+title: "Velocity Update {{date}}"
+
+# Weekly report with readable date
+title: "Weekly Velocity — {{date:Jan 2, 2006}}"
+
+# Per-command Discussions (similar to the default)
+title: "{{command}}: {{repo}} ({{date}})"
+
+# Single rolling Discussion per repo (no date = always updates the same one)
+title: "Velocity Dashboard — {{repo}}"
+```
+
+#### Deduplication behavior
+
+- **Same rendered title** → updates the existing Discussion body (partial update via markers, preserving content outside markers)
+- **Different rendered title** → creates a new Discussion
+- **`--new-post`** → always creates a new Discussion regardless of title
+- **Multiple commands, same title** → each command gets its own section in the Discussion body. Running `report --post` and `lead-time --post` with the same title template updates separate sections in the same Discussion.
+- **Discussions are never deleted.** Human comments and edits outside the tool's marker sections are preserved across updates.
+
+#### Default behavior (no title configured)
+
+When `discussions.title` is not set, the title defaults to `gh-velocity {command}: {owner/repo} ({date})`. This means:
+- Each command gets its own Discussion (the command name is in the title)
+- A new Discussion is created each day (the date is in the title)
+- Re-running the same command on the same day updates the existing Discussion
 
 ---
 
@@ -573,7 +640,8 @@ exclude_users:
   - "renovate[bot]"
 
 discussions:
-  category: General
+  category: myorg/myrepo/General
+  title: "Velocity Update {{date}}"
 
 api_throttle_seconds: 2
 ```
@@ -600,7 +668,8 @@ api_throttle_seconds: 2
 | `velocity.iteration.count` | `6` |
 | `commit_ref.patterns` | `[]` |
 | `exclude_users` | `[]` |
-| `discussions.category` | `""` |
+| `discussions.category` | `""` (format: `owner/repo/category`) |
+| `discussions.title` | `""` (built-in: `gh-velocity {command}: {owner/repo} ({date})`) |
 | `api_throttle_seconds` | not set (no throttle) |
 
 ## See also

@@ -85,7 +85,9 @@ velocity:
     count: 6
 
 # Post bulk reports (--post) as Discussion posts.
+# Format: owner/repo/category (quote category if it contains a slash).
 # CI/Actions: requires 'discussions: write' in workflow permissions.
 discussions:
-  category: General
+  category: dvhthomas/gh-velocity/General
+  title: "Velocity Update {{date}}"
 

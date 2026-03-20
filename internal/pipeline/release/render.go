@@ -9,9 +9,9 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/cli/go-gh/v2/pkg/tableprinter"
 	"github.com/dvhthomas/gh-velocity/internal/format"
 	"github.com/dvhthomas/gh-velocity/internal/model"
-	"github.com/cli/go-gh/v2/pkg/tableprinter"
 )
 
 //go:embed templates/*.md.tmpl

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -1120,12 +1121,12 @@ func TestNormalizeLabel(t *testing.T) {
 
 func TestClassifyLabels_FuzzyLifecycle(t *testing.T) {
 	tests := []struct {
-		name            string
-		labels          []string
-		wantActive      []string // expected ActiveLabels
-		wantBacklog     []string // expected BacklogLabels
-		wantNoActive    bool     // expect no active labels
-		wantNoBacklog   bool     // expect no backlog labels
+		name          string
+		labels        []string
+		wantActive    []string // expected ActiveLabels
+		wantBacklog   []string // expected BacklogLabels
+		wantNoActive  bool     // expect no active labels
+		wantNoBacklog bool     // expect no backlog labels
 	}{
 		{
 			name:       "in progress with space detected as active",
@@ -1173,8 +1174,8 @@ func TestClassifyLabels_FuzzyLifecycle(t *testing.T) {
 			wantNoActive: true,
 		},
 		{
-			name:         "random label not detected",
-			labels:       []string{"priority:high", "component:ui"},
+			name:          "random label not detected",
+			labels:        []string{"priority:high", "component:ui"},
 			wantNoActive:  true,
 			wantNoBacklog: true,
 		},
@@ -1198,26 +1199,14 @@ func TestClassifyLabels_FuzzyLifecycle(t *testing.T) {
 			}
 
 			for _, want := range tt.wantActive {
-				found := false
-				for _, got := range result.ActiveLabels {
-					if got == want {
-						found = true
-						break
-					}
-				}
+				found := slices.Contains(result.ActiveLabels, want)
 				if !found {
 					t.Errorf("expected %q in ActiveLabels, got %v", want, result.ActiveLabels)
 				}
 			}
 
 			for _, want := range tt.wantBacklog {
-				found := false
-				for _, got := range result.BacklogLabels {
-					if got == want {
-						found = true
-						break
-					}
-				}
+				found := slices.Contains(result.BacklogLabels, want)
 				if !found {
 					t.Errorf("expected %q in BacklogLabels, got %v", want, result.BacklogLabels)
 				}
@@ -1293,8 +1282,8 @@ func TestClassifyLabels_NoiseDetection(t *testing.T) {
 
 func TestRenderPreflightConfig_NoiseExclusion(t *testing.T) {
 	r := &PreflightResult{
-		Repo:       "cli/cli",
-		Strategy:   "issue",
+		Repo:        "cli/cli",
+		Strategy:    "issue",
 		NoiseLabels: []string{"suspected-spam", "duplicate", "invalid"},
 		Categories: map[string][]string{
 			"bug": {"bug"},

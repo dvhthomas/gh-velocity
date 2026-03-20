@@ -54,8 +54,13 @@ func (c *Client) CheckDiscussionsEnabled(ctx context.Context) (bool, error) {
 
 // ResolveDiscussionCategoryID resolves a human-readable category name
 // (e.g. "General") to its GraphQL node ID (e.g. "DIC_kwDO...").
-// The match is case-insensitive.
+// The match is case-insensitive. Uses the client's default owner/repo.
 func (c *Client) ResolveDiscussionCategoryID(ctx context.Context, name string) (string, error) {
+	return c.ResolveDiscussionCategoryIDForRepo(ctx, c.owner, c.repo, name)
+}
+
+// ResolveDiscussionCategoryIDForRepo resolves a category name on a specific repo.
+func (c *Client) ResolveDiscussionCategoryIDForRepo(ctx context.Context, owner, repo, name string) (string, error) {
 	query := `query($owner: String!, $repo: String!) {
 		repository(owner: $owner, name: $repo) {
 			discussionCategories(first: 50) {
@@ -64,8 +69,8 @@ func (c *Client) ResolveDiscussionCategoryID(ctx context.Context, name string) (
 		}
 	}`
 	variables := map[string]any{
-		"owner": c.owner,
-		"repo":  c.repo,
+		"owner": owner,
+		"repo":  repo,
 	}
 	var resp struct {
 		Repository struct {
@@ -96,10 +101,16 @@ func (c *Client) ResolveDiscussionCategoryID(ctx context.Context, name string) (
 	return "", fmt.Errorf("discussion category %q not found; available: %s", name, strings.Join(names, ", "))
 }
 
-// SearchDiscussions searches for discussions in the given category,
+// SearchDiscussions searches for discussions in the given category.
+// Uses the client's default owner/repo.
+func (c *Client) SearchDiscussions(ctx context.Context, categoryID string, limit int) ([]Discussion, error) {
+	return c.SearchDiscussionsForRepo(ctx, c.owner, c.repo, categoryID, limit)
+}
+
+// SearchDiscussionsForRepo searches for discussions in a specific repo's category,
 // ordered by most recently updated first.
 // Returns at most `limit` discussions.
-func (c *Client) SearchDiscussions(ctx context.Context, categoryID string, limit int) ([]Discussion, error) {
+func (c *Client) SearchDiscussionsForRepo(ctx context.Context, owner, repo, categoryID string, limit int) ([]Discussion, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -121,8 +132,8 @@ func (c *Client) SearchDiscussions(ctx context.Context, categoryID string, limit
 		}
 	}`
 	variables := map[string]any{
-		"owner":      c.owner,
-		"repo":       c.repo,
+		"owner":      owner,
+		"repo":       repo,
 		"categoryID": categoryID,
 		"limit":      limit,
 	}
@@ -141,9 +152,15 @@ func (c *Client) SearchDiscussions(ctx context.Context, categoryID string, limit
 }
 
 // CreateDiscussion creates a new Discussion in the given category.
-// Returns the URL of the created discussion.
+// Uses the client's default owner/repo.
 func (c *Client) CreateDiscussion(ctx context.Context, categoryID, title, body string) (string, error) {
-	repoID, err := c.repoID(ctx)
+	return c.CreateDiscussionForRepo(ctx, c.owner, c.repo, categoryID, title, body)
+}
+
+// CreateDiscussionForRepo creates a new Discussion in a specific repo's category.
+// Returns the URL of the created discussion.
+func (c *Client) CreateDiscussionForRepo(ctx context.Context, owner, repo, categoryID, title, body string) (string, error) {
+	repoID, err := c.fetchRepoID(ctx, owner, repo)
 	if err != nil {
 		return "", err
 	}
@@ -178,6 +195,30 @@ func (c *Client) CreateDiscussion(ctx context.Context, categoryID, title, body s
 		return "", fmt.Errorf("create discussion: %w", err)
 	}
 	return resp.CreateDiscussion.Discussion.URL, nil
+}
+
+// fetchRepoID fetches the GraphQL node ID for a given owner/repo.
+// Uses the cached value when targeting the client's own repo.
+func (c *Client) fetchRepoID(ctx context.Context, owner, repo string) (string, error) {
+	if owner == c.owner && repo == c.repo {
+		return c.repoID(ctx)
+	}
+	query := `query($owner: String!, $repo: String!) {
+		repository(owner: $owner, name: $repo) { id }
+	}`
+	variables := map[string]any{
+		"owner": owner,
+		"repo":  repo,
+	}
+	var resp struct {
+		Repository struct {
+			ID string `json:"id"`
+		} `json:"repository"`
+	}
+	if err := c.gql.DoWithContext(ctx, query, variables, &resp); err != nil {
+		return "", fmt.Errorf("fetch repository ID for %s/%s: %w", owner, repo, err)
+	}
+	return resp.Repository.ID, nil
 }
 
 // UpdateDiscussion updates the body of an existing Discussion.

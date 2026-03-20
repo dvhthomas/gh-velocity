@@ -500,14 +500,14 @@ func TestGenerateThroughputInsights(t *testing.T) {
 
 func TestGenerateQualityInsights(t *testing.T) {
 	tests := []struct {
-		name                string
-		quality             model.StatsQuality
-		items               []ItemRef
-		hotfixWindowHours   int
+		name              string
+		quality           model.StatsQuality
+		items             []ItemRef
+		hotfixWindowHours int
 		bugRatioThreshold float64 // 0 means use default (0.20)
-		wantCount           int
-		wantSubstr          string
-		wantType            string
+		wantCount         int
+		wantSubstr        string
+		wantType          string
 	}{
 		{
 			name:      "empty quality no insights",
@@ -594,18 +594,18 @@ func TestGenerateQualityInsights(t *testing.T) {
 			wantCount: 0,
 		},
 		{
-			name:                "custom threshold 15% fires at 20% bug ratio",
-			quality:             model.StatsQuality{BugCount: 4, TotalIssues: 20, BugRatio: 0.20},
+			name:              "custom threshold 15% fires at 20% bug ratio",
+			quality:           model.StatsQuality{BugCount: 4, TotalIssues: 20, BugRatio: 0.20},
 			bugRatioThreshold: 0.15,
-			wantCount:           1,
-			wantSubstr:          "configured 15%",
-			wantType:            "bug_ratio_high",
+			wantCount:         1,
+			wantSubstr:        "configured 15%",
+			wantType:          "bug_ratio_high",
 		},
 		{
-			name:                "custom threshold 30% silent at 20% bug ratio",
-			quality:             model.StatsQuality{BugCount: 4, TotalIssues: 20, BugRatio: 0.20},
+			name:              "custom threshold 30% silent at 20% bug ratio",
+			quality:           model.StatsQuality{BugCount: 4, TotalIssues: 20, BugRatio: 0.20},
 			bugRatioThreshold: 0.30,
-			wantCount:           0,
+			wantCount:         0,
 		},
 	}
 

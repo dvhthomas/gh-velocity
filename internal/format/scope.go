@@ -6,8 +6,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/dvhthomas/gh-velocity/internal/model"
 	"github.com/cli/go-gh/v2/pkg/tableprinter"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 // WriteScopePretty writes scope results as a formatted table to the writer.

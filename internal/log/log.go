@@ -50,8 +50,20 @@ func Notice(format string, args ...any) {
 	}
 }
 
-// Debug writes a debug message to stderr (same format in CI and local).
+var debugEnabled bool
+
+// SetDebug enables or disables debug output. When disabled (the default),
+// calls to Debug are silently discarded.
+func SetDebug(enabled bool) {
+	debugEnabled = enabled
+}
+
+// Debug writes a debug message to stderr when --debug is enabled.
+// Same format in CI and local.
 func Debug(format string, args ...any) {
+	if !debugEnabled {
+		return
+	}
 	msg := fmt.Sprintf(format, args...)
 	fmt.Fprintf(os.Stderr, "[debug] %s\n", msg)
 }

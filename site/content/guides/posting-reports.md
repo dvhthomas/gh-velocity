@@ -27,18 +27,38 @@ This prevents accidental posts during local testing.
 
 ## Discussions config
 
-Bulk commands post to GitHub Discussions. Configure the target category in your [config file]({{< relref "/getting-started/configuration" >}}):
+Bulk commands post to GitHub Discussions. Configure the target category and optionally a title template in your [config file]({{< relref "/getting-started/configuration" >}}):
 
 ```yaml
 discussions:
-  category: General
+  category: myorg/myrepo/General
+  title: "Velocity Update {{date}}"
 ```
 
-The tool creates a Discussion in the specified category with the report as the body. The title includes the command, repo, and date range.
+The `category` is the full discussion target: `owner/repo/category`. The target repo can differ from the data source -- for example, posting to a shared `engops` repo. If the category name contains a `/`, quote it: `myorg/myrepo/"Show / Tell"`.
+
+The `title` controls the Discussion title and is the **deduplication key** -- if a Discussion with the rendered title exists, it is updated. If not, a new one is created. See [Configuration Reference: discussions.title]({{< relref "/reference/config" >}}#discussionstitle) for the full variable reference.
+
+When `title` is not set, the default includes the command name, repo, and date -- meaning each command creates a separate Discussion per day.
+
+### Title template variables
+
+| Variable | Description | Example |
+|---|---|---|
+| `{{date}}` | UTC date (`YYYY-MM-DD`) | `2026-03-20` |
+| `{{date:FORMAT}}` | Custom date format ([Go time layout](https://pkg.go.dev/time#pkg-constants)) | `{{date:Jan 2}}` → `Mar 20` |
+| `{{repo}}` | `owner/repo` | `myorg/myrepo` |
+| `{{owner}}` | Repository owner | `myorg` |
+| `{{command}}` | Command name | `report` |
 
 ## Idempotent posting
 
-Running the same command with `--post` multiple times updates the existing Discussion or comment instead of creating a duplicate. It matches on title (for Discussions) or a signature comment (for issue/PR comments).
+Running the same command with `--post` multiple times updates the existing post instead of creating a duplicate:
+
+- **Discussions** -- matched by title. If a Discussion with the rendered title exists in the configured category, its body is updated. Human comments and edits are preserved.
+- **Issue/PR comments** -- matched by a hidden signature marker in the comment body.
+
+Multiple commands can share a Discussion when they use the same `discussions.title`. Each command's output occupies its own section in the Discussion body.
 
 To force a new post instead of updating, use `--new-post`:
 

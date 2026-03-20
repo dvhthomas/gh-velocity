@@ -488,8 +488,8 @@ func writeDetail(rc format.RenderContext, summary string, md, pretty func() erro
 
 // artifactSection describes a per-section artifact that can be written as JSON and Markdown.
 type artifactSection struct {
-	Name      string                                   // filename stem, e.g. "flow-lead-time"
-	WriteJSON func(w *os.File) error                   // writes JSON to the file
+	Name      string                                          // filename stem, e.g. "flow-lead-time"
+	WriteJSON func(w *os.File) error                          // writes JSON to the file
 	WriteMD   func(w *os.File, rc format.RenderContext) error // writes Markdown to the file
 }
 
@@ -619,7 +619,7 @@ func computeQualityWithInsights(items []leadtime.BulkItem, categories []model.Ca
 	quality := &model.StatsQuality{
 		BugCount:    bugCount,
 		TotalIssues: len(items),
-		BugRatio:  bugRatio,
+		BugRatio:    bugRatio,
 	}
 
 	hwh := int(hotfixWindowHours)

@@ -128,10 +128,10 @@ type jsonBulkOutput struct {
 	SearchURL  string               `json:"search_url"`
 	Strategy   string               `json:"strategy"`
 	Insights   []format.JSONInsight `json:"insights,omitempty"`
-	Items      []jsonBulkItem    `json:"items"`
-	Stats      format.JSONStats  `json:"stats"`
-	Capped     bool              `json:"capped,omitempty"`
-	Warnings   []string          `json:"warnings,omitempty"`
+	Items      []jsonBulkItem       `json:"items"`
+	Stats      format.JSONStats     `json:"stats"`
+	Capped     bool                 `json:"capped,omitempty"`
+	Warnings   []string             `json:"warnings,omitempty"`
 }
 
 type jsonBulkItem struct {
