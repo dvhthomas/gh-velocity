@@ -166,5 +166,5 @@ If cycle time shows N/A for all or most issues, see [Troubleshooting: Cycle time
 ## Next steps
 
 - [Labels as Lifecycle Signal]({{< relref "/concepts/labels-vs-board" >}}) -- why labels are the sole lifecycle signal
-- [Flow Velocity Setup]({{< relref "velocity-setup" >}}) -- configure effort-weighted iteration metrics
+- [Setting Up Flow Velocity]({{< relref "velocity-setup" >}}) -- configure effort-weighted iteration metrics
 - [Configuration Reference]({{< relref "/reference/config" >}}) -- all cycle_time and lifecycle fields
