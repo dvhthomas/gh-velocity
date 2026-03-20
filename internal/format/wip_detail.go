@@ -192,28 +192,38 @@ func WriteWIPDetailMarkdown(rc RenderContext, result model.WIPResult) error {
 	sorted := sortWIPByAgeDesc(result.Items)
 	issueCount, prCount := countByKind(result.Items)
 
-	// Summary.
-	staleCount := result.Staleness.Stale
-	if staleCount > 0 {
-		fmt.Fprintf(w, "**%d items** in progress (%d issues, %d PRs — %d %s)\n",
-			len(result.Items), issueCount, prCount, staleCount,
-			DocLink("stale", "/reference/metrics/staleness/"))
-	} else {
-		fmt.Fprintf(w, "**%d items** in progress (%d issues, %d PRs)\n",
-			len(result.Items), issueCount, prCount)
-	}
-
-	// Human/bot breakdown table.
-	if result.BotItemCount > 0 {
+	// Summary table — one table with everything at a glance.
+	fmt.Fprint(w, "### Summary\n\n")
+	hasBots := result.BotItemCount > 0
+	if hasBots {
 		hIssues, hPRs := countByKindFromSubset(result.Items, false, result)
 		bIssues, bPRs := countByKindFromSubset(result.Items, true, result)
-		fmt.Fprintf(w, "\n| | Items | Issues | PRs | %s |\n", DocLink("Stale", "/reference/metrics/staleness/"))
-		fmt.Fprintf(w, "| --- | ---: | ---: | ---: | ---: |\n")
-		fmt.Fprintf(w, "| Human | %d | %d | %d | %d |\n", result.HumanItemCount, hIssues, hPRs, result.HumanStaleness.Stale)
+		fmt.Fprintf(w, "| | Issues | PRs | Total | %s |\n", DocLink("Stale", "/reference/metrics/staleness/"))
+		fmt.Fprintln(w, "| --- | ---: | ---: | ---: | ---: |")
+		fmt.Fprintf(w, "| Human | %d | %d | %d | %d |\n", hIssues, hPRs, result.HumanItemCount, result.HumanStaleness.Stale)
 		fmt.Fprintf(w, "| %s | %d | %d | %d | %d |\n",
-			DocLink("Bot", "/reference/metrics/staleness/#bot-owners"), result.BotItemCount, bIssues, bPRs, result.BotStaleness.Stale)
+			DocLink("Bot", "/reference/metrics/staleness/#bot-owners"), bIssues, bPRs, result.BotItemCount, result.BotStaleness.Stale)
+		fmt.Fprintf(w, "| **Total** | **%d** | **%d** | **%d** | **%d** |\n",
+			issueCount, prCount, len(result.Items), result.Staleness.Stale)
+	} else {
+		fmt.Fprintln(w, "| | Issues | PRs | Total |")
+		fmt.Fprintln(w, "| --- | ---: | ---: | ---: |")
+		fmt.Fprintf(w, "| In progress | %d | %d | %d |\n", issueCount, prCount, len(result.Items))
+		if result.Staleness.Stale > 0 {
+			fmt.Fprintf(w, "| %s | | | %d |\n",
+				DocLink("Stale", "/reference/metrics/staleness/"), result.Staleness.Stale)
+		}
 	}
 	fmt.Fprintln(w)
+
+	// Insights — right after summary, before detail tables.
+	if len(result.Insights) > 0 {
+		fmt.Fprint(w, "### Insights\n\n")
+		for _, ins := range result.Insights {
+			fmt.Fprintf(w, "- %s\n", LinkStatTerms(ins.Message))
+		}
+		fmt.Fprintln(w)
+	}
 
 	// Stage counts with issue/PR breakdown.
 	if len(result.StageCounts) > 0 {
@@ -257,7 +267,7 @@ func WriteWIPDetailMarkdown(rc RenderContext, result model.WIPResult) error {
 		fmt.Fprintln(w)
 	}
 
-	// Staleness.
+	// Staleness breakdown.
 	fmt.Fprintf(w, "### %s\n\n", DocLink("Staleness", "/reference/metrics/staleness/"))
 	fmt.Fprintln(w, "| Signal | Threshold | Count |")
 	fmt.Fprintln(w, "| --- | --- | ---: |")
@@ -280,15 +290,6 @@ func WriteWIPDetailMarkdown(rc RenderContext, result model.WIPResult) error {
 		}
 		if result.PersonLimit != nil {
 			fmt.Fprintf(w, "- Person limit: %.0f\n", *result.PersonLimit)
-		}
-		fmt.Fprintln(w)
-	}
-
-	// Insights.
-	if len(result.Insights) > 0 {
-		fmt.Fprint(w, "### Insights\n\n")
-		for _, ins := range result.Insights {
-			fmt.Fprintf(w, "- %s\n", LinkStatTerms(ins.Message))
 		}
 		fmt.Fprintln(w)
 	}
@@ -344,27 +345,31 @@ func WriteWIPDetailPretty(rc RenderContext, result model.WIPResult) error {
 		return s
 	}
 
-	// Summary line.
-	staleCount := result.Staleness.Stale
-	if staleCount > 0 {
-		fmt.Fprintf(w, "Work in Progress: %s (%d items — %d issues, %d PRs — %d stale)\n",
-			result.Repository, len(result.Items), issueCount, prCount, staleCount)
-	} else {
-		fmt.Fprintf(w, "Work in Progress: %s (%d items — %d issues, %d PRs)\n",
-			result.Repository, len(result.Items), issueCount, prCount)
-	}
-
-	// Human/bot breakdown table.
-	if result.BotItemCount > 0 {
+	// Summary table.
+	fmt.Fprintf(w, "Work in Progress: %s\n", result.Repository)
+	hasBots := result.BotItemCount > 0
+	if hasBots {
 		hIssues, hPRs := countByKindFromSubset(result.Items, false, result)
 		bIssues, bPRs := countByKindFromSubset(result.Items, true, result)
 		t := table.New().
 			Border(lipgloss.RoundedBorder()).
-			Headers("", "Items", "Issues", "PRs", "Stale").
+			Headers("", "Issues", "PRs", "Total", "Stale").
 			Width(termWidth).
 			StyleFunc(numericRightStyle).
-			Row("Human", itoa(result.HumanItemCount), itoa(hIssues), itoa(hPRs), itoa(result.HumanStaleness.Stale)).
-			Row("Bot", itoa(result.BotItemCount), itoa(bIssues), itoa(bPRs), itoa(result.BotStaleness.Stale))
+			Row("Human", itoa(hIssues), itoa(hPRs), itoa(result.HumanItemCount), itoa(result.HumanStaleness.Stale)).
+			Row("Bot", itoa(bIssues), itoa(bPRs), itoa(result.BotItemCount), itoa(result.BotStaleness.Stale)).
+			Row("Total", itoa(issueCount), itoa(prCount), itoa(len(result.Items)), itoa(result.Staleness.Stale))
+		fmt.Fprintln(w, t)
+	} else {
+		t := table.New().
+			Border(lipgloss.RoundedBorder()).
+			Headers("", "Issues", "PRs", "Total").
+			Width(termWidth).
+			StyleFunc(numericRightStyle).
+			Row("In progress", itoa(issueCount), itoa(prCount), itoa(len(result.Items)))
+		if result.Staleness.Stale > 0 {
+			t.Row("Stale", "", "", itoa(result.Staleness.Stale))
+		}
 		fmt.Fprintln(w, t)
 	}
 	fmt.Fprintln(w)
@@ -372,6 +377,15 @@ func WriteWIPDetailPretty(rc RenderContext, result model.WIPResult) error {
 	if len(result.Items) == 0 {
 		fmt.Fprintln(w, "  No items in progress.")
 		return nil
+	}
+
+	// Insights — right after summary.
+	if len(result.Insights) > 0 {
+		fmt.Fprintln(w, "Insights:")
+		for _, ins := range result.Insights {
+			fmt.Fprintf(w, "  → %s\n", ins.Message)
+		}
+		fmt.Fprintln(w)
 	}
 
 	// Stage counts table with issue/PR breakdown.
@@ -460,15 +474,6 @@ func WriteWIPDetailPretty(rc RenderContext, result model.WIPResult) error {
 		fmt.Fprintf(w, "Person limit: %.0f\n", *result.PersonLimit)
 	}
 	fmt.Fprintln(w)
-
-	// Insights.
-	if len(result.Insights) > 0 {
-		fmt.Fprintln(w, "Insights:")
-		for _, ins := range result.Insights {
-			fmt.Fprintf(w, "  → %s\n", ins.Message)
-		}
-		fmt.Fprintln(w)
-	}
 
 	// Per-item table.
 	t := table.New().
