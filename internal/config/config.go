@@ -20,12 +20,12 @@ import (
 const (
 	DefaultConfigFile         = ".gh-velocity.yml"
 	DefaultWorkflow           = "pr"
-	DefaultHotfixWindowHours    = 72
+	DefaultHotfixWindowHours  = 72
 	DefaultBugRatioThreshold  = 0.20
-	MaxBugRatioThreshold      = 0.60 // above this is suspicious (data quality issue, not real bug ratio)
-	MaxConfigFileSize           = 64 * 1024 // 64 KB
-	MaxHotfixWindowHours        = 8760      // 1 year in hours
-	DefaultAPIThrottleSeconds   = 2
+	MaxBugRatioThreshold      = 0.60      // above this is suspicious (data quality issue, not real bug ratio)
+	MaxConfigFileSize         = 64 * 1024 // 64 KB
+	MaxHotfixWindowHours      = 8760      // 1 year in hours
+	DefaultAPIThrottleSeconds = 2
 )
 
 // WarnFunc is called for non-fatal warnings (e.g., unknown config keys).
@@ -92,7 +92,8 @@ type FixedIterationConfig struct {
 	Anchor string `yaml:"anchor" json:"anchor"` // e.g., "2026-01-06"
 }
 
-// ScopeConfig holds the user's scope query — a GitHub search query fragment.
+// ScopeConfig holds the user's scope query — a GitHub search query fragment
+// that determines which items (issues or PRs) all metrics operate on.
 type ScopeConfig struct {
 	Query string `yaml:"query" json:"query"`
 }
@@ -115,8 +116,8 @@ type LifecycleStage struct {
 	Match []string `yaml:"match" json:"match,omitempty"`
 }
 
-// LifecycleConfig defines the lifecycle stages for workflow-based filtering.
-// Commands know which stage to use; users define what each stage means.
+// LifecycleConfig defines lifecycle stages — where an item is in its workflow
+// journey. Labels are the sole lifecycle signal; their timestamps are immutable.
 type LifecycleConfig struct {
 	Backlog    LifecycleStage `yaml:"backlog" json:"backlog"`
 	InProgress LifecycleStage `yaml:"in-progress" json:"in-progress"`
@@ -138,9 +139,9 @@ type CommitRefConfig struct {
 }
 
 type QualityConfig struct {
-	Categories         []model.CategoryConfig `yaml:"categories" json:"categories"`
-	HotfixWindowHours  float64                `yaml:"hotfix_window_hours" json:"hotfix_window_hours"`
-	BugRatioThreshold float64               `yaml:"bug_ratio_threshold" json:"bug_ratio_threshold"`
+	Categories        []model.CategoryConfig `yaml:"categories" json:"categories"`
+	HotfixWindowHours float64                `yaml:"hotfix_window_hours" json:"hotfix_window_hours"`
+	BugRatioThreshold float64                `yaml:"bug_ratio_threshold" json:"bug_ratio_threshold"`
 }
 
 type DiscussionsConfig struct {
@@ -223,7 +224,7 @@ func defaults() *Config {
 				{Name: "bug", Matchers: []string{"label:bug"}},
 				{Name: "feature", Matchers: []string{"label:enhancement"}},
 			},
-			HotfixWindowHours:   DefaultHotfixWindowHours,
+			HotfixWindowHours: DefaultHotfixWindowHours,
 			BugRatioThreshold: DefaultBugRatioThreshold,
 		},
 		Velocity: VelocityConfig{

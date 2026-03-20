@@ -1,6 +1,6 @@
 ---
 title: "Linking Strategies"
-weight: 3
+weight: 4
 ---
 
 # Linking Strategies

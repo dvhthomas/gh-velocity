@@ -34,16 +34,17 @@ type jsonVelocityInsight struct {
 }
 
 type jsonOutput struct {
-	Repository   string                `json:"repository"`
-	Unit         string                `json:"unit"`
-	EffortUnit   string                `json:"effort_unit"`
-	Warnings     []string              `json:"warnings,omitempty"`
-	Insights     []jsonVelocityInsight  `json:"insights,omitempty"`
-	Provenance   model.Provenance      `json:"provenance"`
-	EffortDetail jsonEffort            `json:"effort"`
-	Current      *jsonIteration        `json:"current,omitempty"`
-	History      []jsonIteration       `json:"history,omitempty"`
-	Summary      *jsonSummary          `json:"summary,omitempty"`
+	Repository    string                `json:"repository"`
+	Unit          string                `json:"unit"`
+	EffortUnit    string                `json:"effort_unit"`
+	Warnings      []string              `json:"warnings,omitempty"`
+	Insights      []jsonVelocityInsight `json:"insights,omitempty"`
+	OffBoardItems []int                 `json:"off_board_items,omitempty"`
+	Provenance    model.Provenance      `json:"provenance"`
+	EffortDetail  jsonEffort            `json:"effort"`
+	Current       *jsonIteration        `json:"current,omitempty"`
+	History       []jsonIteration       `json:"history,omitempty"`
+	Summary       *jsonSummary          `json:"summary,omitempty"`
 }
 
 type jsonEffort struct {
@@ -125,6 +126,7 @@ func WriteJSON(w io.Writer, r model.VelocityResult) error {
 		out.History = append(out.History, toJSONIteration(h))
 	}
 	out.Provenance = r.Provenance
+	out.OffBoardItems = r.OffBoardItems
 	for _, ins := range r.Insights {
 		out.Insights = append(out.Insights, jsonVelocityInsight{Type: ins.Type, Message: ins.Message})
 	}
@@ -284,7 +286,7 @@ func notAssessedHint(strategy string) string {
 	case "attribute":
 		return "(no matching label/type)"
 	case "numeric":
-		return "(no estimate on board)"
+		return "(no effort value on board)"
 	default:
 		return ""
 	}

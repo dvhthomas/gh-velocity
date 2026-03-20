@@ -1,6 +1,6 @@
 ---
 title: "GitHub's Capabilities & Limits"
-weight: 1
+weight: 2
 ---
 
 # What GitHub Can and Cannot Tell You

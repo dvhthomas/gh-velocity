@@ -1,6 +1,6 @@
 ---
 title: "Understanding Statistics"
-weight: 2
+weight: 3
 ---
 
 # Understanding the Statistics
