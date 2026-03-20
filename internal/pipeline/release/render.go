@@ -49,17 +49,16 @@ type jsonCategoryComposition struct {
 }
 
 type jsonIssueMetrics struct {
-	Number           int               `json:"number"`
-	Title            string            `json:"title"`
-	URL              string            `json:"url,omitempty"`
-	Labels           []string          `json:"labels,omitempty"`
-	Category         string            `json:"category"`
-	LeadTime         format.JSONMetric `json:"lead_time"`
-	CycleTime        format.JSONMetric `json:"cycle_time"`
-	ReleaseLag       format.JSONMetric `json:"release_lag"`
-	CommitCount      int               `json:"commit_count"`
-	LeadTimeOutlier  bool              `json:"lead_time_outlier,omitempty"`
-	CycleTimeOutlier bool              `json:"cycle_time_outlier,omitempty"`
+	Number      int               `json:"number"`
+	Title       string            `json:"title"`
+	URL         string            `json:"url,omitempty"`
+	Labels      []string          `json:"labels,omitempty"`
+	Category    string            `json:"category"`
+	LeadTime    format.JSONMetric `json:"lead_time"`
+	CycleTime   format.JSONMetric `json:"cycle_time"`
+	ReleaseLag  format.JSONMetric `json:"release_lag"`
+	CommitCount int               `json:"commit_count"`
+	Flags       []string          `json:"flags,omitempty"`
 }
 
 type jsonAggregates struct {
@@ -101,18 +100,21 @@ func WriteJSON(w io.Writer, repo string, rm model.ReleaseMetrics, warnings []str
 	}
 
 	for _, im := range rm.Issues {
+		var flags []string
+		if im.LeadTimeOutlier || im.CycleTimeOutlier {
+			flags = []string{format.FlagOutlier}
+		}
 		out.Issues = append(out.Issues, jsonIssueMetrics{
-			Number:           im.Issue.Number,
-			Title:            im.Issue.Title,
-			URL:              im.Issue.URL,
-			Labels:           im.Issue.Labels,
-			Category:         im.Category,
-			LeadTime:         format.MetricToJSON(im.LeadTime),
-			CycleTime:        format.MetricToJSON(im.CycleTime),
-			ReleaseLag:       format.MetricToJSON(im.ReleaseLag),
-			CommitCount:      im.CommitCount,
-			LeadTimeOutlier:  im.LeadTimeOutlier,
-			CycleTimeOutlier: im.CycleTimeOutlier,
+			Number:      im.Issue.Number,
+			Title:       im.Issue.Title,
+			URL:         im.Issue.URL,
+			Labels:      im.Issue.Labels,
+			Category:    im.Category,
+			LeadTime:    format.MetricToJSON(im.LeadTime),
+			CycleTime:   format.MetricToJSON(im.CycleTime),
+			ReleaseLag:  format.MetricToJSON(im.ReleaseLag),
+			CommitCount: im.CommitCount,
+			Flags:       flags,
 		})
 	}
 
@@ -146,14 +148,12 @@ type categoryRow struct {
 }
 
 type issueRow struct {
+	Flag      string
 	Link      string
 	Title     string
-	Labels    string
 	LeadTime  string
 	CycleTime string
 	RelLag    string
-	Commits   int
-	Flag      string
 }
 
 // WriteMarkdown writes release metrics as a markdown table using an embedded template.
@@ -174,19 +174,13 @@ func WriteMarkdown(rc format.RenderContext, rm model.ReleaseMetrics, warnings []
 		})
 	}
 	for _, im := range rm.Issues {
-		flag := ""
-		if im.LeadTimeOutlier || im.CycleTimeOutlier {
-			flag = "OUTLIER"
-		}
 		data.Issues = append(data.Issues, issueRow{
+			Flag:      releaseFlag(im),
 			Link:      format.FormatItemLink(im.Issue.Number, im.Issue.URL, rc),
 			Title:     format.SanitizeMarkdown(im.Issue.Title),
-			Labels:    format.FormatLabels(im.Issue.Labels),
 			LeadTime:  format.FormatDurationPtr(im.LeadTime.Duration),
 			CycleTime: format.FormatDurationPtr(im.CycleTime.Duration),
 			RelLag:    format.FormatDurationPtr(im.ReleaseLag.Duration),
-			Commits:   im.CommitCount,
-			Flag:      flag,
 		})
 	}
 	data.LeadTime = formatStatsRow(rm.LeadTimeStats)
@@ -246,20 +240,14 @@ func WritePretty(rc format.RenderContext, rm model.ReleaseMetrics, warnings []st
 	if len(rm.Issues) > 0 {
 		fmt.Fprintln(w, "Issues")
 		tp := format.NewTable(w, rc.IsTTY, rc.Width)
-		tp.AddHeader([]string{"#", "Title", "Labels", "Lead Time", "Cycle Time", "Rel. Lag", "Commits", ""})
+		tp.AddHeader([]string{"", "#", "Title", "Lead Time", "Cycle Time", "Rel. Lag"})
 		for _, im := range rm.Issues {
-			flag := ""
-			if im.LeadTimeOutlier || im.CycleTimeOutlier {
-				flag = "OUTLIER"
-			}
+			tp.AddField(releaseFlag(im))
 			tp.AddField(format.FormatItemLink(im.Issue.Number, im.Issue.URL, rc))
 			tp.AddField(im.Issue.Title)
-			tp.AddField(format.FormatLabels(im.Issue.Labels))
 			tp.AddField(format.FormatDurationPtr(im.LeadTime.Duration))
 			tp.AddField(format.FormatDurationPtr(im.CycleTime.Duration))
 			tp.AddField(format.FormatDurationPtr(im.ReleaseLag.Duration))
-			tp.AddField(fmt.Sprintf("%d", im.CommitCount))
-			tp.AddField(flag)
 			tp.EndRow()
 		}
 		if err := tp.Render(); err != nil {
@@ -288,6 +276,14 @@ func WritePretty(rc format.RenderContext, rm model.ReleaseMetrics, warnings []st
 	}
 
 	return nil
+}
+
+// releaseFlag returns a flag emoji if the issue is a lead-time or cycle-time outlier.
+func releaseFlag(im model.IssueMetrics) string {
+	if im.LeadTimeOutlier || im.CycleTimeOutlier {
+		return format.FlagEmoji(format.FlagOutlier)
+	}
+	return ""
 }
 
 func writePrettyStatsRow(tp *format.Table, name string, s model.Stats) {
