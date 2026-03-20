@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/model"
@@ -20,8 +21,8 @@ type jsonWIPDetailOutput struct {
 	HumanEffort    float64             `json:"human_effort"`
 	BotEffort      float64             `json:"bot_effort"`
 	StageCounts    []jsonWIPStageCount `json:"stage_counts"`
-	Assignees      []jsonWIPAssignee   `json:"assignees"`
-	BotAssignees   []jsonWIPAssignee   `json:"bot_assignees,omitempty"`
+	Owners         []jsonWIPAssignee   `json:"owners"`
+	BotOwners      []jsonWIPAssignee   `json:"bot_owners,omitempty"`
 	Staleness      jsonWIPStaleness    `json:"staleness"`
 	HumanStaleness jsonWIPStaleness    `json:"human_staleness"`
 	BotStaleness   jsonWIPStaleness    `json:"bot_staleness"`
@@ -108,10 +109,10 @@ func WriteWIPDetailJSON(w io.Writer, result model.WIPResult) error {
 		out.StageCounts = append(out.StageCounts, jsc)
 	}
 
-	// Assignees (human).
-	out.Assignees = make([]jsonWIPAssignee, 0, len(result.Assignees))
+	// Owners (human).
+	out.Owners = make([]jsonWIPAssignee, 0, len(result.Assignees))
 	for _, a := range result.Assignees {
-		out.Assignees = append(out.Assignees, jsonWIPAssignee{
+		out.Owners = append(out.Owners, jsonWIPAssignee{
 			Login:       a.Login,
 			IsBot:       a.IsBot,
 			ItemCount:   a.ItemCount,
@@ -121,11 +122,11 @@ func WriteWIPDetailJSON(w io.Writer, result model.WIPResult) error {
 		})
 	}
 
-	// Bot assignees.
+	// Bot owners.
 	if len(result.BotAssignees) > 0 {
-		out.BotAssignees = make([]jsonWIPAssignee, 0, len(result.BotAssignees))
+		out.BotOwners = make([]jsonWIPAssignee, 0, len(result.BotAssignees))
 		for _, a := range result.BotAssignees {
-			out.BotAssignees = append(out.BotAssignees, jsonWIPAssignee{
+			out.BotOwners = append(out.BotOwners, jsonWIPAssignee{
 				Login:       a.Login,
 				IsBot:       true,
 				ItemCount:   a.ItemCount,
@@ -217,28 +218,28 @@ func WriteWIPDetailMarkdown(rc RenderContext, result model.WIPResult) error {
 		fmt.Fprintln(w)
 	}
 
-	// Assignees (human).
+	// Owners (human).
 	if len(result.Assignees) > 0 {
-		fmt.Fprint(w, "### Assignees\n\n")
-		fmt.Fprintln(w, "| Assignee | Items | Effort |")
+		fmt.Fprint(w, "### Owners\n\n")
+		fmt.Fprintln(w, "| Owner | Items | Effort |")
 		fmt.Fprintln(w, "| --- | ---: | ---: |")
 		for _, a := range result.Assignees {
 			flag := ""
 			if a.OverLimit {
 				flag = " :warning:"
 			}
-			fmt.Fprintf(w, "| %s%s | %d | %.0f |\n", SanitizeMarkdown(a.Login), flag, a.ItemCount, a.TotalEffort)
+			fmt.Fprintf(w, "| %s%s | %d | %.0f |\n", formatOwnerMarkdown(a.Login), flag, a.ItemCount, a.TotalEffort)
 		}
 		fmt.Fprintln(w)
 	}
 
-	// Bot assignees.
+	// Bot owners.
 	if len(result.BotAssignees) > 0 {
-		fmt.Fprint(w, "### Bot Assignees\n\n")
-		fmt.Fprintln(w, "| Assignee | Items | Effort |")
+		fmt.Fprint(w, "### Bot Owners\n\n")
+		fmt.Fprintln(w, "| Owner | Items | Effort |")
 		fmt.Fprintln(w, "| --- | ---: | ---: |")
 		for _, a := range result.BotAssignees {
-			fmt.Fprintf(w, "| %s | %d | %.0f |\n", SanitizeMarkdown(a.Login), a.ItemCount, a.TotalEffort)
+			fmt.Fprintf(w, "| %s | %d | %.0f |\n", formatOwnerMarkdown(a.Login), a.ItemCount, a.TotalEffort)
 		}
 		fmt.Fprintln(w)
 	}
@@ -343,11 +344,11 @@ func WriteWIPDetailPretty(rc RenderContext, result model.WIPResult) error {
 		fmt.Fprintln(w)
 	}
 
-	// Assignees (human).
+	// Owners (human).
 	if len(result.Assignees) > 0 {
-		fmt.Fprintln(w, "Assignees:")
+		fmt.Fprintln(w, "Owners:")
 		tp := NewTable(w, rc.IsTTY, rc.Width)
-		tp.AddHeader([]string{"Assignee", "Items", "Effort", ""})
+		tp.AddHeader([]string{"Owner", "Items", "Effort", ""})
 		for _, a := range result.Assignees {
 			flag := ""
 			if a.OverLimit {
@@ -365,11 +366,11 @@ func WriteWIPDetailPretty(rc RenderContext, result model.WIPResult) error {
 		fmt.Fprintln(w)
 	}
 
-	// Bot assignees.
+	// Bot owners.
 	if len(result.BotAssignees) > 0 {
-		fmt.Fprintln(w, "Bot Assignees:")
+		fmt.Fprintln(w, "Bot Owners:")
 		tp := NewTable(w, rc.IsTTY, rc.Width)
-		tp.AddHeader([]string{"Assignee", "Items", "Effort"})
+		tp.AddHeader([]string{"Owner", "Items", "Effort"})
 		for _, a := range result.BotAssignees {
 			tp.AddField(a.Login)
 			tp.AddField(fmt.Sprintf("%d", a.ItemCount))
@@ -426,4 +427,17 @@ func WriteWIPDetailPretty(rc RenderContext, result model.WIPResult) error {
 		tp.EndRow()
 	}
 	return tp.Render()
+}
+
+// formatOwnerMarkdown returns a GitHub @handle for markdown output.
+// GitHub's renderer auto-links @mentions, so no explicit URL needed.
+// "unassigned" is returned as-is (not a GitHub handle).
+func formatOwnerMarkdown(login string) string {
+	if login == "unassigned" {
+		return login
+	}
+	if strings.HasPrefix(login, "@") {
+		return login
+	}
+	return "@" + login
 }

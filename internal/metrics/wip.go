@@ -206,7 +206,7 @@ func GenerateWIPInsights(result model.WIPResult) []model.Insight {
 	} else {
 		insights = append(insights, model.Insight{
 			Type:    "wip_capacity",
-			Message: fmt.Sprintf("%d items in progress (no assignees).", len(result.Items)),
+			Message: fmt.Sprintf("%d items in progress (no owners).", len(result.Items)),
 		})
 	}
 
@@ -226,7 +226,7 @@ func GenerateWIPInsights(result model.WIPResult) []model.Insight {
 		if top.Login != "unassigned" {
 			insights = append(insights, model.Insight{
 				Type:    "wip_assignee_load",
-				Message: fmt.Sprintf("%s has %d items assigned, highest on team.", top.Login, top.ItemCount),
+				Message: fmt.Sprintf("%s has %d items, highest on team.", top.Login, top.ItemCount),
 			})
 		}
 	}

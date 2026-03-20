@@ -340,7 +340,7 @@ func TestGenerateWIPInsights(t *testing.T) {
 		if found == nil {
 			t.Fatal("expected wip_capacity insight")
 		}
-		if found.Message != "1 items in progress (no assignees)." {
+		if found.Message != "1 items in progress (no owners)." {
 			t.Errorf("message = %q", found.Message)
 		}
 	})
