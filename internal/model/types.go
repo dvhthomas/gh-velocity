@@ -288,6 +288,7 @@ type StatsResult struct {
 	WIPCount          *int
 	Quality           *StatsQuality
 	Warnings          []string
+	Provenance        Provenance
 
 	// Per-section insights (velocity insights live on VelocityResult.Insights).
 	LeadTimeInsights   []Insight
@@ -309,14 +310,16 @@ type ThroughputResult struct {
 	Until        time.Time
 	IssuesClosed int
 	PRsMerged    int
+	Provenance   Provenance
 }
 
 // MyWeekResult holds the "my week" summary for one user.
 type MyWeekResult struct {
-	Login string
-	Repo  string
-	Since time.Time
-	Until time.Time
+	Login      string
+	Repo       string
+	Since      time.Time
+	Until      time.Time
+	Provenance Provenance
 	// Lookback: what happened
 	IssuesClosed []Issue
 	PRsMerged    []PR
@@ -335,6 +338,7 @@ type MyWeekResult struct {
 type ReviewPressureResult struct {
 	Repository     string
 	AwaitingReview []PRAwaitingReview
+	Provenance     Provenance
 }
 
 // PRAwaitingReview represents a PR waiting for review.

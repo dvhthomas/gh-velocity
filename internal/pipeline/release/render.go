@@ -11,7 +11,6 @@ import (
 
 	"github.com/dvhthomas/gh-velocity/internal/format"
 	"github.com/dvhthomas/gh-velocity/internal/model"
-	"github.com/cli/go-gh/v2/pkg/tableprinter"
 )
 
 //go:embed templates/*.md.tmpl
@@ -291,7 +290,7 @@ func WritePretty(rc format.RenderContext, rm model.ReleaseMetrics, warnings []st
 	return nil
 }
 
-func writePrettyStatsRow(tp tableprinter.TablePrinter, name string, s model.Stats) {
+func writePrettyStatsRow(tp *format.Table, name string, s model.Stats) {
 	sd := "--"
 	if s.StdDev != nil {
 		sd = format.FormatDuration(*s.StdDev)

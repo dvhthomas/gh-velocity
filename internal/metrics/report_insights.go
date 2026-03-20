@@ -13,7 +13,7 @@ import (
 // Insight thresholds — named constants for testability and discoverability.
 const (
 	SkewThreshold      = 3.0 // mean/median ratio to trigger skew warning
-	BugRatioHigh     = 0.20
+	BugRatioHigh       = 0.20
 	BugRatioSuspicious = 0.60 // above this, suggest reviewing category matchers
 	OutlierMinCount    = 2
 	OutlierMultipleCap = 100 // cap the "Nx longer" message to avoid absurd numbers
@@ -82,10 +82,7 @@ func GenerateStatsInsights(stats model.Stats, section string, items []ItemRef) [
 
 	// Outlier detection — express in terms of median multiples, capped at 100x.
 	if stats.OutlierCount >= OutlierMinCount && stats.OutlierCutoff != nil && stats.Median != nil && *stats.Median > 0 {
-		multiple := int(math.Round(float64(*stats.OutlierCutoff) / float64(*stats.Median)))
-		if multiple < 2 {
-			multiple = 2
-		}
+		multiple := max(int(math.Round(float64(*stats.OutlierCutoff)/float64(*stats.Median))), 2)
 		if multiple > OutlierMultipleCap {
 			insights = append(insights, model.Insight{
 				Type: "outlier_detection",
@@ -449,4 +446,3 @@ func truncate(s string, maxLen int) string {
 	}
 	return s[:maxLen-1] + "…"
 }
-

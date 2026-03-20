@@ -16,7 +16,7 @@ const (
 // Metric status constants — drive rendering in template and JSON.
 const (
 	StatusOK            = "ok"
-	StatusNA            = "na"            // data not available for this item
+	StatusNA            = "na"             // data not available for this item
 	StatusNotConfigured = "not_configured" // feature needs setup
 )
 
@@ -50,7 +50,7 @@ type DetailData struct {
 }
 
 var templateFuncs = template.FuncMap{
-	"join": strings.Join,
+	"join":            strings.Join,
 	"isOK":            func() string { return StatusOK },
 	"isNA":            func() string { return StatusNA },
 	"isNotConfigured": func() string { return StatusNotConfigured },

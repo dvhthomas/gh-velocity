@@ -15,10 +15,10 @@
 <details>
 <summary>Details ({{.DetailCount}}{{if ne .DetailCount .TotalCount}} of {{.TotalCount}}{{end}} issues)</summary>
 
-| | Issue | Title | Labels | Started (UTC) | Closed (UTC) | Cycle Time |
-| :---: | ---: | --- | --- | --- | --- | --- |
+| | Issue | Title | Closed (UTC) | {{.SortHeader}} |
+| :---: | ---: | --- | --- | --- |
 {{- range .Items}}
-| {{.Flag}} | {{.Link}} | {{.Title}} | {{.Labels}} | {{.Started}} | {{.Closed}} | {{.CycleTime}} |
+| {{.Flag}} | {{.Link}} | {{.Title}} | {{.Closed}} | {{.CycleTime}} |
 {{- end}}
 
 </details>

@@ -355,16 +355,16 @@ func WriteMyWeekMarkdown(rc RenderContext, r model.MyWeekResult, ins model.MyWee
 
 // jsonMyWeekResult is the JSON serialization of MyWeekResult.
 type jsonMyWeekResult struct {
-	Login    string             `json:"login"`
-	Repo     *string            `json:"repo"`
-	Since    string             `json:"since"`
-	Until    string             `json:"until"`
+	Login     string              `json:"login"`
+	Repo      *string             `json:"repo"`
+	Since     string              `json:"since"`
+	Until     string              `json:"until"`
 	Insights  jsonMyWeekInsights  `json:"insights"`
 	WaitingOn jsonMyWeekWaitingOn `json:"waiting_on"`
 	Lookback  jsonMyWeekLookback  `json:"lookback"`
 	Ahead     jsonMyWeekAhead     `json:"ahead"`
 	Summary   jsonMyWeekSummary   `json:"summary"`
-	Warnings []string           `json:"warnings,omitempty"`
+	Warnings  []string            `json:"warnings,omitempty"`
 }
 
 type jsonMyWeekLookback struct {

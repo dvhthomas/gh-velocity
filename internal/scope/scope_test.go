@@ -260,10 +260,10 @@ func TestMergeScope(t *testing.T) {
 
 func TestDetectRepoConflict(t *testing.T) {
 	tests := []struct {
-		name       string
-		scope      string
-		repoFlag   string
-		wantRepo   string
+		name         string
+		scope        string
+		repoFlag     string
+		wantRepo     string
 		wantConflict bool
 	}{
 		{

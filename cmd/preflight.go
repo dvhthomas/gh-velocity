@@ -166,7 +166,7 @@ type PreflightResult struct {
 	Categories       map[string][]string `json:"categories,omitempty"`
 	ActiveLabels     []string            `json:"active_labels"`
 	BacklogLabels    []string            `json:"backlog_labels"`
-	NoiseLabels       []string            `json:"noise_labels,omitempty"`
+	NoiseLabels      []string            `json:"noise_labels,omitempty"`
 	ProjectURL       string              `json:"project_url,omitempty"`
 	StatusOptions    []string            `json:"status_options,omitempty"`
 	Strategy         string              `json:"strategy"`

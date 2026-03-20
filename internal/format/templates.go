@@ -314,8 +314,8 @@ type myweekTemplateData struct {
 	IssuesOpen []myweekAnnotatedRow
 	PRsOpen    []myweekAnnotatedRow
 	// Waiting on (blocked/idle items)
-	WaitingPRs    []myweekAnnotatedRow
-	StaleIssues   []myweekAnnotatedRow
+	WaitingPRs  []myweekAnnotatedRow
+	StaleIssues []myweekAnnotatedRow
 	// Review queue
 	ReviewQueue []myweekReviewRow
 }

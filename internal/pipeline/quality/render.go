@@ -47,15 +47,15 @@ type Detail struct {
 }
 
 type templateData struct {
-	Repository string
-	Since      time.Time
-	Until      time.Time
-	Insights   []string
-	Categories []CategoryRow
-	BugRatio int
-	BugCount   int
+	Repository  string
+	Since       time.Time
+	Until       time.Time
+	Insights    []string
+	Categories  []CategoryRow
+	BugRatio    int
+	BugCount    int
 	TotalIssues int
-	Items      []itemRow
+	Items       []itemRow
 }
 
 type itemRow struct {
@@ -73,7 +73,7 @@ func WriteMarkdown(rc format.RenderContext, d Detail) error {
 		Since:       d.Since,
 		Until:       d.Until,
 		Categories:  d.Categories,
-		BugRatio:  int(d.Quality.BugRatio * 100),
+		BugRatio:    int(d.Quality.BugRatio * 100),
 		BugCount:    d.Quality.BugCount,
 		TotalIssues: d.Quality.TotalIssues,
 	}

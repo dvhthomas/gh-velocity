@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cli/go-gh/v2/pkg/term"
 	"github.com/dvhthomas/gh-velocity/internal/config"
 	"github.com/dvhthomas/gh-velocity/internal/dateutil"
 	"github.com/dvhthomas/gh-velocity/internal/format"
@@ -14,7 +15,6 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/metrics"
 	"github.com/dvhthomas/gh-velocity/internal/model"
 	"github.com/dvhthomas/gh-velocity/internal/scope"
-	"github.com/cli/go-gh/v2/pkg/term"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 )
