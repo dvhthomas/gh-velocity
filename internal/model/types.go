@@ -84,6 +84,29 @@ type PR struct {
 	URL       string
 }
 
+// Review represents a single PR review submission.
+type Review struct {
+	Author      string    // GitHub login
+	State       string    // APPROVED, CHANGES_REQUESTED, COMMENTED, DISMISSED
+	SubmittedAt time.Time
+}
+
+// ReviewSummary holds computed review metrics for a PR.
+type ReviewSummary struct {
+	Reviews          []Review
+	TimeToFirstReview *time.Duration // PR created → first substantive review
+	ReviewRounds     int            // count of APPROVED or CHANGES_REQUESTED reviews
+}
+
+// AuthorType classifies a PR author.
+type AuthorType string
+
+const (
+	AuthorHuman         AuthorType = "human"
+	AuthorBot           AuthorType = "bot"
+	AuthorAgentAssisted AuthorType = "agent-assisted"
+)
+
 // Release represents a GitHub release or git tag.
 type Release struct {
 	TagName      string

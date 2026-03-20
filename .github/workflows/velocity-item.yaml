@@ -31,7 +31,7 @@ jobs:
         run: |
           gh velocity issue ${{ github.event.issue.number }} --post
 
-  pr-cycle-time:
+  pr-detail:
     # Only when a PR is actually merged (not just closed)
     if: >-
       github.event_name == 'pull_request' &&
@@ -42,9 +42,9 @@ jobs:
 
       - run: gh extension install dvhthomas/gh-velocity
 
-      - name: Post cycle time to PR
+      - name: Post PR detail
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_VELOCITY_POST_LIVE: "true"
         run: |
-          gh velocity flow cycle-time --pr ${{ github.event.pull_request.number }} --post
+          gh velocity pr ${{ github.event.pull_request.number }} --post

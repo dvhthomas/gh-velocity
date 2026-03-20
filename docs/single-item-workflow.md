@@ -1,6 +1,6 @@
 # Automatic metrics on issues and PRs
 
-Post lead-time and cycle-time comments automatically when issues close or PRs merge. Each comment appears on the item itself — no bulk reports, no manual steps.
+Post composite detail comments automatically when issues close or PRs merge. Each comment appears on the item itself — no bulk reports, no manual steps.
 
 **Already have a working `.gh-velocity.yml`?** Skip to [The workflow](#the-workflow).
 
@@ -75,7 +75,7 @@ jobs:
         run: |
           gh velocity issue ${{ github.event.issue.number }} --post
 
-  pr-cycle-time:
+  pr-detail:
     # Only when a PR is actually merged (not just closed)
     if: >-
       github.event_name == 'pull_request' &&
@@ -86,12 +86,12 @@ jobs:
 
       - run: gh extension install dvhthomas/gh-velocity
 
-      - name: Post cycle time to PR
+      - name: Post PR detail
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_VELOCITY_POST_LIVE: "true"
         run: |
-          gh velocity flow cycle-time --pr ${{ github.event.pull_request.number }} --post
+          gh velocity pr ${{ github.event.pull_request.number }} --post
 ```
 
 Copy this file into your repo and commit it. No other changes needed — `GITHUB_TOKEN` is provided automatically by GitHub Actions.
@@ -119,18 +119,18 @@ if: github.event_name == 'issues'
 | `issues: write` | Posting lead-time comments on issues |
 | `pull-requests: write` | Posting cycle-time comments on PRs |
 
-### Why the workflow uses `--pr` for cycle time
+### What each command measures
 
-The cycle-time job uses `cycle-time --pr <number>` rather than `cycle-time <number>`. This matters:
+| Command | Metrics | Data source |
+|---------|---------|-------------|
+| `gh velocity issue <N>` | Lead time, cycle time, category, linked PRs | Issue timeline, config lifecycle labels |
+| `gh velocity pr <N>` | Cycle time (created → merged), time to first review, review rounds, author type, closed issues | PR data, review timeline, commit trailers |
 
-- **`--pr`** measures PR creation to merge. It works with just `GITHUB_TOKEN` and has no external dependencies.
-- **Without `--pr`**, cycle-time uses your configured strategy (often project-board-based), which requires `GH_VELOCITY_TOKEN` and is sensitive to board timestamp accuracy.
-
-The `--pr` flag is the right choice for this workflow — it measures the code review cycle for the specific PR being merged, using only data GitHub provides natively.
+Both commands work with just `GITHUB_TOKEN`. The `pr` command measures the code review cycle for the specific PR being merged, using only data GitHub provides natively.
 
 ### When you need GH_VELOCITY_TOKEN
 
-The workflow above uses only `GITHUB_TOKEN`, which is sufficient for lead-time and PR-based cycle-time.
+The workflow above uses only `GITHUB_TOKEN`, which is sufficient for both `issue` and `pr` commands.
 
 If your config has a `project:` section and you want issue-based cycle time (from board status changes), you also need `GH_VELOCITY_TOKEN` — a classic PAT with `project` scope. See the [CI integration guide](guide.md#setting-up-gh_velocity_token-for-ci) for setup instructions.
 
@@ -164,18 +164,29 @@ On an issue, the `issue` command posts a rich composite comment with facts, metr
 > |----|-------|------------|
 > | #111 | fix: stability-first rollup | 1m (created -> merged) |
 
-On a PR, the cycle-time comment shows:
+On a PR, the `pr` command posts a composite comment with author info, review metrics, and closed issues:
 
-| PR | Title | Started (UTC) | Cycle Time |
-| ---: | --- | --- | --- |
-| #125 | feat: HTML format, insight flags, and cleanup | 2026-03-19 | 27m  (created -> merged) |
+> ## PR #125: feat: HTML format, insight flags, and cleanup
+>
+> **Author:** dvhthomas · **Opened:** 2026-03-19 01:49 UTC · **Merged:** 2026-03-19 02:16 UTC
+>
+> | Metric | Value |
+> |--------|-------|
+> | Cycle Time | 27m (created -> merged) |
+> | Time to First Review | 12m |
+> | Review Rounds | 1 |
+>
+> ### Closed Issues
+> | Issue | Title |
+> |-------|-------|
+> | #119 | feat(preflight): auto-detect and exclude noise labels |
 
 ### Two comments from one PR merge
 
 When a PR with "Closes #42" is merged, GitHub fires both the `issues[closed]` and `pull_request[closed]` events. Both workflow jobs run:
 
-- **Lead-time comment** appears on issue #42 (time from issue creation to close)
-- **Cycle-time comment** appears on the PR (time from PR creation to merge)
+- **Issue detail comment** appears on issue #42 (lead time, cycle time, category, linked PRs)
+- **PR detail comment** appears on the PR (cycle time, review metrics, author type, closed issues)
 
 This is intentional — each metric belongs on the item it measures.
 
@@ -202,7 +213,11 @@ GH_VELOCITY_POST_LIVE=true gh velocity issue 42 --post
 Replace `42` with a real closed issue number in your repo. For PRs:
 
 ```bash
-gh velocity flow cycle-time --pr 10 --post
+# Dry-run
+gh velocity pr 10 --post
+
+# Live
+GH_VELOCITY_POST_LIVE=true gh velocity pr 10 --post
 ```
 
 Once you see the expected output, commit the workflow file and the comments will appear automatically on future closures and merges.
