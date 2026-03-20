@@ -194,39 +194,37 @@ type wipTemplateData struct {
 	Repository string
 	Items      []wipItemRow
 	Count      int
+	SortHeader string
 }
 
 type wipItemRow struct {
+	Flag         string
 	Link         string
 	Title        string
-	Labels       string
 	Status       string
 	Age          string
-	Kind         string
 	LastActivity string
-	Staleness    string
 }
 
 func renderWIPMarkdown(w io.Writer, rc RenderContext, repo string, items []model.WIPItem) error {
-	sorted := sortWIPByAgeDesc(items)
+	sorted := SortBy(items, "age", Desc, func(it model.WIPItem) *time.Duration { return &it.Age })
 	data := wipTemplateData{
 		Repository: repo,
 		Count:      len(items),
+		SortHeader: sorted.Header("age", "Age"),
 	}
-	for _, item := range sorted {
+	for _, item := range sorted.Items {
 		link := ""
 		if item.Number > 0 {
 			link = FormatItemLink(item.Number, item.URL, rc)
 		}
 		data.Items = append(data.Items, wipItemRow{
+			Flag:         wipFlag(item),
 			Link:         link,
 			Title:        SanitizeMarkdown(item.Title),
-			Labels:       FormatLabels(item.Labels),
 			Status:       item.Status,
 			Age:          FormatDuration(item.Age),
-			Kind:         item.Kind,
 			LastActivity: formatLastActivity(item.UpdatedAt),
-			Staleness:    string(item.Staleness),
 		})
 	}
 	return wipMarkdownTmpl.Execute(w, data)

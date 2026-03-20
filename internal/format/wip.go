@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
 	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/model"
@@ -78,28 +77,28 @@ func WriteWIPMarkdown(rc RenderContext, repo string, items []model.WIPItem) erro
 
 // WriteWIPPretty writes WIP items as a formatted table.
 func WriteWIPPretty(rc RenderContext, repo string, items []model.WIPItem) error {
-	sorted := sortWIPByAgeDesc(items)
+	sorted := SortBy(items, "age", Desc, func(it model.WIPItem) *time.Duration { return &it.Age })
 
 	fmt.Fprintf(rc.Writer, "Work in Progress: %s (%d items)\n\n", repo, len(items))
 
-	if len(sorted) == 0 {
+	if len(sorted.Items) == 0 {
 		fmt.Fprintln(rc.Writer, "  No items in progress.")
 		return nil
 	}
 
 	tp := NewTable(rc.Writer, rc.IsTTY, rc.Width)
-	tp.AddHeader([]string{"#", "Title", "Status", "Age", "Last Activity", "Signal"})
-	for _, item := range sorted {
+	tp.AddHeader([]string{"", "#", "Title", "Status", sorted.Header("age", "Age"), "Last Activity"})
+	for _, item := range sorted.Items {
 		num := ""
 		if item.Number > 0 {
 			num = FormatItemLink(item.Number, item.URL, rc)
 		}
+		tp.AddField(wipFlag(item))
 		tp.AddField(num)
 		tp.AddField(item.Title)
 		tp.AddField(item.Status)
 		tp.AddField(FormatDuration(item.Age))
 		tp.AddField(formatLastActivity(item.UpdatedAt))
-		tp.AddField(string(item.Staleness))
 		tp.EndRow()
 	}
 	return tp.Render()
@@ -122,12 +121,14 @@ func formatLastActivity(updatedAt time.Time) string {
 	return fmt.Sprintf("%dd ago", days)
 }
 
-// sortWIPByAgeDesc sorts WIP items by age descending (oldest first).
-func sortWIPByAgeDesc(items []model.WIPItem) []model.WIPItem {
-	sorted := make([]model.WIPItem, len(items))
-	copy(sorted, items)
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Age > sorted[j].Age
-	})
-	return sorted
+// wipFlag returns an emoji flag based on staleness.
+func wipFlag(item model.WIPItem) string {
+	switch item.Staleness {
+	case model.StalenessStale:
+		return FlagEmoji(FlagStale)
+	case model.StalenessAging:
+		return FlagEmoji(FlagAging)
+	default:
+		return ""
+	}
 }
