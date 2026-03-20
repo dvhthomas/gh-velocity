@@ -30,7 +30,7 @@ The generated config includes **match evidence** — comments showing how many i
 > [!TIP]
 > Check these evidence comments before you commit your config. Matchers with 20+ matches are solid. Zero-match matchers may need a different label name — check your repo's actual labels with `gh label list`.
 
-You can also preview what preflight would generate without writing the file (dry run):
+You can also preview what preflight would generate without writing the file (dry-run):
 
 ```bash
 gh velocity config preflight

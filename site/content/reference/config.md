@@ -39,7 +39,7 @@ How your team delivers code.
 | **Default** | `"pr"` |
 | **Valid values** | `"pr"`, `"local"` |
 
-- `"pr"` -- PRs close issues (most teams). Enables PR-based linking strategies and cycle time.
+- `"pr"` -- PRs close issues (most teams). Enables PR strategy linking and cycle time.
 - `"local"` -- Direct commits to main (solo projects, scripts). Uses commit-ref strategy.
 
 ```yaml

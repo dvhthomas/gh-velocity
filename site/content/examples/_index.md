@@ -166,7 +166,7 @@ lifecycle:
 ## Example 3: cli/cli with velocity -- Fixed iterations for sprint tracking
 
 **Repo**: cli/cli with velocity tracking added
-**Strategy**: PR-based cycle time, fixed 14-day iterations, count-based effort
+**Strategy**: PR strategy cycle time, fixed 14-day iterations, count-based effort
 
 ```yaml
 scope:
