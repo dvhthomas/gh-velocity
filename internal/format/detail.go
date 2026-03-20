@@ -10,7 +10,7 @@ import (
 // DocPaths for linking from metric status values.
 const (
 	DocPathCycleTimeSetup = "/guides/cycle-time-setup/"
-	DocPathCycleTimeRef   = "/reference/metrics/cycle-time/"
+	DocPathCycleTimeNA    = "/guides/troubleshooting/#cycle-time-shows-na-for-all-issues"
 )
 
 // Metric status constants — drive rendering in template and JSON.

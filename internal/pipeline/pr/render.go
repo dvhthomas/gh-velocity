@@ -35,7 +35,7 @@ func WriteMarkdown(rc format.RenderContext, p *Pipeline) error {
 		ttfrRow.Value = format.FormatDuration(*p.ReviewSummary.TimeToFirstReview)
 	} else {
 		ttfrRow.Status = format.StatusNA
-		ttfrRow.HelpURL = format.DocSiteURL + format.DocPathCycleTimeRef
+		ttfrRow.HelpURL = format.DocSiteURL + format.DocPathCycleTimeNA
 	}
 
 	metrics := []format.MetricRow{

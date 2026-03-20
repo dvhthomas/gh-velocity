@@ -12,7 +12,7 @@ import (
 
 var (
 	cycleTimeSetupURL = format.DocSiteURL + format.DocPathCycleTimeSetup
-	cycleTimeRefURL   = format.DocSiteURL + format.DocPathCycleTimeRef
+	cycleTimeNAURL    = format.DocSiteURL + format.DocPathCycleTimeNA
 )
 
 // WriteMarkdown writes the issue detail as GitHub-flavored markdown.
@@ -46,7 +46,7 @@ func WriteMarkdown(rc format.RenderContext, p *Pipeline) error {
 		ctRow.HelpURL = cycleTimeSetupURL
 	} else {
 		ctRow.Status = format.StatusNA
-		ctRow.HelpURL = cycleTimeRefURL
+		ctRow.HelpURL = cycleTimeNAURL
 	}
 	metrics = append(metrics, ctRow)
 
