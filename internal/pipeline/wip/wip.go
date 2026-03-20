@@ -314,6 +314,14 @@ func toWIPItemFromIssue(issue model.Issue, stage, matchedMatcher string, now tim
 }
 
 func toWIPItemFromPR(pr model.PR, stage, matchedMatcher string, now time.Time) model.WIPItem {
+	// PRs use Author as WIP owner (not Assignees, which are rarely set on PRs).
+	// Fall-through: Author → Assignees → unassigned.
+	var assignees []string
+	if pr.Author != "" {
+		assignees = []string{pr.Author}
+	} else if len(pr.Assignees) > 0 {
+		assignees = pr.Assignees
+	}
 	return model.WIPItem{
 		Number:         pr.Number,
 		Title:          pr.Title,
@@ -323,7 +331,7 @@ func toWIPItemFromPR(pr model.PR, stage, matchedMatcher string, now time.Time) m
 		Kind:           "PR",
 		URL:            pr.URL,
 		Labels:         pr.Labels,
-		Assignees:      pr.Assignees,
+		Assignees:      assignees,
 		UpdatedAt:      pr.UpdatedAt,
 		Staleness:      metrics.ComputeStaleness(pr.UpdatedAt, now),
 	}
