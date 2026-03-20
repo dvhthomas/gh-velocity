@@ -68,7 +68,13 @@ func ComputeWIPStageCounts(items []model.WIPItem, inProgressMatchers, inReviewMa
 // Items with multiple assignees count for each. Items with no assignees
 // count under "unassigned". Returns top `limit` entries sorted by ItemCount
 // descending, then Login ascending.
-func ComputeWIPAssignees(items []model.WIPItem, limit int) []model.WIPAssignee {
+// The excludeUsers parameter is used to detect bot accounts via IsBotUser.
+func ComputeWIPAssignees(items []model.WIPItem, limit int, excludeUsers ...[]string) []model.WIPAssignee {
+	var eu []string
+	if len(excludeUsers) > 0 {
+		eu = excludeUsers[0]
+	}
+
 	type accumulator struct {
 		count       int
 		totalEffort float64
@@ -97,6 +103,7 @@ func ComputeWIPAssignees(items []model.WIPItem, limit int) []model.WIPAssignee {
 	for login, a := range agg {
 		result = append(result, model.WIPAssignee{
 			Login:       login,
+			IsBot:       IsBotUser(login, eu),
 			ItemCount:   a.count,
 			TotalEffort: a.totalEffort,
 			ByStage:     a.byStage,
@@ -115,6 +122,50 @@ func ComputeWIPAssignees(items []model.WIPItem, limit int) []model.WIPAssignee {
 	}
 
 	return result
+}
+
+// PartitionAssignees splits assignees into human and bot lists.
+// Human list is truncated to limit; bot list includes all.
+func PartitionAssignees(all []model.WIPAssignee, limit int) (human, bot []model.WIPAssignee) {
+	for _, a := range all {
+		if a.IsBot {
+			bot = append(bot, a)
+		} else {
+			human = append(human, a)
+		}
+	}
+	if limit > 0 && len(human) > limit {
+		human = human[:limit]
+	}
+	return human, bot
+}
+
+// ClassifyItemsByBot partitions WIP items into human-assigned and bot-assigned
+// based on assignee bot detection. Items with no assignees or at least one
+// human assignee are classified as human. Items where ALL assignees are bots
+// are classified as bot.
+func ClassifyItemsByBot(items []model.WIPItem, excludeUsers []string) (humanItems, botItems []model.WIPItem) {
+	for _, item := range items {
+		if isAllBotAssigned(item.Assignees, excludeUsers) {
+			botItems = append(botItems, item)
+		} else {
+			humanItems = append(humanItems, item)
+		}
+	}
+	return humanItems, botItems
+}
+
+// isAllBotAssigned returns true if the item has assignees and all of them are bots.
+func isAllBotAssigned(assignees []string, excludeUsers []string) bool {
+	if len(assignees) == 0 {
+		return false // unassigned items are "human"
+	}
+	for _, login := range assignees {
+		if !IsBotUser(login, excludeUsers) {
+			return false
+		}
+	}
+	return true
 }
 
 // ComputeWIPStaleness counts items by staleness level.
@@ -141,7 +192,7 @@ func GenerateWIPInsights(result model.WIPResult) []model.Insight {
 		return nil
 	}
 
-	// Count unique people.
+	// Count unique people (human assignees only).
 	people := make(map[string]bool)
 	for _, a := range result.Assignees {
 		if a.Login != "unassigned" {
@@ -160,6 +211,16 @@ func GenerateWIPInsights(result model.WIPResult) []model.Insight {
 		insights = append(insights, model.Insight{
 			Type:    "wip_capacity",
 			Message: fmt.Sprintf("%d items in progress (no assignees).", len(result.Items)),
+		})
+	}
+
+	// wip_bot_activity: "N items assigned to bots (M% of WIP)"
+	if result.BotItemCount > 0 {
+		total := len(result.Items)
+		pct := float64(result.BotItemCount) / float64(total) * 100
+		insights = append(insights, model.Insight{
+			Type:    "wip_bot_activity",
+			Message: fmt.Sprintf("%d items assigned to bots (%.0f%% of WIP).", result.BotItemCount, pct),
 		})
 	}
 
@@ -198,11 +259,12 @@ func GenerateWIPInsights(result model.WIPResult) []model.Insight {
 		}
 	}
 
-	// wip_team_limit_exceeded
-	if result.TeamLimit != nil && result.TotalEffort > *result.TeamLimit {
+	// wip_team_limit_exceeded — applies to human effort only.
+	humanEffort := result.HumanEffort
+	if result.TeamLimit != nil && humanEffort > *result.TeamLimit {
 		insights = append(insights, model.Insight{
 			Type:    "wip_team_limit_exceeded",
-			Message: fmt.Sprintf("Team WIP (%.0f) exceeds limit (%.0f). Consider finishing items before starting new work.", result.TotalEffort, *result.TeamLimit),
+			Message: fmt.Sprintf("Human WIP (%.0f) exceeds team limit (%.0f). Consider finishing items before starting new work.", humanEffort, *result.TeamLimit),
 		})
 	}
 

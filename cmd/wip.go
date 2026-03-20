@@ -62,6 +62,7 @@ func runWIP(cmd *cobra.Command) error {
 		LifecycleConfig: cfg.Lifecycle,
 		EffortConfig:    cfg.Effort,
 		WIPConfig:       cfg.WIP,
+		ExcludeUsers:    cfg.ExcludeUsers,
 		Scope:           deps.Scope,
 		Now:             deps.Now(),
 		Debug:           deps.Debug,

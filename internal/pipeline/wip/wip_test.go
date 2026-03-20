@@ -332,10 +332,10 @@ func TestProcessData_WIPLimits(t *testing.T) {
 		t.Error("expected team limit to be set")
 	}
 
-	// Warnings should include team limit exceeded.
+	// Warnings should include team limit exceeded (now references "human WIP").
 	var hasTeamWarning, hasPersonWarning bool
 	for _, w := range p.Warnings {
-		if contains(w, "team WIP limit") {
+		if contains(w, "human WIP exceeds team limit") {
 			hasTeamWarning = true
 		}
 		if contains(w, "alice") && contains(w, "person WIP limit") {
@@ -343,7 +343,7 @@ func TestProcessData_WIPLimits(t *testing.T) {
 		}
 	}
 	if !hasTeamWarning {
-		t.Error("expected team WIP limit warning")
+		t.Error("expected human WIP exceeds team limit warning")
 	}
 	if !hasPersonWarning {
 		t.Error("expected person WIP limit warning for alice")
@@ -356,6 +356,103 @@ func TestProcessData_WIPLimits(t *testing.T) {
 		}
 		if a.Login == "bob" && a.OverLimit {
 			t.Error("bob should not be over limit")
+		}
+	}
+}
+
+func TestProcessData_BotSplit(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
+
+	p := &Pipeline{
+		Owner: "owner",
+		Repo:  "repo",
+		Now:   now,
+		LifecycleConfig: config.LifecycleConfig{
+			InProgress: config.LifecycleStage{Match: []string{"label:in-progress"}},
+		},
+		EffortConfig: config.EffortConfig{Strategy: "count"},
+		WIPConfig:    config.WIPConfig{},
+		openIssues: []model.Issue{
+			{Number: 1, Labels: []string{"in-progress"}, Assignees: []string{"alice"}, CreatedAt: now, UpdatedAt: now},
+			{Number: 2, Labels: []string{"in-progress"}, Assignees: []string{"dependabot[bot]"}, CreatedAt: now, UpdatedAt: now},
+			{Number: 3, Labels: []string{"in-progress"}, Assignees: []string{"bob"}, CreatedAt: now, UpdatedAt: now},
+		},
+	}
+
+	if err := p.ProcessData(); err != nil {
+		t.Fatalf("ProcessData error: %v", err)
+	}
+
+	// 3 total items: 2 human, 1 bot.
+	if p.Result.HumanItemCount != 2 {
+		t.Errorf("HumanItemCount = %d, want 2", p.Result.HumanItemCount)
+	}
+	if p.Result.BotItemCount != 1 {
+		t.Errorf("BotItemCount = %d, want 1", p.Result.BotItemCount)
+	}
+
+	// Human assignees should not include dependabot.
+	for _, a := range p.Result.Assignees {
+		if a.Login == "dependabot[bot]" {
+			t.Error("dependabot[bot] should not be in human Assignees")
+		}
+	}
+
+	// Bot assignees should include dependabot.
+	var foundBot bool
+	for _, a := range p.Result.BotAssignees {
+		if a.Login == "dependabot[bot]" {
+			foundBot = true
+		}
+	}
+	if !foundBot {
+		t.Error("dependabot[bot] should be in BotAssignees")
+	}
+
+	// Effort split.
+	if p.Result.HumanEffort != 2 {
+		t.Errorf("HumanEffort = %f, want 2", p.Result.HumanEffort)
+	}
+	if p.Result.BotEffort != 1 {
+		t.Errorf("BotEffort = %f, want 1", p.Result.BotEffort)
+	}
+}
+
+func TestProcessData_WIPLimitsApplyToHumanOnly(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
+	teamLimit := 3.0
+
+	p := &Pipeline{
+		Owner: "owner",
+		Repo:  "repo",
+		Now:   now,
+		LifecycleConfig: config.LifecycleConfig{
+			InProgress: config.LifecycleStage{Match: []string{"label:in-progress"}},
+		},
+		EffortConfig: config.EffortConfig{Strategy: "count"},
+		WIPConfig:    config.WIPConfig{TeamLimit: &teamLimit},
+		openIssues: []model.Issue{
+			{Number: 1, Labels: []string{"in-progress"}, Assignees: []string{"alice"}, CreatedAt: now, UpdatedAt: now},
+			{Number: 2, Labels: []string{"in-progress"}, Assignees: []string{"alice"}, CreatedAt: now, UpdatedAt: now},
+			{Number: 3, Labels: []string{"in-progress"}, Assignees: []string{"dependabot[bot]"}, CreatedAt: now, UpdatedAt: now},
+			{Number: 4, Labels: []string{"in-progress"}, Assignees: []string{"dependabot[bot]"}, CreatedAt: now, UpdatedAt: now},
+		},
+	}
+
+	if err := p.ProcessData(); err != nil {
+		t.Fatalf("ProcessData error: %v", err)
+	}
+
+	// Total effort is 4 (exceeds limit 3), but human effort is 2 (within limit 3).
+	// No team limit warning should be emitted.
+	for _, w := range p.Warnings {
+		if contains(w, "team limit") {
+			t.Errorf("should not warn about team limit when human effort (%f) is within limit, got: %s",
+				p.Result.HumanEffort, w)
 		}
 	}
 }

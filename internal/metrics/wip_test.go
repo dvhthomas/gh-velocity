@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/dvhthomas/gh-velocity/internal/model"
@@ -413,18 +414,39 @@ func TestGenerateWIPInsights(t *testing.T) {
 		}
 	})
 
-	t.Run("team limit exceeded insight", func(t *testing.T) {
+	t.Run("team limit exceeded insight uses human effort", func(t *testing.T) {
 		t.Parallel()
 		teamLimit := 5.0
 		result := GenerateWIPInsights(model.WIPResult{
 			Items:       make([]model.WIPItem, 10),
 			TotalEffort: 10,
+			HumanEffort: 8,
 			TeamLimit:   &teamLimit,
 			Assignees:   []model.WIPAssignee{{Login: "alice", ItemCount: 10}},
 		})
 		found := findInsight(result, "wip_team_limit_exceeded")
 		if found == nil {
 			t.Fatal("expected wip_team_limit_exceeded insight")
+		}
+		if !strings.Contains(found.Message, "Human WIP") {
+			t.Errorf("expected message to reference Human WIP, got %q", found.Message)
+		}
+	})
+
+	t.Run("team limit not exceeded when human effort within limit", func(t *testing.T) {
+		t.Parallel()
+		teamLimit := 10.0
+		result := GenerateWIPInsights(model.WIPResult{
+			Items:       make([]model.WIPItem, 15),
+			TotalEffort: 15,
+			HumanEffort: 8,
+			BotEffort:   7,
+			TeamLimit:   &teamLimit,
+			Assignees:   []model.WIPAssignee{{Login: "alice", ItemCount: 8}},
+		})
+		found := findInsight(result, "wip_team_limit_exceeded")
+		if found != nil {
+			t.Error("should not have team limit insight when human effort is within limit")
 		}
 	})
 
@@ -444,6 +466,134 @@ func TestGenerateWIPInsights(t *testing.T) {
 			t.Fatal("expected wip_person_limit_exceeded insight")
 		}
 	})
+}
+
+func TestGenerateWIPInsights_BotActivity(t *testing.T) {
+	t.Parallel()
+
+	t.Run("bot activity insight when bots present", func(t *testing.T) {
+		t.Parallel()
+		result := GenerateWIPInsights(model.WIPResult{
+			Items:          make([]model.WIPItem, 10),
+			BotItemCount:   3,
+			HumanItemCount: 7,
+			Assignees:      []model.WIPAssignee{{Login: "alice", ItemCount: 7}},
+		})
+		found := findInsight(result, "wip_bot_activity")
+		if found == nil {
+			t.Fatal("expected wip_bot_activity insight")
+		}
+		if !strings.Contains(found.Message, "3 items assigned to bots") {
+			t.Errorf("unexpected message: %q", found.Message)
+		}
+		if !strings.Contains(found.Message, "30%") {
+			t.Errorf("expected 30%% in message, got: %q", found.Message)
+		}
+	})
+
+	t.Run("no bot activity insight when no bots", func(t *testing.T) {
+		t.Parallel()
+		result := GenerateWIPInsights(model.WIPResult{
+			Items:          make([]model.WIPItem, 5),
+			HumanItemCount: 5,
+			Assignees:      []model.WIPAssignee{{Login: "alice", ItemCount: 5}},
+		})
+		if findInsight(result, "wip_bot_activity") != nil {
+			t.Error("should not have bot activity insight when no bots")
+		}
+	})
+}
+
+func TestPartitionAssignees(t *testing.T) {
+	t.Parallel()
+
+	all := []model.WIPAssignee{
+		{Login: "alice", IsBot: false, ItemCount: 5},
+		{Login: "dependabot[bot]", IsBot: true, ItemCount: 3},
+		{Login: "bob", IsBot: false, ItemCount: 2},
+		{Login: "renovate", IsBot: true, ItemCount: 1},
+	}
+
+	human, bot := PartitionAssignees(all, 10)
+	if len(human) != 2 {
+		t.Errorf("human count = %d, want 2", len(human))
+	}
+	if len(bot) != 2 {
+		t.Errorf("bot count = %d, want 2", len(bot))
+	}
+	if human[0].Login != "alice" {
+		t.Errorf("human[0] = %q, want alice", human[0].Login)
+	}
+	if bot[0].Login != "dependabot[bot]" {
+		t.Errorf("bot[0] = %q, want dependabot[bot]", bot[0].Login)
+	}
+}
+
+func TestPartitionAssignees_Limit(t *testing.T) {
+	t.Parallel()
+
+	all := []model.WIPAssignee{
+		{Login: "alice", IsBot: false, ItemCount: 5},
+		{Login: "bob", IsBot: false, ItemCount: 4},
+		{Login: "charlie", IsBot: false, ItemCount: 3},
+	}
+
+	human, bot := PartitionAssignees(all, 2)
+	if len(human) != 2 {
+		t.Errorf("human count = %d, want 2", len(human))
+	}
+	if len(bot) != 0 {
+		t.Errorf("bot count = %d, want 0", len(bot))
+	}
+}
+
+func TestClassifyItemsByBot(t *testing.T) {
+	t.Parallel()
+
+	items := []model.WIPItem{
+		{Number: 1, Assignees: []string{"alice"}},
+		{Number: 2, Assignees: []string{"dependabot[bot]"}},
+		{Number: 3, Assignees: []string{"bob", "alice"}},
+		{Number: 4, Assignees: nil},                                    // unassigned -> human
+		{Number: 5, Assignees: []string{"dependabot[bot]", "renovate"}}, // all bots
+		{Number: 6, Assignees: []string{"alice", "dependabot[bot]"}},    // mixed -> human
+	}
+
+	human, bot := ClassifyItemsByBot(items, nil)
+	if len(human) != 4 {
+		t.Errorf("human count = %d, want 4", len(human))
+	}
+	if len(bot) != 2 {
+		t.Errorf("bot count = %d, want 2", len(bot))
+	}
+
+	// Bot items should be #2 and #5.
+	botNumbers := map[int]bool{}
+	for _, b := range bot {
+		botNumbers[b.Number] = true
+	}
+	if !botNumbers[2] {
+		t.Error("expected item #2 to be bot")
+	}
+	if !botNumbers[5] {
+		t.Error("expected item #5 to be bot")
+	}
+}
+
+func TestClassifyItemsByBot_ExcludeUsers(t *testing.T) {
+	t.Parallel()
+
+	items := []model.WIPItem{
+		{Number: 1, Assignees: []string{"my-ci-bot"}},
+	}
+
+	human, bot := ClassifyItemsByBot(items, []string{"my-ci-bot"})
+	if len(human) != 0 {
+		t.Errorf("human count = %d, want 0", len(human))
+	}
+	if len(bot) != 1 {
+		t.Errorf("bot count = %d, want 1", len(bot))
+	}
 }
 
 func findInsight(insights []model.Insight, insightType string) *model.Insight {

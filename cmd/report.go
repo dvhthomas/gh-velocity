@@ -330,6 +330,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 			LifecycleConfig: cfg.Lifecycle,
 			EffortConfig:    cfg.Effort,
 			WIPConfig:       cfg.WIP,
+			ExcludeUsers:    cfg.ExcludeUsers,
 			Now:             now,
 			InjectedIssues:  throughputPipeline.OpenIssues,
 			InjectedPRs:     throughputPipeline.OpenPRs,

@@ -284,16 +284,23 @@ type WIPItem struct {
 
 // WIPResult holds the complete WIP analysis for output.
 type WIPResult struct {
-	Repository  string
-	Items       []WIPItem
-	StageCounts []WIPStageCount // per-stage with matcher sub-counts
-	Assignees   []WIPAssignee   // top N by item count
-	Staleness   WIPStaleness    // aggregate ACTIVE/AGING/STALE counts
-	TotalEffort float64         // sum of effort across all WIP items
-	TeamLimit   *float64        // configured team limit (nil if not set)
-	PersonLimit *float64        // configured person limit (nil if not set)
-	Warnings    []string
-	Insights    []Insight
+	Repository     string
+	Items          []WIPItem
+	StageCounts    []WIPStageCount // per-stage with matcher sub-counts
+	Assignees      []WIPAssignee   // human assignees (top N by item count)
+	BotAssignees   []WIPAssignee   // bot assignees (all)
+	Staleness      WIPStaleness    // aggregate ACTIVE/AGING/STALE counts
+	HumanStaleness WIPStaleness    // staleness for human-assigned items only
+	BotStaleness   WIPStaleness    // staleness for bot-assigned items only
+	TotalEffort    float64         // sum of effort across all WIP items
+	HumanEffort    float64         // effort from human-assigned items
+	BotEffort      float64         // effort from bot-assigned items
+	HumanItemCount int             // items assigned to humans (or unassigned)
+	BotItemCount   int             // items assigned to bots
+	TeamLimit      *float64        // configured team limit (nil if not set)
+	PersonLimit    *float64        // configured person limit (nil if not set)
+	Warnings       []string
+	Insights       []Insight
 }
 
 // WIPStageCount holds counts for a lifecycle stage with per-matcher breakdown.
@@ -313,6 +320,7 @@ type WIPMatcherCount struct {
 // WIPAssignee holds WIP load for a single assignee.
 type WIPAssignee struct {
 	Login       string
+	IsBot       bool           // true if detected as bot account
 	ItemCount   int
 	TotalEffort float64
 	ByStage     map[string]int // stage -> count

@@ -27,6 +27,7 @@ type Pipeline struct {
 	LifecycleConfig config.LifecycleConfig
 	EffortConfig    config.EffortConfig
 	WIPConfig       config.WIPConfig
+	ExcludeUsers    []string // from config, used for bot detection
 	Scope           string
 	Now             time.Time
 	Debug           bool
@@ -207,40 +208,63 @@ func (p *Pipeline) ProcessData() error {
 
 	// Compute aggregates.
 	stageCounts := metrics.ComputeWIPStageCounts(items, inProgressMatchers, inReviewMatchers)
-	assignees := metrics.ComputeWIPAssignees(items, 10)
+	allAssignees := metrics.ComputeWIPAssignees(items, 0, p.ExcludeUsers) // no limit yet, partition first
 	staleness := metrics.ComputeWIPStaleness(items)
 
+	// Partition assignees into human and bot.
+	humanAssignees, botAssignees := metrics.PartitionAssignees(allAssignees, 10)
+
+	// Classify items as human or bot.
+	humanItems, botItems := metrics.ClassifyItemsByBot(items, p.ExcludeUsers)
+
 	// Total effort.
-	var totalEffort float64
+	var totalEffort, humanEffort, botEffort float64
 	for _, item := range items {
 		totalEffort += item.EffortValue
 	}
+	for _, item := range humanItems {
+		humanEffort += item.EffortValue
+	}
+	for _, item := range botItems {
+		botEffort += item.EffortValue
+	}
 
-	// Check WIP limits and generate limit warnings.
-	if p.WIPConfig.TeamLimit != nil && totalEffort > *p.WIPConfig.TeamLimit {
-		p.warn("wip: team WIP limit exceeded (%.0f items, limit %.0f)", totalEffort, *p.WIPConfig.TeamLimit)
+	// Human/bot staleness.
+	humanStaleness := metrics.ComputeWIPStaleness(humanItems)
+	botStaleness := metrics.ComputeWIPStaleness(botItems)
+
+	// Check WIP limits — apply only to human effort.
+	if p.WIPConfig.TeamLimit != nil && humanEffort > *p.WIPConfig.TeamLimit {
+		p.warn("wip: human WIP exceeds team limit (%.0f items, limit %.0f)", humanEffort, *p.WIPConfig.TeamLimit)
 	}
 	if p.WIPConfig.PersonLimit != nil {
-		for i := range assignees {
-			if assignees[i].TotalEffort > *p.WIPConfig.PersonLimit {
-				assignees[i].OverLimit = true
+		for i := range humanAssignees {
+			if humanAssignees[i].TotalEffort > *p.WIPConfig.PersonLimit {
+				humanAssignees[i].OverLimit = true
 				p.warn("wip: %s exceeds person WIP limit (%.0f items, limit %.0f)",
-					assignees[i].Login, assignees[i].TotalEffort, *p.WIPConfig.PersonLimit)
+					humanAssignees[i].Login, humanAssignees[i].TotalEffort, *p.WIPConfig.PersonLimit)
 			}
 		}
 	}
 
 	// Assemble result.
 	p.Result = model.WIPResult{
-		Repository:  fmt.Sprintf("%s/%s", p.Owner, p.Repo),
-		Items:       items,
-		StageCounts: stageCounts,
-		Assignees:   assignees,
-		Staleness:   staleness,
-		TotalEffort: totalEffort,
-		TeamLimit:   p.WIPConfig.TeamLimit,
-		PersonLimit: p.WIPConfig.PersonLimit,
-		Warnings:    p.Warnings,
+		Repository:     fmt.Sprintf("%s/%s", p.Owner, p.Repo),
+		Items:          items,
+		StageCounts:    stageCounts,
+		Assignees:      humanAssignees,
+		BotAssignees:   botAssignees,
+		Staleness:      staleness,
+		HumanStaleness: humanStaleness,
+		BotStaleness:   botStaleness,
+		TotalEffort:    totalEffort,
+		HumanEffort:    humanEffort,
+		BotEffort:      botEffort,
+		HumanItemCount: len(humanItems),
+		BotItemCount:   len(botItems),
+		TeamLimit:      p.WIPConfig.TeamLimit,
+		PersonLimit:    p.WIPConfig.PersonLimit,
+		Warnings:       p.Warnings,
 	}
 
 	// Generate insights.

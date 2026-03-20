@@ -44,9 +44,11 @@ type jsonThroughput struct {
 }
 
 type jsonWIP struct {
-	TotalItems int           `json:"total_items"`
-	StaleCount int           `json:"stale_count"`
-	Insights   []JSONInsight `json:"insights,omitempty"`
+	TotalItems     int           `json:"total_items"`
+	HumanItemCount int           `json:"human_item_count"`
+	BotItemCount   int           `json:"bot_item_count"`
+	StaleCount     int           `json:"stale_count"`
+	Insights       []JSONInsight `json:"insights,omitempty"`
 }
 
 type jsonStatsQuality struct {
@@ -104,9 +106,11 @@ func WriteReportJSON(w io.Writer, r model.StatsResult) error {
 	}
 	if r.WIP != nil {
 		out.WIP = &jsonWIP{
-			TotalItems: len(r.WIP.Items),
-			StaleCount: r.WIP.Staleness.Stale,
-			Insights:   InsightsToJSON(r.WIP.Insights),
+			TotalItems:     len(r.WIP.Items),
+			HumanItemCount: r.WIP.HumanItemCount,
+			BotItemCount:   r.WIP.BotItemCount,
+			StaleCount:     r.WIP.Staleness.Stale,
+			Insights:       InsightsToJSON(r.WIP.Insights),
 		}
 	}
 	if r.Quality != nil {
@@ -198,10 +202,18 @@ func WriteReportPretty(rc RenderContext, r model.StatsResult) error {
 	if r.WIP != nil {
 		stale := r.WIP.Staleness.Stale
 		total := len(r.WIP.Items)
-		if stale > 0 {
-			fmt.Fprintf(w, "  WIP:         %d items (%d stale)\n", total, stale)
+		if r.WIP.BotItemCount > 0 {
+			if stale > 0 {
+				fmt.Fprintf(w, "  WIP:         %d items (%d human, %d bot, %d stale)\n", total, r.WIP.HumanItemCount, r.WIP.BotItemCount, stale)
+			} else {
+				fmt.Fprintf(w, "  WIP:         %d items (%d human, %d bot)\n", total, r.WIP.HumanItemCount, r.WIP.BotItemCount)
+			}
 		} else {
-			fmt.Fprintf(w, "  WIP:         %d items\n", total)
+			if stale > 0 {
+				fmt.Fprintf(w, "  WIP:         %d items (%d stale)\n", total, stale)
+			} else {
+				fmt.Fprintf(w, "  WIP:         %d items\n", total)
+			}
 		}
 	} else {
 		fmt.Fprintf(w, "  WIP:         not configured\n")

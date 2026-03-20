@@ -167,10 +167,18 @@ func renderReportMarkdown(w io.Writer, r model.StatsResult) error {
 	if r.WIP != nil {
 		stale := r.WIP.Staleness.Stale
 		total := len(r.WIP.Items)
-		if stale > 0 {
-			data.WIP = fmt.Sprintf("%d items (%d stale)", total, stale)
+		if r.WIP.BotItemCount > 0 {
+			if stale > 0 {
+				data.WIP = fmt.Sprintf("%d items (%d human, %d bot, %d stale)", total, r.WIP.HumanItemCount, r.WIP.BotItemCount, stale)
+			} else {
+				data.WIP = fmt.Sprintf("%d items (%d human, %d bot)", total, r.WIP.HumanItemCount, r.WIP.BotItemCount)
+			}
 		} else {
-			data.WIP = fmt.Sprintf("%d items", total)
+			if stale > 0 {
+				data.WIP = fmt.Sprintf("%d items (%d stale)", total, stale)
+			} else {
+				data.WIP = fmt.Sprintf("%d items", total)
+			}
 		}
 	}
 	if r.Quality != nil {
