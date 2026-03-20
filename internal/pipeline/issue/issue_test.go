@@ -175,20 +175,21 @@ func TestRenderMarkdown(t *testing.T) {
 
 	out := buf.String()
 	// Check key elements
-	if !strings.Contains(out, "## Issue #119: test issue") {
-		t.Error("missing issue header")
+	checks := []struct {
+		label, contains string
+	}{
+		{"Metrics header", "### Metrics"},
+		{"opened timestamp", "Opened 2026-03-18"},
+		{"closed timestamp", "Closed 2026-03-18"},
+		{"lead time row", "Lead Time"},
+		{"eng cycle time row", "Eng Cycle Time"},
+		{"PR link", "#120"},
+		{"footer", "gh-velocity"},
 	}
-	if !strings.Contains(out, "**Category:** feature") {
-		t.Error("missing category")
-	}
-	if !strings.Contains(out, "Lead Time") {
-		t.Error("missing lead time row")
-	}
-	if !strings.Contains(out, "Linked PRs") {
-		t.Error("missing linked PRs section")
-	}
-	if !strings.Contains(out, "#120") {
-		t.Error("missing PR link")
+	for _, c := range checks {
+		if !strings.Contains(out, c.contains) {
+			t.Errorf("missing %s: expected %q in output:\n%s", c.label, c.contains, out)
+		}
 	}
 }
 
@@ -241,47 +242,3 @@ func TestRenderJSON(t *testing.T) {
 	}
 }
 
-func TestFormatMetricOrDash(t *testing.T) {
-	tests := []struct {
-		name     string
-		metric   model.Metric
-		reason   string
-		contains string
-	}{
-		{
-			name: "completed metric",
-			metric: model.NewMetric(
-				&model.Event{Time: time.Now(), Signal: "a"},
-				&model.Event{Time: time.Now().Add(time.Hour), Signal: "b"},
-			),
-			contains: "1h",
-		},
-		{
-			name:   "in progress",
-			metric: model.Metric{Start: &model.Event{Time: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)}},
-			reason: "ignored",
-			contains: "in progress since 2026-03-01",
-		},
-		{
-			name:     "not applicable with reason",
-			metric:   model.Metric{},
-			reason:   "no signal",
-			contains: "— (no signal)",
-		},
-		{
-			name:     "not applicable no reason",
-			metric:   model.Metric{},
-			reason:   "",
-			contains: "—",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := formatMetricOrDash(tt.metric, tt.reason)
-			if !strings.Contains(got, tt.contains) {
-				t.Errorf("got %q, want to contain %q", got, tt.contains)
-			}
-		})
-	}
-}

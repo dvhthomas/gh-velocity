@@ -375,6 +375,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 	root.AddCommand(NewStatusCmd())
 	root.AddCommand(NewReportCmd())
 	root.AddCommand(NewIssueCmd())
+	root.AddCommand(NewPRCmd())
 
 	// Deprecated: keep `release` as a hidden alias for backwards compatibility.
 	deprecatedRelease := NewReleaseCmd()

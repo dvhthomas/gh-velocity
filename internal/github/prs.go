@@ -16,7 +16,13 @@ type prResponse struct {
 	CreatedAt time.Time  `json:"created_at"`
 	MergedAt  *time.Time `json:"merged_at"`
 	HTMLURL   string     `json:"html_url"`
-	Labels    []struct {
+	User      *struct {
+		Login string `json:"login"`
+	} `json:"user"`
+	MergedBy *struct {
+		Login string `json:"login"`
+	} `json:"merged_by"`
+	Labels []struct {
 		Name string `json:"name"`
 	} `json:"labels"`
 }
@@ -34,7 +40,7 @@ func (c *Client) GetPR(ctx context.Context, number int) (*model.PR, error) {
 		labels[i] = l.Name
 	}
 
-	return &model.PR{
+	pr := &model.PR{
 		Number:    resp.Number,
 		Title:     resp.Title,
 		State:     resp.State,
@@ -42,5 +48,12 @@ func (c *Client) GetPR(ctx context.Context, number int) (*model.PR, error) {
 		CreatedAt: resp.CreatedAt,
 		MergedAt:  resp.MergedAt,
 		URL:       resp.HTMLURL,
-	}, nil
+	}
+	if resp.User != nil {
+		pr.Author = resp.User.Login
+	}
+	if resp.MergedBy != nil {
+		pr.MergedBy = resp.MergedBy.Login
+	}
+	return pr, nil
 }

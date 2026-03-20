@@ -163,14 +163,15 @@ func (p *BodyPoster) Post(ctx context.Context, opts PostOptions) error {
 	}
 
 	newBody := InjectMarkedSection(currentBody, opts.Command, opts.Context, markedContent)
+	itemURL := itemURL(opts)
 
 	if p.DryRun {
 		if currentBody == newBody {
-			log.Notice("[dry-run] Body of #%d already up to date", opts.Number)
+			log.Notice("[dry-run] Body of #%d already up to date — %s", opts.Number, itemURL)
 		} else if FindMarker(currentBody, opts.Command, opts.Context) {
-			log.Notice("[dry-run] Would update metrics section in body of #%d", opts.Number)
+			log.Notice("[dry-run] Would update metrics section in body of #%d — %s", opts.Number, itemURL)
 		} else {
-			log.Notice("[dry-run] Would append metrics section to body of #%d", opts.Number)
+			log.Notice("[dry-run] Would append metrics section to body of #%d — %s", opts.Number, itemURL)
 		}
 		return nil
 	}
@@ -183,11 +184,23 @@ func (p *BodyPoster) Post(ctx context.Context, opts PostOptions) error {
 	}
 
 	if FindMarker(currentBody, opts.Command, opts.Context) {
-		log.Notice("Updated metrics in body of #%d", opts.Number)
+		log.Notice("Updated metrics in body of #%d — %s", opts.Number, itemURL)
 	} else {
-		log.Notice("Appended metrics to body of #%d", opts.Number)
+		log.Notice("Appended metrics to body of #%d — %s", opts.Number, itemURL)
 	}
 	return nil
+}
+
+// itemURL constructs a clickable GitHub URL for a posted item.
+func itemURL(opts PostOptions) string {
+	if opts.Repo == "" {
+		return fmt.Sprintf("#%d", opts.Number)
+	}
+	kind := "issues"
+	if opts.Command == "pr" {
+		kind = "pull"
+	}
+	return fmt.Sprintf("https://github.com/%s/%s/%d", opts.Repo, kind, opts.Number)
 }
 
 // DiscussionPoster posts metrics as GitHub Discussions.

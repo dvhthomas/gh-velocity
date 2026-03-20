@@ -10,46 +10,60 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
+var (
+	cycleTimeSetupURL = format.DocSiteURL + format.DocPathCycleTimeSetup
+	cycleTimeNAURL    = format.DocSiteURL + format.DocPathCycleTimeNA
+)
+
 // WriteMarkdown writes the issue detail as GitHub-flavored markdown.
 func WriteMarkdown(rc format.RenderContext, p *Pipeline) error {
-	w := rc.Writer
-
-	// Header
-	fmt.Fprintf(w, "## Issue #%d: %s\n\n", p.IssueNumber, p.Issue.Title)
-
-	// Facts line
-	fmt.Fprintf(w, "**Created:** %s UTC", p.Issue.CreatedAt.UTC().Format("2006-01-02 15:04"))
+	// Facts — readable sentence.
+	facts := fmt.Sprintf("Opened %s UTC.", format.FormatTimestamp(p.Issue.CreatedAt))
 	if p.Issue.ClosedAt != nil {
-		fmt.Fprintf(w, " · **Closed:** %s UTC", p.Issue.ClosedAt.UTC().Format("2006-01-02 15:04"))
+		facts = fmt.Sprintf("Opened %s UTC. Closed %s UTC.",
+			format.FormatTimestamp(p.Issue.CreatedAt),
+			format.FormatTimestamp(*p.Issue.ClosedAt))
 	}
-	fmt.Fprintf(w, " · **Category:** %s\n\n", p.Category)
 
-	// Metrics table
-	fmt.Fprintf(w, "| Metric | Value |\n")
-	fmt.Fprintf(w, "|--------|-------|\n")
-
-	ltReason := ""
-	if p.Issue.ClosedAt == nil {
-		ltReason = "issue still open"
+	// Metrics rows
+	ltRow := format.MetricRow{Name: "Lead Time", Status: format.StatusOK, Value: format.FormatMetric(p.LeadTime)}
+	if p.LeadTime.Duration == nil {
+		ltRow.Status = format.StatusNA
 	}
-	fmt.Fprintf(w, "| Lead Time | %s |\n", formatMetricOrDash(p.LeadTime, ltReason))
+	metrics := []format.MetricRow{ltRow}
 
-	ctReason := cycleTimeNAReason(p)
-	fmt.Fprintf(w, "| Cycle Time | %s |\n", formatMetricOrDash(p.CycleTime, ctReason))
+	ctRow := format.MetricRow{Name: "Cycle Time"}
+	if p.CycleTime.Duration != nil {
+		ctRow.Status = format.StatusOK
+		ctRow.Value = format.FormatMetric(p.CycleTime)
+	} else if p.CycleTime.Start != nil {
+		ctRow.Status = format.StatusOK
+		ctRow.Value = fmt.Sprintf("in progress since %s", p.CycleTime.Start.Time.UTC().Format(time.DateOnly))
+	} else if !p.HasLifecycleMatch {
+		ctRow.Status = format.StatusNotConfigured
+		ctRow.HelpURL = cycleTimeSetupURL
+	} else {
+		ctRow.Status = format.StatusNA
+		ctRow.HelpURL = cycleTimeNAURL
+	}
+	metrics = append(metrics, ctRow)
 
-	// Linked PRs
-	if len(p.LinkedPRs) > 0 {
-		fmt.Fprintf(w, "\n### Linked PRs\n\n")
-		fmt.Fprintf(w, "| PR | Title | Cycle Time |\n")
-		fmt.Fprintf(w, "|----|-------|------------|\n")
-		for _, lpr := range p.LinkedPRs {
+	for _, lpr := range p.LinkedPRs {
+		if lpr.CycleTime.Duration != nil {
 			prLink := format.FormatItemLink(lpr.PR.Number, lpr.PR.URL, rc)
-			ctStr := formatMetricOrDash(lpr.CycleTime, "PR not merged")
-			fmt.Fprintf(w, "| %s | %s | %s |\n", prLink, lpr.PR.Title, ctStr)
+			metrics = append(metrics, format.MetricRow{
+				Name:  fmt.Sprintf("Eng Cycle Time (%s)", prLink),
+				Value: format.FormatMetric(lpr.CycleTime),
+			})
 		}
 	}
 
-	return nil
+	d := format.DetailData{
+		Facts:   facts,
+		Metrics: metrics,
+	}
+
+	return format.WriteDetail(rc.Writer, d)
 }
 
 // WritePretty writes the issue detail in human-readable text.
@@ -63,19 +77,28 @@ func WritePretty(rc format.RenderContext, p *Pipeline) error {
 	}
 	fmt.Fprintf(w, "  Category:   %s\n", p.Category)
 
-	ltReason := ""
-	if p.Issue.ClosedAt == nil {
-		ltReason = "issue still open"
+	if p.LeadTime.Duration != nil {
+		fmt.Fprintf(w, "  Lead Time:  %s\n", format.FormatMetric(p.LeadTime))
+	} else {
+		fmt.Fprintf(w, "  Lead Time:  n/a\n")
 	}
-	fmt.Fprintf(w, "  Lead Time:  %s\n", formatMetricOrDash(p.LeadTime, ltReason))
 
 	ctReason := cycleTimeNAReason(p)
-	fmt.Fprintf(w, "  Cycle Time: %s\n", formatMetricOrDash(p.CycleTime, ctReason))
+	if p.CycleTime.Duration != nil {
+		fmt.Fprintf(w, "  Cycle Time: %s\n", format.FormatMetric(p.CycleTime))
+	} else if ctReason != "" {
+		fmt.Fprintf(w, "  Cycle Time: %s\n", ctReason)
+	} else {
+		fmt.Fprintf(w, "  Cycle Time: n/a\n")
+	}
 
 	if len(p.LinkedPRs) > 0 {
 		fmt.Fprintf(w, "\n  Linked PRs:\n")
 		for _, lpr := range p.LinkedPRs {
-			ctStr := formatMetricOrDash(lpr.CycleTime, "PR not merged")
+			ctStr := "n/a"
+			if lpr.CycleTime.Duration != nil {
+				ctStr = format.FormatMetric(lpr.CycleTime)
+			}
 			fmt.Fprintf(w, "    PR #%d  %s  (%s)\n", lpr.PR.Number, lpr.PR.Title, ctStr)
 		}
 	}
@@ -195,13 +218,13 @@ func metricToJSON(m model.Metric, naReason string) jsonMetricValue {
 // cycleTimeNAReason returns the N/A reason string for cycle time.
 func cycleTimeNAReason(p *Pipeline) string {
 	if p.CycleTime.Duration != nil || p.CycleTime.Start != nil {
-		return "" // not N/A
+		return ""
 	}
 	if p.CycleTimeFiltered {
 		return "negative cycle time filtered"
 	}
-	if p.Strategy == nil {
-		return "no cycle time strategy configured"
+	if !p.HasLifecycleMatch {
+		return "not configured"
 	}
-	return "configure lifecycle.in-progress.match for cycle time"
+	return "no in-progress signal found"
 }
