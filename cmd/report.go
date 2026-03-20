@@ -405,7 +405,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 				if err := writeDetail(rc, summary, func() error {
 					return qualitypipe.WriteMarkdown(rc, detail)
 				}, func() error {
-					return qualitypipe.WritePretty(rc.Writer, detail)
+					return qualitypipe.WritePretty(rc, detail)
 				}); err != nil {
 					return err
 				}
