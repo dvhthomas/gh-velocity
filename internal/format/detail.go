@@ -75,7 +75,7 @@ var templateFuncs = template.FuncMap{
 var detailTemplate = template.Must(template.New("detail").Funcs(templateFuncs).Parse(
 	`### Metrics
 
-{{ .Facts }}{{ if .ClosedIssues }} · closed {{ plural (len .ClosedIssues) "issue" "issues" }}:{{ range .ClosedIssues }} [{{ .Text }}]({{ .URL }}){{ end }}{{ end }}
+{{ .Facts }}{{ if .ClosedIssues }} Closed {{ plural (len .ClosedIssues) "issue" "issues" }}:{{ range .ClosedIssues }} [{{ .Text }}]({{ .URL }}){{ end }}.{{ end }}
 
 | Metric | Value |
 |--------|-------|
@@ -105,18 +105,7 @@ func WriteDetail(w io.Writer, d DetailData) error {
 	return detailTemplate.Execute(w, d)
 }
 
-// FormatFacts joins non-empty fact strings with " · ".
-func FormatFacts(facts ...string) string {
-	var out []string
-	for _, f := range facts {
-		if f != "" {
-			out = append(out, f)
-		}
-	}
-	return strings.Join(out, " · ")
-}
-
-// FormatTimeFact formats a labeled timestamp for the facts line.
-func FormatTimeFact(label string, t time.Time) string {
-	return label + " " + t.UTC().Format("2006-01-02 15:04") + " UTC"
+// FormatTimestamp formats a timestamp for display (without label or timezone suffix).
+func FormatTimestamp(t time.Time) string {
+	return t.UTC().Format("2006-01-02 15:04")
 }

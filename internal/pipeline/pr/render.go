@@ -12,18 +12,19 @@ import (
 
 // WriteMarkdown writes the PR detail as GitHub-flavored markdown.
 func WriteMarkdown(rc format.RenderContext, p *Pipeline) error {
-	// Facts — build a readable sentence
-	// "Opened by @author on <date>" or "Opened by @author on <date> and merged by @merger on <date>"
-	facts := fmt.Sprintf("opened by @%s%s on %s UTC",
+	// Facts — readable sentence with proper casing and punctuation.
+	facts := fmt.Sprintf("Opened by @%s%s on %s UTC",
 		p.PR.Author, authorTypeSuffix(p.AuthorType),
 		p.PR.CreatedAt.UTC().Format("2006-01-02 15:04"))
 	if p.PR.MergedAt != nil {
 		merger := p.PR.MergedBy
 		if merger == "" || merger == p.PR.Author {
-			facts += fmt.Sprintf(", merged %s UTC", p.PR.MergedAt.UTC().Format("2006-01-02 15:04"))
+			facts += fmt.Sprintf(". Merged %s UTC.", p.PR.MergedAt.UTC().Format("2006-01-02 15:04"))
 		} else {
-			facts += fmt.Sprintf(", merged by @%s on %s UTC", merger, p.PR.MergedAt.UTC().Format("2006-01-02 15:04"))
+			facts += fmt.Sprintf(". Merged by @%s on %s UTC.", merger, p.PR.MergedAt.UTC().Format("2006-01-02 15:04"))
 		}
+	} else {
+		facts += "."
 	}
 
 	// Metrics rows

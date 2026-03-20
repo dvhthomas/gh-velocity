@@ -275,12 +275,12 @@ func TestRenderMarkdown(t *testing.T) {
 	}{
 		{"Metrics header", "### Metrics"},
 		{"author in facts", "@dvhthomas"},
-		{"opened by", "opened by @dvhthomas"},
-		{"merged", "merged 2026-03-19"},
+		{"opened by", "Opened by @dvhthomas"},
+		{"merged", "Merged 2026-03-19"},
 		{"cycle time row", "Cycle Time"},
 		{"time to first review", "Time to First Review"},
 		{"review rounds", "Review Rounds"},
-		{"closed issue sentence", "closed issue:"},
+		{"closed issue sentence", "Closed issue:"},
 		{"issue link", "#119"},
 		{"footer", "gh-velocity"},
 	}

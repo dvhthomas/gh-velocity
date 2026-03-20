@@ -17,15 +17,13 @@ var (
 
 // WriteMarkdown writes the issue detail as GitHub-flavored markdown.
 func WriteMarkdown(rc format.RenderContext, p *Pipeline) error {
-	// Facts
-	closedFact := ""
+	// Facts — readable sentence.
+	facts := fmt.Sprintf("Opened %s UTC.", format.FormatTimestamp(p.Issue.CreatedAt))
 	if p.Issue.ClosedAt != nil {
-		closedFact = format.FormatTimeFact("closed", *p.Issue.ClosedAt)
+		facts = fmt.Sprintf("Opened %s UTC. Closed %s UTC.",
+			format.FormatTimestamp(p.Issue.CreatedAt),
+			format.FormatTimestamp(*p.Issue.ClosedAt))
 	}
-	facts := format.FormatFacts(
-		format.FormatTimeFact("opened", p.Issue.CreatedAt),
-		closedFact,
-	)
 
 	// Metrics rows
 	ltRow := format.MetricRow{Name: "Lead Time", Status: format.StatusOK, Value: format.FormatMetric(p.LeadTime)}

@@ -179,8 +179,8 @@ func TestRenderMarkdown(t *testing.T) {
 		label, contains string
 	}{
 		{"Metrics header", "### Metrics"},
-		{"opened timestamp", "opened 2026-03-18"},
-		{"closed timestamp", "closed 2026-03-18"},
+		{"opened timestamp", "Opened 2026-03-18"},
+		{"closed timestamp", "Closed 2026-03-18"},
 		{"lead time row", "Lead Time"},
 		{"eng cycle time row", "Eng Cycle Time"},
 		{"PR link", "#120"},
