@@ -185,6 +185,39 @@ func OpenPRsAwaitingReviewSearchURL(owner, repo string) string {
 	return q.URL()
 }
 
+// OpenIssueByLabelQuery returns a Query for open issues with a specific label.
+func OpenIssueByLabelQuery(scopeStr, label string) Query {
+	return Query{
+		Scope:     scopeStr,
+		Type:      "is:issue",
+		Lifecycle: fmt.Sprintf(`is:open label:"%s"`, label),
+	}
+}
+
+// OpenPRByLabelQuery returns a Query for open PRs with a specific label.
+func OpenPRByLabelQuery(scopeStr, label string) Query {
+	return Query{
+		Scope:     scopeStr,
+		Type:      "is:pr",
+		Lifecycle: fmt.Sprintf(`is:open label:"%s"`, label),
+	}
+}
+
+// OpenUnlabeledPRQuery returns a Query for open PRs that do not have any of
+// the given labels. This supports PR native signal fallback — catching open
+// PRs that aren't tagged with lifecycle labels.
+func OpenUnlabeledPRQuery(scopeStr string, excludeLabels []string) Query {
+	lifecycle := "is:open"
+	if excl := BuildLabelExclusions(excludeLabels); excl != "" {
+		lifecycle += " " + excl
+	}
+	return Query{
+		Scope:     scopeStr,
+		Type:      "is:pr",
+		Lifecycle: lifecycle,
+	}
+}
+
 // MergeScope combines config scope and flag scope with AND semantics.
 // Both are GitHub search query fragments; they're joined with a space.
 // Empty strings are ignored.
