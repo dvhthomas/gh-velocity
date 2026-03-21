@@ -34,11 +34,33 @@ discussions:
   category: General
 ```
 
-The tool creates a Discussion in the specified category with the report as the body. The title includes the command, repo, and date range.
+The `category` must name an existing category in the repository's Discussions settings (e.g., `"General"`, `"Reports"`, `"Announcements"`). The match is case-insensitive. If `discussions.category` is not set, `--post` fails with an error on bulk commands.
+
+This is the only configurable aspect of discussion posting -- title and destination are automatic (see below).
+
+### Discussion destination
+
+Discussions are created in the repository being analyzed -- the `--repo` / `-R` target, or auto-detected from the git remote. There is no cross-repo posting; the discussion always lives in the same repo as the data.
+
+### Discussion title
+
+The title is generated automatically and is not configurable:
+
+```
+gh-velocity {command}: {owner/repo} ({YYYY-MM-DD})
+```
+
+Examples:
+
+- `gh-velocity report: cli/cli (2026-03-21)`
+- `gh-velocity quality release: dvhthomas/gh-velocity (2026-03-21)`
+- `gh-velocity flow throughput: myorg/myapp (2026-03-21)`
+
+The date is the UTC date when the command runs, not the `--since` window.
 
 ## Idempotent posting
 
-Running the same command with `--post` multiple times updates the existing Discussion or comment instead of creating a duplicate. It matches on title (for Discussions) or a signature comment (for issue/PR comments).
+Running the same command with `--post` multiple times updates the existing Discussion or comment instead of creating a duplicate. For Discussions, the tool embeds an invisible HTML comment marker in the body that identifies the command and context (e.g., `report` with `--since 30d`). On subsequent runs, it searches the last 50 discussions in the configured category for a matching marker and updates that discussion's body. For issue/PR comments, it uses the same marker approach to find and update the existing comment.
 
 To force a new post instead of updating, use `--new-post`:
 

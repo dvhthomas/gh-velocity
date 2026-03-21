@@ -461,14 +461,16 @@ Configuration for posting reports to GitHub Discussions.
 | **Type** | string |
 | **Default** | `""` (none) |
 
-Discussion category name to post to (e.g., `"General"`, `"Reports"`). Must already exist in the repository's Discussions settings.
+Discussion category name to post to (e.g., `"General"`, `"Reports"`). Must already exist in the repository's Discussions settings -- the tool resolves the name to an internal ID at runtime using a case-insensitive match.
+
+If this field is empty or missing when `--post` is used on a bulk command, the command fails with an error. This is the only configurable aspect of discussion posting -- the discussion title and destination repository are determined automatically (see [Posting Reports]({{< relref "/guides/posting-reports" >}}) for details).
 
 ```yaml
 discussions:
   category: General
 ```
 
-Used by the `--post` flag on bulk commands to create or update Discussion posts.
+Used by the `--post` flag on bulk commands (`report`, `quality release`, `flow throughput`, etc.) to create or update Discussion posts in the analyzed repository.
 
 ---
 
