@@ -42,7 +42,8 @@ type Deps struct {
 	Config       *config.Config
 	Output       OutputConfig
 	Post         bool
-	NewPost      bool // --new-post: force a new post (skip idempotent update)
+	NewPost      bool   // --new-post: force a new post (skip idempotent update)
+	PostTitle    string // --title: override discussion title from config
 	DryRun       bool // true unless GH_VELOCITY_POST_LIVE=true — protects against accidental mutations
 	Owner        string
 	Repo         string
@@ -163,8 +164,9 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 		repoFlag    string
 		configFlag  string
 		scopeFlag   string
-		postFlag    bool
-		newPostFlag bool
+		postFlag      bool
+		newPostFlag   bool
+		postTitleFlag string
 		debugFlag   bool
 		noCacheFlag bool
 	)
@@ -336,6 +338,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 				},
 				Post:         postFlag,
 				NewPost:      newPostFlag,
+				PostTitle:    postTitleFlag,
 				DryRun:       dryRun,
 				Owner:        owner,
 				Repo:         repo,
@@ -360,6 +363,7 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 	root.PersistentFlags().StringVar(&configFlag, "config", "", "Path to config file (default: .gh-velocity.yml)")
 	root.PersistentFlags().BoolVar(&postFlag, "post", false, "Post output to GitHub (dry-run by default; set GH_VELOCITY_POST_LIVE=true for live)")
 	root.PersistentFlags().BoolVar(&newPostFlag, "new-post", false, "Force a new post (skip idempotent update; implies --post)")
+	root.PersistentFlags().StringVar(&postTitleFlag, "title", "", "Override discussion title (with --post)")
 	root.PersistentFlags().StringVar(&scopeFlag, "scope", "", "Additional GitHub search qualifier(s) ANDed with config scope")
 	root.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Print diagnostic info to stderr")
 	root.PersistentFlags().BoolVar(&noCacheFlag, "no-cache", false, "Disable disk cache (in-memory deduplication still active)")

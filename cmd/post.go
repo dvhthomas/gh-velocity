@@ -59,8 +59,12 @@ func setupPost(cmd *cobra.Command, deps *Deps, client *gh.Client, opts posting.P
 				}
 			}
 
-			// Title template from config.
-			opts.TitleTemplate = deps.Config.Discussions.Title
+			// Title: --title flag overrides config template.
+			if deps.PostTitle != "" {
+				opts.TitleTemplate = deps.PostTitle
+			} else {
+				opts.TitleTemplate = deps.Config.Discussions.Title
+			}
 
 			// Determine which client to use for posting. When discussions.repo
 			// is set, create a separate client for the target repo.
