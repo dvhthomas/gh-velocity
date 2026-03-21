@@ -418,6 +418,15 @@ type IterationVelocity struct {
 	Trend            string // "▲", "▼", "─"
 	DayOfCycle       int    // days elapsed since iteration start (0 if not current)
 	TotalDays        int    // total iteration length in days (0 if not current)
+	Items            []IterationItem // per-item breakdown for detail tables
+}
+
+// IterationItem holds one work item's contribution to an iteration.
+type IterationItem struct {
+	Number int
+	Title  string
+	Effort float64
+	Done   bool
 }
 
 // Iteration represents a bounded time period used to bucket velocity results.

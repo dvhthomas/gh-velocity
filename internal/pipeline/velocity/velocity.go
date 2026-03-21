@@ -499,10 +499,18 @@ func (p *Pipeline) computeIteration(iter model.Iteration, prevIter *model.Iterat
 
 		committedEffort += effort
 
-		if p.isDone(item) {
+		done := p.isDone(item)
+		if done {
 			itemsDone++
 			doneEffort += effort
 		}
+
+		iv.Items = append(iv.Items, model.IterationItem{
+			Number: item.Number,
+			Title:  item.Title,
+			Effort: effort,
+			Done:   done,
+		})
 	}
 
 	iv.Velocity = doneEffort

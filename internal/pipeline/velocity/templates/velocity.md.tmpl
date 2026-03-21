@@ -1,5 +1,6 @@
 ### Velocity: {{ .Repository }} ({{ .Unit }})
 {{ if .Insights }}
+**Insights:**
 {{ range .Insights }}- {{ . }}
 {{ end }}{{ end }}{{ if .Current }}
 #### Current: {{ .Current.Name }} ({{ date .Current.Start }} – {{ date .Current.End }})
@@ -14,7 +15,16 @@ Day {{ .Current.DayOfCycle }} of {{ .Current.TotalDays }}
 | Items | {{ .Current.ItemsDone }} / {{ .Current.ItemsTotal }} done |
 {{ if gt .Current.NotAssessed 0 }}| Not assessed | {{ .Current.NotAssessed }} {{ notAssessedHint .EffortStrategy }} |
 {{ end }}
-{{ end }}{{ if .History }}
+{{ if .CurrentItems }}
+<details>
+<summary>Items ({{ len .CurrentItems }}, sorted by effort ↓)</summary>
+
+| | # | Title | Effort ↓ |
+| :---: | ---: | --- | ---: |
+{{ range .CurrentItems }}| {{ if .Done }}✓{{ else }} {{ end }} | #{{ .Number }} | {{ .Title }} | {{ printf "%.0f" .Effort }} |
+{{ end }}
+</details>
+{{ end }}{{ end }}{{ if .History }}
 #### History
 
 | Iteration | Velocity | Committed | Done% | Items | Trend |

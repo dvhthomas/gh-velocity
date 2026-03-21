@@ -262,6 +262,10 @@ func TestWritePretty(t *testing.T) {
 			Velocity: 5, Committed: 8, CompletionPct: 62.5,
 			ItemsDone: 5, ItemsTotal: 8, NotAssessed: 1,
 			NotAssessedItems: []int{42},
+			Items: []model.IterationItem{
+				{Number: 42, Title: "Fix auth bug", Effort: 3, Done: true},
+				{Number: 43, Title: "Add caching", Effort: 5, Done: true},
+			},
 		},
 		History: []model.IterationVelocity{
 			{Name: "Sprint 5", Velocity: 10, Committed: 10, CompletionPct: 100, Trend: "▲"},
