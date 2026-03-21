@@ -100,8 +100,9 @@ func main() {
 		log.Fatal("no configs found in " + cfg.Projects)
 	}
 
-	// Filter to a single repo if a positional arg is given.
-	// Usage: go run ./scripts/showcase cli/cli
+	// Filter to a single project if a positional arg is given.
+	// Matches on name ("GitHub CLI") or repo ("cli/cli").
+	// Usage: go run ./scripts/showcase "GitHub CLI"
 	if args := flag.Args(); len(args) > 0 {
 		filter := args[0]
 		var filtered []showcaseConfig
@@ -298,11 +299,11 @@ func main() {
 	writeJobSummary(discURL, index)
 }
 
-// configNames returns a comma-separated list of repo names for error messages.
+// configNames returns a formatted list of available projects for error messages.
 func configNames(configs []showcaseConfig) string {
 	names := make([]string, len(configs))
 	for i, sc := range configs {
-		names[i] = sc.Repo
+		names[i] = fmt.Sprintf("%q (%s)", sc.Name, sc.Repo)
 	}
 	return strings.Join(names, ", ")
 }
