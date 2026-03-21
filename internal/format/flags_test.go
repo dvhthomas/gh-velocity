@@ -1,7 +1,6 @@
 package format
 
 import (
-	"bytes"
 	"testing"
 	"time"
 )
@@ -30,30 +29,6 @@ func TestFlagEmoji(t *testing.T) {
 	}
 }
 
-func TestWriteCapNote(t *testing.T) {
-	tests := []struct {
-		name  string
-		shown int
-		total int
-		want  string
-	}{
-		{"capped", 25, 142, "\nShowing 25 of 142 items (sorted by flag). Use --results json for full data.\n"},
-		{"not capped", 10, 10, ""},
-		{"zero total", 0, 0, ""},
-		{"shown exceeds total", 30, 25, ""},
-		{"single over", 25, 26, "\nShowing 25 of 26 items (sorted by flag). Use --results json for full data.\n"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			WriteCapNote(&buf, tt.shown, tt.total)
-			got := buf.String()
-			if got != tt.want {
-				t.Errorf("WriteCapNote(%d, %d) = %q, want %q", tt.shown, tt.total, got, tt.want)
-			}
-		})
-	}
-}
 
 func dur(d time.Duration) *time.Duration { return &d }
 

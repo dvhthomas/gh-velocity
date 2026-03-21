@@ -146,6 +146,7 @@ func TestSanitizeForLipgloss(t *testing.T) {
 	}{
 		{"plain text", "hello", "hello"},
 		{"OSC 8 with BEL", "\x1b]8;;https://example.com\x07click\x1b]8;;\x07", "click"},
+		{"OSC 8 with ST", "\x1b]8;;https://example.com\x1b\\click\x1b]8;;\x1b\\", "click"},
 		{"control chars", "bad\x1b[2Jtext", "bad[2Jtext"},
 		{"empty", "", ""},
 	}

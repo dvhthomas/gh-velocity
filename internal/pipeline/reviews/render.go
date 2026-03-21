@@ -22,13 +22,14 @@ var markdownTmpl = template.Must(
 // --- JSON ---
 
 type jsonOutput struct {
-	Repository string          `json:"repository"`
-	SearchURL  string          `json:"search_url"`
-	Sort       format.JSONSort `json:"sort"`
-	Items      []jsonItem      `json:"items"`
-	Count      int             `json:"count"`
-	StaleCount int             `json:"stale_count"`
-	Warnings   []string        `json:"warnings,omitempty"`
+	Repository string               `json:"repository"`
+	SearchURL  string               `json:"search_url"`
+	Sort       format.JSONSort      `json:"sort"`
+	Insights   []format.JSONInsight `json:"insights,omitempty"`
+	Items      []jsonItem           `json:"items"`
+	Count      int                  `json:"count"`
+	StaleCount int                  `json:"stale_count"`
+	Warnings   []string             `json:"warnings,omitempty"`
 }
 
 type jsonItem struct {

@@ -30,6 +30,7 @@ type jsonWIPItem struct {
 	UpdatedAt        string   `json:"updated_at,omitempty"`
 	LastActivityDays int      `json:"last_activity_days"`
 	Staleness        string   `json:"staleness"`
+	Flags            []string `json:"flags,omitempty"`
 }
 
 // WriteWIPJSON writes WIP items as JSON.
@@ -46,6 +47,13 @@ func WriteWIPJSON(w io.Writer, repo string, items []model.WIPItem) error {
 			updatedAtStr = item.UpdatedAt.UTC().Format(time.RFC3339)
 			lastActivityDays = int(time.Since(item.UpdatedAt).Hours() / 24)
 		}
+		var flags []string
+		switch item.Staleness {
+		case model.StalenessStale:
+			flags = []string{FlagStale}
+		case model.StalenessAging:
+			flags = []string{FlagAging}
+		}
 		out.Items = append(out.Items, jsonWIPItem{
 			Number:           item.Number,
 			Title:            item.Title,
@@ -59,6 +67,7 @@ func WriteWIPJSON(w io.Writer, repo string, items []model.WIPItem) error {
 			UpdatedAt:        updatedAtStr,
 			LastActivityDays: lastActivityDays,
 			Staleness:        string(item.Staleness),
+			Flags:            flags,
 		})
 	}
 	enc := json.NewEncoder(w)

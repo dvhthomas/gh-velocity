@@ -78,7 +78,11 @@ func (t *Table) renderTSV() error {
 		}
 	}
 	for _, row := range t.rows {
-		_, err := fmt.Fprintln(t.w, strings.Join(row, "\t"))
+		sanitized := make([]string, len(row))
+		for i, cell := range row {
+			sanitized[i] = stripControlChars(cell)
+		}
+		_, err := fmt.Fprintln(t.w, strings.Join(sanitized, "\t"))
 		if err != nil {
 			return err
 		}
@@ -88,7 +92,7 @@ func (t *Table) renderTSV() error {
 
 // osc8Re matches OSC 8 hyperlink sequences: ESC ] 8 ; params ; URI ST ... ESC ] 8 ; ; ST
 // and extracts the visible display text between the open and close sequences.
-var osc8Re = regexp.MustCompile(`\x1b\]8;[^;]*;[^\x07\x1b]*(?:\x07|\x1b\\)(.*?)\x1b\]8;;\x07|\x1b\]8;;\x1b\\`)
+var osc8Re = regexp.MustCompile(`\x1b\]8;[^;]*;[^\x07\x1b]*(?:\x07|\x1b\\)(.*?)\x1b\]8;;(?:\x07|\x1b\\)`)
 
 // sanitizeForLipgloss strips OSC 8 hyperlinks (preserving visible text) and
 // removes control characters from cell content. lipgloss does not understand
@@ -133,7 +137,11 @@ func (t *Table) renderLipgloss() error {
 		})
 
 	if len(t.headers) > 0 {
-		tbl = tbl.Headers(t.headers...)
+		sanitizedHeaders := make([]string, len(t.headers))
+		for i, h := range t.headers {
+			sanitizedHeaders[i] = sanitizeForLipgloss(h)
+		}
+		tbl = tbl.Headers(sanitizedHeaders...)
 	}
 
 	if len(sanitizedRows) > 0 {

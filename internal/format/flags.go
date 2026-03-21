@@ -2,8 +2,6 @@ package format
 
 import (
 	"cmp"
-	"fmt"
-	"io"
 	"slices"
 )
 
@@ -33,10 +31,6 @@ var flagEmojis = map[string]string{
 func FlagEmoji(flag string) string {
 	return flagEmojis[flag]
 }
-
-// DetailCap is the default maximum number of items shown in
-// pretty and markdown detail tables.
-const DetailCap = 25
 
 // Sort direction constants.
 const (
@@ -100,11 +94,3 @@ func (s Sorted[T]) JSONSort() JSONSort {
 	return JSONSort{Field: s.Field, Direction: s.Direction}
 }
 
-// WriteCapNote writes a note indicating that output was capped.
-// It is a no-op when total <= shown or total == 0.
-func WriteCapNote(w io.Writer, shown, total int) {
-	if total <= shown || total == 0 {
-		return
-	}
-	fmt.Fprintf(w, "\nShowing %d of %d items (sorted by flag). Use --results json for full data.\n", shown, total)
-}

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/dvhthomas/gh-velocity/internal/model"
 	"github.com/spf13/cobra"
@@ -33,18 +34,7 @@ func buildProvenance(cmd *cobra.Command, configMap map[string]string) model.Prov
 	cmd.InheritedFlags().Visit(addFlag)
 
 	return model.Provenance{
-		Command: joinParts(parts),
+		Command: strings.Join(parts, " "),
 		Config:  configMap,
 	}
-}
-
-func joinParts(parts []string) string {
-	s := ""
-	for i, p := range parts {
-		if i > 0 {
-			s += " "
-		}
-		s += p
-	}
-	return s
 }

@@ -102,23 +102,14 @@ func WriteBulkJSON(w io.Writer, repo string, since, until time.Time, items []Bul
 	}
 
 	for _, item := range sorted.Items {
-		ji := jsonBulkItem{
+		out.Items = append(out.Items, jsonBulkItem{
 			Number:   item.Issue.Number,
 			Title:    item.Issue.Title,
 			URL:      item.Issue.URL,
 			Labels:   item.Issue.Labels,
 			LeadTime: format.MetricToJSON(item.Metric),
-		}
-		if item.Metric.Duration != nil && *item.Metric.Duration < noiseThreshold {
-			ji.Flags = append(ji.Flags, "noise")
-		}
-		if item.Metric.Duration != nil && *item.Metric.Duration <= hotfixThreshold && *item.Metric.Duration >= noiseThreshold {
-			ji.Flags = append(ji.Flags, "hotfix")
-		}
-		if metrics.IsOutlier(item.Metric, stats) {
-			ji.Flags = append(ji.Flags, "outlier")
-		}
-		out.Items = append(out.Items, ji)
+			Flags:    classifyFlags(item, stats),
+		})
 	}
 
 	enc := json.NewEncoder(w)
@@ -177,7 +168,7 @@ func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.T
 			Title:    format.SanitizeMarkdown(item.Issue.Title),
 			Closed:   closedStr,
 			LeadTime: format.FormatMetricDuration(item.Metric),
-			Flag:     leadTimeFlag(item, stats),
+			Flag:     flagEmojis(classifyFlags(item, stats)),
 		})
 	}
 	return bulkMarkdownTmpl.Execute(rc.Writer, data)
@@ -215,7 +206,7 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 		if item.Issue.ClosedAt != nil {
 			closedStr = item.Issue.ClosedAt.UTC().Format(time.DateOnly)
 		}
-		tp.AddField(leadTimeFlag(item, stats))
+		tp.AddField(flagEmojis(classifyFlags(item, stats)))
 		tp.AddField(format.FormatItemLink(item.Issue.Number, item.Issue.URL, rc))
 		tp.AddField(item.Issue.Title)
 		tp.AddField(closedStr)
@@ -225,23 +216,28 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 	return tp.Render()
 }
 
-// leadTimeFlag returns a flag emoji for an item based on insight-triggering conditions.
-// Multiple flags can apply — they're concatenated.
-func leadTimeFlag(item BulkItem, stats model.Stats) string {
-	var flag string
-	// Noise: resolved in under 60 seconds (likely bot/automation).
+// classifyFlags returns the applicable flag constants for a duration-based item.
+func classifyFlags(item BulkItem, stats model.Stats) []string {
+	var flags []string
 	if item.Metric.Duration != nil && *item.Metric.Duration < noiseThreshold {
-		flag += "🤖"
+		flags = append(flags, format.FlagNoise)
 	}
-	// Hotfix: resolved within 72 hours of creation.
 	if item.Metric.Duration != nil && *item.Metric.Duration <= hotfixThreshold && *item.Metric.Duration >= noiseThreshold {
-		flag += "⚡"
+		flags = append(flags, format.FlagHotfix)
 	}
-	// Outlier: duration exceeds IQR cutoff.
 	if metrics.IsOutlier(item.Metric, stats) {
-		flag += "🚩"
+		flags = append(flags, format.FlagOutlier)
 	}
-	return flag
+	return flags
+}
+
+// flagEmojis concatenates emoji for a set of flags.
+func flagEmojis(flags []string) string {
+	var s string
+	for _, f := range flags {
+		s += format.FlagEmoji(f)
+	}
+	return s
 }
 
 // --- Helpers ---
