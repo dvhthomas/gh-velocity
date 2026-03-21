@@ -61,7 +61,7 @@ func stripControlChars(s string) string {
 }
 
 // DocSiteURL is the base URL for the gh-velocity documentation site.
-const DocSiteURL = "https://dvhthomas.github.io/gh-velocity"
+const DocSiteURL = "https://gh-velocity.org"
 
 // DocLink returns a markdown link to a documentation page.
 // anchor is the path after the base URL, e.g., "/concepts/statistics/#...".

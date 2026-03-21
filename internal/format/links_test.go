@@ -168,7 +168,7 @@ func TestFormatLabels(t *testing.T) {
 
 func TestDocLink(t *testing.T) {
 	got := DocLink("CV", "/concepts/statistics/#cv")
-	want := "[CV](https://dvhthomas.github.io/gh-velocity/concepts/statistics/#cv)"
+	want := "[CV](https://gh-velocity.org/concepts/statistics/#cv)"
 	if got != want {
 		t.Errorf("DocLink() = %q, want %q", got, want)
 	}
@@ -183,7 +183,7 @@ func TestLinkStatTerms(t *testing.T) {
 		{
 			name:  "wraps CV in insight message",
 			input: "Delivery times vary widely (CV 2.7)",
-			want:  "Delivery times vary widely ([CV](https://dvhthomas.github.io/gh-velocity/concepts/statistics/#coefficient-of-variation-cv) 2.7)",
+			want:  "Delivery times vary widely ([CV](https://gh-velocity.org/concepts/statistics/#coefficient-of-variation-cv) 2.7)",
 		},
 		{
 			name:  "no CV in message",
@@ -193,42 +193,42 @@ func TestLinkStatTerms(t *testing.T) {
 		{
 			name:  "only first CV is linked",
 			input: "(CV 1.0) and (CV 2.0)",
-			want:  "([CV](https://dvhthomas.github.io/gh-velocity/concepts/statistics/#coefficient-of-variation-cv) 1.0) and (CV 2.0)",
+			want:  "([CV](https://gh-velocity.org/concepts/statistics/#coefficient-of-variation-cv) 1.0) and (CV 2.0)",
 		},
 		{
 			name:  "hotfix window linked",
 			input: "73 items resolved within 72h of creation (hotfix window).",
-			want:  "73 items resolved within 72h of creation ([hotfix window](https://dvhthomas.github.io/gh-velocity/reference/metrics/quality/#hotfix-detection)).",
+			want:  "73 items resolved within 72h of creation ([hotfix window](https://gh-velocity.org/reference/metrics/quality/#hotfix-detection)).",
 		},
 		{
 			name:  "threshold linked",
 			input: "26% of closed issues are bugs (above 20% threshold).",
-			want:  "26% of closed issues are bugs (above 20% [threshold](https://dvhthomas.github.io/gh-velocity/reference/metrics/quality/#per-release-bug-ratio)).",
+			want:  "26% of closed issues are bugs (above 20% [threshold](https://gh-velocity.org/reference/metrics/quality/#per-release-bug-ratio)).",
 		},
 		{
 			name:  "lifecycle.in-progress linked",
 			input: "No cycle time data — configure lifecycle.in-progress.match for cycle time.",
-			want:  "No cycle time data — configure [lifecycle.in-progress](https://dvhthomas.github.io/gh-velocity/guides/cycle-time-setup/).match for cycle time.",
+			want:  "No cycle time data — configure [lifecycle.in-progress](https://gh-velocity.org/guides/cycle-time-setup/).match for cycle time.",
 		},
 		{
 			name:  "staleness linked",
 			input: "High staleness ratio (40%) suggests flow problems.",
-			want:  "High [staleness](https://dvhthomas.github.io/gh-velocity/reference/metrics/staleness/#wip-staleness-ratio) ratio (40%) suggests flow problems.",
+			want:  "High [staleness](https://gh-velocity.org/reference/metrics/staleness/#wip-staleness-ratio) ratio (40%) suggests flow problems.",
 		},
 		{
 			name:  "stale_ratio linked",
 			input: "stale_ratio = 0.4",
-			want:  "[stale_ratio](https://dvhthomas.github.io/gh-velocity/reference/metrics/staleness/#wip-staleness-ratio) = 0.4",
+			want:  "[stale_ratio](https://gh-velocity.org/reference/metrics/staleness/#wip-staleness-ratio) = 0.4",
 		},
 		{
 			name:  "staleness signal STALE linked with context",
 			input: "Signal: STALE — item has no recent activity",
-			want:  "Signal: [STALE](https://dvhthomas.github.io/gh-velocity/reference/metrics/staleness/#signals) — item has no recent activity",
+			want:  "Signal: [STALE](https://gh-velocity.org/reference/metrics/staleness/#signals) — item has no recent activity",
 		},
 		{
 			name:  "staleness signal ACTIVE linked with context",
 			input: "Signal: ACTIVE — normal activity",
-			want:  "Signal: [ACTIVE](https://dvhthomas.github.io/gh-velocity/reference/metrics/staleness/#signals) — normal activity",
+			want:  "Signal: [ACTIVE](https://gh-velocity.org/reference/metrics/staleness/#signals) — normal activity",
 		},
 		{
 			name:  "no false positive for STALE without context",
