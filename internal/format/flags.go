@@ -26,6 +26,10 @@ var flagEmojis = map[string]string{
 	FlagAging:   "🟡",
 }
 
+// MaxDetailRows is the maximum number of items shown in detail tables.
+// Full data is always available via --format json.
+const MaxDetailRows = 50
+
 // FlagEmoji returns the emoji for a flag constant.
 // Returns an empty string for unknown flags.
 func FlagEmoji(flag string) string {
@@ -93,4 +97,3 @@ func (s Sorted[T]) Header(headerField, displayName string) string {
 func (s Sorted[T]) JSONSort() JSONSort {
 	return JSONSort{Field: s.Field, Direction: s.Direction}
 }
-

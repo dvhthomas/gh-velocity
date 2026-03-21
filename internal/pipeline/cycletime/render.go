@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"text/template"
 	"time"
 
@@ -194,8 +195,9 @@ type bulkTemplateData struct {
 	Summary     string
 	SearchURL   string
 	SortHeader  string
-	DetailCount int // items with cycle time data (shown in table)
-	TotalCount  int // total items including those without data
+	DetailCount int  // items with cycle time data (before capping)
+	TotalCount  int  // total items including those without data
+	Capped      bool // true when items were truncated to MaxDetailRows
 }
 
 type bulkItemRow struct {
@@ -215,20 +217,10 @@ func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.T
 	for _, ins := range insights {
 		insightMsgs = append(insightMsgs, format.LinkStatTerms(ins.Message))
 	}
-	data := bulkTemplateData{
-		Repository: repo,
-		Since:      since,
-		Until:      until,
-		Strategy:   strategy,
-		Insights:   insightMsgs,
-		Detail:     format.FormatStatsDetail(stats),
-		Summary:    format.FormatStatsSummary(stats),
-		SearchURL:  searchURL,
-		SortHeader: sorted.Header("cycle_time", "Cycle Time"),
-		TotalCount: len(sorted.Items),
-	}
+
+	// Build filtered rows (exclude N/A items).
+	var rows []bulkItemRow
 	for _, item := range sorted.Items {
-		// Filter out items without cycle time data.
 		if item.Metric.Duration == nil {
 			continue
 		}
@@ -236,7 +228,7 @@ func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.T
 		if item.Issue.ClosedAt != nil {
 			closedStr = item.Issue.ClosedAt.UTC().Format(time.DateOnly)
 		}
-		data.Items = append(data.Items, bulkItemRow{
+		rows = append(rows, bulkItemRow{
 			Link:      format.FormatItemLink(item.Issue.Number, item.Issue.URL, rc),
 			Title:     format.SanitizeMarkdown(item.Issue.Title),
 			Closed:    closedStr,
@@ -244,7 +236,28 @@ func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.T
 			Flag:      flagEmojis(classifyFlags(item, stats)),
 		})
 	}
-	data.DetailCount = len(data.Items)
+
+	detailCount := len(rows)
+	capped := detailCount > format.MaxDetailRows
+	if capped {
+		rows = rows[:format.MaxDetailRows]
+	}
+
+	data := bulkTemplateData{
+		Repository:  repo,
+		Since:       since,
+		Until:       until,
+		Strategy:    strategy,
+		Insights:    insightMsgs,
+		Detail:      format.FormatStatsDetail(stats),
+		Summary:     format.FormatStatsSummary(stats),
+		SearchURL:   searchURL,
+		SortHeader:  sorted.Header("cycle_time", "Cycle Time"),
+		TotalCount:  len(sorted.Items),
+		DetailCount: detailCount,
+		Capped:      capped,
+		Items:       rows,
+	}
 	return bulkMarkdownTmpl.Execute(rc.Writer, data)
 }
 
@@ -273,13 +286,24 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 		return nil
 	}
 
-	tp := format.NewTable(rc.Writer, rc.IsTTY, rc.Width)
-	tp.AddHeader([]string{"", "#", "Title", "Closed", sorted.Header("cycle_time", "Cycle Time")})
+	// Filter out items without cycle time data, then cap.
+	var filtered []BulkItem
 	for _, item := range sorted.Items {
-		// Filter out items without cycle time data.
 		if item.Metric.Duration == nil {
 			continue
 		}
+		filtered = append(filtered, item)
+	}
+
+	total := len(filtered)
+	capped := total > format.MaxDetailRows
+	if capped {
+		filtered = filtered[:format.MaxDetailRows]
+	}
+
+	tp := format.NewTable(rc.Writer, rc.IsTTY, rc.Width)
+	tp.AddHeader([]string{"", "#", "Title", "Closed", sorted.Header("cycle_time", "Cycle Time")})
+	for _, item := range filtered {
 		closedStr := "N/A"
 		if item.Issue.ClosedAt != nil {
 			closedStr = item.Issue.ClosedAt.UTC().Format(time.DateOnly)
@@ -291,7 +315,13 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 		tp.AddField(format.FormatMetricDuration(item.Metric))
 		tp.EndRow()
 	}
-	return tp.Render()
+	if err := tp.Render(); err != nil {
+		return err
+	}
+	if capped {
+		fmt.Fprintf(rc.Writer, "  %d more items not shown. Use --format json for complete data.\n", total-format.MaxDetailRows)
+	}
+	return nil
 }
 
 // classifyFlags returns the applicable flag constants for a duration-based item.
@@ -310,11 +340,11 @@ func classifyFlags(item BulkItem, stats model.Stats) []string {
 }
 
 func flagEmojis(flags []string) string {
-	var s string
+	var s strings.Builder
 	for _, f := range flags {
-		s += format.FlagEmoji(f)
+		s.WriteString(format.FlagEmoji(f))
 	}
-	return s
+	return s.String()
 }
 
 // --- Helpers ---

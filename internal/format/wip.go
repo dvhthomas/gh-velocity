@@ -145,7 +145,7 @@ func wipFlag(item model.WIPItem) string {
 
 // maxWIPDetailItems is the maximum number of items shown in the detail table.
 // Full data is always available via --format json.
-const maxWIPDetailItems = 50
+const maxWIPDetailItems = MaxDetailRows
 
 // stalenessRank returns a sort key: STALE=0, AGING=1, ACTIVE=2.
 // Items needing attention sort first.

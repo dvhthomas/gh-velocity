@@ -52,6 +52,7 @@ var funcMap = template.FuncMap{
 		return fmt.Sprintf("%.0f%%", f*100)
 	},
 	"join": strings.Join,
+	"sub":  func(a, b int) int { return a - b },
 	"docLink": func(text, anchor string) string {
 		return DocLink(text, anchor)
 	},

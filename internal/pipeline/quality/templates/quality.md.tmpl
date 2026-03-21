@@ -19,12 +19,16 @@ Bug ratio: {{.BugRatio}}% ({{.BugCount}} bugs / {{.TotalIssues}} issues)
 {{- if .Items}}
 
 <details>
-<summary>Details ({{len .Items}} issues)</summary>
+<summary>Bug Details ({{if .Capped}}showing {{len .Items}} of {{.FilterTotal}}{{else}}{{len .Items}}{{end}} bugs / {{.TotalIssues}} issues)</summary>
 
 | | Issue | Title | Category | {{.SortHeader}} |
 | :---: | ---: | --- | --- | --- |
 {{- range .Items}}
 | {{.Flag}} | {{.Link}} | {{.Title}} | {{.Category}} | {{.LeadTime}} |
+{{- end}}
+{{- if .Capped}}
+
+*{{sub .FilterTotal (len .Items)}} more bugs not shown. Use `--format json` for complete data.*
 {{- end}}
 
 </details>
