@@ -60,4 +60,17 @@ When `--results json`, errors are also JSON: `{"error": "message", "code": N}`.
 ## Quality
 
 - Run `task quality` before every commit. Run `task test` continuously during development.
-- Prove the existence of the bug before fixing it: jumping to solutions is an anti-pattern. Tests (unit, integration) are the preferred way of (dis)proving a hypothesis because they catch regressions and cumulativelybuild confidence.
+- Prove the existence of the bug before fixing it: jumping to solutions is an anti-pattern. Tests (unit, integration) are the preferred way of (dis)proving a hypothesis because they catch regressions and cumulatively build confidence.
+
+### Testing tiers
+
+| Tier | Command | Cost | When |
+|------|---------|------|------|
+| Unit tests | `task test` | Zero API calls | Every change |
+| Lint + static analysis | `task quality` | Zero API calls | Before every commit |
+| Smoke tests | `task test:smoke` | ~50 API calls | Before PRs |
+| Pre-release validation | `task release:preflight` | ~50 API calls | Before tagging a release |
+| Showcase (full) | `task showcase` | **Thousands** of API calls | CI cron only (daily) |
+| Showcase (single repo) | `task showcase -- --dry-run "GitHub CLI"` | ~100 API calls | Manual, when testing preflight heuristics |
+
+**Do not run `task showcase` locally without `--dry-run` and a repo filter.** The full showcase runs preflight + report against 11+ repos and posts to Discussions. It is designed for the daily CI cron job, not for local development. Use `--dry-run` to skip posting, and pass a repo name to test a single project.

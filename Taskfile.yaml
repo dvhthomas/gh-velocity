@@ -95,7 +95,7 @@ tasks:
       - bash scripts/generate-config.sh dvhthomas/gh-velocity --project-url https://github.com/users/dvhthomas/projects/1
 
   showcase:
-    desc: "Run velocity showcase (--dry-run to preview, pass repo name to filter: task showcase -- cli/cli)"
+    desc: "Run velocity showcase — CAUTION: extremely API-intensive. Use --dry-run and/or filter to a single repo."
     deps: [build]
     cmds:
       - go run ./scripts/showcase {{.CLI_ARGS}}

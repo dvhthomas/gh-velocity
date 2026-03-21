@@ -1,15 +1,23 @@
 // Command showcase runs gh-velocity against multiple OSS repos and posts
 // results as comments on a single GitHub Discussion.
 //
+// CAUTION: This is extremely API-intensive — each repo triggers preflight
+// (category/label detection) + a full report (search queries per metric).
+// A full run against all repos in projects.yml can consume thousands of
+// API calls. Use --dry-run and/or filter to a single repo for local testing.
+//
 // It is a pure orchestrator — it shells out to gh-velocity and gh for all
 // operations. No library imports for GitHub API work.
 //
 // The repo list is read from projects.yml (next to this file by default,
 // override with --projects).
 //
-// Usage: go run ./scripts/showcase [--dry-run] [--binary ./gh-velocity] [--since 30d] [repo]
+// Usage:
 //
-// Pass a repo name (e.g., "cli/cli") as a positional arg to run a single repo.
+//	go run ./scripts/showcase --dry-run                  # all repos, no posting
+//	go run ./scripts/showcase --dry-run "GitHub CLI"     # single repo by name
+//	go run ./scripts/showcase --dry-run cli/cli          # single repo by owner/repo
+//	go run ./scripts/showcase                            # full run (CI only)
 package main
 
 import (
