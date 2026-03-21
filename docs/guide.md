@@ -240,7 +240,7 @@ gh extension upgrade velocity
 
 ### First queries
 
-All metric commands require a config file. When targeting a remote repo with `-R`, use `--config` to point at an example config (see `docs/examples/`). From inside your own repo with `.gh-velocity.yml` present, the config is loaded automatically.
+All metric commands require a config file. Generate one with `gh velocity config preflight -R owner/repo --write=/tmp/config.yml`, then pass it via `--config`. From inside your own repo with `.gh-velocity.yml` present, the config is loaded automatically.
 
 Start with a public repo to see what the output looks like:
 

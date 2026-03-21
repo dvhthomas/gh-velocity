@@ -131,7 +131,7 @@ func TestPostFlag_CoercesFormatAndSetsDryRun(t *testing.T) {
 	// a real config but fake repo; it will fail during execution but
 	// PersistentPreRunE should succeed and set Deps correctly.
 	root := NewRootCmd("test", "now")
-	root.SetArgs([]string{"--post", "--repo", "owner/repo", "--config", "../docs/examples/cli-cli.yml", "release", "v1.0.0"})
+	root.SetArgs([]string{"--post", "--repo", "owner/repo", "--config", "testdata/test-config.yml", "release", "v1.0.0"})
 
 	// Ensure GH_VELOCITY_POST_LIVE is not set
 	t.Setenv("GH_VELOCITY_POST_LIVE", "")
@@ -149,7 +149,7 @@ func TestPostFlag_CoercesFormatAndSetsDryRun(t *testing.T) {
 
 func TestNewPostFlag_ImpliesPost(t *testing.T) {
 	root := NewRootCmd("test", "now")
-	root.SetArgs([]string{"--new-post", "--repo", "owner/repo", "--config", "../docs/examples/cli-cli.yml", "release", "v1.0.0"})
+	root.SetArgs([]string{"--new-post", "--repo", "owner/repo", "--config", "testdata/test-config.yml", "release", "v1.0.0"})
 
 	t.Setenv("GH_VELOCITY_POST_LIVE", "")
 
@@ -275,7 +275,7 @@ func TestMultiFormatWithoutWriteTo_Errors(t *testing.T) {
 	root.SetArgs([]string{
 		"--results", "md,json",
 		"--repo", "owner/repo",
-		"--config", "../docs/examples/cli-cli.yml",
+		"--config", "testdata/test-config.yml",
 		"report", "--since", "7d",
 	})
 	err := root.Execute()
@@ -297,7 +297,7 @@ func TestPrettyWithWriteTo_Errors(t *testing.T) {
 		"--results", "pretty",
 		"--write-to", t.TempDir(),
 		"--repo", "owner/repo",
-		"--config", "../docs/examples/cli-cli.yml",
+		"--config", "testdata/test-config.yml",
 		"report", "--since", "7d",
 	})
 	err := root.Execute()
@@ -319,7 +319,7 @@ func TestPostWithoutMarkdown_Errors(t *testing.T) {
 		"--results", "json",
 		"--post",
 		"--repo", "owner/repo",
-		"--config", "../docs/examples/cli-cli.yml",
+		"--config", "testdata/test-config.yml",
 		"report", "--since", "7d",
 	})
 	err := root.Execute()

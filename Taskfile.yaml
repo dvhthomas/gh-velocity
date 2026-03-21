@@ -95,7 +95,7 @@ tasks:
       - bash scripts/generate-config.sh dvhthomas/gh-velocity --project-url https://github.com/users/dvhthomas/projects/1
 
   e2e:configs:
-    desc: Run E2E tests with example configs against real OSS repos
+    desc: Generate configs via preflight, then E2E test against real OSS repos
     deps: [build]
     cmds:
       - bash scripts/e2e-configs.sh

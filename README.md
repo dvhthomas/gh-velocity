@@ -46,14 +46,17 @@ Not sure which project URL to use? Run `gh velocity config discover -R owner/rep
 Then run metrics:
 
 ```bash
+# Generate a config for any repo (auto-detects labels, categories, lifecycle)
+gh velocity config preflight -R cli/cli --write=/tmp/cli.yml
+
 # How long do issues take to close? (last 30 days)
-gh velocity flow lead-time --since 30d -R cli/cli --config docs/examples/cli-cli.yml
+gh velocity flow lead-time --since 30d -R cli/cli --config /tmp/cli.yml
 
 # How did the last release go?
-gh velocity quality release v2.67.0 -R cli/cli --since v2.66.0 --config docs/examples/cli-cli.yml
+gh velocity quality release v2.67.0 -R cli/cli --since v2.66.0 --config /tmp/cli.yml
 
 # Everything at a glance (composite dashboard)
-gh velocity report --since 30d -R cli/cli --config docs/examples/cli-cli.yml
+gh velocity report --since 30d -R cli/cli --config /tmp/cli.yml
 ```
 
 From inside your own repo (with `.gh-velocity.yml` present), omit `-R` and `--config`:

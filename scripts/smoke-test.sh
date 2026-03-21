@@ -24,8 +24,14 @@ if [[ ! -x "$BINARY" ]]; then
   exit 1
 fi
 
-# Config files for external repos (config is required for all non-config commands).
-CLI_CONFIG="${REPO_ROOT}/docs/examples/cli-cli.yml"
+# Generate config via preflight — always fresh, never stale.
+SMOKE_CONFIG_DIR="${REPO_ROOT}/tmp/smoke-configs"
+mkdir -p "$SMOKE_CONFIG_DIR"
+CLI_CONFIG="${SMOKE_CONFIG_DIR}/cli-cli.yml"
+if [[ ! -f "$CLI_CONFIG" ]]; then
+  echo "Generating config for cli/cli via preflight..."
+  $BINARY config preflight -R cli/cli --write="$CLI_CONFIG" 2>/dev/null
+fi
 
 echo "Smoke tests"
 echo "==========="
@@ -445,7 +451,24 @@ show "$out"
 echo ""
 echo "flow velocity (cli/cli, count+fixed)"
 
-VEL_CONFIG="${REPO_ROOT}/docs/examples/cli-cli-velocity.yml"
+# Velocity config needs extra fields that preflight can't auto-detect.
+VEL_CONFIG="${SMOKE_CONFIG_DIR}/cli-cli-velocity.yml"
+if [[ ! -f "$VEL_CONFIG" ]]; then
+  cp "$CLI_CONFIG" "$VEL_CONFIG"
+  cat >> "$VEL_CONFIG" <<'VELEOF'
+
+velocity:
+  unit: issues
+  effort:
+    strategy: count
+  iteration:
+    strategy: fixed
+    fixed:
+      length: "14d"
+      anchor: "2026-01-06"
+    count: 6
+VELEOF
+fi
 
 out=$($BINARY flow velocity -R cli/cli --config "$VEL_CONFIG" 2>&1)
 show "$out"

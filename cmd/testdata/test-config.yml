@@ -1,0 +1,12 @@
+# Minimal config for unit tests. Not a real repo config.
+quality:
+  categories:
+    - name: bug
+      match:
+        - "label:bug"
+    - name: feature
+      match:
+        - "label:enhancement"
+
+cycle_time:
+  strategy: issue
