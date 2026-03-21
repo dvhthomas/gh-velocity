@@ -142,8 +142,9 @@ var reportShellHTML string
 var reportShellTmpl = template.Must(template.New("report-shell.html.tmpl").Parse(reportShellHTML))
 
 type reportShellData struct {
-	Title   string        // auto-escaped by html/template
-	Content template.HTML // pre-rendered, sanitized HTML from goldmark+bluemonday
+	Title      string        // auto-escaped by html/template
+	Content    template.HTML // pre-rendered, sanitized HTML from goldmark+bluemonday
+	DocSiteURL string        // base URL for documentation links
 }
 
 // WriteReportHTML converts markdown content to a self-contained HTML page.
@@ -152,8 +153,9 @@ type reportShellData struct {
 func WriteReportHTML(w io.Writer, markdownContent string, title string) error {
 	htmlBody := MarkdownToHTML(markdownContent)
 	return reportShellTmpl.Execute(w, reportShellData{
-		Title:   title,
-		Content: template.HTML(htmlBody),
+		Title:      title,
+		Content:    template.HTML(htmlBody),
+		DocSiteURL: DocSiteURL,
 	})
 }
 
