@@ -54,7 +54,7 @@ type jsonWIP struct {
 type jsonStatsQuality struct {
 	BugCount    int           `json:"bug_count"`
 	TotalIssues int           `json:"total_issues"`
-	BugRatio  float64       `json:"bug_ratio"`
+	BugRatio    float64       `json:"bug_ratio"`
 	Insights    []JSONInsight `json:"insights,omitempty"`
 }
 
@@ -117,7 +117,7 @@ func WriteReportJSON(w io.Writer, r model.StatsResult) error {
 		out.Quality = &jsonStatsQuality{
 			BugCount:    r.Quality.BugCount,
 			TotalIssues: r.Quality.TotalIssues,
-			BugRatio:  r.Quality.BugRatio,
+			BugRatio:    r.Quality.BugRatio,
 			Insights:    InsightsToJSON(r.QualityInsights),
 		}
 	}

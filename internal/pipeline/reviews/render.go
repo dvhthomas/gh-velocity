@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
 	"text/template"
+	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/format"
 	"github.com/dvhthomas/gh-velocity/internal/model"
@@ -22,28 +22,32 @@ var markdownTmpl = template.Must(
 // --- JSON ---
 
 type jsonOutput struct {
-	Repository string     `json:"repository"`
-	SearchURL  string     `json:"search_url"`
-	Items      []jsonItem `json:"items"`
-	Count      int        `json:"count"`
-	StaleCount int        `json:"stale_count"`
-	Warnings   []string   `json:"warnings,omitempty"`
+	Repository string               `json:"repository"`
+	SearchURL  string               `json:"search_url"`
+	Sort       format.JSONSort      `json:"sort"`
+	Insights   []format.JSONInsight `json:"insights,omitempty"`
+	Items      []jsonItem           `json:"items"`
+	Count      int                  `json:"count"`
+	StaleCount int                  `json:"stale_count"`
+	Warnings   []string             `json:"warnings,omitempty"`
 }
 
 type jsonItem struct {
-	Number     int    `json:"number"`
-	Title      string `json:"title"`
-	URL        string `json:"url,omitempty"`
-	AgeSeconds int64  `json:"age_seconds"`
-	Age        string `json:"age"`
-	IsStale    bool   `json:"is_stale"`
+	Number     int      `json:"number"`
+	Title      string   `json:"title"`
+	URL        string   `json:"url,omitempty"`
+	AgeSeconds int64    `json:"age_seconds"`
+	Age        string   `json:"age"`
+	Flags      []string `json:"flags,omitempty"`
 }
 
 // WriteJSON writes review pressure results as JSON.
 func WriteJSON(w io.Writer, result model.ReviewPressureResult, searchURL string, warnings []string) error {
+	sorted := format.SortBy(result.AwaitingReview, "age", format.Desc, func(pr model.PRAwaitingReview) *time.Duration { return &pr.Age })
 	staleCount := 0
-	items := make([]jsonItem, 0, len(result.AwaitingReview))
-	for _, pr := range result.AwaitingReview {
+	items := make([]jsonItem, 0, len(sorted.Items))
+	for _, pr := range sorted.Items {
+		flags := reviewFlags(pr)
 		if pr.IsStale {
 			staleCount++
 		}
@@ -53,12 +57,13 @@ func WriteJSON(w io.Writer, result model.ReviewPressureResult, searchURL string,
 			URL:        pr.URL,
 			AgeSeconds: int64(pr.Age.Seconds()),
 			Age:        format.FormatDuration(pr.Age),
-			IsStale:    pr.IsStale,
+			Flags:      flags,
 		})
 	}
 	out := jsonOutput{
 		Repository: result.Repository,
 		SearchURL:  searchURL,
+		Sort:       sorted.JSONSort(),
 		Items:      items,
 		Count:      len(result.AwaitingReview),
 		StaleCount: staleCount,
@@ -74,6 +79,7 @@ func WriteJSON(w io.Writer, result model.ReviewPressureResult, searchURL string,
 type templateData struct {
 	Repository string
 	SearchURL  string
+	SortHeader string
 	Items      []reviewItemRow
 	Count      int
 	StaleCount int
@@ -88,16 +94,16 @@ type reviewItemRow struct {
 
 // WriteMarkdown writes review pressure results as markdown.
 func WriteMarkdown(rc format.RenderContext, result model.ReviewPressureResult, searchURL string) error {
-	sorted := sortByAgeDesc(result.AwaitingReview)
+	sorted := format.SortBy(result.AwaitingReview, "age", format.Desc, func(pr model.PRAwaitingReview) *time.Duration { return &pr.Age })
 	data := templateData{
 		Repository: result.Repository,
 		SearchURL:  searchURL,
-		Count:      len(sorted),
+		SortHeader: sorted.Header("age", "Age"),
+		Count:      len(sorted.Items),
 	}
-	for _, pr := range sorted {
-		signal := ""
+	for _, pr := range sorted.Items {
+		signal := flagEmojis(reviewFlags(pr))
 		if pr.IsStale {
-			signal = "STALE"
 			data.StaleCount++
 		}
 		data.Items = append(data.Items, reviewItemRow{
@@ -114,11 +120,11 @@ func WriteMarkdown(rc format.RenderContext, result model.ReviewPressureResult, s
 
 // WritePretty writes review pressure results as a formatted table.
 func WritePretty(rc format.RenderContext, result model.ReviewPressureResult, searchURL string) error {
-	sorted := sortByAgeDesc(result.AwaitingReview)
+	sorted := format.SortBy(result.AwaitingReview, "age", format.Desc, func(pr model.PRAwaitingReview) *time.Duration { return &pr.Age })
 
 	fmt.Fprintf(rc.Writer, "Review Queue: %s\n\n", result.Repository)
 
-	if len(sorted) == 0 {
+	if len(sorted.Items) == 0 {
 		fmt.Fprintln(rc.Writer, "No PRs currently awaiting review.")
 		if searchURL != "" {
 			fmt.Fprintf(rc.Writer, "  Verify: %s\n", searchURL)
@@ -126,19 +132,15 @@ func WritePretty(rc format.RenderContext, result model.ReviewPressureResult, sea
 		return nil
 	}
 
-	fmt.Fprintln(rc.Writer, "PRs Awaiting Review (sorted by wait time):")
+	fmt.Fprintln(rc.Writer, "PRs Awaiting Review:")
 
 	tp := format.NewTable(rc.Writer, rc.IsTTY, rc.Width)
-	tp.AddHeader([]string{"#", "Title", "Age", "Signal"})
-	for _, pr := range sorted {
-		signal := ""
-		if pr.IsStale {
-			signal = "STALE"
-		}
+	tp.AddHeader([]string{"", "#", "Title", sorted.Header("age", "Age")})
+	for _, pr := range sorted.Items {
+		tp.AddField(flagEmojis(reviewFlags(pr)))
 		tp.AddField(format.FormatItemLink(pr.Number, pr.URL, rc))
 		tp.AddField(pr.Title)
 		tp.AddField(format.FormatDuration(pr.Age))
-		tp.AddField(signal)
 		tp.EndRow()
 	}
 	if err := tp.Render(); err != nil {
@@ -146,13 +148,13 @@ func WritePretty(rc format.RenderContext, result model.ReviewPressureResult, sea
 	}
 
 	staleCount := 0
-	for _, pr := range sorted {
+	for _, pr := range sorted.Items {
 		if pr.IsStale {
 			staleCount++
 		}
 	}
 
-	fmt.Fprintf(rc.Writer, "\n%d PRs awaiting review", len(sorted))
+	fmt.Fprintf(rc.Writer, "\n%d PRs awaiting review", len(sorted.Items))
 	if staleCount > 0 {
 		fmt.Fprintf(rc.Writer, " (%d stale >48h)", staleCount)
 	}
@@ -160,12 +162,23 @@ func WritePretty(rc format.RenderContext, result model.ReviewPressureResult, sea
 	return nil
 }
 
-// sortByAgeDesc sorts PRs by age descending (longest wait first).
-func sortByAgeDesc(items []model.PRAwaitingReview) []model.PRAwaitingReview {
-	sorted := make([]model.PRAwaitingReview, len(items))
-	copy(sorted, items)
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Age > sorted[j].Age
-	})
-	return sorted
+// reviewFlags returns the applicable flag constants for a PR.
+func reviewFlags(pr model.PRAwaitingReview) []string {
+	if pr.IsStale {
+		return []string{format.FlagStale}
+	}
+	// Aging: >24h but not yet stale (>48h).
+	if pr.Age > 24*time.Hour {
+		return []string{format.FlagAging}
+	}
+	return nil
+}
+
+// flagEmojis concatenates emoji for a set of flags.
+func flagEmojis(flags []string) string {
+	var s string
+	for _, f := range flags {
+		s += format.FlagEmoji(f)
+	}
+	return s
 }

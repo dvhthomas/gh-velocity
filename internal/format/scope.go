@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/dvhthomas/gh-velocity/internal/model"
-	"github.com/cli/go-gh/v2/pkg/tableprinter"
 )
 
 // WriteScopePretty writes scope results as a formatted table to the writer.
@@ -46,7 +45,7 @@ func WriteScopePretty(w io.Writer, isTTY bool, width int, result *model.ScopeRes
 	return nil
 }
 
-func addScopeItemRow(tp tableprinter.TablePrinter, item model.DiscoveredItem, result *model.ScopeResult) {
+func addScopeItemRow(tp *Table, item model.DiscoveredItem, result *model.ScopeResult) {
 	num := 0
 	title := ""
 	prefix := ""

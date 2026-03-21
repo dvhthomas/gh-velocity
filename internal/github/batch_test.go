@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dvhthomas/gh-velocity/internal/model"
 	ghapi "github.com/cli/go-gh/v2/pkg/api"
+	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
 func TestRateLimitWait_HTTP429(t *testing.T) {

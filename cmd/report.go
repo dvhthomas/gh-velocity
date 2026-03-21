@@ -453,7 +453,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 				if err := writeDetail(rc, summary, func() error {
 					return qualitypipe.WriteMarkdown(rc, detail)
 				}, func() error {
-					return qualitypipe.WritePretty(rc.Writer, detail)
+					return qualitypipe.WritePretty(rc, detail)
 				}); err != nil {
 					return err
 				}
@@ -480,6 +480,8 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 		Target:  posting.DiscussionTarget,
 	})
 
+	prov := buildProvenance(cmd, map[string]string{"repository": deps.Owner + "/" + deps.Repo})
+
 	if deps.Output.WriteTo != "" {
 		// --write-to mode: render all formats to files, no stdout.
 
@@ -488,6 +490,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 			if err := renderReportToWriter(&pc.buf, format.Markdown); err != nil {
 				return err
 			}
+			writeProvenance(&pc.buf, format.Markdown, prov)
 		}
 
 		// Write requested formats.
@@ -495,7 +498,11 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 			name := "report." + formatExt(f)
 			path := filepath.Join(deps.Output.WriteTo, name)
 			if err := writeFileAtomic(path, func(w *os.File) error {
-				return renderReportToWriter(w, f)
+				if err := renderReportToWriter(w, f); err != nil {
+					return err
+				}
+				writeProvenance(w, f, prov)
+				return nil
 			}); err != nil {
 				return fmt.Errorf("writing %s: %w", path, err)
 			}
@@ -534,9 +541,11 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 		if pc != nil {
 			w = pc.postWriter(stdout)
 		}
-		if err := renderReportToWriter(w, deps.ResultFormat()); err != nil {
+		f := deps.ResultFormat()
+		if err := renderReportToWriter(w, f); err != nil {
 			return err
 		}
+		writeProvenance(w, f, prov)
 	}
 
 	return postFn()
@@ -559,8 +568,8 @@ func writeDetail(rc format.RenderContext, summary string, md, pretty func() erro
 
 // artifactSection describes a per-section artifact that can be written as JSON and Markdown.
 type artifactSection struct {
-	Name      string                                   // filename stem, e.g. "flow-lead-time"
-	WriteJSON func(w *os.File) error                   // writes JSON to the file
+	Name      string                                          // filename stem, e.g. "flow-lead-time"
+	WriteJSON func(w *os.File) error                          // writes JSON to the file
 	WriteMD   func(w *os.File, rc format.RenderContext) error // writes Markdown to the file
 }
 
@@ -690,7 +699,7 @@ func computeQualityWithInsights(items []leadtime.BulkItem, categories []model.Ca
 	quality := &model.StatsQuality{
 		BugCount:    bugCount,
 		TotalIssues: len(items),
-		BugRatio:  bugRatio,
+		BugRatio:    bugRatio,
 	}
 
 	hwh := int(hotfixWindowHours)

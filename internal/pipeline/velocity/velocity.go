@@ -49,6 +49,10 @@ type Pipeline struct {
 	Result        model.VelocityResult
 }
 
+// HasProvenance returns true because the velocity pipeline renders its own
+// multi-line provenance block with effort strategy details.
+func (p *Pipeline) HasProvenance() bool { return true }
+
 // GatherData fetches project items and resolves iteration boundaries.
 func (p *Pipeline) GatherData(ctx context.Context) error {
 	// Build effort evaluator.
@@ -495,10 +499,18 @@ func (p *Pipeline) computeIteration(iter model.Iteration, prevIter *model.Iterat
 
 		committedEffort += effort
 
-		if p.isDone(item) {
+		done := p.isDone(item)
+		if done {
 			itemsDone++
 			doneEffort += effort
 		}
+
+		iv.Items = append(iv.Items, model.IterationItem{
+			Number: item.Number,
+			Title:  item.Title,
+			Effort: effort,
+			Done:   done,
+		})
 	}
 
 	iv.Velocity = doneEffort

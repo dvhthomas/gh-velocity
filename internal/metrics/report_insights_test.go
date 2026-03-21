@@ -133,7 +133,7 @@ func TestGenerateStatsInsights(t *testing.T) {
 				{Number: 5, Title: "Last", Duration: dur(3)},
 			},
 			wantCount:  1,
-			wantSubstr: "Quick fix",
+			wantSubstr: "ranges from",
 			wantType:   "fastest_slowest",
 		},
 		{
@@ -306,7 +306,7 @@ func TestGenerateStatsInsights(t *testing.T) {
 				{Number: 3, Title: "Real fast", Duration: dur(2)},
 				{Number: 4, Title: "Real slow", Duration: dur(10)},
 			},
-			wantSubstr: "Real fast",
+			wantSubstr: "ranges from",
 			wantType:   "fastest_slowest",
 			wantCount:  1,
 		},
@@ -384,15 +384,13 @@ func TestGenerateCycleTimeInsights(t *testing.T) {
 			wantType:   "no_data",
 		},
 		{
-			name:       "PR strategy with data shows review turnaround",
-			stats:      &model.Stats{Count: 10, Mean: ptrDur(durH(4)), Median: ptrDur(durH(2))},
-			strategy:   model.StrategyPR,
-			wantCount:  1,
-			wantSubstr: "first PR to issue close",
-			wantType:   "strategy_callout",
+			name:      "PR strategy without lead time has no comparison insight",
+			stats:     &model.Stats{Count: 10, Mean: ptrDur(durH(4)), Median: ptrDur(durH(2))},
+			strategy:  model.StrategyPR,
+			wantCount: 0,
 		},
 		{
-			name:      "issue strategy with data has no strategy callout",
+			name:      "issue strategy with data has no comparison insight",
 			stats:     &model.Stats{Count: 10, Mean: ptrDur(dur(5)), Median: ptrDur(dur(3))},
 			strategy:  model.StrategyIssue,
 			wantCount: 0,
@@ -500,14 +498,14 @@ func TestGenerateThroughputInsights(t *testing.T) {
 
 func TestGenerateQualityInsights(t *testing.T) {
 	tests := []struct {
-		name                string
-		quality             model.StatsQuality
-		items               []ItemRef
-		hotfixWindowHours   int
+		name              string
+		quality           model.StatsQuality
+		items             []ItemRef
+		hotfixWindowHours int
 		bugRatioThreshold float64 // 0 means use default (0.20)
-		wantCount           int
-		wantSubstr          string
-		wantType            string
+		wantCount         int
+		wantSubstr        string
+		wantType          string
 	}{
 		{
 			name:      "empty quality no insights",
@@ -579,7 +577,7 @@ func TestGenerateQualityInsights(t *testing.T) {
 				{Number: 5, Title: "Normal 3", Duration: dur(7), Category: "chore"},
 			},
 			wantCount:  3, // bug_ratio_high + bug_fix_speed + hotfix
-			wantSubstr: "2 items resolved within",
+			wantSubstr: "2 of 5 items (40%)",
 			wantType:   "hotfix_count",
 		},
 		{
@@ -594,18 +592,18 @@ func TestGenerateQualityInsights(t *testing.T) {
 			wantCount: 0,
 		},
 		{
-			name:                "custom threshold 15% fires at 20% bug ratio",
-			quality:             model.StatsQuality{BugCount: 4, TotalIssues: 20, BugRatio: 0.20},
+			name:              "custom threshold 15% fires at 20% bug ratio",
+			quality:           model.StatsQuality{BugCount: 4, TotalIssues: 20, BugRatio: 0.20},
 			bugRatioThreshold: 0.15,
-			wantCount:           1,
-			wantSubstr:          "configured 15%",
-			wantType:            "bug_ratio_high",
+			wantCount:         1,
+			wantSubstr:        "configured 15%",
+			wantType:          "bug_ratio_high",
 		},
 		{
-			name:                "custom threshold 30% silent at 20% bug ratio",
-			quality:             model.StatsQuality{BugCount: 4, TotalIssues: 20, BugRatio: 0.20},
+			name:              "custom threshold 30% silent at 20% bug ratio",
+			quality:           model.StatsQuality{BugCount: 4, TotalIssues: 20, BugRatio: 0.20},
 			bugRatioThreshold: 0.30,
-			wantCount:           0,
+			wantCount:         0,
 		},
 	}
 

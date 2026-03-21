@@ -68,10 +68,10 @@ func TestInjectMarkedSection(t *testing.T) {
 	section := WrapWithMarker("issue", "42", "new metrics content")
 
 	tests := []struct {
-		name     string
-		body     string
-		wantHas  string // substring that must appear
-		wantNot  string // substring that must NOT appear (empty = skip)
+		name    string
+		body    string
+		wantHas string // substring that must appear
+		wantNot string // substring that must NOT appear (empty = skip)
 	}{
 		{
 			name:    "empty body",

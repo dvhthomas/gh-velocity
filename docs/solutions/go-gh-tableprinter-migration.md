@@ -1,29 +1,26 @@
 ---
-title: "Migrating CLI Output to go-gh tableprinter"
+title: "CLI table rendering: go-gh tableprinter → lipgloss v2"
 category: architecture-decisions
-tags: [go-gh, tableprinter, terminal-ui, TTY-detection, formatting, smoke-tests, bash]
+tags: [lipgloss, go-gh, tableprinter, terminal-ui, TTY-detection, formatting, smoke-tests, bash, osc8]
 module: internal/format/table.go
-symptom: "Pretty output had fixed-width columns that broke on narrow terminals and no TSV output when piped"
-root_cause: "Manual string formatting with hardcoded spacing cannot adapt to terminal width or detect piped output"
-date: 2026-03-09
+symptom: "Pretty output had fixed-width columns, no styled borders, inconsistent flag labels across commands"
+root_cause: "go-gh tableprinter lacked styling control; replaced with lipgloss v2 buffering wrapper that sanitizes OSC 8 sequences"
+date: 2026-03-20
+supersedes: "Original 2026-03-09 version documented migration to go-gh tableprinter, which has since been replaced"
 ---
 
-# Migrating CLI Output to go-gh tableprinter
+# CLI Table Rendering: go-gh tableprinter → lipgloss v2
 
-## Problem
+## History
 
-Pretty-printed output used `fmt.Sprintf` with fixed-width padding. This caused:
-- Truncated or wrapped output on narrow terminals
-- No machine-readable output when piped (no TSV fallback)
-- Inconsistent formatting across commands
+1. **2026-03-09**: Migrated from manual `fmt.Sprintf` to `go-gh/v2/pkg/tableprinter` for auto-truncation and TSV piped output.
+2. **2026-03-20**: Replaced tableprinter with `charm.land/lipgloss/v2/table` for styled output (rounded borders, bold headers). See [lipgloss table migration](architecture-refactors/lipgloss-table-migration.md) for the full problem/solution/prevention writeup.
 
-## Solution
+## Current Architecture
 
-Migrated all pretty output to `github.com/cli/go-gh/v2/pkg/tableprinter`, which auto-truncates columns to terminal width and outputs TSV when piped.
+### Detect Once, Use Everywhere (unchanged)
 
-### Architecture: Detect Once, Use Everywhere
-
-Terminal capabilities are detected once in `PersistentPreRunE` and stored in the `Deps` struct:
+Terminal capabilities are still detected once in `PersistentPreRunE` and stored in `Deps`:
 
 ```go
 // cmd/root.go — PersistentPreRunE
@@ -37,53 +34,66 @@ if w, _, err := t.Size(); err == nil && w > 0 {
 deps := &Deps{
     IsTTY:     isTTY,
     TermWidth: termWidth,
-    // ...
 }
 ```
 
-A thin wrapper creates tables consistently:
+### Buffering Table Wrapper (new)
+
+`format.NewTable()` now returns a `*Table` (custom struct) instead of `tableprinter.TablePrinter`. The caller API is preserved — `AddHeader`, `AddField`, `EndRow`, `Render` — but internally it buffers rows and renders via lipgloss (TTY) or plain TSV (pipe).
 
 ```go
 // internal/format/table.go
-func NewTable(w io.Writer, isTTY bool, width int) tableprinter.TablePrinter {
-    if width <= 0 {
-        width = 80
-    }
-    return tableprinter.New(w, isTTY, width)
+type Table struct {
+    w       io.Writer
+    isTTY   bool
+    width   int
+    headers []string
+    rows    [][]string
+    current []string
 }
+
+func NewTable(w io.Writer, isTTY bool, width int) *Table
+func (t *Table) AddField(text string)
+func (t *Table) EndRow()
+func (t *Table) Render() error  // lipgloss for TTY, TSV for pipe
 ```
 
-### Usage Pattern
+**Key difference from tableprinter**: lipgloss does not auto-truncate columns to fit terminal width the way tableprinter did. Width is managed via lipgloss's `Width()` method on the table, and `Wrap(false)` prevents multi-line cells. Long titles are truncated with `…` by lipgloss.
 
-Commands use key-value rows for single-entity output (lead-time, cycle-time) and header+rows for multi-entity output (release, scope):
+### OSC 8 Sanitization
+
+lipgloss cannot handle OSC 8 hyperlink escape sequences — it miscomputes their width. Before passing cell values to lipgloss, `sanitizeForLipgloss()` strips OSC 8 sequences (preserving visible text) and removes control characters for security. TSV output is NOT sanitized.
+
+### Usage Pattern (unchanged API, new rendering)
 
 ```go
-// Key-value pattern (single entity)
-tp := format.NewTable(w, deps.IsTTY, deps.TermWidth)
-tp.AddField("Issue #42")
-tp.AddField("Fix the widget")
-tp.EndRow()
-tp.AddField("Cycle Time")
-tp.AddField("2d 3h 15m")
-tp.EndRow()
-tp.Render()
-
-// Table pattern (multiple entities)
-tp.AddHeader([]string{"#", "Title", "Lead Time", "Cycle Time"})
-for _, item := range items {
-    tp.AddField(...)
+tp := format.NewTable(rc.Writer, rc.IsTTY, rc.Width)
+tp.AddHeader([]string{"", "#", "Title", "Closed", sorted.Header("lead_time", "Lead Time")})
+for _, item := range sorted.Items {
+    tp.AddField(leadTimeFlag(item, stats))
+    tp.AddField(format.FormatItemLink(item.Issue.Number, item.Issue.URL, rc))
+    tp.AddField(item.Issue.Title)
+    tp.AddField(closedStr)
+    tp.AddField(format.FormatMetricDuration(item.Metric))
     tp.EndRow()
 }
 tp.Render()
 ```
 
-## Bash Arithmetic Bug in Smoke Tests
+Output (TTY):
+```
+╭────┬──────┬───────────────────────────────────────┬────────────┬─────────────╮
+│    │ #    │ Title                                 │ Closed     │ Lead Time ↓ │
+├────┼──────┼───────────────────────────────────────┼────────────┼─────────────┤
+│ ⚡ │ #66  │ feat: Include clickable GitHub searc… │ 2026-03-18 │ 2d 8h       │
+╰────┴──────┴───────────────────────────────────────┴────────────┴─────────────╯
+```
 
-After migration, smoke tests broke for an unrelated reason: `((FAIL++))` under `set -e`.
+Output (piped): plain tab-separated text, no borders, no ANSI.
 
-When `FAIL=0`, the expression `((FAIL++))` returns exit code 1 because bash arithmetic expressions return the *pre-increment* value as the exit code. Pre-increment of 0 is 0, which bash treats as false/failure.
+## Bash Arithmetic Bug in Smoke Tests (still relevant)
 
-**Fix:** Use assignment syntax instead:
+When `FAIL=0`, the expression `((FAIL++))` returns exit code 1 under `set -e` because bash arithmetic returns the *pre-increment* value (0 = false).
 
 ```bash
 # BAD — exits with code 1 when FAIL=0 under set -e
@@ -93,44 +103,34 @@ When `FAIL=0`, the expression `((FAIL++))` returns exit code 1 because bash arit
 FAIL=$((FAIL + 1))
 ```
 
-The smoke test now uses helper functions that encapsulate this:
-
-```bash
-pass() { PASS=$((PASS + 1)); echo "  ✓ $1"; }
-fail() { FAIL=$((FAIL + 1)); ERRORS+="  ✗ $1\n"; echo "  ✗ $1" >&2; }
-```
-
-## Smoke Test Output Format Changes
-
-After tableprinter migration, output changed from colon-separated to tab-separated. Smoke test assertions needed updating:
-
-```bash
-# Before (manual formatting): "Started: 2024-01-01T00:00:00Z"
-[[ "$out" == *"Started:"* ]]
-
-# After (tableprinter): "Started\t2024-01-01T00:00:00Z"
-[[ "$out" == *"Started"* ]]
-```
-
 ## Key Design Decisions
 
-- **Single detection point.** TTY and width detected once in `PersistentPreRunE`, not per-formatter. Avoids repeated `term.Size()` calls and keeps formatters pure.
-- **Safe default width.** Falls back to 80 columns if detection fails. This is the POSIX standard terminal width.
-- **Config subcommands skip detection.** Commands under `config` skip `PersistentPreRunE` entirely. `config discover` handles its own output without tableprinter (simple `fmt.Fprintf`).
-- **Wrapper function, not interface.** `NewTable()` is a simple factory, not an abstraction layer. All callers use `tableprinter.TablePrinter` directly.
+- **Single detection point.** TTY and width detected once in `PersistentPreRunE`, not per-formatter.
+- **Safe default width.** Falls back to 80 columns if detection fails (POSIX standard).
+- **Config subcommands skip detection.** Commands under `config` skip `PersistentPreRunE` entirely.
+- **Buffering wrapper, not direct lipgloss usage.** `NewTable()` adapts the lipgloss fluent builder to the existing `AddField`/`EndRow` caller pattern. Callers do not import lipgloss.
+- **Dual-mode rendering.** TTY gets lipgloss styled table; pipe gets plain TSV. Same code path, branched in `Render()`.
+- **Sanitize in render, not in AddField.** OSC 8 stripping happens in `renderLipgloss()` only — TSV output preserves raw content.
 
 ## Gotchas
 
-- `tableprinter.New()` behavior changes based on `isTTY`: TTY mode truncates columns to fit; piped mode outputs untruncated TSV. Tests must account for both.
-- `term.Size()` can return an error on non-TTY outputs. Always check the error and fall back.
-- `tableprinter.AddField()` accepts `...fieldOption` functional options, not `...interface{}`. Pass color functions, not raw values.
+- **lipgloss does not auto-truncate.** Unlike tableprinter, lipgloss requires explicit `Width()` and `Wrap(false)` for single-line rows. Without these, long content wraps into multi-line cells.
+- **OSC 8 sequences break lipgloss width.** `ansi.StringWidth()` strips SGR but not OSC 8. Always sanitize before passing to lipgloss.
+- **Dependency cascade.** Upgrading lipgloss v1→v2 also pulls new versions of `charmbracelet/x/ansi` and `cellbuf`. Run `go build ./...` immediately after `go get` before writing any migration code.
+- **`scope.go` parameter type.** The `addScopeItemRow` function previously took `tableprinter.TablePrinter` as a parameter — must be changed to `*format.Table`.
+- `term.Size()` can return an error on non-TTY. Always check and fall back.
 
 ## Files
 
 - `cmd/root.go` — `Deps.IsTTY`, `Deps.TermWidth`, terminal detection in `PersistentPreRunE`
-- `internal/format/table.go` — `NewTable()` wrapper
-- `internal/format/pretty.go` — Release pretty formatter using tableprinter
-- `internal/format/scope.go` — Scope pretty formatter using tableprinter
-- `cmd/cycletime.go` — Key-value tableprinter for PR and issue cycle-time
-- `cmd/leadtime.go` — Key-value tableprinter for lead-time
-- `scripts/smoke-test.sh` — Bash arithmetic fix, updated output assertions
+- `internal/format/table.go` — `Table` struct, `NewTable()`, `renderLipgloss()`, `renderTSV()`, `sanitizeForLipgloss()`
+- `internal/format/flags.go` — `FlagEmoji()`, `SortBy[T]`/`Sorted[T]`, `WriteCapNote()`
+- `internal/format/scope.go` — Scope pretty formatter using `*Table`
+- `internal/pipeline/*/render.go` — Per-pipeline rendering using `format.NewTable()`
+- `scripts/smoke-test.sh` — Bash arithmetic fix, output assertions
+- `docs/solutions/architecture-refactors/lipgloss-table-migration.md` — Full migration writeup
+
+## Related
+
+- [lipgloss table migration](architecture-refactors/lipgloss-table-migration.md) — full problem/solution/prevention documentation
+- [Command output shape](architecture-patterns/command-output-shape.md) — four-layer output shape (stats, detail, insights, provenance)

@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cli/go-gh/v2/pkg/term"
 	"github.com/dvhthomas/gh-velocity/internal/config"
 	"github.com/dvhthomas/gh-velocity/internal/dateutil"
 	"github.com/dvhthomas/gh-velocity/internal/format"
@@ -14,7 +15,6 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/metrics"
 	"github.com/dvhthomas/gh-velocity/internal/model"
 	"github.com/dvhthomas/gh-velocity/internal/scope"
-	"github.com/cli/go-gh/v2/pkg/term"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 )
@@ -366,14 +366,22 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 		Repo:   repo,
 	}
 
+	prov := buildProvenance(cmd, map[string]string{"login": result.Login})
+
+	var renderErr error
 	switch resultFmt {
 	case format.JSON:
-		return format.WriteMyWeekJSON(w, result, ins, urls, warnings)
+		renderErr = format.WriteMyWeekJSON(w, result, ins, urls, warnings)
 	case format.Markdown:
-		return format.WriteMyWeekMarkdown(rc, result, ins, urls)
+		renderErr = format.WriteMyWeekMarkdown(rc, result, ins, urls)
 	default:
-		return format.WriteMyWeekPretty(rc, result, ins, urls)
+		renderErr = format.WriteMyWeekPretty(rc, result, ins, urls)
 	}
+	if renderErr != nil {
+		return renderErr
+	}
+	writeProvenance(w, resultFmt, prov)
+	return nil
 }
 
 // computeMyWeekCycleTime computes cycle-time durations for closed issues

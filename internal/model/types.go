@@ -348,6 +348,7 @@ type StatsResult struct {
 	WIP               *WIPResult
 	Quality           *StatsQuality
 	Warnings          []string
+	Provenance        Provenance
 
 	// Per-section insights (velocity insights live on VelocityResult.Insights).
 	LeadTimeInsights   []Insight
@@ -369,14 +370,16 @@ type ThroughputResult struct {
 	Until        time.Time
 	IssuesClosed int
 	PRsMerged    int
+	Provenance   Provenance
 }
 
 // MyWeekResult holds the "my week" summary for one user.
 type MyWeekResult struct {
-	Login string
-	Repo  string
-	Since time.Time
-	Until time.Time
+	Login      string
+	Repo       string
+	Since      time.Time
+	Until      time.Time
+	Provenance Provenance
 	// Lookback: what happened
 	IssuesClosed []Issue
 	PRsMerged    []PR
@@ -395,6 +398,7 @@ type MyWeekResult struct {
 type ReviewPressureResult struct {
 	Repository     string
 	AwaitingReview []PRAwaitingReview
+	Provenance     Provenance
 }
 
 // PRAwaitingReview represents a PR waiting for review.
@@ -474,6 +478,15 @@ type IterationVelocity struct {
 	Trend            string // "▲", "▼", "─"
 	DayOfCycle       int    // days elapsed since iteration start (0 if not current)
 	TotalDays        int    // total iteration length in days (0 if not current)
+	Items            []IterationItem // per-item breakdown for detail tables
+}
+
+// IterationItem holds one work item's contribution to an iteration.
+type IterationItem struct {
+	Number int
+	Title  string
+	Effort float64
+	Done   bool
 }
 
 // Iteration represents a bounded time period used to bucket velocity results.

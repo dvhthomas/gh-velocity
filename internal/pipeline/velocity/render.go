@@ -148,6 +148,9 @@ func WritePretty(w io.Writer, r model.VelocityResult, verbose bool) error {
 		fmt.Fprintln(w)
 	}
 
+	// Insights first — what to pay attention to.
+	model.WriteInsightsPretty(w, r.Insights)
+
 	if r.Current != nil {
 		c := r.Current
 		fmt.Fprintf(w, "  Current: %s (%s – %s)\n",
@@ -161,26 +164,28 @@ func WritePretty(w io.Writer, r model.VelocityResult, verbose bool) error {
 		fmt.Fprintf(w, "    Items:          %d / %d done\n", c.ItemsDone, c.ItemsTotal)
 		if c.NotAssessed > 0 {
 			fmt.Fprintf(w, "    Not assessed:   %d %s\n", c.NotAssessed, notAssessedHint(r.EffortDetail.Strategy))
-			if verbose && len(c.NotAssessedItems) > 0 {
-				fmt.Fprintf(w, "      Items: %s\n", formatItemNumbers(c.NotAssessedItems))
-			}
 		}
 		fmt.Fprintln(w)
+
+		// Per-item table for current iteration, sorted by effort desc.
+		writeItemTable(w, c.Items, r.EffortUnit)
 	}
 
 	if len(r.History) > 0 {
 		fmt.Fprintf(w, "  History:\n")
-		// Header.
-		fmt.Fprintf(w, "    %-20s %8s %8s %8s %6s %s\n",
-			"Iteration", "Velocity", "Commit", "Done%", "Items", "Trend")
-		fmt.Fprintf(w, "    %-20s %8s %8s %8s %6s %s\n",
-			"─────────", "────────", "──────", "─────", "─────", "─────")
+		tp := format.NewTable(w, true, 80)
+		tp.AddHeader([]string{"Iteration", "Velocity", "Commit", "Done%", "Items", "Trend"})
 		for _, h := range r.History {
-			fmt.Fprintf(w, "    %-20s %8.1f %8.1f %7.0f%% %3d/%-3d %s\n",
-				truncate(h.Name, 20),
-				h.Velocity, h.Committed, h.CompletionPct,
-				h.ItemsDone, h.ItemsTotal,
-				h.Trend)
+			tp.AddField(truncate(h.Name, 20))
+			tp.AddField(fmt.Sprintf("%.1f", h.Velocity))
+			tp.AddField(fmt.Sprintf("%.1f", h.Committed))
+			tp.AddField(fmt.Sprintf("%.0f%%", h.CompletionPct))
+			tp.AddField(fmt.Sprintf("%d/%d", h.ItemsDone, h.ItemsTotal))
+			tp.AddField(h.Trend)
+			tp.EndRow()
+		}
+		if err := tp.Render(); err != nil {
+			return err
 		}
 		fmt.Fprintln(w)
 
@@ -192,11 +197,35 @@ func WritePretty(w io.Writer, r model.VelocityResult, verbose bool) error {
 		}
 	}
 
-	model.WriteInsightsPretty(w, r.Insights)
 	writeEffortDetailPretty(w, r.EffortDetail)
 	r.Provenance.WritePretty(w)
 
 	return nil
+}
+
+// writeItemTable renders a per-item effort table for an iteration,
+// sorted by effort descending (biggest contributors first).
+func writeItemTable(w io.Writer, items []model.IterationItem, unit string) {
+	if len(items) == 0 {
+		return
+	}
+	sorted := format.SortBy(items, "effort", format.Desc, func(it model.IterationItem) *float64 { return &it.Effort })
+
+	tp := format.NewTable(w, true, 80)
+	tp.AddHeader([]string{"", "#", "Title", sorted.Header("effort", "Effort")})
+	for _, item := range sorted.Items {
+		status := "✓"
+		if !item.Done {
+			status = " "
+		}
+		tp.AddField(status)
+		tp.AddField(fmt.Sprintf("#%d", item.Number))
+		tp.AddField(item.Title)
+		tp.AddField(fmt.Sprintf("%.0f", item.Effort))
+		tp.EndRow()
+	}
+	tp.Render()
+	fmt.Fprintln(w)
 }
 
 func writeEffortDetailPretty(w io.Writer, d model.EffortDetail) {
@@ -224,6 +253,7 @@ type templateData struct {
 	EffortStrategy string // for notAssessedHint in current iteration
 	Insights       []string
 	Current        *model.IterationVelocity
+	CurrentItems   []model.IterationItem // sorted by effort desc
 	History        []model.IterationVelocity
 	AvgVel         float64
 	AvgComp        float64
@@ -236,6 +266,12 @@ func WriteMarkdown(w io.Writer, r model.VelocityResult) error {
 	for _, ins := range r.Insights {
 		insights = append(insights, ins.Message)
 	}
+	var currentItems []model.IterationItem
+	if r.Current != nil && len(r.Current.Items) > 0 {
+		sorted := format.SortBy(r.Current.Items, "effort", format.Desc, func(it model.IterationItem) *float64 { return &it.Effort })
+		currentItems = sorted.Items
+	}
+
 	if err := markdownTmpl.Execute(w, templateData{
 		Repository:     r.Repository,
 		Unit:           r.Unit,
@@ -243,6 +279,7 @@ func WriteMarkdown(w io.Writer, r model.VelocityResult) error {
 		EffortStrategy: r.EffortDetail.Strategy,
 		Insights:       insights,
 		Current:        r.Current,
+		CurrentItems:   currentItems,
 		History:        r.History,
 		AvgVel:         r.AvgVelocity,
 		AvgComp:        r.AvgCompletion,

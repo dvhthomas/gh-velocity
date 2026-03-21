@@ -35,6 +35,15 @@ func (p Provenance) WritePretty(w io.Writer) {
 	}
 }
 
+// WriteFooter writes a compact single-line provenance footer suitable for
+// commands that don't need the full multi-line WritePretty output.
+func (p Provenance) WriteFooter(w io.Writer) {
+	if p.Command == "" {
+		return
+	}
+	fmt.Fprintf(w, "\n— %s\n", p.Command)
+}
+
 // WriteInsightsPretty writes insights as a bulleted list.
 func WriteInsightsPretty(w io.Writer, insights []Insight) {
 	if len(insights) == 0 {

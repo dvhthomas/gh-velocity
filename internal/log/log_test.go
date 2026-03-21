@@ -27,7 +27,6 @@ func TestEscapeCI(t *testing.T) {
 	}
 }
 
-
 func TestIsCI(t *testing.T) {
 	t.Setenv("GITHUB_ACTIONS", "true")
 	if !isCI() {

@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dvhthomas/gh-velocity/internal/log"
 	ghapi "github.com/cli/go-gh/v2/pkg/api"
+	"github.com/dvhthomas/gh-velocity/internal/log"
 )
 
 // projectGQL returns a GraphQL client for project board queries.

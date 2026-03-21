@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
 	"text/template"
 	"time"
 
@@ -127,11 +126,12 @@ type jsonBulkOutput struct {
 	Window     format.JSONWindow    `json:"window"`
 	SearchURL  string               `json:"search_url"`
 	Strategy   string               `json:"strategy"`
+	Sort       format.JSONSort      `json:"sort"`
 	Insights   []format.JSONInsight `json:"insights,omitempty"`
-	Items      []jsonBulkItem    `json:"items"`
-	Stats      format.JSONStats  `json:"stats"`
-	Capped     bool              `json:"capped,omitempty"`
-	Warnings   []string          `json:"warnings,omitempty"`
+	Items      []jsonBulkItem       `json:"items"`
+	Stats      format.JSONStats     `json:"stats"`
+	Capped     bool                 `json:"capped,omitempty"`
+	Warnings   []string             `json:"warnings,omitempty"`
 }
 
 type jsonBulkItem struct {
@@ -145,6 +145,7 @@ type jsonBulkItem struct {
 
 // WriteBulkJSON writes bulk cycle-time results as JSON.
 func WriteBulkJSON(w io.Writer, repo string, since, until time.Time, strategy string, items []BulkItem, stats model.Stats, searchURL string, warnings []string, insights []model.Insight) error {
+	sorted := format.SortBy(items, "cycle_time", format.Desc, func(it BulkItem) *time.Duration { return it.Metric.Duration })
 	jsonIns := format.InsightsToJSON(insights)
 	out := jsonBulkOutput{
 		Repository: repo,
@@ -154,31 +155,23 @@ func WriteBulkJSON(w io.Writer, repo string, since, until time.Time, strategy st
 		},
 		SearchURL: searchURL,
 		Strategy:  strategy,
+		Sort:      sorted.JSONSort(),
 		Insights:  jsonIns,
-		Items:     make([]jsonBulkItem, 0, len(items)),
+		Items:     make([]jsonBulkItem, 0, len(sorted.Items)),
 		Stats:     format.StatsToJSON(stats),
 		Capped:    len(items) >= 1000,
 		Warnings:  warnings,
 	}
 
-	for _, item := range items {
-		ji := jsonBulkItem{
+	for _, item := range sorted.Items {
+		out.Items = append(out.Items, jsonBulkItem{
 			Number:    item.Issue.Number,
 			Title:     item.Issue.Title,
 			URL:       item.Issue.URL,
 			Labels:    item.Issue.Labels,
 			CycleTime: format.MetricToJSON(item.Metric),
-		}
-		if item.Metric.Duration != nil && *item.Metric.Duration < time.Minute {
-			ji.Flags = append(ji.Flags, "noise")
-		}
-		if item.Metric.Duration != nil && *item.Metric.Duration <= 72*time.Hour && *item.Metric.Duration >= time.Minute {
-			ji.Flags = append(ji.Flags, "hotfix")
-		}
-		if metrics.IsOutlier(item.Metric, stats) {
-			ji.Flags = append(ji.Flags, "outlier")
-		}
-		out.Items = append(out.Items, ji)
+			Flags:     classifyFlags(item, stats),
+		})
 	}
 
 	enc := json.NewEncoder(w)
@@ -200,6 +193,7 @@ type bulkTemplateData struct {
 	Detail      []string
 	Summary     string
 	SearchURL   string
+	SortHeader  string
 	DetailCount int // items with cycle time data (shown in table)
 	TotalCount  int // total items including those without data
 }
@@ -207,8 +201,6 @@ type bulkTemplateData struct {
 type bulkItemRow struct {
 	Link      string
 	Title     string
-	Labels    string
-	Started   string
 	Closed    string
 	CycleTime string
 	Flag      string
@@ -218,7 +210,7 @@ type bulkItemRow struct {
 // Items without cycle time data (Duration == nil) are filtered from the detail
 // table to avoid cluttering it with N/A rows.
 func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.Time, strategy string, items []BulkItem, stats model.Stats, searchURL string, insights []model.Insight) error {
-	sorted := sortByCloseDateDesc(items)
+	sorted := format.SortBy(items, "cycle_time", format.Desc, func(it BulkItem) *time.Duration { return it.Metric.Duration })
 	var insightMsgs []string
 	for _, ins := range insights {
 		insightMsgs = append(insightMsgs, format.LinkStatTerms(ins.Message))
@@ -232,16 +224,13 @@ func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.T
 		Detail:     format.FormatStatsDetail(stats),
 		Summary:    format.FormatStatsSummary(stats),
 		SearchURL:  searchURL,
-		TotalCount: len(sorted),
+		SortHeader: sorted.Header("cycle_time", "Cycle Time"),
+		TotalCount: len(sorted.Items),
 	}
-	for _, item := range sorted {
+	for _, item := range sorted.Items {
 		// Filter out items without cycle time data.
 		if item.Metric.Duration == nil {
 			continue
-		}
-		startedStr := "N/A"
-		if item.Metric.Start != nil {
-			startedStr = item.Metric.Start.Time.UTC().Format(time.DateOnly)
 		}
 		closedStr := "N/A"
 		if item.Issue.ClosedAt != nil {
@@ -250,11 +239,9 @@ func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.T
 		data.Items = append(data.Items, bulkItemRow{
 			Link:      format.FormatItemLink(item.Issue.Number, item.Issue.URL, rc),
 			Title:     format.SanitizeMarkdown(item.Issue.Title),
-			Labels:    format.FormatLabels(item.Issue.Labels),
-			Started:   startedStr,
 			Closed:    closedStr,
 			CycleTime: format.FormatMetricDuration(item.Metric),
-			Flag:      cycleTimeFlag(item, stats),
+			Flag:      flagEmojis(classifyFlags(item, stats)),
 		})
 	}
 	data.DetailCount = len(data.Items)
@@ -267,7 +254,7 @@ func WriteBulkMarkdown(rc format.RenderContext, repo string, since, until time.T
 
 // WriteBulkPretty writes bulk cycle-time results as a formatted table.
 func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Time, strategy string, items []BulkItem, stats model.Stats, searchURL string, insights []model.Insight) error {
-	sorted := sortByCloseDateDesc(items)
+	sorted := format.SortBy(items, "cycle_time", format.Desc, func(it BulkItem) *time.Duration { return it.Metric.Duration })
 
 	fmt.Fprintf(rc.Writer, "Cycle Time: %s (%s – %s UTC) [%s]\n\n",
 		repo, since.UTC().Format(time.DateOnly), until.UTC().Format(time.DateOnly), strategy)
@@ -278,7 +265,7 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 	}
 	fmt.Fprintln(rc.Writer)
 
-	if len(sorted) == 0 {
+	if len(sorted.Items) == 0 {
 		fmt.Fprintln(rc.Writer, "  No issues closed in this period.")
 		if searchURL != "" {
 			fmt.Fprintf(rc.Writer, "  Verify: %s\n", searchURL)
@@ -287,25 +274,19 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 	}
 
 	tp := format.NewTable(rc.Writer, rc.IsTTY, rc.Width)
-	tp.AddHeader([]string{"", "#", "Title", "Labels", "Started", "Closed", "Cycle Time"})
-	for _, item := range sorted {
+	tp.AddHeader([]string{"", "#", "Title", "Closed", sorted.Header("cycle_time", "Cycle Time")})
+	for _, item := range sorted.Items {
 		// Filter out items without cycle time data.
 		if item.Metric.Duration == nil {
 			continue
-		}
-		startedStr := "N/A"
-		if item.Metric.Start != nil {
-			startedStr = item.Metric.Start.Time.UTC().Format(time.DateOnly)
 		}
 		closedStr := "N/A"
 		if item.Issue.ClosedAt != nil {
 			closedStr = item.Issue.ClosedAt.UTC().Format(time.DateOnly)
 		}
-		tp.AddField(cycleTimeFlag(item, stats))
+		tp.AddField(flagEmojis(classifyFlags(item, stats)))
 		tp.AddField(format.FormatItemLink(item.Issue.Number, item.Issue.URL, rc))
 		tp.AddField(item.Issue.Title)
-		tp.AddField(format.FormatLabels(item.Issue.Labels))
-		tp.AddField(startedStr)
 		tp.AddField(closedStr)
 		tp.AddField(format.FormatMetricDuration(item.Metric))
 		tp.EndRow()
@@ -313,40 +294,27 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 	return tp.Render()
 }
 
-// cycleTimeFlag returns a flag emoji for outlier items.
-// cycleTimeFlag returns flag emojis for insight-triggering items.
-func cycleTimeFlag(item BulkItem, stats model.Stats) string {
-	var flag string
+// classifyFlags returns the applicable flag constants for a duration-based item.
+func classifyFlags(item BulkItem, stats model.Stats) []string {
+	var flags []string
 	if item.Metric.Duration != nil && *item.Metric.Duration < time.Minute {
-		flag += "🤖"
+		flags = append(flags, format.FlagNoise)
 	}
 	if item.Metric.Duration != nil && *item.Metric.Duration <= 72*time.Hour && *item.Metric.Duration >= time.Minute {
-		flag += "⚡"
+		flags = append(flags, format.FlagHotfix)
 	}
 	if metrics.IsOutlier(item.Metric, stats) {
-		flag += "🚩"
+		flags = append(flags, format.FlagOutlier)
 	}
-	return flag
+	return flags
+}
+
+func flagEmojis(flags []string) string {
+	var s string
+	for _, f := range flags {
+		s += format.FlagEmoji(f)
+	}
+	return s
 }
 
 // --- Helpers ---
-
-func sortByCloseDateDesc(items []BulkItem) []BulkItem {
-	sorted := make([]BulkItem, len(items))
-	copy(sorted, items)
-	sort.Slice(sorted, func(i, j int) bool {
-		ci := sorted[i].Issue.ClosedAt
-		cj := sorted[j].Issue.ClosedAt
-		if ci == nil && cj == nil {
-			return false
-		}
-		if ci == nil {
-			return false
-		}
-		if cj == nil {
-			return true
-		}
-		return ci.After(*cj)
-	})
-	return sorted
-}

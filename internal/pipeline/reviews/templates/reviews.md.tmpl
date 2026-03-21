@@ -6,10 +6,10 @@ No PRs currently awaiting review.
 {{- end}}
 {{- else}}
 
-| # | Title | Age | Signal |
-| ---: | --- | --- | --- |
+| | # | Title | {{.SortHeader}} |
+| :---: | ---: | --- | --- |
 {{- range .Items}}
-| {{.Link}} | {{.Title}} | {{.Age}} | {{.Signal}} |
+| {{.Signal}} | {{.Link}} | {{.Title}} | {{.Age}} |
 {{- end}}
 
 **{{.Count}} PRs awaiting review**{{if gt .StaleCount 0}} ({{.StaleCount}} stale >48h){{end}}

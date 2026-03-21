@@ -31,8 +31,8 @@ func TestWritePretty_WithItems(t *testing.T) {
 	if !strings.Contains(out, "Review Queue: owner/repo") {
 		t.Error("missing header")
 	}
-	if !strings.Contains(out, "STALE") {
-		t.Error("missing STALE signal")
+	if !strings.Contains(out, "⏳") {
+		t.Error("missing stale flag emoji ⏳")
 	}
 	if !strings.Contains(out, "2 PRs awaiting review (1 stale >48h)") {
 		t.Errorf("missing summary, got: %s", out)
@@ -82,8 +82,8 @@ func TestWriteJSON(t *testing.T) {
 	if out.StaleCount != 1 {
 		t.Errorf("stale_count = %d, want 1", out.StaleCount)
 	}
-	if !out.Items[0].IsStale {
-		t.Error("first item should be stale")
+	if len(out.Items[0].Flags) == 0 || out.Items[0].Flags[0] != "stale" {
+		t.Errorf("first item flags = %v, want [stale]", out.Items[0].Flags)
 	}
 }
 
@@ -109,7 +109,7 @@ func TestWriteMarkdown(t *testing.T) {
 	if !strings.Contains(out, "[#142]") {
 		t.Error("missing markdown link")
 	}
-	if !strings.Contains(out, "STALE") {
-		t.Error("missing STALE signal")
+	if !strings.Contains(out, "⏳") {
+		t.Error("missing stale flag emoji ⏳")
 	}
 }

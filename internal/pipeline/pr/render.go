@@ -103,10 +103,10 @@ func WritePretty(rc format.RenderContext, p *Pipeline) error {
 
 // jsonOutput is the JSON schema for PR detail.
 type jsonOutput struct {
-	PR           jsonPR           `json:"pr"`
-	Metrics      jsonMetrics      `json:"metrics"`
+	PR           jsonPR            `json:"pr"`
+	Metrics      jsonMetrics       `json:"metrics"`
 	ClosedIssues []jsonClosedIssue `json:"closed_issues"`
-	Warnings     []string         `json:"warnings"`
+	Warnings     []string          `json:"warnings"`
 }
 
 type jsonPR struct {

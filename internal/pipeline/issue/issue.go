@@ -32,16 +32,16 @@ type Pipeline struct {
 	HasLifecycleMatch bool // true when lifecycle.in-progress.match is configured
 
 	// GatherData output
-	Issue     *model.Issue
+	Issue      *model.Issue
 	ClosingPRs []*model.PR
-	Warnings  []string
+	Warnings   []string
 
 	// ProcessData output
-	LeadTime           model.Metric
-	CycleTime          model.Metric
-	CycleTimeFiltered  bool // true when cycle time was negative (bad data) and zeroed out
-	Category           string
-	LinkedPRs          []LinkedPR
+	LeadTime          model.Metric
+	CycleTime         model.Metric
+	CycleTimeFiltered bool // true when cycle time was negative (bad data) and zeroed out
+	Category          string
+	LinkedPRs         []LinkedPR
 }
 
 // GatherData fetches the issue and its closing PRs from GitHub.
@@ -124,4 +124,3 @@ func (p *Pipeline) Render(rc format.RenderContext) error {
 		return WritePretty(rc, p)
 	}
 }
-

@@ -126,5 +126,3 @@ func computeReviewSummary(prCreated time.Time, reviews []model.Review) model.Rev
 
 	return summary
 }
-
-

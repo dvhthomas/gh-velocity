@@ -17,10 +17,10 @@
 
 ### Issues
 
-| # | Title | Labels | Lead Time | Cycle Time | Release Lag | Commits | |
-| ---: | --- | --- | --- | --- | --- | ---: | --- |
+| | # | Title | Lead Time | Cycle Time | Release Lag |
+| :---: | ---: | --- | --- | --- | --- |
 {{- range .Issues}}
-| {{.Link}} | {{.Title}} | {{.Labels}} | {{.LeadTime}} | {{.CycleTime}} | {{.RelLag}} | {{.Commits}} | {{.Flag}} |
+| {{.Flag}} | {{.Link}} | {{.Title}} | {{.LeadTime}} | {{.CycleTime}} | {{.RelLag}} |
 {{- end}}
 {{- end}}
 
