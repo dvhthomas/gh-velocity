@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"slices"
 	"strings"
 	"testing"
 
@@ -721,7 +720,7 @@ func TestRenderPreflightConfig_LabelMatchersIncludedWithZeroHits(t *testing.T) {
 
 func TestWriteLifecycleMapping_WithActiveLabels(t *testing.T) {
 	var b strings.Builder
-	writeLifecycleMapping(&b, []string{"Backlog", "In progress", "Done"}, []string{"in-progress"})
+	writeLifecycleMapping(&b, []string{"Backlog", "In progress", "Done"}, []string{"in-progress"}, nil)
 	output := b.String()
 
 	if !strings.Contains(output, `label:in-progress`) {
@@ -735,7 +734,7 @@ func TestWriteLifecycleMapping_WithActiveLabels(t *testing.T) {
 
 func TestWriteLifecycleMapping_NoActiveLabels_ShowsTip(t *testing.T) {
 	var b strings.Builder
-	writeLifecycleMapping(&b, []string{"Backlog", "In progress", "Done"}, nil)
+	writeLifecycleMapping(&b, []string{"Backlog", "In progress", "Done"}, nil, nil)
 	output := b.String()
 
 	if !strings.Contains(output, "Tip:") {
@@ -744,6 +743,133 @@ func TestWriteLifecycleMapping_NoActiveLabels_ShowsTip(t *testing.T) {
 	// match should be commented out (suggested but not active).
 	if !strings.Contains(output, "# match:") {
 		t.Errorf("expected commented-out match suggestion, got:\n%s", output)
+	}
+}
+
+func TestWriteLifecycleMapping_WithReviewLabels(t *testing.T) {
+	var b strings.Builder
+	writeLifecycleMapping(&b, []string{"Backlog", "In progress", "In Review", "Done"}, []string{"in-progress"}, []string{"in-review"})
+	output := b.String()
+
+	if !strings.Contains(output, "label:in-progress") {
+		t.Errorf("expected match entry for in-progress label, got:\n%s", output)
+	}
+	if !strings.Contains(output, "in-review:") {
+		t.Errorf("expected in-review stage, got:\n%s", output)
+	}
+	if !strings.Contains(output, "label:in-review") {
+		t.Errorf("expected match entry for in-review label, got:\n%s", output)
+	}
+}
+
+func TestRenderWIPConfig_ActiveWithContributors(t *testing.T) {
+	r := &PreflightResult{
+		Repo:             "owner/repo",
+		Strategy:         "issue",
+		ActiveLabels:     []string{"in-progress"},
+		ContributorCount: 7,
+		VelocityHeuristic: &VelocityHeuristic{
+			EffortStrategy: "count",
+		},
+		Categories: map[string][]string{"bug": {"bug"}},
+	}
+
+	var b strings.Builder
+	renderWIPConfig(&b, r)
+	output := b.String()
+
+	if strings.Contains(output, "# wip:") {
+		t.Errorf("expected active (uncommented) wip section, got:\n%s", output)
+	}
+	if !strings.Contains(output, "wip:") {
+		t.Errorf("expected wip: key, got:\n%s", output)
+	}
+	if !strings.Contains(output, "team_limit: 15.0") {
+		t.Errorf("expected team_limit based on 7 contributors (7*2=14, rounded to 15), got:\n%s", output)
+	}
+	if !strings.Contains(output, "person_limit: 5.0") {
+		t.Errorf("expected person_limit: 5.0, got:\n%s", output)
+	}
+	if !strings.Contains(output, "7 active contributors") {
+		t.Errorf("expected contributor count comment, got:\n%s", output)
+	}
+	if !strings.Contains(output, "total items across all assignees") {
+		t.Errorf("expected count-based effort unit comment, got:\n%s", output)
+	}
+}
+
+func TestRenderWIPConfig_ActiveWithAttributeEffort(t *testing.T) {
+	r := &PreflightResult{
+		Repo:             "owner/repo",
+		Strategy:         "issue",
+		ActiveLabels:     []string{"in-progress"},
+		ContributorCount: 3,
+		VelocityHeuristic: &VelocityHeuristic{
+			EffortStrategy: "attribute",
+		},
+		Categories: map[string][]string{"bug": {"bug"}},
+	}
+
+	var b strings.Builder
+	renderWIPConfig(&b, r)
+	output := b.String()
+
+	if !strings.Contains(output, "total effort-points across all assignees") {
+		t.Errorf("expected attribute-based effort unit comment, got:\n%s", output)
+	}
+}
+
+func TestRenderWIPConfig_CommentedWithoutLifecycle(t *testing.T) {
+	r := &PreflightResult{
+		Repo:     "owner/repo",
+		Strategy: "issue",
+	}
+
+	var b strings.Builder
+	renderWIPConfig(&b, r)
+	output := b.String()
+
+	if !strings.Contains(output, "# wip:") {
+		t.Errorf("expected commented wip section without lifecycle labels, got:\n%s", output)
+	}
+}
+
+func TestRoundToNearest5(t *testing.T) {
+	tests := []struct {
+		input int
+		want  int
+	}{
+		{1, 5},
+		{4, 5},
+		{6, 5},
+		{7, 5},
+		{8, 10},
+		{14, 15},
+		{22, 20},
+		{23, 25},
+		{50, 50},
+	}
+	for _, tt := range tests {
+		got := roundToNearest5(tt.input)
+		if got != tt.want {
+			t.Errorf("roundToNearest5(%d) = %d, want %d", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestCountContributors(t *testing.T) {
+	issues := []model.Issue{
+		{Assignees: []string{"alice", "bob"}},
+		{Assignees: []string{"alice", "dependabot[bot]"}},
+	}
+	prs := []model.PR{
+		{Author: "charlie", Assignees: []string{"bob"}},
+		{Author: "renovate[bot]"},
+	}
+
+	got := countContributors(issues, prs)
+	if got != 3 {
+		t.Errorf("countContributors() = %d, want 3 (alice, bob, charlie)", got)
 	}
 }
 
@@ -1121,12 +1247,13 @@ func TestNormalizeLabel(t *testing.T) {
 
 func TestClassifyLabels_FuzzyLifecycle(t *testing.T) {
 	tests := []struct {
-		name          string
-		labels        []string
-		wantActive    []string // expected ActiveLabels
-		wantBacklog   []string // expected BacklogLabels
-		wantNoActive  bool     // expect no active labels
-		wantNoBacklog bool     // expect no backlog labels
+		name            string
+		labels          []string
+		wantActive      []string // expected ActiveLabels
+		wantReview      []string // expected ReviewLabels
+		wantBacklog     []string // expected BacklogLabels
+		wantNoActive    bool     // expect no active labels
+		wantNoBacklog   bool     // expect no backlog labels
 	}{
 		{
 			name:       "in progress with space detected as active",
@@ -1139,9 +1266,9 @@ func TestClassifyLabels_FuzzyLifecycle(t *testing.T) {
 			wantActive: []string{"in-progress"},
 		},
 		{
-			name:       "review me! with punctuation detected as active",
+			name:       "review me! with punctuation detected as review",
 			labels:     []string{"review me!"},
-			wantActive: []string{"review me!"},
+			wantReview: []string{"review me!"},
 		},
 		{
 			name:       "in design detected as active",
@@ -1174,15 +1301,16 @@ func TestClassifyLabels_FuzzyLifecycle(t *testing.T) {
 			wantNoActive: true,
 		},
 		{
-			name:          "random label not detected",
-			labels:        []string{"priority:high", "component:ui"},
+			name:         "random label not detected",
+			labels:       []string{"priority:high", "component:ui"},
 			wantNoActive:  true,
 			wantNoBacklog: true,
 		},
 		{
 			name:       "pipeline detection — multiple lifecycle labels",
 			labels:     []string{"new", "confirmed", "in progress", "review me!", "shipped"},
-			wantActive: []string{"in progress", "review me!"},
+			wantActive: []string{"in progress"},
+			wantReview: []string{"review me!"},
 		},
 	}
 
@@ -1199,14 +1327,39 @@ func TestClassifyLabels_FuzzyLifecycle(t *testing.T) {
 			}
 
 			for _, want := range tt.wantActive {
-				found := slices.Contains(result.ActiveLabels, want)
+				found := false
+				for _, got := range result.ActiveLabels {
+					if got == want {
+						found = true
+						break
+					}
+				}
 				if !found {
 					t.Errorf("expected %q in ActiveLabels, got %v", want, result.ActiveLabels)
 				}
 			}
 
+			for _, want := range tt.wantReview {
+				found := false
+				for _, got := range result.ReviewLabels {
+					if got == want {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("expected %q in ReviewLabels, got %v", want, result.ReviewLabels)
+				}
+			}
+
 			for _, want := range tt.wantBacklog {
-				found := slices.Contains(result.BacklogLabels, want)
+				found := false
+				for _, got := range result.BacklogLabels {
+					if got == want {
+						found = true
+						break
+					}
+				}
 				if !found {
 					t.Errorf("expected %q in BacklogLabels, got %v", want, result.BacklogLabels)
 				}
@@ -1282,8 +1435,8 @@ func TestClassifyLabels_NoiseDetection(t *testing.T) {
 
 func TestRenderPreflightConfig_NoiseExclusion(t *testing.T) {
 	r := &PreflightResult{
-		Repo:        "cli/cli",
-		Strategy:    "issue",
+		Repo:       "cli/cli",
+		Strategy:   "issue",
 		NoiseLabels: []string{"suspected-spam", "duplicate", "invalid"},
 		Categories: map[string][]string{
 			"bug": {"bug"},

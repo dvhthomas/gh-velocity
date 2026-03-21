@@ -20,6 +20,7 @@ import (
 	qualitypipe "github.com/dvhthomas/gh-velocity/internal/pipeline/quality"
 	"github.com/dvhthomas/gh-velocity/internal/pipeline/throughput"
 	"github.com/dvhthomas/gh-velocity/internal/pipeline/velocity"
+	wippipe "github.com/dvhthomas/gh-velocity/internal/pipeline/wip"
 	"github.com/dvhthomas/gh-velocity/internal/posting"
 	"github.com/dvhthomas/gh-velocity/internal/scope"
 	"github.com/spf13/cobra"
@@ -182,6 +183,23 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 		}
 	}
 
+	// Build open-item queries for WIP (reuses throughput's fetch to avoid extra API calls).
+	var allLifecycleLabels []string
+	for _, m := range append(cfg.Lifecycle.InProgress.Match, cfg.Lifecycle.InReview.Match...) {
+		if strings.HasPrefix(m, "label:") {
+			label := m[len("label:"):]
+			allLifecycleLabels = append(allLifecycleLabels, label)
+			throughputPipeline.OpenIssueQueries = append(throughputPipeline.OpenIssueQueries,
+				scope.OpenIssueByLabelQuery(deps.Scope, label).Build())
+			throughputPipeline.OpenPRQueries = append(throughputPipeline.OpenPRQueries,
+				scope.OpenPRByLabelQuery(deps.Scope, label).Build())
+		}
+	}
+	if len(allLifecycleLabels) > 0 {
+		throughputPipeline.OpenPRQueries = append(throughputPipeline.OpenPRQueries,
+			scope.OpenUnlabeledPRQuery(deps.Scope, allLifecycleLabels).Build())
+	}
+
 	// --- GatherData concurrently ---
 	var (
 		warnings []string
@@ -301,7 +319,37 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 		result.QualityInsights = qualDetail.Insights
 	}
 
-	// TODO(PR C): WIP from project board or active_labels config
+	// WIP: reuse throughput's open items when lifecycle labels are configured.
+	var wipPipeline *wippipe.Pipeline
+	wipOK := true
+	hasLifecycleConfig := len(cfg.Lifecycle.InProgress.Match) > 0 || len(cfg.Lifecycle.InReview.Match) > 0
+	if throughputOK && hasLifecycleConfig {
+		wipPipeline = &wippipe.Pipeline{
+			Owner:           deps.Owner,
+			Repo:            deps.Repo,
+			LifecycleConfig: cfg.Lifecycle,
+			EffortConfig:    cfg.Effort,
+			WIPConfig:       cfg.WIP,
+			ExcludeUsers:    cfg.ExcludeUsers,
+			Now:             now,
+			Truncated:       client.SearchTruncated(),
+			InjectedIssues:  throughputPipeline.OpenIssues,
+			InjectedPRs:     throughputPipeline.OpenPRs,
+		}
+		if err := wipPipeline.ProcessData(); err != nil {
+			deps.Warn("wip ProcessData: %v", err)
+			result.Warnings = append(result.Warnings, fmt.Sprintf("wip: %v", err))
+			wipOK = false
+		} else {
+			result.WIP = &wipPipeline.Result
+		}
+	}
+
+	// Surface search truncation as a general warning.
+	if client.SearchTruncated() {
+		result.Warnings = append(result.Warnings,
+			"Some search queries returned 1,000 results (GitHub API maximum). Data may be incomplete — narrow the date range or scope for complete results.")
+	}
 
 	// --- Render ---
 
@@ -410,6 +458,17 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 					return err
 				}
 			}
+
+			if wipOK && wipPipeline != nil && len(wipPipeline.Result.Items) > 0 {
+				summary := fmt.Sprintf("Work in Progress (%d items)", len(wipPipeline.Result.Items))
+				if err := writeDetail(rc, summary, func() error {
+					return format.WriteWIPDetailMarkdown(rc, wipPipeline.Result)
+				}, func() error {
+					return format.WriteWIPDetailPretty(rc, wipPipeline.Result)
+				}); err != nil {
+					return err
+				}
+			}
 		}
 		return nil
 	}
@@ -459,6 +518,18 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 		}
 		if throughputOK {
 			sections = append(sections, throughputArtifact(throughputPipeline))
+		}
+		if wipOK && wipPipeline != nil && len(wipPipeline.Result.Items) > 0 {
+			wipResult := wipPipeline.Result
+			sections = append(sections, artifactSection{
+				Name: "status-wip",
+				WriteJSON: func(w *os.File) error {
+					return format.WriteWIPDetailJSON(w, wipResult)
+				},
+				WriteMD: func(w *os.File, rc format.RenderContext) error {
+					return format.WriteWIPDetailMarkdown(rc, wipResult)
+				},
+			})
 		}
 		if err := writeReportArtifacts(deps, deps.Output.WriteTo, sections); err != nil {
 			return err

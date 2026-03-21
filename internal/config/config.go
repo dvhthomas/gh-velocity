@@ -44,6 +44,8 @@ type Config struct {
 	Discussions  DiscussionsConfig `yaml:"discussions" json:"discussions"`
 	CommitRef    CommitRefConfig   `yaml:"commit_ref" json:"commit_ref"`
 	CycleTime    CycleTimeConfig   `yaml:"cycle_time" json:"cycle_time"`
+	Effort       EffortConfig      `yaml:"effort" json:"effort"`
+	WIP          WIPConfig         `yaml:"wip" json:"wip"`
 	Velocity     VelocityConfig    `yaml:"velocity" json:"velocity"`
 	ExcludeUsers []string          `yaml:"exclude_users" json:"exclude_users"`
 	// APIThrottleSeconds is the minimum delay in seconds between GitHub search
@@ -51,6 +53,13 @@ type Config struct {
 	// which have undocumented thresholds and multi-minute lockouts. Default: 2.
 	// Set to 0 to disable throttling (not recommended).
 	APIThrottleSeconds *int `yaml:"api_throttle_seconds" json:"api_throttle_seconds"`
+}
+
+// WIPConfig controls work-in-progress limit thresholds.
+type WIPConfig struct {
+	TeamLimit   *float64 `yaml:"team_limit" json:"team_limit"`
+	PersonLimit *float64 `yaml:"person_limit" json:"person_limit"`
+	Bots        []string `yaml:"bots" json:"bots"` // additional bot logins (case-insensitive exact match)
 }
 
 // VelocityConfig controls how velocity (effort per iteration) is measured.
@@ -193,11 +202,50 @@ func Parse(data []byte) (*Config, error) {
 		cfg.Quality.BugRatioThreshold = DefaultBugRatioThreshold
 	}
 
+	// Migrate effort from velocity.effort to top-level effort.
+	migrateEffort(cfg)
+
 	if err := validate(cfg); err != nil {
 		return nil, err
 	}
 
 	return cfg, nil
+}
+
+// migrateEffort promotes velocity.effort to the top-level effort key.
+// It handles three cases:
+//  1. Only velocity.effort set → copy to top-level, emit deprecation warning
+//  2. Both set → top-level wins, emit "ignoring velocity.effort" warning
+//  3. Only top-level set → no migration needed
+//
+// After migration, velocity.effort is always synced from the top-level effort
+// so the velocity pipeline reads from the canonical location.
+func migrateEffort(cfg *Config) {
+	topLevelSet := cfg.Effort.Strategy != "" && cfg.Effort.Strategy != "count"
+	nestedSet := cfg.Velocity.Effort.Strategy != "" && cfg.Velocity.Effort.Strategy != "count"
+
+	// More precise detection: if the top-level effort is still just the default
+	// and the nested one was explicitly configured with non-default values.
+	topLevelHasAttribute := len(cfg.Effort.Attribute) > 0
+	topLevelHasNumeric := cfg.Effort.Numeric.ProjectField != ""
+	nestedHasAttribute := len(cfg.Velocity.Effort.Attribute) > 0
+	nestedHasNumeric := cfg.Velocity.Effort.Numeric.ProjectField != ""
+
+	topLevelExplicit := topLevelSet || topLevelHasAttribute || topLevelHasNumeric
+	nestedExplicit := nestedSet || nestedHasAttribute || nestedHasNumeric
+
+	switch {
+	case !topLevelExplicit && nestedExplicit:
+		// Case 1: Only velocity.effort is set — migrate up.
+		cfg.Effort = cfg.Velocity.Effort
+		WarnFunc("config: velocity.effort is deprecated; move effort config to the top-level \"effort\" key")
+	case topLevelExplicit && nestedExplicit:
+		// Case 2: Both set — top-level wins.
+		WarnFunc("config: ignoring velocity.effort because top-level effort is configured; remove velocity.effort to silence this warning")
+	}
+
+	// Always sync: velocity pipeline reads from cfg.Velocity.Effort.
+	cfg.Velocity.Effort = cfg.Effort
 }
 
 // Defaults returns a Config with default values. Used by config subcommands
@@ -209,6 +257,9 @@ func Defaults() *Config {
 func defaults() *Config {
 	return &Config{
 		Workflow: DefaultWorkflow,
+		Effort: EffortConfig{
+			Strategy: "count",
+		},
 		CycleTime: CycleTimeConfig{
 			Strategy: model.StrategyIssue,
 		},
@@ -249,6 +300,8 @@ var knownTopLevelKeys = map[string]bool{
 	"discussions":          true,
 	"commit_ref":           true,
 	"cycle_time":           true,
+	"effort":              true,
+	"wip":                 true,
 	"exclude_users":        true,
 	"velocity":             true,
 	"api_throttle_seconds": true,
@@ -360,6 +413,10 @@ func validate(cfg *Config) error {
 		}
 	}
 
+	if err := validateEffort(&cfg.Effort, cfg.Project.URL); err != nil {
+		return err
+	}
+
 	if err := validateVelocity(&cfg.Velocity, cfg.Project.URL); err != nil {
 		return err
 	}
@@ -397,6 +454,44 @@ func ParseFixedLength(s string) (time.Duration, error) {
 	return 0, fmt.Errorf("invalid duration unit in %q", s)
 }
 
+// validateEffort validates an EffortConfig. Called on the top-level effort
+// (which is the canonical location after migration).
+func validateEffort(e *EffortConfig, projectURL string) error {
+	switch e.Strategy {
+	case "count":
+		// no additional validation
+	case "attribute":
+		if len(e.Attribute) == 0 {
+			return fmt.Errorf("config: effort.attribute requires at least one matcher")
+		}
+		hasFieldMatcher := false
+		for i, m := range e.Attribute {
+			if m.Value < 0 {
+				return fmt.Errorf("config: effort.attribute[%d].value must be non-negative, got %v", i, m.Value)
+			}
+			if _, err := classify.ParseMatcher(m.Query); err != nil {
+				return fmt.Errorf("config: effort.attribute[%d].query: %w", i, err)
+			}
+			if strings.HasPrefix(m.Query, "field:") {
+				hasFieldMatcher = true
+			}
+		}
+		if hasFieldMatcher && projectURL == "" {
+			return fmt.Errorf("config: project.url is required when effort.attribute uses \"field:\" matchers (requires project board access)")
+		}
+	case "numeric":
+		if e.Numeric.ProjectField == "" {
+			return fmt.Errorf("config: effort.numeric.project_field is required")
+		}
+		if projectURL == "" {
+			return fmt.Errorf("config: project.url is required when effort.strategy is \"numeric\"")
+		}
+	default:
+		return fmt.Errorf("config: effort.strategy must be \"count\", \"attribute\", or \"numeric\", got %q", e.Strategy)
+	}
+	return nil
+}
+
 func validateVelocity(v *VelocityConfig, projectURL string) error {
 	// unit
 	switch v.Unit {
@@ -406,39 +501,8 @@ func validateVelocity(v *VelocityConfig, projectURL string) error {
 		return fmt.Errorf("config: velocity.unit must be \"issues\" or \"prs\", got %q", v.Unit)
 	}
 
-	// effort.strategy
-	switch v.Effort.Strategy {
-	case "count":
-		// no additional validation
-	case "attribute":
-		if len(v.Effort.Attribute) == 0 {
-			return fmt.Errorf("config: velocity.effort.attribute requires at least one matcher")
-		}
-		hasFieldMatcher := false
-		for i, m := range v.Effort.Attribute {
-			if m.Value < 0 {
-				return fmt.Errorf("config: velocity.effort.attribute[%d].value must be non-negative, got %v", i, m.Value)
-			}
-			if _, err := classify.ParseMatcher(m.Query); err != nil {
-				return fmt.Errorf("config: velocity.effort.attribute[%d].query: %w", i, err)
-			}
-			if strings.HasPrefix(m.Query, "field:") {
-				hasFieldMatcher = true
-			}
-		}
-		if hasFieldMatcher && projectURL == "" {
-			return fmt.Errorf("config: project.url is required when velocity.effort.attribute uses \"field:\" matchers (requires project board access)")
-		}
-	case "numeric":
-		if v.Effort.Numeric.ProjectField == "" {
-			return fmt.Errorf("config: velocity.effort.numeric.project_field is required")
-		}
-		if projectURL == "" {
-			return fmt.Errorf("config: project.url is required when velocity.effort.strategy is \"numeric\"")
-		}
-	default:
-		return fmt.Errorf("config: velocity.effort.strategy must be \"count\", \"attribute\", or \"numeric\", got %q", v.Effort.Strategy)
-	}
+	// Effort is validated at top level via validateEffort(); velocity.effort
+	// is synced from the top-level effort in migrateEffort().
 
 	// iteration.strategy
 	switch v.Iteration.Strategy {

@@ -164,8 +164,22 @@ func renderReportMarkdown(w io.Writer, r model.StatsResult) error {
 	if r.Velocity != nil {
 		data.Velocity = FormatVelocitySummary(*r.Velocity)
 	}
-	if r.WIPCount != nil {
-		data.WIP = fmt.Sprintf("%d items in progress", *r.WIPCount)
+	if r.WIP != nil {
+		stale := r.WIP.Staleness.Stale
+		total := len(r.WIP.Items)
+		if r.WIP.BotItemCount > 0 {
+			if stale > 0 {
+				data.WIP = fmt.Sprintf("%d items (%d human, %d bot, %d stale)", total, r.WIP.HumanItemCount, r.WIP.BotItemCount, stale)
+			} else {
+				data.WIP = fmt.Sprintf("%d items (%d human, %d bot)", total, r.WIP.HumanItemCount, r.WIP.BotItemCount)
+			}
+		} else {
+			if stale > 0 {
+				data.WIP = fmt.Sprintf("%d items (%d stale)", total, stale)
+			} else {
+				data.WIP = fmt.Sprintf("%d items", total)
+			}
+		}
 	}
 	if r.Quality != nil {
 		data.Quality = fmt.Sprintf("%d bugs / %d issues (%.0f%% bug ratio)",

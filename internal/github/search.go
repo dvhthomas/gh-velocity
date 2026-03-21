@@ -18,12 +18,17 @@ func searchItemToIssue(item searchIssueResponse) model.Issue {
 	for i, l := range item.Labels {
 		labels[i] = l.Name
 	}
+	assignees := make([]string, len(item.Assignees))
+	for i, a := range item.Assignees {
+		assignees[i] = a.Login
+	}
 	issue := model.Issue{
 		Number:      item.Number,
 		Title:       item.Title,
 		State:       item.State,
 		StateReason: item.StateReason,
 		Labels:      labels,
+		Assignees:   assignees,
 		CreatedAt:   item.CreatedAt.UTC(),
 		UpdatedAt:   item.UpdatedAt.UTC(),
 		ClosedAt:    item.ClosedAt,
@@ -46,6 +51,10 @@ func searchItemToPR(item searchIssueResponse) model.PR {
 	if item.User != nil {
 		author = item.User.Login
 	}
+	assignees := make([]string, len(item.Assignees))
+	for i, a := range item.Assignees {
+		assignees[i] = a.Login
+	}
 	pr := model.PR{
 		Number:     item.Number,
 		Title:      item.Title,
@@ -53,7 +62,10 @@ func searchItemToPR(item searchIssueResponse) model.PR {
 		Labels:     labels,
 		Author:     author,
 		AIAssisted: model.DetectAuthorType(author, item.Body) == model.AuthorAgentAssisted,
+		Assignees:  assignees,
+		Draft:      item.Draft,
 		CreatedAt:  item.CreatedAt.UTC(),
+		UpdatedAt:  item.UpdatedAt.UTC(),
 		URL:        item.HTMLURL,
 	}
 	if item.PullRequest != nil {
@@ -110,6 +122,7 @@ func (c *Client) searchPaginated(ctx context.Context, query string) ([]searchIss
 		}
 		page++
 		if page > 10 { // search API returns max 1000 results
+			c.searchTruncated = true
 			log.Warn("results capped at 1000; narrow the date range or scope for complete data")
 			break
 		}

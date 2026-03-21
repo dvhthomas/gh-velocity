@@ -2,7 +2,9 @@ package throughput
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,14 +12,273 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
-func TestProcessData(t *testing.T) {
+// mockSearcher is a test double for the searcher interface.
+type mockSearcher struct {
+	issueResults map[string][]model.Issue // query -> results
+	prResults    map[string][]model.PR    // query -> results
+	issueErrors  map[string]error         // query -> error
+	prErrors     map[string]error         // query -> error
+}
+
+func (m *mockSearcher) SearchIssues(_ context.Context, query string) ([]model.Issue, error) {
+	if err, ok := m.issueErrors[query]; ok {
+		return nil, err
+	}
+	return m.issueResults[query], nil
+}
+
+func (m *mockSearcher) SearchPRs(_ context.Context, query string) ([]model.PR, error) {
+	if err, ok := m.prErrors[query]; ok {
+		return nil, err
+	}
+	return m.prResults[query], nil
+}
+
+func TestGatherData_RetainsItems(t *testing.T) {
+	issues := []model.Issue{
+		{Number: 1, Title: "issue one"},
+		{Number: 2, Title: "issue two"},
+		{Number: 3, Title: "issue three"},
+	}
+	prs := []model.PR{
+		{Number: 10, Title: "pr one"},
+		{Number: 11, Title: "pr two"},
+	}
+
+	mock := &mockSearcher{
+		issueResults: map[string][]model.Issue{"closed-issues": issues},
+		prResults:    map[string][]model.PR{"merged-prs": prs},
+	}
+
 	p := &Pipeline{
+		Client:     mock,
 		Owner:      "org",
 		Repo:       "repo",
-		Since:      time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
-		Until:      time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC),
-		issueCount: 5,
-		prCount:    3,
+		IssueQuery: "closed-issues",
+		PRQuery:    "merged-prs",
+	}
+
+	if err := p.GatherData(context.Background()); err != nil {
+		t.Fatalf("GatherData() error: %v", err)
+	}
+
+	if len(p.ClosedIssues) != 3 {
+		t.Errorf("ClosedIssues count = %d, want 3", len(p.ClosedIssues))
+	}
+	if len(p.MergedPRs) != 2 {
+		t.Errorf("MergedPRs count = %d, want 2", len(p.MergedPRs))
+	}
+
+	// Verify actual items are retained, not just counts
+	if p.ClosedIssues[0].Title != "issue one" {
+		t.Errorf("ClosedIssues[0].Title = %q, want %q", p.ClosedIssues[0].Title, "issue one")
+	}
+	if p.MergedPRs[1].Title != "pr two" {
+		t.Errorf("MergedPRs[1].Title = %q, want %q", p.MergedPRs[1].Title, "pr two")
+	}
+}
+
+func TestGatherData_OpenItemsExecutedAndDeduplicated(t *testing.T) {
+	// Issue #5 appears in both queries — should be deduplicated
+	mock := &mockSearcher{
+		issueResults: map[string][]model.Issue{
+			"closed-q":   {},
+			"open-q1":    {{Number: 1, Title: "a"}, {Number: 5, Title: "dup"}},
+			"open-q2":    {{Number: 5, Title: "dup"}, {Number: 9, Title: "b"}},
+		},
+		prResults: map[string][]model.PR{
+			"merged-q":     {},
+			"open-pr-q1":   {{Number: 20, Title: "pr-a"}, {Number: 25, Title: "pr-dup"}},
+			"open-pr-q2":   {{Number: 25, Title: "pr-dup"}, {Number: 30, Title: "pr-b"}},
+		},
+	}
+
+	p := &Pipeline{
+		Client:           mock,
+		Owner:            "org",
+		Repo:             "repo",
+		IssueQuery:       "closed-q",
+		PRQuery:          "merged-q",
+		OpenIssueQueries: []string{"open-q1", "open-q2"},
+		OpenPRQueries:    []string{"open-pr-q1", "open-pr-q2"},
+	}
+
+	if err := p.GatherData(context.Background()); err != nil {
+		t.Fatalf("GatherData() error: %v", err)
+	}
+
+	// 3 unique issues (1, 5, 9) — #5 deduplicated
+	if len(p.OpenIssues) != 3 {
+		t.Errorf("OpenIssues count = %d, want 3", len(p.OpenIssues))
+	}
+	// 3 unique PRs (20, 25, 30) — #25 deduplicated
+	if len(p.OpenPRs) != 3 {
+		t.Errorf("OpenPRs count = %d, want 3", len(p.OpenPRs))
+	}
+
+	// Verify deduplication kept the first occurrence
+	seen := make(map[int]bool)
+	for _, issue := range p.OpenIssues {
+		if seen[issue.Number] {
+			t.Errorf("duplicate issue %d in OpenIssues", issue.Number)
+		}
+		seen[issue.Number] = true
+	}
+	seenPR := make(map[int]bool)
+	for _, pr := range p.OpenPRs {
+		if seenPR[pr.Number] {
+			t.Errorf("duplicate PR %d in OpenPRs", pr.Number)
+		}
+		seenPR[pr.Number] = true
+	}
+}
+
+func TestGatherData_PartialFailure_OpenFetchWarning(t *testing.T) {
+	mock := &mockSearcher{
+		issueResults: map[string][]model.Issue{
+			"closed-q": {{Number: 1}},
+		},
+		prResults: map[string][]model.PR{
+			"merged-q": {{Number: 10}},
+		},
+		issueErrors: map[string]error{
+			"open-fail": fmt.Errorf("API error"),
+		},
+		prErrors: map[string]error{
+			"open-pr-fail": fmt.Errorf("PR API error"),
+		},
+	}
+
+	p := &Pipeline{
+		Client:           mock,
+		Owner:            "org",
+		Repo:             "repo",
+		IssueQuery:       "closed-q",
+		PRQuery:          "merged-q",
+		OpenIssueQueries: []string{"open-fail"},
+		OpenPRQueries:    []string{"open-pr-fail"},
+	}
+
+	err := p.GatherData(context.Background())
+	if err != nil {
+		t.Fatalf("GatherData() should not fail on open-item errors, got: %v", err)
+	}
+
+	// Closed items should still be retained
+	if len(p.ClosedIssues) != 1 {
+		t.Errorf("ClosedIssues = %d, want 1", len(p.ClosedIssues))
+	}
+	if len(p.MergedPRs) != 1 {
+		t.Errorf("MergedPRs = %d, want 1", len(p.MergedPRs))
+	}
+
+	// Warnings should be present for failed open fetches
+	if len(p.Warnings) < 2 {
+		t.Fatalf("expected at least 2 warnings, got %d: %v", len(p.Warnings), p.Warnings)
+	}
+	foundIssueWarn, foundPRWarn := false, false
+	for _, w := range p.Warnings {
+		if containsStr(w, "open issue search failed") {
+			foundIssueWarn = true
+		}
+		if containsStr(w, "open PR search failed") {
+			foundPRWarn = true
+		}
+	}
+	if !foundIssueWarn {
+		t.Error("missing warning for open issue search failure")
+	}
+	if !foundPRWarn {
+		t.Error("missing warning for open PR search failure")
+	}
+}
+
+func TestGatherData_TruncationWarning(t *testing.T) {
+	// Build exactly 1000 issues to trigger the warning
+	bigIssueSet := make([]model.Issue, 1000)
+	for i := range bigIssueSet {
+		bigIssueSet[i] = model.Issue{Number: i + 1}
+	}
+	bigPRSet := make([]model.PR, 1000)
+	for i := range bigPRSet {
+		bigPRSet[i] = model.PR{Number: i + 1}
+	}
+
+	mock := &mockSearcher{
+		issueResults: map[string][]model.Issue{
+			"closed-q":  {},
+			"open-big":  bigIssueSet,
+		},
+		prResults: map[string][]model.PR{
+			"merged-q":    {},
+			"open-pr-big": bigPRSet,
+		},
+	}
+
+	p := &Pipeline{
+		Client:           mock,
+		Owner:            "org",
+		Repo:             "repo",
+		IssueQuery:       "closed-q",
+		PRQuery:          "merged-q",
+		OpenIssueQueries: []string{"open-big"},
+		OpenPRQueries:    []string{"open-pr-big"},
+	}
+
+	if err := p.GatherData(context.Background()); err != nil {
+		t.Fatalf("GatherData() error: %v", err)
+	}
+
+	truncationWarnings := 0
+	for _, w := range p.Warnings {
+		if containsStr(w, "truncated (1000 results)") {
+			truncationWarnings++
+		}
+	}
+	if truncationWarnings != 2 {
+		t.Errorf("expected 2 truncation warnings (issues + PRs), got %d: %v", truncationWarnings, p.Warnings)
+	}
+}
+
+func TestGatherData_NoOpenQueries_NoOpenItems(t *testing.T) {
+	mock := &mockSearcher{
+		issueResults: map[string][]model.Issue{
+			"closed-q": {{Number: 1}},
+		},
+		prResults: map[string][]model.PR{
+			"merged-q": {{Number: 10}},
+		},
+	}
+
+	p := &Pipeline{
+		Client:     mock,
+		Owner:      "org",
+		Repo:       "repo",
+		IssueQuery: "closed-q",
+		PRQuery:    "merged-q",
+		// No OpenIssueQueries or OpenPRQueries
+	}
+
+	if err := p.GatherData(context.Background()); err != nil {
+		t.Fatalf("GatherData() error: %v", err)
+	}
+
+	if len(p.OpenIssues) != 0 {
+		t.Errorf("OpenIssues = %d, want 0 when no queries configured", len(p.OpenIssues))
+	}
+	if len(p.OpenPRs) != 0 {
+		t.Errorf("OpenPRs = %d, want 0 when no queries configured", len(p.OpenPRs))
+	}
+}
+
+func TestProcessData(t *testing.T) {
+	p := &Pipeline{
+		Owner:        "org",
+		Repo:         "repo",
+		Since:        time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+		Until:        time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC),
+		ClosedIssues: make([]model.Issue, 5),
+		MergedPRs:    make([]model.PR, 3),
 	}
 
 	if err := p.ProcessData(); err != nil {

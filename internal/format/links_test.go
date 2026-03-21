@@ -210,6 +210,31 @@ func TestLinkStatTerms(t *testing.T) {
 			input: "No cycle time data — configure lifecycle.in-progress.match for cycle time.",
 			want:  "No cycle time data — configure [lifecycle.in-progress](https://dvhthomas.github.io/gh-velocity/guides/cycle-time-setup/).match for cycle time.",
 		},
+		{
+			name:  "staleness linked",
+			input: "High staleness ratio (40%) suggests flow problems.",
+			want:  "High [staleness](https://dvhthomas.github.io/gh-velocity/reference/metrics/staleness/#wip-staleness-ratio) ratio (40%) suggests flow problems.",
+		},
+		{
+			name:  "stale_ratio linked",
+			input: "stale_ratio = 0.4",
+			want:  "[stale_ratio](https://dvhthomas.github.io/gh-velocity/reference/metrics/staleness/#wip-staleness-ratio) = 0.4",
+		},
+		{
+			name:  "staleness signal STALE linked with context",
+			input: "Signal: STALE — item has no recent activity",
+			want:  "Signal: [STALE](https://dvhthomas.github.io/gh-velocity/reference/metrics/staleness/#signals) — item has no recent activity",
+		},
+		{
+			name:  "staleness signal ACTIVE linked with context",
+			input: "Signal: ACTIVE — normal activity",
+			want:  "Signal: [ACTIVE](https://dvhthomas.github.io/gh-velocity/reference/metrics/staleness/#signals) — normal activity",
+		},
+		{
+			name:  "no false positive for STALE without context",
+			input: "This is STALE bread",
+			want:  "This is STALE bread",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
