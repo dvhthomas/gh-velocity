@@ -138,15 +138,21 @@ func GenerateStatsInsights(stats model.Stats, section string, items []ItemRef) [
 		}
 	}
 
-	// Fastest/slowest callout.
+	// Fastest/slowest callout — show spread and suggest investigation.
 	if stats.Count >= MinItemsForInsight && len(items) >= MinItemsForInsight {
 		fastest, slowest := findExtremes(items)
-		if fastest != nil && slowest != nil && fastest.Number != slowest.Number {
+		if fastest != nil && slowest != nil && fastest.Number != slowest.Number && fastest.Duration > 0 {
+			spread := int(slowest.Duration / fastest.Duration)
+			msg := fmt.Sprintf("%s ranges from %s to %s",
+				section, fmtDur(fastest.Duration), fmtDur(slowest.Duration))
+			if spread >= 10 {
+				msg += fmt.Sprintf(" (%dx spread) — investigate %s for process bottlenecks.", spread, fmtItemRef(slowest))
+			} else {
+				msg += "."
+			}
 			insights = append(insights, model.Insight{
-				Type: "fastest_slowest",
-				Message: fmt.Sprintf("Fastest: %s (%s). Slowest: %s (%s).",
-					fmtItemRef(fastest), fmtDur(fastest.Duration),
-					fmtItemRef(slowest), fmtDur(slowest.Duration)),
+				Type:    "fastest_slowest",
+				Message: msg,
 			})
 		}
 	}
@@ -187,8 +193,9 @@ func GenerateStatsInsights(stats model.Stats, section string, items []ItemRef) [
 
 // GenerateCycleTimeInsights produces cycle-time-specific insights.
 // When stats is non-nil, delegates to GenerateStatsInsights for shared rules,
-// then adds strategy-specific insights.
-func GenerateCycleTimeInsights(stats *model.Stats, strategy string, items []ItemRef) []model.Insight {
+// then adds strategy-specific insights. Pass leadTimeMedian when both metrics
+// are available (e.g., in report) for a cycle-vs-lead comparison.
+func GenerateCycleTimeInsights(stats *model.Stats, strategy string, items []ItemRef, leadTimeMedian ...time.Duration) []model.Insight {
 	// No data — strategy-specific guidance.
 	if stats == nil {
 		switch strategy {
@@ -205,7 +212,7 @@ func GenerateCycleTimeInsights(stats *model.Stats, strategy string, items []Item
 		default:
 			return []model.Insight{{
 				Type:    "no_data",
-				Message: "No cycle time data available.",
+				Message: "No cycle time data — set cycle_time.strategy in .gh-velocity.yml to enable. See /guides/cycle-time-setup/",
 			}}
 		}
 	}
@@ -213,12 +220,17 @@ func GenerateCycleTimeInsights(stats *model.Stats, strategy string, items []Item
 	// Shared stats insights (outlier, skew, fastest/slowest, category).
 	insights := GenerateStatsInsights(*stats, "Cycle Time", items)
 
-	// PR strategy callout — state what the metric measures, no judgment.
-	if strategy == model.StrategyPR && stats.Median != nil {
-		insights = append(insights, model.Insight{
-			Type:    "strategy_callout",
-			Message: fmt.Sprintf("Cycle time is measured from first PR to issue close (median %s).", fmtDur(*stats.Median)),
-		})
+	// Cycle-vs-lead comparison when both are available.
+	if stats.Median != nil && len(leadTimeMedian) > 0 && leadTimeMedian[0] > 0 {
+		ltMedian := leadTimeMedian[0]
+		ctMedian := *stats.Median
+		if ltMedian > 0 {
+			pct := int(float64(ctMedian) / float64(ltMedian) * 100)
+			insights = append(insights, model.Insight{
+				Type:    "cycle_vs_lead",
+				Message: fmt.Sprintf("Cycle time (median %s) is %d%% of lead time (median %s) — %d%% of time is spent before active work begins.", fmtDur(ctMedian), pct, fmtDur(ltMedian), 100-pct),
+			})
+		}
 	}
 
 	return insights
@@ -232,7 +244,7 @@ func GenerateThroughputInsights(issuesClosed, prsMerged int, categoryDist map[st
 	if issuesClosed == 0 && prsMerged == 0 {
 		return []model.Insight{{
 			Type:    "zero_activity",
-			Message: "No issues closed or PRs merged in this window.",
+			Message: "No issues closed or PRs merged — verify the time window (--since) and scope filter match your workflow.",
 		}}
 	}
 
@@ -310,9 +322,16 @@ func GenerateQualityInsights(quality model.StatsQuality, items []ItemRef, hotfix
 			}
 		}
 		if hotfixCount > 0 {
+			pct := hotfixCount * 100 / quality.TotalIssues
+			msg := fmt.Sprintf("%d of %d items (%d%%) resolved within %dh (hotfix window)", hotfixCount, quality.TotalIssues, pct, hotfixWindowHours)
+			if pct > 30 {
+				msg += " — frequent hotfixes may indicate upstream quality issues."
+			} else {
+				msg += "."
+			}
 			insights = append(insights, model.Insight{
 				Type:    "hotfix_count",
-				Message: fmt.Sprintf("%d items resolved within %dh of creation (hotfix window).", hotfixCount, hotfixWindowHours),
+				Message: msg,
 			})
 		}
 	}
