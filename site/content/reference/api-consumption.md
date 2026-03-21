@@ -144,20 +144,39 @@ Total: ~106 points out of 5,000 -- well within budget for any reasonable usage.
 
 ## Caching
 
-gh-velocity uses an in-process query cache to deduplicate identical API calls within a single invocation. The cache key is the API call type and parameters.
+gh-velocity has two cache layers:
+
+### Disk cache (cross-invocation)
+
+API responses are cached on disk for 5 minutes. The cache lives at the platform-appropriate location:
+
+- **macOS**: `~/Library/Caches/gh-velocity/`
+- **Linux**: `$XDG_CACHE_HOME/gh-velocity/` or `~/.cache/gh-velocity/`
+- **Windows**: `%LocalAppData%/gh-velocity/`
+
+To bypass the disk cache (e.g., after rate-limit errors cached empty results), use `--no-cache`:
+
+```bash
+gh velocity report --no-cache
+```
+
+This disables disk caching while keeping in-memory deduplication active.
+
+### In-memory cache (per-invocation)
+
+Within a single invocation, identical API calls are deduplicated via an in-memory singleflight cache. The cache key is the API call type and parameters.
 
 Cached operations:
 - Search queries (identical query strings)
 - Project item listings (same project ID and field names)
 - Repository node ID resolution
 
-The cache is **per-process** -- it does not persist between invocations. There is no disk cache.
-
 ### Cache benefits
 
 - The `report` command fetches closed issues once and reuses them for lead time computation and throughput counting
 - Velocity with overlapping iteration windows deduplicates shared search queries
-- Multiple commands in a pipeline (if invoked separately) do not share cache
+- The disk cache avoids redundant API calls when re-running commands within a 5-minute window
+- Multiple commands in a pipeline (if invoked separately) share the disk cache but not the in-memory cache
 
 ## Search result cap
 
