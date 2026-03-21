@@ -1,7 +1,7 @@
 ---
 title: "feat: Action-focused output rework across all commands"
 type: feat
-status: active
+status: in-progress
 date: 2026-03-20
 origin: docs/brainstorms/2026-03-20-action-focused-output-rework-requirements.md
 ---
