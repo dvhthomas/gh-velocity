@@ -407,10 +407,21 @@ func validate(cfg *Config) error {
 		}
 	}
 
-	// Discussions title template validation.
+	// Discussions title template validation: parse and execute against
+	// a sample to catch unknown fields (e.g., {{.Repository}} instead of {{.Repo}}).
 	if tmpl := cfg.Discussions.Title; tmpl != "" {
-		if _, err := template.New("title").Parse(tmpl); err != nil {
+		t, err := template.New("title").Parse(tmpl)
+		if err != nil {
 			return fmt.Errorf("config: discussions.title is not a valid Go template: %v", err)
+		}
+		sample := struct {
+			Command string
+			Repo    string
+			Date    string
+		}{"report", "owner/repo", "2006-01-02"}
+		var buf strings.Builder
+		if err := t.Execute(&buf, sample); err != nil {
+			return fmt.Errorf("config: discussions.title references unknown field: %v (available: {{.Command}}, {{.Repo}}, {{.Date}})", err)
 		}
 	}
 

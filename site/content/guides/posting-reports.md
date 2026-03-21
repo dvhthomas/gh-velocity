@@ -57,11 +57,15 @@ A [Go template](https://pkg.go.dev/text/template) for the Discussion title. Avai
 Examples:
 
 ```yaml
-# Simple weekly report title
-title: "Weekly Velocity: {{.Repo}} ({{.Date}})"
+discussions:
+  category: Reports
+  title: "Weekly Velocity: {{.Repo}} ({{.Date}})"
+```
 
-# Command-specific
-title: "{{.Command}} — {{.Repo}}"
+```yaml
+discussions:
+  category: General
+  title: "{{.Command}} — {{.Repo}}"
 ```
 
 ### `discussions.repo` (optional)
@@ -69,8 +73,9 @@ title: "{{.Command}} — {{.Repo}}"
 Post to a different repo than the one being analyzed. Must be in `owner/repo` format. The category must exist in this target repo's Discussions settings.
 
 ```yaml
-# Analyze cli/cli but post the report to myorg/team-reports
-repo: myorg/team-reports
+discussions:
+  category: Reports
+  repo: myorg/team-reports     # analyze cli/cli, post here
 ```
 
 When omitted, discussions are created in the analyzed repo (the `--repo` / `-R` target or auto-detected from git remote).

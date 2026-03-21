@@ -318,7 +318,7 @@ func renderTitle(opts PostOptions) (string, error) {
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("execute title template: %w", err)
+		return "", fmt.Errorf("execute title template: %w (available fields: {{.Command}}, {{.Repo}}, {{.Date}})", err)
 	}
 	return buf.String(), nil
 }

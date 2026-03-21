@@ -428,6 +428,11 @@ func TestLoad_Validation(t *testing.T) {
 			wantErr: "discussions.title is not a valid Go template",
 		},
 		{
+			name:    "discussions.title unknown field",
+			yaml:    "discussions:\n  title: \"{{.Repository}}\"",
+			wantErr: "discussions.title references unknown field",
+		},
+		{
 			name:    "discussions.repo valid",
 			yaml:    "discussions:\n  repo: myorg/reports",
 			wantErr: "",
@@ -440,6 +445,11 @@ func TestLoad_Validation(t *testing.T) {
 		{
 			name:    "discussions.repo invalid empty owner",
 			yaml:    "discussions:\n  repo: /myrepo",
+			wantErr: "discussions.repo must be in owner/repo format",
+		},
+		{
+			name:    "discussions.repo invalid empty repo name",
+			yaml:    "discussions:\n  repo: myorg/",
 			wantErr: "discussions.repo must be in owner/repo format",
 		},
 		{
