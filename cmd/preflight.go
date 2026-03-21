@@ -181,8 +181,8 @@ type PreflightResult struct {
 	PostingReadiness *PostingReadiness   `json:"posting_readiness,omitempty"`
 	Verification     *VerificationResult `json:"verification,omitempty"`
 	ContributorCount int                 `json:"contributor_count,omitempty"`
-	CurrentHumanWIP  int                 `json:"current_human_wip,omitempty"`  // actual open human items matching lifecycle labels
-	MaxPersonWIP     int                 `json:"max_person_wip,omitempty"`     // highest per-person WIP count
+	CurrentHumanWIP  int                 `json:"current_human_wip,omitempty"` // actual open human items matching lifecycle labels
+	MaxPersonWIP     int                 `json:"max_person_wip,omitempty"`    // highest per-person WIP count
 	RepoAutoDetected bool                `json:"repo_auto_detected"`
 	Hints            []string            `json:"hints"`
 
@@ -1034,7 +1034,7 @@ func collectMatchEvidence(categories map[string][]string, discoveredTypes []stri
 		if patterns, ok := typePatterns[cat]; ok {
 			for _, typeName := range discoveredTypes {
 				for _, pattern := range patterns {
-					if typeName == pattern {
+					if strings.EqualFold(typeName, pattern) {
 						jobs = append(jobs, probeJob{category: cat, matcher: "type:" + typeName})
 					}
 				}
@@ -1129,6 +1129,23 @@ func countLabelUsage(result *PreflightResult, issues []model.Issue) {
 	result.AllLabels = sorted
 }
 
+// typeMatchersFromDiscovery builds type: matchers from discovered repo types
+// cross-referenced with typePatterns. Returns a map of category -> matcher strings.
+// Matching is case-insensitive for consistency with TypeMatcher runtime behavior.
+func typeMatchersFromDiscovery(discoveredTypes []string) map[string][]string {
+	result := make(map[string][]string)
+	for cat, patterns := range typePatterns {
+		for _, typeName := range discoveredTypes {
+			for _, pattern := range patterns {
+				if strings.EqualFold(typeName, pattern) {
+					result[cat] = append(result[cat], "type:"+typeName)
+				}
+			}
+		}
+	}
+	return result
+}
+
 // renderPreflightConfig generates a commented .gh-velocity.yml from analysis results.
 func renderPreflightConfig(r *PreflightResult) string {
 	var b strings.Builder
@@ -1166,6 +1183,10 @@ func renderPreflightConfig(r *PreflightResult) string {
 		evidenceByCategory[ce.Category] = ce
 	}
 
+	// Build type matchers from discovered repo types (no evidence needed).
+	// These are the strongest signal — repo owner's authoritative categorization.
+	typeByCategory := typeMatchersFromDiscovery(r.DiscoveredTypes)
+
 	categoryOrder := []string{"bug", "feature", "chore", "docs"}
 	type effectiveCategory struct {
 		name     string
@@ -1173,14 +1194,23 @@ func renderPreflightConfig(r *PreflightResult) string {
 	}
 	var cats []effectiveCategory
 	for _, cat := range categoryOrder {
+		// Type matchers from repo configuration — always included when discovered.
+		var typeHits []MatcherEvidence
+		for _, tm := range typeByCategory[cat] {
+			typeHits = append(typeHits, MatcherEvidence{Matcher: tm})
+		}
+
 		ce, hasEvidence := evidenceByCategory[cat]
 		if !hasEvidence {
-			// No evidence data (no recent items) — use label matchers as-is.
+			// No evidence data (no recent items) — use type + label matchers as-is.
+			var mes []MatcherEvidence
+			mes = append(mes, typeHits...)
 			if labels, ok := r.Categories[cat]; ok && len(labels) > 0 {
-				var mes []MatcherEvidence
 				for _, l := range labels {
 					mes = append(mes, MatcherEvidence{Matcher: "label:" + l})
 				}
+			}
+			if len(mes) > 0 {
 				cats = append(cats, effectiveCategory{name: cat, matchers: mes})
 			}
 			continue
@@ -1216,8 +1246,9 @@ func renderPreflightConfig(r *PreflightResult) string {
 			}
 		}
 
-		// Combine: label matchers first, then title probes as fallbacks.
+		// Combine: type matchers first (strongest signal), then labels, then title probes.
 		var combined []MatcherEvidence
+		combined = append(combined, typeHits...)
 		combined = append(combined, labelHits...)
 		combined = append(combined, titleHits...)
 		if len(combined) > 0 {
@@ -1231,7 +1262,11 @@ func renderPreflightConfig(r *PreflightResult) string {
 			b.WriteString(fmt.Sprintf("    - name: %s\n", cat.name))
 			b.WriteString("      match:\n")
 			for _, m := range cat.matchers {
-				b.WriteString(fmt.Sprintf("        - %q\n", m.Matcher))
+				if strings.HasPrefix(m.Matcher, "type:") {
+					b.WriteString(fmt.Sprintf("        - %q  # repo-configured issue type\n", m.Matcher))
+				} else {
+					b.WriteString(fmt.Sprintf("        - %q\n", m.Matcher))
+				}
 			}
 		}
 	} else {
@@ -1442,10 +1477,9 @@ func renderWIPConfig(b *strings.Builder, r *PreflightResult) {
 
 	if hasLifecycle && r.CurrentHumanWIP > 0 {
 		// Ground suggestions in actual current WIP (best signal).
-		teamLimit := roundToNearest5(r.CurrentHumanWIP + r.CurrentHumanWIP/5) // current + 20% buffer
-		if teamLimit < 5 {
-			teamLimit = 5
-		}
+		teamLimit := max(
+			// current + 20% buffer
+			roundToNearest5(r.CurrentHumanWIP+r.CurrentHumanWIP/5), 5)
 		personLimit := 5
 		if r.MaxPersonWIP > 0 {
 			personLimit = r.MaxPersonWIP + 2 // current max + small buffer
@@ -1570,7 +1604,9 @@ func printPreflightDiagnostics(r *PreflightResult) {
 		log.Notice("Match evidence (last 30 days):")
 		for _, ce := range r.MatchEvidence {
 			for _, me := range ce.Matchers {
-				if me.Count > 0 {
+				if strings.HasPrefix(me.Matcher, "type:") {
+					log.Notice("  %s / %s — repo-configured", ce.Category, me.Matcher)
+				} else if me.Count > 0 {
 					log.Notice("  %s / %s — %d matches, e.g. %s", ce.Category, me.Matcher, me.Count, me.Example)
 				} else {
 					log.Notice("  %s / %s — 0 matches", ce.Category, me.Matcher)

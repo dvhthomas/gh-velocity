@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -1247,13 +1248,13 @@ func TestNormalizeLabel(t *testing.T) {
 
 func TestClassifyLabels_FuzzyLifecycle(t *testing.T) {
 	tests := []struct {
-		name            string
-		labels          []string
-		wantActive      []string // expected ActiveLabels
-		wantReview      []string // expected ReviewLabels
-		wantBacklog     []string // expected BacklogLabels
-		wantNoActive    bool     // expect no active labels
-		wantNoBacklog   bool     // expect no backlog labels
+		name          string
+		labels        []string
+		wantActive    []string // expected ActiveLabels
+		wantReview    []string // expected ReviewLabels
+		wantBacklog   []string // expected BacklogLabels
+		wantNoActive  bool     // expect no active labels
+		wantNoBacklog bool     // expect no backlog labels
 	}{
 		{
 			name:       "in progress with space detected as active",
@@ -1301,8 +1302,8 @@ func TestClassifyLabels_FuzzyLifecycle(t *testing.T) {
 			wantNoActive: true,
 		},
 		{
-			name:         "random label not detected",
-			labels:       []string{"priority:high", "component:ui"},
+			name:          "random label not detected",
+			labels:        []string{"priority:high", "component:ui"},
 			wantNoActive:  true,
 			wantNoBacklog: true,
 		},
@@ -1327,39 +1328,21 @@ func TestClassifyLabels_FuzzyLifecycle(t *testing.T) {
 			}
 
 			for _, want := range tt.wantActive {
-				found := false
-				for _, got := range result.ActiveLabels {
-					if got == want {
-						found = true
-						break
-					}
-				}
+				found := slices.Contains(result.ActiveLabels, want)
 				if !found {
 					t.Errorf("expected %q in ActiveLabels, got %v", want, result.ActiveLabels)
 				}
 			}
 
 			for _, want := range tt.wantReview {
-				found := false
-				for _, got := range result.ReviewLabels {
-					if got == want {
-						found = true
-						break
-					}
-				}
+				found := slices.Contains(result.ReviewLabels, want)
 				if !found {
 					t.Errorf("expected %q in ReviewLabels, got %v", want, result.ReviewLabels)
 				}
 			}
 
 			for _, want := range tt.wantBacklog {
-				found := false
-				for _, got := range result.BacklogLabels {
-					if got == want {
-						found = true
-						break
-					}
-				}
+				found := slices.Contains(result.BacklogLabels, want)
 				if !found {
 					t.Errorf("expected %q in BacklogLabels, got %v", want, result.BacklogLabels)
 				}
@@ -1435,8 +1418,8 @@ func TestClassifyLabels_NoiseDetection(t *testing.T) {
 
 func TestRenderPreflightConfig_NoiseExclusion(t *testing.T) {
 	r := &PreflightResult{
-		Repo:       "cli/cli",
-		Strategy:   "issue",
+		Repo:        "cli/cli",
+		Strategy:    "issue",
 		NoiseLabels: []string{"suspected-spam", "duplicate", "invalid"},
 		Categories: map[string][]string{
 			"bug": {"bug"},
@@ -1477,5 +1460,257 @@ func TestRenderPreflightConfig_NoiseLabelsWithSpacesAreQuoted(t *testing.T) {
 	}
 	if !strings.Contains(config, `-label:\"invalid\"`) {
 		t.Errorf("expected quoted single-word label, got:\n%s", config)
+	}
+}
+
+func TestRenderPreflightConfig_TypeMatchersFromDiscoveredTypes(t *testing.T) {
+	// When issue types are discovered and map to categories, type: matchers
+	// should appear before label: matchers in each category's match list.
+	result := &PreflightResult{
+		Repo:     "owner/repo",
+		Strategy: model.StrategyIssue,
+		Categories: map[string][]string{
+			"bug":     {"bug"},
+			"feature": {"enhancement"},
+		},
+		DiscoveredTypes: []string{"Bug", "Feature", "Task"},
+		MatchEvidence: []CategoryEvidence{
+			{
+				Category: "bug",
+				Matchers: []MatcherEvidence{
+					{Matcher: "label:bug", Count: 5, Example: "#1 Fix crash"},
+					{Matcher: "type:Bug", Count: 0},
+				},
+			},
+			{
+				Category: "feature",
+				Matchers: []MatcherEvidence{
+					{Matcher: "label:enhancement", Count: 3, Example: "#2 Add dark mode"},
+					{Matcher: "type:Feature", Count: 0},
+				},
+			},
+			{
+				Category: "chore",
+				Matchers: []MatcherEvidence{
+					{Matcher: "type:Task", Count: 0},
+				},
+			},
+		},
+	}
+
+	yamlStr := renderPreflightConfig(result)
+
+	// type: matchers should appear before label: matchers (R2).
+	bugTypeIdx := strings.Index(yamlStr, `"type:Bug"`)
+	bugLabelIdx := strings.Index(yamlStr, `"label:bug"`)
+	if bugTypeIdx < 0 {
+		t.Fatalf("expected type:Bug in output, got:\n%s", yamlStr)
+	}
+	if bugLabelIdx < 0 {
+		t.Fatalf("expected label:bug in output, got:\n%s", yamlStr)
+	}
+	if bugTypeIdx >= bugLabelIdx {
+		t.Errorf("type:Bug should appear before label:bug, type at %d, label at %d", bugTypeIdx, bugLabelIdx)
+	}
+
+	featTypeIdx := strings.Index(yamlStr, `"type:Feature"`)
+	featLabelIdx := strings.Index(yamlStr, `"label:enhancement"`)
+	if featTypeIdx < 0 {
+		t.Fatalf("expected type:Feature in output, got:\n%s", yamlStr)
+	}
+	if featLabelIdx < 0 {
+		t.Fatalf("expected label:enhancement in output, got:\n%s", yamlStr)
+	}
+	if featTypeIdx >= featLabelIdx {
+		t.Errorf("type:Feature should appear before label:enhancement")
+	}
+
+	// Task should appear in chore category.
+	if !strings.Contains(yamlStr, `"type:Task"`) {
+		t.Errorf("expected type:Task in chore category, got:\n%s", yamlStr)
+	}
+
+	// YAML comment annotation should be present.
+	if !strings.Contains(yamlStr, "# repo-configured issue type") {
+		t.Errorf("expected repo-configured comment on type matchers, got:\n%s", yamlStr)
+	}
+
+	// Round-trip through config.Parse.
+	origWarn := config.WarnFunc
+	config.WarnFunc = func(string, ...any) {}
+	defer func() { config.WarnFunc = origWarn }()
+
+	cfg, err := config.Parse([]byte(yamlStr))
+	if err != nil {
+		t.Fatalf("generated YAML does not parse:\n%s\nerror: %v", yamlStr, err)
+	}
+	if len(cfg.Quality.Categories) == 0 {
+		t.Error("expected categories after round-trip")
+	}
+}
+
+func TestRenderPreflightConfig_TypeMatchersWithoutLabels(t *testing.T) {
+	// When issue types exist but no labels are detected, categories should
+	// still be created with type: matchers only.
+	result := &PreflightResult{
+		Repo:            "owner/repo",
+		Strategy:        model.StrategyIssue,
+		DiscoveredTypes: []string{"Bug"},
+	}
+
+	yamlStr := renderPreflightConfig(result)
+
+	if !strings.Contains(yamlStr, `"type:Bug"`) {
+		t.Errorf("expected type:Bug in output, got:\n%s", yamlStr)
+	}
+	if !strings.Contains(yamlStr, "- name: bug") {
+		t.Errorf("expected bug category, got:\n%s", yamlStr)
+	}
+
+	// Should NOT fall through to baseline defaults since we have a category.
+	if strings.Contains(yamlStr, `"label:bug"`) {
+		t.Errorf("did not expect label:bug when no labels detected, got:\n%s", yamlStr)
+	}
+
+	// Round-trip.
+	origWarn := config.WarnFunc
+	config.WarnFunc = func(string, ...any) {}
+	defer func() { config.WarnFunc = origWarn }()
+
+	_, err := config.Parse([]byte(yamlStr))
+	if err != nil {
+		t.Fatalf("generated YAML does not parse:\n%s\nerror: %v", yamlStr, err)
+	}
+}
+
+func TestRenderPreflightConfig_TypeMatchersNoRecentActivity(t *testing.T) {
+	// When no recent items exist (nil MatchEvidence), type matchers from
+	// discovered types should still appear via the !hasEvidence fallback.
+	result := &PreflightResult{
+		Repo:     "owner/repo",
+		Strategy: model.StrategyIssue,
+		Categories: map[string][]string{
+			"bug": {"bug"},
+		},
+		DiscoveredTypes: []string{"Bug", "Feature"},
+		// No MatchEvidence — simulates no recent activity.
+	}
+
+	yamlStr := renderPreflightConfig(result)
+
+	if !strings.Contains(yamlStr, `"type:Bug"`) {
+		t.Errorf("expected type:Bug in output, got:\n%s", yamlStr)
+	}
+	if !strings.Contains(yamlStr, `"type:Feature"`) {
+		t.Errorf("expected type:Feature in output, got:\n%s", yamlStr)
+	}
+	if !strings.Contains(yamlStr, `"label:bug"`) {
+		t.Errorf("expected label:bug in output, got:\n%s", yamlStr)
+	}
+
+	// type:Bug should be before label:bug.
+	bugTypeIdx := strings.Index(yamlStr, `"type:Bug"`)
+	bugLabelIdx := strings.Index(yamlStr, `"label:bug"`)
+	if bugTypeIdx >= bugLabelIdx {
+		t.Errorf("type:Bug should appear before label:bug in !hasEvidence path")
+	}
+}
+
+func TestRenderPreflightConfig_NoDiscoveredTypes(t *testing.T) {
+	// When no issue types are discovered, output should be unchanged
+	// from current behavior (regression test).
+	result := &PreflightResult{
+		Repo:     "owner/repo",
+		Strategy: model.StrategyIssue,
+		Categories: map[string][]string{
+			"bug":     {"bug"},
+			"feature": {"enhancement"},
+		},
+		MatchEvidence: []CategoryEvidence{
+			{
+				Category: "bug",
+				Matchers: []MatcherEvidence{
+					{Matcher: "label:bug", Count: 5, Example: "#1 Fix crash"},
+				},
+			},
+		},
+	}
+
+	yamlStr := renderPreflightConfig(result)
+
+	if strings.Contains(yamlStr, `"type:`) {
+		t.Errorf("should not contain type: matchers when no types discovered, got:\n%s", yamlStr)
+	}
+	if !strings.Contains(yamlStr, `"label:bug"`) {
+		t.Errorf("expected label:bug in output, got:\n%s", yamlStr)
+	}
+}
+
+func TestTypeMatchersFromDiscovery_CaseInsensitive(t *testing.T) {
+	// typeMatchersFromDiscovery should map types regardless of casing.
+	tests := []struct {
+		name            string
+		discoveredTypes []string
+		wantCategory    string
+		wantMatcher     string
+	}{
+		{"lowercase bug", []string{"bug"}, "bug", "type:bug"},
+		{"uppercase FEATURE", []string{"FEATURE"}, "feature", "type:FEATURE"},
+		{"mixed case Task", []string{"Task"}, "chore", "type:Task"},
+		{"standard Bug", []string{"Bug"}, "bug", "type:Bug"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := typeMatchersFromDiscovery(tt.discoveredTypes)
+			matchers, ok := result[tt.wantCategory]
+			if !ok || len(matchers) == 0 {
+				t.Fatalf("expected matchers for %s, got none (result=%v)", tt.wantCategory, result)
+			}
+			found := slices.Contains(matchers, tt.wantMatcher)
+			if !found {
+				t.Errorf("expected %q in matchers for %s, got %v", tt.wantMatcher, tt.wantCategory, matchers)
+			}
+		})
+	}
+}
+
+func TestCollectMatchEvidence_TypeMatchersCaseInsensitive(t *testing.T) {
+	// Type probe jobs should be created even with non-standard casing.
+	categories := map[string][]string{"bug": {"bug"}}
+	discoveredTypes := []string{"bug"} // lowercase, not "Bug"
+	issues := []model.Issue{
+		{Number: 1, Title: "Fix crash", Labels: []string{"bug"}, IssueType: "bug"},
+	}
+
+	evidence := collectMatchEvidence(categories, discoveredTypes, issues, nil)
+
+	findCat := func(name string) *CategoryEvidence {
+		for i := range evidence {
+			if evidence[i].Category == name {
+				return &evidence[i]
+			}
+		}
+		return nil
+	}
+	findMatcher := func(ce *CategoryEvidence, matcher string) *MatcherEvidence {
+		for i := range ce.Matchers {
+			if ce.Matchers[i].Matcher == matcher {
+				return &ce.Matchers[i]
+			}
+		}
+		return nil
+	}
+
+	bugCat := findCat("bug")
+	if bugCat == nil {
+		t.Fatal("expected bug category")
+	}
+	typeBug := findMatcher(bugCat, "type:bug")
+	if typeBug == nil {
+		t.Fatalf("expected type:bug matcher (lowercase), matchers: %+v", bugCat.Matchers)
+	}
+	if typeBug.Count != 1 {
+		t.Errorf("type:bug count = %d, want 1", typeBug.Count)
 	}
 }
