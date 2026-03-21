@@ -101,8 +101,11 @@ func WriteJSON(w io.Writer, repo string, rm model.ReleaseMetrics, warnings []str
 
 	for _, im := range rm.Issues {
 		var flags []string
+		if im.Category == "bug" {
+			flags = append(flags, format.FlagBug)
+		}
 		if im.LeadTimeOutlier || im.CycleTimeOutlier {
-			flags = []string{format.FlagOutlier}
+			flags = append(flags, format.FlagOutlier)
 		}
 		out.Issues = append(out.Issues, jsonIssueMetrics{
 			Number:      im.Issue.Number,
@@ -278,12 +281,16 @@ func WritePretty(rc format.RenderContext, rm model.ReleaseMetrics, warnings []st
 	return nil
 }
 
-// releaseFlag returns a flag emoji if the issue is a lead-time or cycle-time outlier.
+// releaseFlag returns flag emoji(s) for an issue based on its category and outlier status.
 func releaseFlag(im model.IssueMetrics) string {
-	if im.LeadTimeOutlier || im.CycleTimeOutlier {
-		return format.FlagEmoji(format.FlagOutlier)
+	var flags string
+	if im.Category == "bug" {
+		flags += format.FlagEmoji(format.FlagBug)
 	}
-	return ""
+	if im.LeadTimeOutlier || im.CycleTimeOutlier {
+		flags += format.FlagEmoji(format.FlagOutlier)
+	}
+	return flags
 }
 
 func writePrettyStatsRow(tp *format.Table, name string, s model.Stats) {
