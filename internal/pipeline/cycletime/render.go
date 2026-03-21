@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
 	"text/template"
 	"time"
 
@@ -304,7 +303,6 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 	return tp.Render()
 }
 
-// cycleTimeFlag returns a flag emoji for outlier items.
 // cycleTimeFlag returns flag emojis for insight-triggering items.
 func cycleTimeFlag(item BulkItem, stats model.Stats) string {
 	var flag string
@@ -321,24 +319,3 @@ func cycleTimeFlag(item BulkItem, stats model.Stats) string {
 }
 
 // --- Helpers ---
-
-
-func sortByCloseDateDesc(items []BulkItem) []BulkItem {
-	sorted := make([]BulkItem, len(items))
-	copy(sorted, items)
-	sort.Slice(sorted, func(i, j int) bool {
-		ci := sorted[i].Issue.ClosedAt
-		cj := sorted[j].Issue.ClosedAt
-		if ci == nil && cj == nil {
-			return false
-		}
-		if ci == nil {
-			return false
-		}
-		if cj == nil {
-			return true
-		}
-		return ci.After(*cj)
-	})
-	return sorted
-}

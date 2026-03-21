@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
 	"text/template"
 	"time"
 
@@ -246,24 +245,3 @@ func leadTimeFlag(item BulkItem, stats model.Stats) string {
 }
 
 // --- Helpers ---
-
-
-func sortByCloseDateDesc(items []BulkItem) []BulkItem {
-	sorted := make([]BulkItem, len(items))
-	copy(sorted, items)
-	sort.Slice(sorted, func(i, j int) bool {
-		ci := sorted[i].Issue.ClosedAt
-		cj := sorted[j].Issue.ClosedAt
-		if ci == nil && cj == nil {
-			return false
-		}
-		if ci == nil {
-			return false
-		}
-		if cj == nil {
-			return true
-		}
-		return ci.After(*cj)
-	})
-	return sorted
-}
