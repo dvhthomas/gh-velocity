@@ -224,3 +224,58 @@ func TestNewClassifier_InvalidMatcher(t *testing.T) {
 		t.Error("expected error for invalid matcher, got nil")
 	}
 }
+
+func TestHasTypeMatchers(t *testing.T) {
+	tests := []struct {
+		name       string
+		categories []model.CategoryConfig
+		want       bool
+	}{
+		{
+			"with type matcher",
+			[]model.CategoryConfig{
+				{Name: "bug", Matchers: []string{"type:Bug"}},
+			},
+			true,
+		},
+		{
+			"label only",
+			[]model.CategoryConfig{
+				{Name: "bug", Matchers: []string{"label:bug"}},
+			},
+			false,
+		},
+		{
+			"title only",
+			[]model.CategoryConfig{
+				{Name: "bug", Matchers: []string{`title:/^fix/i`}},
+			},
+			false,
+		},
+		{
+			"mixed - type in second category",
+			[]model.CategoryConfig{
+				{Name: "bug", Matchers: []string{"label:bug"}},
+				{Name: "feature", Matchers: []string{"type:Feature"}},
+			},
+			true,
+		},
+		{
+			"empty categories",
+			[]model.CategoryConfig{},
+			false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, err := NewClassifier(tt.categories)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := c.HasTypeMatchers(); got != tt.want {
+				t.Errorf("HasTypeMatchers() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

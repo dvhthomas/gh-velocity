@@ -161,7 +161,7 @@ func TestBulkPipelineProcessData(t *testing.T) {
 		Repo:  "repo",
 		Since: now.Add(-30 * 24 * time.Hour),
 		Until: now,
-		issues: []model.Issue{
+		Issues: []model.Issue{
 			{
 				Number:    1,
 				Title:     "Issue 1",

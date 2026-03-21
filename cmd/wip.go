@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"strings"
 
 	"github.com/dvhthomas/gh-velocity/internal/model"
 	wippipe "github.com/dvhthomas/gh-velocity/internal/pipeline/wip"
@@ -70,8 +71,27 @@ func runWIP(cmd *cobra.Command) error {
 	if err := p.GatherData(ctx); err != nil {
 		return err
 	}
+
+	// Enrich IssueType when any lifecycle or effort matcher uses type: prefix.
+	if matchersHaveTypePrefix(cfg.Lifecycle.InProgress.Match, cfg.Lifecycle.InReview.Match) {
+		_ = client.EnrichIssueTypes(ctx, p.OpenIssues)
+	}
+
 	if err := p.ProcessData(); err != nil {
 		return err
 	}
 	return p.Render(deps.RenderCtx(os.Stdout))
+}
+
+// matchersHaveTypePrefix returns true if any matcher string in any of the
+// given slices starts with "type:". Used to gate IssueType enrichment.
+func matchersHaveTypePrefix(matcherSets ...[]string) bool {
+	for _, matchers := range matcherSets {
+		for _, m := range matchers {
+			if strings.HasPrefix(m, "type:") {
+				return true
+			}
+		}
+	}
+	return false
 }

@@ -254,6 +254,22 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 
 	_ = g.Wait()
 
+	// --- Enrich REST-sourced issues with IssueType when config uses type: matchers ---
+	if len(cfg.Quality.Categories) > 0 {
+		if enrichClassifier, cErr := classify.NewClassifier(cfg.Quality.Categories); cErr == nil && enrichClassifier.HasTypeMatchers() {
+			if leadOK {
+				if err := client.EnrichIssueTypes(ctx, leadPipeline.Issues); err != nil {
+					deps.Warn("issue type enrichment (lead time): %v", err)
+				}
+			}
+			if throughputOK {
+				if err := client.EnrichIssueTypes(ctx, throughputPipeline.OpenIssues); err != nil {
+					deps.Warn("issue type enrichment (throughput open): %v", err)
+				}
+			}
+		}
+	}
+
 	// --- ProcessData ---
 	result := model.StatsResult{
 		Repository: repo,

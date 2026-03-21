@@ -158,6 +158,18 @@ func validateAttributeEffortFromSearch(ctx context.Context, w io.Writer, cfg *co
 		return fmt.Errorf("velocity validate: %w", err)
 	}
 
+	// Enrich IssueType when any effort matcher uses type: prefix.
+	hasTypeMatcher := false
+	for _, m := range cfg.Velocity.Effort.Attribute {
+		if strings.HasPrefix(m.Query, "type:") {
+			hasTypeMatcher = true
+			break
+		}
+	}
+	if hasTypeMatcher {
+		_ = client.EnrichIssueTypes(ctx, issues)
+	}
+
 	counts := make([]effortMatchCount, len(cfg.Velocity.Effort.Attribute))
 	for i, m := range cfg.Velocity.Effort.Attribute {
 		counts[i] = effortMatchCount{query: m.Query, value: m.Value}

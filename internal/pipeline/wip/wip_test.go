@@ -12,10 +12,10 @@ import (
 
 // mockSearcher implements the searcher interface for testing.
 type mockSearcher struct {
-	issues    map[string][]model.Issue // query -> issues
-	prs       map[string][]model.PR   // query -> prs
-	issueErr  map[string]error
-	prErr     map[string]error
+	issues     map[string][]model.Issue // query -> issues
+	prs        map[string][]model.PR    // query -> prs
+	issueErr   map[string]error
+	prErr      map[string]error
 	issueCalls []string
 	prCalls    []string
 }
@@ -63,8 +63,8 @@ func TestGatherData_Injected(t *testing.T) {
 		t.Fatalf("GatherData error: %v", err)
 	}
 
-	if len(p.openIssues) != 1 {
-		t.Errorf("openIssues = %d, want 1", len(p.openIssues))
+	if len(p.OpenIssues) != 1 {
+		t.Errorf("openIssues = %d, want 1", len(p.OpenIssues))
 	}
 	if len(p.openPRs) != 1 {
 		t.Errorf("openPRs = %d, want 1", len(p.openPRs))
@@ -107,8 +107,8 @@ func TestGatherData_Standalone(t *testing.T) {
 		t.Fatalf("GatherData error: %v", err)
 	}
 
-	if len(p.openIssues) != 1 {
-		t.Errorf("openIssues = %d, want 1", len(p.openIssues))
+	if len(p.OpenIssues) != 1 {
+		t.Errorf("openIssues = %d, want 1", len(p.OpenIssues))
 	}
 	if len(p.openPRs) != 2 {
 		t.Errorf("openPRs = %d, want 2", len(p.openPRs))
@@ -149,8 +149,8 @@ func TestGatherData_DeduplicatesIssues(t *testing.T) {
 		t.Fatalf("GatherData error: %v", err)
 	}
 
-	if len(p.openIssues) != 1 {
-		t.Errorf("openIssues = %d, want 1 (should deduplicate)", len(p.openIssues))
+	if len(p.OpenIssues) != 1 {
+		t.Errorf("openIssues = %d, want 1 (should deduplicate)", len(p.OpenIssues))
 	}
 }
 
@@ -192,8 +192,8 @@ func TestGatherData_PartialFailure(t *testing.T) {
 		t.Fatalf("GatherData error: %v", err)
 	}
 
-	if len(p.openIssues) != 1 {
-		t.Errorf("openIssues = %d, want 1", len(p.openIssues))
+	if len(p.OpenIssues) != 1 {
+		t.Errorf("openIssues = %d, want 1", len(p.OpenIssues))
 	}
 	if len(p.Warnings) == 0 {
 		t.Error("expected warnings for failed search")
@@ -215,7 +215,7 @@ func TestProcessData(t *testing.T) {
 		},
 		EffortConfig: config.EffortConfig{Strategy: "count"},
 		WIPConfig:    config.WIPConfig{},
-		openIssues: []model.Issue{
+		OpenIssues: []model.Issue{
 			{
 				Number:    1,
 				Title:     "Active issue",
@@ -316,7 +316,7 @@ func TestProcessData_WIPLimits(t *testing.T) {
 			TeamLimit:   &teamLimit,
 			PersonLimit: &personLimit,
 		},
-		openIssues: []model.Issue{
+		OpenIssues: []model.Issue{
 			{Number: 1, Labels: []string{"in-progress"}, Assignees: []string{"alice"}, CreatedAt: now, UpdatedAt: now},
 			{Number: 2, Labels: []string{"in-progress"}, Assignees: []string{"alice"}, CreatedAt: now, UpdatedAt: now},
 			{Number: 3, Labels: []string{"in-progress"}, Assignees: []string{"bob"}, CreatedAt: now, UpdatedAt: now},
@@ -374,7 +374,7 @@ func TestProcessData_BotSplit(t *testing.T) {
 		},
 		EffortConfig: config.EffortConfig{Strategy: "count"},
 		WIPConfig:    config.WIPConfig{},
-		openIssues: []model.Issue{
+		OpenIssues: []model.Issue{
 			{Number: 1, Labels: []string{"in-progress"}, Assignees: []string{"alice"}, CreatedAt: now, UpdatedAt: now},
 			{Number: 2, Labels: []string{"in-progress"}, Assignees: []string{"dependabot[bot]"}, CreatedAt: now, UpdatedAt: now},
 			{Number: 3, Labels: []string{"in-progress"}, Assignees: []string{"bob"}, CreatedAt: now, UpdatedAt: now},
@@ -435,7 +435,7 @@ func TestProcessData_WIPLimitsApplyToHumanOnly(t *testing.T) {
 		},
 		EffortConfig: config.EffortConfig{Strategy: "count"},
 		WIPConfig:    config.WIPConfig{TeamLimit: &teamLimit},
-		openIssues: []model.Issue{
+		OpenIssues: []model.Issue{
 			{Number: 1, Labels: []string{"in-progress"}, Assignees: []string{"alice"}, CreatedAt: now, UpdatedAt: now},
 			{Number: 2, Labels: []string{"in-progress"}, Assignees: []string{"alice"}, CreatedAt: now, UpdatedAt: now},
 			{Number: 3, Labels: []string{"in-progress"}, Assignees: []string{"dependabot[bot]"}, CreatedAt: now, UpdatedAt: now},

@@ -87,6 +87,20 @@ func (c *Classifier) Classify(input Input) ClassifyResult {
 	return ClassifyResult{Categories: matched}
 }
 
+// HasTypeMatchers reports whether any category uses a type: matcher.
+// Useful for gating expensive IssueType enrichment calls — when false,
+// no enrichment is needed since no matcher would use the IssueType field.
+func (c *Classifier) HasTypeMatchers() bool {
+	for _, ms := range c.matchers {
+		for _, m := range ms {
+			if _, ok := m.(TypeMatcher); ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // CategoryNames returns the ordered list of category names (excluding "other").
 func (c *Classifier) CategoryNames() []string {
 	names := make([]string, len(c.categories))

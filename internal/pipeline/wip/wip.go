@@ -42,8 +42,8 @@ type Pipeline struct {
 	// (from throughput pipeline warnings).
 	Truncated bool
 
-	// Internal
-	openIssues []model.Issue
+	// Internal — OpenIssues exported for enrichment at cmd/ layer.
+	OpenIssues []model.Issue
 	openPRs    []model.PR
 
 	// Output
@@ -65,7 +65,7 @@ func (p *Pipeline) warn(format string, args ...any) {
 // Otherwise queries the GitHub Search API (standalone context).
 func (p *Pipeline) GatherData(ctx context.Context) error {
 	if p.InjectedIssues != nil || p.InjectedPRs != nil {
-		p.openIssues = p.InjectedIssues
+		p.OpenIssues = p.InjectedIssues
 		p.openPRs = p.InjectedPRs
 		return nil
 	}
@@ -107,7 +107,7 @@ func (p *Pipeline) GatherData(ctx context.Context) error {
 		for _, issue := range issues {
 			if !seenIssues[issue.Number] {
 				seenIssues[issue.Number] = true
-				p.openIssues = append(p.openIssues, issue)
+				p.OpenIssues = append(p.OpenIssues, issue)
 			}
 		}
 	}
@@ -168,7 +168,7 @@ func (p *Pipeline) ProcessData() error {
 	var items []model.WIPItem
 
 	// Classify issues.
-	for _, issue := range p.openIssues {
+	for _, issue := range p.OpenIssues {
 		stage, matched, excluded := classifyItem(
 			issue.Labels, issue.IssueType, issue.Title,
 			false, false,

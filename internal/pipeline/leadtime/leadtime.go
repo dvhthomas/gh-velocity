@@ -94,8 +94,8 @@ type BulkPipeline struct {
 	ExcludeUsers []string
 	Debug        bool
 
-	// GatherData output
-	issues []model.Issue
+	// GatherData output — exported for enrichment at cmd/ layer.
+	Issues []model.Issue
 
 	// ProcessData output
 	Items    []BulkItem
@@ -110,7 +110,7 @@ func (p *BulkPipeline) GatherData(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	p.issues = issues
+	p.Issues = issues
 	return nil
 }
 
@@ -118,7 +118,7 @@ func (p *BulkPipeline) GatherData(ctx context.Context) error {
 func (p *BulkPipeline) ProcessData() error {
 	var durations []time.Duration
 
-	for _, issue := range p.issues {
+	for _, issue := range p.Issues {
 		lt := Compute(issue)
 		p.Items = append(p.Items, BulkItem{Issue: issue, Metric: lt})
 		if lt.Duration != nil {
