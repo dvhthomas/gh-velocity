@@ -419,9 +419,6 @@ exclude_users:
   - "renovate[bot]"
 
 # GitHub Discussions integration (for --post on bulk commands).
-# The category must already exist in the repo's Discussions settings (case-insensitive match).
-# The discussion is created in the analyzed repo with an automatic title:
-#   gh-velocity {command}: {owner/repo} ({YYYY-MM-DD})
 discussions:
   category: General
 ```
@@ -441,7 +438,7 @@ discussions:
 
 **`project.status_field`**: The visible name of the status field on your project board (usually "Status"). Used by velocity features. Run `gh velocity config discover` to find available fields and options.
 
-**`discussions.category`**: The name of a GitHub Discussions category to post to (e.g., `"General"`, `"Reports"`). Must already exist in the repository's Discussions settings; matched case-insensitively. Required for `--post` on bulk commands (`report`, `quality release`, flow commands). The discussion is created in the analyzed repo with an automatic title of `gh-velocity {command}: {owner/repo} ({YYYY-MM-DD})`.
+**`discussions.category`**: The name of a GitHub Discussions category to post to (e.g., `"General"`, `"Reports"`). Must already exist in the repository's Discussions settings; matched case-insensitively. Required for `--post` on bulk commands (`report`, `release`, `throughput`, etc.). The discussion is created in the analyzed repo with an automatic title (e.g., `gh-velocity report: cli/cli (2026-03-21)`).
 
 **Unknown keys** in the config file produce warnings to stderr but do not cause errors. This lets you add comments or future fields without breaking the tool.
 

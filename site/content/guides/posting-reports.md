@@ -36,7 +36,7 @@ discussions:
 
 The `category` must name an existing category in the repository's Discussions settings (e.g., `"General"`, `"Reports"`, `"Announcements"`). The match is case-insensitive. If `discussions.category` is not set, `--post` fails with an error on bulk commands.
 
-This is the only configurable aspect of discussion posting -- title and destination are automatic (see below).
+GitHub Discussions must be enabled on the repository (Settings > General > Features > Discussions). Run `gh velocity config preflight` to check this.
 
 ### Discussion destination
 
@@ -53,14 +53,13 @@ gh-velocity {command}: {owner/repo} ({YYYY-MM-DD})
 Examples:
 
 - `gh-velocity report: cli/cli (2026-03-21)`
-- `gh-velocity quality release: dvhthomas/gh-velocity (2026-03-21)`
-- `gh-velocity flow throughput: myorg/myapp (2026-03-21)`
+- `gh-velocity release: dvhthomas/gh-velocity (2026-03-21)`
 
-The date is the UTC date when the command runs, not the `--since` window.
+The `{command}` is the internal command name (e.g., `report`, `release`, `throughput`, `velocity`, `cycle-time`, `lead-time`), not the full CLI path. The date is the UTC date when the command runs, not the `--since` window.
 
 ## Idempotent posting
 
-Running the same command with `--post` multiple times updates the existing Discussion or comment instead of creating a duplicate. For Discussions, the tool embeds an invisible HTML comment marker in the body that identifies the command and context (e.g., `report` with `--since 30d`). On subsequent runs, it searches the last 50 discussions in the configured category for a matching marker and updates that discussion's body. For issue/PR comments, it uses the same marker approach to find and update the existing comment.
+Running the same command with `--post` multiple times updates the existing Discussion or comment instead of creating a duplicate. The tool identifies matching posts using a combination of command name and parameters (e.g., `report` with `--since 30d`), so different parameter combinations create separate discussions. For issue/PR comments, the same matching approach finds and updates the existing comment.
 
 To force a new post instead of updating, use `--new-post`:
 
