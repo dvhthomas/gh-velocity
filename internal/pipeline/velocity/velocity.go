@@ -633,6 +633,6 @@ func (p *Pipeline) Render(rc format.RenderContext) error {
 	case format.Markdown:
 		return WriteMarkdown(rc.Writer, p.Result)
 	default:
-		return WritePretty(rc.Writer, p.Result, p.Verbose)
+		return WritePretty(rc, p.Result, p.Verbose)
 	}
 }

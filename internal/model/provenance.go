@@ -4,8 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
 	"sort"
 )
+
+// markdownLinkRe matches [text](url) and captures the text.
+var markdownLinkRe = regexp.MustCompile(`\[([^\]]+)\]\([^)]+\)`)
+
+// StripMarkdownLinks removes [text](url) links, keeping only the text.
+func StripMarkdownLinks(s string) string {
+	return markdownLinkRe.ReplaceAllString(s, "$1")
+}
 
 // provenanceJSON is the JSON wire format for Provenance.
 type provenanceJSON struct {
@@ -45,13 +54,14 @@ func (p Provenance) WriteFooter(w io.Writer) {
 }
 
 // WriteInsightsPretty writes insights as a bulleted list.
+// Markdown links [text](url) are stripped to plain text for terminal output.
 func WriteInsightsPretty(w io.Writer, insights []Insight) {
 	if len(insights) == 0 {
 		return
 	}
 	fmt.Fprintln(w)
 	for _, ins := range insights {
-		fmt.Fprintf(w, "  → %s\n", ins.Message)
+		fmt.Fprintf(w, "  → %s\n", StripMarkdownLinks(ins.Message))
 	}
 }
 

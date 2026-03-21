@@ -172,7 +172,7 @@ func WriteReportPretty(rc RenderContext, r model.StatsResult) error {
 		for _, group := range groups {
 			fmt.Fprintf(w, "\n  %s:\n", group.Section)
 			for _, msg := range group.Messages {
-				fmt.Fprintf(w, "  → %s\n", msg)
+				fmt.Fprintf(w, "  → %s\n", StripMarkdownLinks(msg))
 			}
 		}
 		fmt.Fprintln(w)

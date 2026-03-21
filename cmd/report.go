@@ -433,7 +433,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 				if err := writeDetail(rc, "Velocity", func() error {
 					return velocity.WriteMarkdown(rc.Writer, velocityPipeline.Result)
 				}, func() error {
-					return velocity.WritePretty(rc.Writer, velocityPipeline.Result, false)
+					return velocity.WritePretty(rc, velocityPipeline.Result, false)
 				}); err != nil {
 					return err
 				}
@@ -686,11 +686,12 @@ func computeQualityWithInsights(items []leadtime.BulkItem, categories []model.Ca
 				URL:      item.Issue.URL,
 			})
 			qualityItems = append(qualityItems, qualitypipe.QualityItem{
-				Number:   item.Issue.Number,
-				Title:    item.Issue.Title,
-				URL:      item.Issue.URL,
-				Category: cat,
-				LeadTime: format.FormatDuration(*dur),
+				Number:      item.Issue.Number,
+				Title:       item.Issue.Title,
+				URL:         item.Issue.URL,
+				Category:    cat,
+				LeadTime:    format.FormatDuration(*dur),
+				LeadTimeDur: dur,
 			})
 		}
 	}

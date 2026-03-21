@@ -22,11 +22,12 @@ var qualityMarkdownTmpl = template.Must(
 
 // QualityItem holds per-item classification data for the quality detail table.
 type QualityItem struct {
-	Number   int
-	Title    string
-	URL      string
-	Category string
-	LeadTime string // pre-formatted duration
+	Number       int
+	Title        string
+	URL          string
+	Category     string
+	LeadTime     string // pre-formatted duration
+	LeadTimeDur  *time.Duration // raw duration for sorting
 }
 
 // CategoryRow holds a single row of the category breakdown table.
@@ -127,6 +128,7 @@ type templateData struct {
 	BugCount    int
 	TotalIssues int
 	Items       []itemRow
+	SortHeader  string
 }
 
 type itemRow struct {
@@ -139,6 +141,7 @@ type itemRow struct {
 
 // WriteMarkdown renders the quality detail section as markdown.
 func WriteMarkdown(rc format.RenderContext, d Detail) error {
+	sorted := format.SortBy(d.Items, "lead_time", format.Desc, func(it QualityItem) *time.Duration { return it.LeadTimeDur })
 	data := templateData{
 		Repository:  d.Repository,
 		Since:       d.Since,
@@ -147,11 +150,12 @@ func WriteMarkdown(rc format.RenderContext, d Detail) error {
 		BugRatio:    int(d.Quality.BugRatio * 100),
 		BugCount:    d.Quality.BugCount,
 		TotalIssues: d.Quality.TotalIssues,
+		SortHeader:  sorted.Header("lead_time", "Lead Time"),
 	}
 	for _, ins := range d.Insights {
 		data.Insights = append(data.Insights, format.LinkStatTerms(ins.Message))
 	}
-	for _, item := range d.Items {
+	for _, item := range sorted.Items {
 		flag := ""
 		if item.Category == "bug" {
 			flag = format.FlagEmoji(format.FlagBug)
@@ -184,9 +188,10 @@ func WritePretty(rc format.RenderContext, d Detail) error {
 		int(d.Quality.BugRatio*100), d.Quality.BugCount, d.Quality.TotalIssues)
 
 	if len(d.Items) > 0 {
+		sorted := format.SortBy(d.Items, "lead_time", format.Desc, func(it QualityItem) *time.Duration { return it.LeadTimeDur })
 		tp := format.NewTable(rc.Writer, rc.IsTTY, rc.Width)
-		tp.AddHeader([]string{"", "#", "Title", "Category", "Lead Time"})
-		for _, item := range d.Items {
+		tp.AddHeader([]string{"", "#", "Title", "Category", sorted.Header("lead_time", "Lead Time")})
+		for _, item := range sorted.Items {
 			flag := ""
 			if item.Category == "bug" {
 				flag = format.FlagEmoji(format.FlagBug)

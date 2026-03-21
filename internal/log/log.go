@@ -7,7 +7,13 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync/atomic"
 )
+
+var debugEnabled atomic.Bool
+
+// SetDebug enables or disables debug output.
+func SetDebug(on bool) { debugEnabled.Store(on) }
 
 // isCI returns true when running inside GitHub Actions.
 func isCI() bool {
@@ -50,8 +56,11 @@ func Notice(format string, args ...any) {
 	}
 }
 
-// Debug writes a debug message to stderr (same format in CI and local).
+// Debug writes a debug message to stderr when debug output is enabled via SetDebug.
 func Debug(format string, args ...any) {
+	if !debugEnabled.Load() {
+		return
+	}
 	msg := fmt.Sprintf(format, args...)
 	fmt.Fprintf(os.Stderr, "[debug] %s\n", msg)
 }

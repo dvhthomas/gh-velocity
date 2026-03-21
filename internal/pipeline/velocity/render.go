@@ -138,7 +138,8 @@ func WriteJSON(w io.Writer, r model.VelocityResult) error {
 // --- Pretty ---
 
 // WritePretty writes velocity as formatted text.
-func WritePretty(w io.Writer, r model.VelocityResult, verbose bool) error {
+func WritePretty(rc format.RenderContext, r model.VelocityResult, verbose bool) error {
+	w := rc.Writer
 	fmt.Fprintf(w, "Velocity: %s (%s)\n\n", r.Repository, r.Unit)
 
 	for _, warn := range r.Warnings {
@@ -168,12 +169,12 @@ func WritePretty(w io.Writer, r model.VelocityResult, verbose bool) error {
 		fmt.Fprintln(w)
 
 		// Per-item table for current iteration, sorted by effort desc.
-		writeItemTable(w, c.Items, r.EffortUnit)
+		writeItemTable(w, rc.IsTTY, rc.Width, c.Items, r.EffortUnit)
 	}
 
 	if len(r.History) > 0 {
 		fmt.Fprintf(w, "  History:\n")
-		tp := format.NewTable(w, true, 80)
+		tp := format.NewTable(w, rc.IsTTY, rc.Width)
 		tp.AddHeader([]string{"Iteration", "Velocity", "Commit", "Done%", "Items", "Trend"})
 		for _, h := range r.History {
 			tp.AddField(truncate(h.Name, 20))
@@ -205,13 +206,13 @@ func WritePretty(w io.Writer, r model.VelocityResult, verbose bool) error {
 
 // writeItemTable renders a per-item effort table for an iteration,
 // sorted by effort descending (biggest contributors first).
-func writeItemTable(w io.Writer, items []model.IterationItem, unit string) {
+func writeItemTable(w io.Writer, isTTY bool, width int, items []model.IterationItem, unit string) {
 	if len(items) == 0 {
 		return
 	}
 	sorted := format.SortBy(items, "effort", format.Desc, func(it model.IterationItem) *float64 { return &it.Effort })
 
-	tp := format.NewTable(w, true, 80)
+	tp := format.NewTable(w, isTTY, width)
 	tp.AddHeader([]string{"", "#", "Title", sorted.Header("effort", "Effort")})
 	for _, item := range sorted.Items {
 		status := "✓"

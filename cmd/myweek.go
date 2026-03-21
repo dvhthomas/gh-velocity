@@ -84,6 +84,7 @@ func runMyWeek(cmd *cobra.Command, sinceStr string) error {
 
 	// Read persistent flags from the root command.
 	debugFlag := flagBool(cmd, "debug")
+	log.SetDebug(debugFlag)
 	noCacheFlag := flagBool(cmd, "no-cache")
 	resultsFlag, _ := cmd.Flags().GetStringSlice("results")
 	results, err := format.ParseResults(resultsFlag)

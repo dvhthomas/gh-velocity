@@ -543,7 +543,7 @@ func TestGenerateQualityInsights(t *testing.T) {
 				{Number: 5, Title: "Feat B", Duration: dur(15), Category: "feature"},
 				{Number: 6, Title: "Feat C", Duration: dur(20), Category: "feature"},
 			},
-			wantCount:  3, // bug_ratio_high + bug_fix_speed + hotfix (3 bugs < 72h)
+			wantCount:  4, // bug_ratio_high + bug_fix_speed + hotfix_responsiveness + hotfix_burden (2/6=33%)
 			wantSubstr: "Bug fixes",
 			wantType:   "bug_fix_speed",
 		},
@@ -566,7 +566,7 @@ func TestGenerateQualityInsights(t *testing.T) {
 			wantCount: 0, // category_distribution removed; bug ratio exactly 20% not above threshold; all dur(5d) > 72h
 		},
 		{
-			name:              "hotfix detection finds fast items",
+			name:              "hotfix responsiveness and burden",
 			quality:           model.StatsQuality{BugCount: 2, TotalIssues: 5, BugRatio: 0.40},
 			hotfixWindowHours: 72,
 			items: []ItemRef{
@@ -576,9 +576,9 @@ func TestGenerateQualityInsights(t *testing.T) {
 				{Number: 4, Title: "Normal 2", Duration: dur(5), Category: "feature"},
 				{Number: 5, Title: "Normal 3", Duration: dur(7), Category: "chore"},
 			},
-			wantCount:  3, // bug_ratio_high + bug_fix_speed + hotfix
-			wantSubstr: "2 of 5 items (40%)",
-			wantType:   "hotfix_count",
+			wantCount:  4, // bug_ratio_high + bug_fix_speed + hotfix_responsiveness + hotfix_burden (2/5=40%)
+			wantSubstr: "2 of 2 bugs (100%)",
+			wantType:   "hotfix_responsiveness",
 		},
 		{
 			name:              "no hotfixes when all items exceed window",

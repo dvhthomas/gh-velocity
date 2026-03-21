@@ -312,27 +312,34 @@ func GenerateQualityInsights(quality model.StatsQuality, items []ItemRef, hotfix
 		}
 	}
 
-	// Hotfix detection — items resolved within the configured window.
-	if hotfixWindowHours > 0 {
+	// Hotfix detection — bug fixes resolved within the configured window.
+	// Two separate insights:
+	//   1. Responsiveness: what % of bugs were hotfixed? (high = good)
+	//   2. Burden: what % of all work was hotfixes? (high = concerning)
+	if hotfixWindowHours > 0 && quality.BugCount > 0 {
 		window := time.Duration(hotfixWindowHours) * time.Hour
 		var hotfixCount int
 		for _, item := range items {
-			if item.Duration > 0 && item.Duration < window {
+			if item.Category == "bug" && item.Duration > 0 && item.Duration < window {
 				hotfixCount++
 			}
 		}
 		if hotfixCount > 0 {
-			pct := hotfixCount * 100 / quality.TotalIssues
-			msg := fmt.Sprintf("%d of %d items (%d%%) resolved within %dh (hotfix window)", hotfixCount, quality.TotalIssues, pct, hotfixWindowHours)
-			if pct > 30 {
-				msg += " — frequent hotfixes may indicate upstream quality issues."
-			} else {
-				msg += "."
-			}
+			// Responsiveness: how quickly are bugs being fixed?
+			pctOfBugs := hotfixCount * 100 / quality.BugCount
 			insights = append(insights, model.Insight{
-				Type:    "hotfix_count",
-				Message: msg,
+				Type:    "hotfix_responsiveness",
+				Message: fmt.Sprintf("%d of %d bugs (%d%%) were hotfixed within %dh.", hotfixCount, quality.BugCount, pctOfBugs, hotfixWindowHours),
 			})
+
+			// Burden: how much total capacity is spent on urgent bug fixes?
+			pctOfAll := hotfixCount * 100 / quality.TotalIssues
+			if pctOfAll > 10 {
+				insights = append(insights, model.Insight{
+					Type:    "hotfix_burden",
+					Message: fmt.Sprintf("Hotfixes account for %d%% of all work (%d of %d items) — consider investing in prevention.", pctOfAll, hotfixCount, quality.TotalIssues),
+				})
+			}
 		}
 	}
 

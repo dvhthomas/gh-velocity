@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/config"
+	"github.com/dvhthomas/gh-velocity/internal/format"
 	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
@@ -275,7 +276,8 @@ func TestWritePretty(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := WritePretty(&buf, r, true); err != nil {
+	rc := format.RenderContext{Writer: &buf, IsTTY: true, Width: 80}
+	if err := WritePretty(rc, r, true); err != nil {
 		t.Fatalf("WritePretty: %v", err)
 	}
 

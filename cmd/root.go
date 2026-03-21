@@ -176,6 +176,8 @@ func NewRootCmd(version, buildTime string) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			log.SetDebug(debugFlag)
+
 			// Skip Deps setup for commands that don't need it.
 			// Group parents (flow, status) print help only — no RunE.
 			switch {
