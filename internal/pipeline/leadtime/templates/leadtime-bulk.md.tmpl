@@ -13,12 +13,16 @@
 {{- end}}
 {{if .Items}}
 <details>
-<summary>Details ({{len .Items}} issues)</summary>
+<summary>Details ({{if .Capped}}showing {{len .Items}} of {{.TotalCount}}{{else}}{{len .Items}}{{end}} issues)</summary>
 
 | | Issue | Title | Closed (UTC) | {{.SortHeader}} |
 | :---: | ---: | --- | --- | --- |
 {{- range .Items}}
 | {{.Flag}} | {{.Link}} | {{.Title}} | {{.Closed}} | {{.LeadTime}} |
+{{- end}}
+{{- if .Capped}}
+
+*{{sub .TotalCount (len .Items)}} more items not shown. Use `--format json` for complete data.*
 {{- end}}
 
 </details>

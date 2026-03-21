@@ -22,12 +22,12 @@ var qualityMarkdownTmpl = template.Must(
 
 // QualityItem holds per-item classification data for the quality detail table.
 type QualityItem struct {
-	Number       int
-	Title        string
-	URL          string
-	Category     string
-	LeadTime     string // pre-formatted duration
-	LeadTimeDur  *time.Duration // raw duration for sorting
+	Number      int
+	Title       string
+	URL         string
+	Category    string
+	LeadTime    string         // pre-formatted duration
+	LeadTimeDur *time.Duration // raw duration for sorting
 }
 
 // CategoryRow holds a single row of the category breakdown table.
@@ -51,15 +51,15 @@ type Detail struct {
 // --- JSON ---
 
 type jsonQualityOutput struct {
-	Repository string               `json:"repository"`
-	Window     format.JSONWindow    `json:"window"`
-	Categories []jsonCategory       `json:"categories"`
-	Items      []jsonQualityItem    `json:"items"`
-	BugCount   int                  `json:"bug_count"`
-	TotalIssues int                 `json:"total_issues"`
-	BugRatio   float64              `json:"bug_ratio"`
-	Insights   []format.JSONInsight `json:"insights,omitempty"`
-	Warnings   []string             `json:"warnings,omitempty"`
+	Repository  string               `json:"repository"`
+	Window      format.JSONWindow    `json:"window"`
+	Categories  []jsonCategory       `json:"categories"`
+	Items       []jsonQualityItem    `json:"items"`
+	BugCount    int                  `json:"bug_count"`
+	TotalIssues int                  `json:"total_issues"`
+	BugRatio    float64              `json:"bug_ratio"`
+	Insights    []format.JSONInsight `json:"insights,omitempty"`
+	Warnings    []string             `json:"warnings,omitempty"`
 }
 
 type jsonCategory struct {
@@ -129,6 +129,8 @@ type templateData struct {
 	TotalIssues int
 	Items       []itemRow
 	SortHeader  string
+	FilterTotal int  // total bugs before capping
+	Capped      bool // true when items were truncated to MaxDetailRows
 }
 
 type itemRow struct {
@@ -140,6 +142,7 @@ type itemRow struct {
 }
 
 // WriteMarkdown renders the quality detail section as markdown.
+// The detail table shows only bugs, sorted by lead time descending, capped at MaxDetailRows.
 func WriteMarkdown(rc format.RenderContext, d Detail) error {
 	sorted := format.SortBy(d.Items, "lead_time", format.Desc, func(it QualityItem) *time.Duration { return it.LeadTimeDur })
 	data := templateData{
@@ -155,25 +158,36 @@ func WriteMarkdown(rc format.RenderContext, d Detail) error {
 	for _, ins := range d.Insights {
 		data.Insights = append(data.Insights, format.LinkStatTerms(ins.Message))
 	}
+
+	// Filter to bugs only for the detail table.
 	for _, item := range sorted.Items {
-		flag := ""
-		if item.Category == "bug" {
-			flag = format.FlagEmoji(format.FlagBug)
+		if item.Category != "bug" {
+			continue
 		}
 		data.Items = append(data.Items, itemRow{
-			Flag:     flag,
+			Flag:     format.FlagEmoji(format.FlagBug),
 			Link:     format.FormatItemLink(item.Number, item.URL, rc),
 			Title:    format.SanitizeMarkdown(item.Title),
 			Category: item.Category,
 			LeadTime: item.LeadTime,
 		})
 	}
+
+	filterTotal := len(data.Items)
+	capped := filterTotal > format.MaxDetailRows
+	if capped {
+		data.Items = data.Items[:format.MaxDetailRows]
+	}
+	data.FilterTotal = filterTotal
+	data.Capped = capped
+
 	return qualityMarkdownTmpl.Execute(rc.Writer, data)
 }
 
 // --- Pretty ---
 
 // WritePretty renders the quality detail section as formatted text.
+// The detail table shows only bugs, sorted by lead time descending, capped at MaxDetailRows.
 func WritePretty(rc format.RenderContext, d Detail) error {
 	fmt.Fprintf(rc.Writer, "Quality: %s (%s – %s UTC)\n\n",
 		d.Repository, d.Since.UTC().Format(time.DateOnly), d.Until.UTC().Format(time.DateOnly))
@@ -189,21 +203,41 @@ func WritePretty(rc format.RenderContext, d Detail) error {
 
 	if len(d.Items) > 0 {
 		sorted := format.SortBy(d.Items, "lead_time", format.Desc, func(it QualityItem) *time.Duration { return it.LeadTimeDur })
+
+		// Filter to bugs only.
+		var bugs []QualityItem
+		for _, item := range sorted.Items {
+			if item.Category == "bug" {
+				bugs = append(bugs, item)
+			}
+		}
+
+		if len(bugs) == 0 {
+			return nil
+		}
+
+		total := len(bugs)
+		capped := total > format.MaxDetailRows
+		if capped {
+			bugs = bugs[:format.MaxDetailRows]
+		}
+
 		tp := format.NewTable(rc.Writer, rc.IsTTY, rc.Width)
 		tp.AddHeader([]string{"", "#", "Title", "Category", sorted.Header("lead_time", "Lead Time")})
-		for _, item := range sorted.Items {
-			flag := ""
-			if item.Category == "bug" {
-				flag = format.FlagEmoji(format.FlagBug)
-			}
-			tp.AddField(flag)
+		for _, item := range bugs {
+			tp.AddField(format.FlagEmoji(format.FlagBug))
 			tp.AddField(format.FormatItemLink(item.Number, item.URL, rc))
 			tp.AddField(item.Title)
 			tp.AddField(item.Category)
 			tp.AddField(item.LeadTime)
 			tp.EndRow()
 		}
-		return tp.Render()
+		if err := tp.Render(); err != nil {
+			return err
+		}
+		if capped {
+			fmt.Fprintf(rc.Writer, "  %d more bugs not shown. Use --format json for complete data.\n", total-format.MaxDetailRows)
+		}
 	}
 	return nil
 }

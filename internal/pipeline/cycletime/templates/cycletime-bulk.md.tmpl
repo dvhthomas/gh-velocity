@@ -13,12 +13,16 @@
 {{- end}}
 {{if .Items}}
 <details>
-<summary>Details ({{.DetailCount}}{{if ne .DetailCount .TotalCount}} of {{.TotalCount}}{{end}} issues)</summary>
+<summary>Details ({{if .Capped}}showing {{len .Items}} of {{.DetailCount}}{{else}}{{.DetailCount}}{{end}} issues{{if ne .DetailCount .TotalCount}}, {{sub .TotalCount .DetailCount}} without cycle time data{{end}})</summary>
 
 | | Issue | Title | Closed (UTC) | {{.SortHeader}} |
 | :---: | ---: | --- | --- | --- |
 {{- range .Items}}
 | {{.Flag}} | {{.Link}} | {{.Title}} | {{.Closed}} | {{.CycleTime}} |
+{{- end}}
+{{- if .Capped}}
+
+*{{sub .DetailCount (len .Items)}} more items not shown. Use `--format json` for complete data.*
 {{- end}}
 
 </details>
