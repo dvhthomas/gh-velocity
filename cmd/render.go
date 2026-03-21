@@ -21,9 +21,14 @@ import (
 // handles --write-to file routing, and posts if --post is set.
 // Pass nil for client and empty PostOptions for commands without --post.
 func renderPipeline(cmd *cobra.Command, deps *Deps, p pipeline.Pipeline, client *gh.Client, postOpts posting.PostOptions) error {
-	prov := buildProvenance(cmd, map[string]string{
-		"repository": deps.Owner + "/" + deps.Repo,
-	})
+	// Skip generic provenance for pipelines that render their own (e.g., velocity).
+	_, hasOwnProvenance := p.(provenanceRenderer)
+	var prov model.Provenance
+	if !hasOwnProvenance {
+		prov = buildProvenance(cmd, map[string]string{
+			"repository": deps.Owner + "/" + deps.Repo,
+		})
+	}
 
 	pc, postFn := setupPost(cmd, deps, client, postOpts)
 
@@ -101,6 +106,13 @@ func renderFormat(w interface{ Write([]byte) (int, error) }, deps *Deps, p pipel
 		Repo:   deps.Repo,
 	}
 	return p.Render(rc)
+}
+
+// provenanceRenderer is an optional interface for pipelines that render
+// their own provenance (e.g., velocity with its multi-line config block).
+// When a pipeline implements this, renderPipeline skips the generic footer.
+type provenanceRenderer interface {
+	HasProvenance() bool
 }
 
 // writeProvenance writes provenance metadata after the main output.
