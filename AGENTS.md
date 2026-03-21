@@ -73,4 +73,4 @@ When `--results json`, errors are also JSON: `{"error": "message", "code": N}`.
 | Showcase (full) | `task showcase` | **Thousands** of API calls | CI cron only (daily) |
 | Showcase (single repo) | `task showcase -- --dry-run "GitHub CLI"` | ~100 API calls | Manual, when testing preflight heuristics |
 
-**Do not run `task showcase` locally without `--dry-run` and a repo filter.** The full showcase runs preflight + report against 11+ repos and posts to Discussions. It is designed for the daily CI cron job, not for local development. Use `--dry-run` to skip posting, and pass a repo name to test a single project.
+**NEVER run `task showcase` without `--dry-run` and a repo filter.** The full showcase is for the daily CI cron job only. Locally, always use: `task showcase -- --dry-run "GitHub CLI"`
