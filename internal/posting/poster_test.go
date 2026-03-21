@@ -3,6 +3,7 @@ package posting
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/dvhthomas/gh-velocity/internal/model"
@@ -426,5 +427,100 @@ func TestDiscussionPoster_DryRun_NoUpdate(t *testing.T) {
 	}
 	if len(mock.updatedIDs) != 0 {
 		t.Error("dry-run should not update discussions")
+	}
+}
+
+// --- Title template tests ---
+
+func TestDiscussionPoster_DefaultTitle(t *testing.T) {
+	mock := &mockDiscussionClient{discussions: []Discussion{}}
+	poster := &DiscussionPoster{Client: mock}
+
+	err := poster.Post(context.Background(), PostOptions{
+		Command:    "report",
+		Context:    "30d",
+		Content:    "content",
+		Target:     DiscussionTarget,
+		CategoryID: "DIC_abc",
+		Repo:       "cli/cli",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(mock.createdTitles) != 1 {
+		t.Fatal("expected 1 create")
+	}
+	title := mock.createdTitles[0]
+	if !strings.HasPrefix(title, "gh-velocity report: cli/cli (") {
+		t.Errorf("default title should start with 'gh-velocity report: cli/cli (', got %q", title)
+	}
+}
+
+func TestDiscussionPoster_CustomTitle(t *testing.T) {
+	mock := &mockDiscussionClient{discussions: []Discussion{}}
+	poster := &DiscussionPoster{Client: mock}
+
+	err := poster.Post(context.Background(), PostOptions{
+		Command:       "report",
+		Context:       "30d",
+		Content:       "content",
+		Target:        DiscussionTarget,
+		CategoryID:    "DIC_abc",
+		Repo:          "cli/cli",
+		TitleTemplate: "Weekly Velocity: {{.Repo}}",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(mock.createdTitles) != 1 {
+		t.Fatal("expected 1 create")
+	}
+	expected := "Weekly Velocity: cli/cli"
+	if mock.createdTitles[0] != expected {
+		t.Errorf("expected title %q, got %q", expected, mock.createdTitles[0])
+	}
+}
+
+func TestDiscussionPoster_CustomTitleWithDate(t *testing.T) {
+	mock := &mockDiscussionClient{discussions: []Discussion{}}
+	poster := &DiscussionPoster{Client: mock}
+
+	err := poster.Post(context.Background(), PostOptions{
+		Command:       "throughput",
+		Context:       "30d",
+		Content:       "content",
+		Target:        DiscussionTarget,
+		CategoryID:    "DIC_abc",
+		Repo:          "myorg/myapp",
+		TitleTemplate: "{{.Command}} for {{.Repo}} on {{.Date}}",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	title := mock.createdTitles[0]
+	if !strings.HasPrefix(title, "throughput for myorg/myapp on ") {
+		t.Errorf("custom title with date should start with 'throughput for myorg/myapp on ', got %q", title)
+	}
+}
+
+func TestDiscussionPoster_InvalidTitleTemplate(t *testing.T) {
+	mock := &mockDiscussionClient{discussions: []Discussion{}}
+	poster := &DiscussionPoster{Client: mock}
+
+	err := poster.Post(context.Background(), PostOptions{
+		Command:       "report",
+		Context:       "30d",
+		Content:       "content",
+		Target:        DiscussionTarget,
+		CategoryID:    "DIC_abc",
+		Repo:          "cli/cli",
+		TitleTemplate: "{{.Missing}}",
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid template field")
+	}
+	var appErr *model.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected AppError, got %T", err)
 	}
 }

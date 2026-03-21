@@ -87,6 +87,12 @@ The JSON output (-r json) is useful for debugging or piping into other tools.`,
 				fmt.Fprintf(w, "  - %s: %v\n", cat.Name, cat.Matchers)
 			}
 			fmt.Fprintf(w, "discussions.category:        %s\n", cfg.Discussions.Category)
+			if cfg.Discussions.Title != "" {
+				fmt.Fprintf(w, "discussions.title:           %s\n", cfg.Discussions.Title)
+			}
+			if cfg.Discussions.Repo != "" {
+				fmt.Fprintf(w, "discussions.repo:            %s\n", cfg.Discussions.Repo)
+			}
 			fmt.Fprintf(w, "cycle_time.strategy:         %s\n", cfg.CycleTime.Strategy)
 			fmt.Fprintf(w, "effort.strategy:             %s\n", cfg.Effort.Strategy)
 			if cfg.Effort.Strategy == "attribute" {
@@ -289,6 +295,8 @@ commit_ref:
 # 'discussions: write' for bulk reports.
 # discussions:
 #   category: General
+#   title: "Weekly Velocity: {{.Repo}} ({{.Date}})"  # Go template (optional)
+#   repo: owner/other-repo                            # post to a different repo (optional)
 `
 
 func newConfigCreateCmd() *cobra.Command {

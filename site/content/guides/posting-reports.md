@@ -27,18 +27,57 @@ This prevents accidental posts during local testing.
 
 ## Discussions config
 
-Bulk commands post to GitHub Discussions. Configure the target category in your [config file]({{< relref "/getting-started/configuration" >}}):
+Bulk commands post to GitHub Discussions. Configure posting in your [config file]({{< relref "/getting-started/configuration" >}}):
 
 ```yaml
 discussions:
-  category: General
+  category: General                                     # required
+  title: "Weekly Velocity: {{.Repo}} ({{.Date}})"       # optional Go template
+  repo: myorg/team-reports                               # optional: post to a different repo
 ```
 
-The tool creates a Discussion in the specified category with the report as the body. The title includes the command, repo, and date range.
+GitHub Discussions must be enabled on the target repository (Settings > General > Features > Discussions). Run `gh velocity config preflight` to check this.
+
+### `discussions.category` (required)
+
+The category name in the target repo's Discussions settings (e.g., `"General"`, `"Reports"`). The match is case-insensitive. If not set, `--post` fails with an error on bulk commands.
+
+### `discussions.title` (optional)
+
+A [Go template](https://pkg.go.dev/text/template) for the Discussion title. Available fields:
+
+| Field | Description | Example |
+|---|---|---|
+| `{{.Command}}` | Internal command name | `report`, `release`, `throughput` |
+| `{{.Repo}}` | The analyzed repo (owner/repo) | `cli/cli` |
+| `{{.Date}}` | UTC date when the command runs | `2026-03-21` |
+
+**Default** (when omitted): `gh-velocity {{.Command}}: {{.Repo}} ({{.Date}})` — e.g., `gh-velocity report: cli/cli (2026-03-21)`.
+
+Examples:
+
+```yaml
+# Simple weekly report title
+title: "Weekly Velocity: {{.Repo}} ({{.Date}})"
+
+# Command-specific
+title: "{{.Command}} — {{.Repo}}"
+```
+
+### `discussions.repo` (optional)
+
+Post to a different repo than the one being analyzed. Must be in `owner/repo` format. The category must exist in this target repo's Discussions settings.
+
+```yaml
+# Analyze cli/cli but post the report to myorg/team-reports
+repo: myorg/team-reports
+```
+
+When omitted, discussions are created in the analyzed repo (the `--repo` / `-R` target or auto-detected from git remote).
 
 ## Idempotent posting
 
-Running the same command with `--post` multiple times updates the existing Discussion or comment instead of creating a duplicate. It matches on title (for Discussions) or a signature comment (for issue/PR comments).
+Running the same command with `--post` multiple times updates the existing Discussion or comment instead of creating a duplicate. The tool identifies matching posts using a combination of command name and parameters (e.g., `report` with `--since 30d`), so different parameter combinations create separate discussions.
 
 To force a new post instead of updating, use `--new-post`:
 
