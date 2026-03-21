@@ -22,7 +22,7 @@ builds:
 archives:
   - formats: [binary]
     # gh extension install expects: gh-{name}_{os}_{arch}{ext}
-    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
 
 checksum:
   name_template: "checksums.txt"
