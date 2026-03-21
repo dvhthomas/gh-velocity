@@ -240,7 +240,7 @@ gh extension upgrade velocity
 
 ### First queries
 
-All metric commands require a config file. When targeting a remote repo with `-R`, use `--config` to point at an example config (see `docs/examples/`). From inside your own repo with `.gh-velocity.yml` present, the config is loaded automatically.
+All metric commands require a config file. Generate one with `gh velocity config preflight -R owner/repo --write=/tmp/config.yml`, then pass it via `--config`. From inside your own repo with `.gh-velocity.yml` present, the config is loaded automatically.
 
 Start with a public repo to see what the output looks like:
 
@@ -418,9 +418,11 @@ exclude_users:
   - "dependabot[bot]"
   - "renovate[bot]"
 
-# GitHub Discussions integration (for --post on bulk commands)
+# GitHub Discussions integration (for --post on bulk commands).
 discussions:
   category: General
+  # title: "Weekly Velocity: {{.Repo}} ({{.Date}})"  # optional Go template
+  # repo: myorg/team-reports                          # optional: post to a different repo
 ```
 
 ### Configuration details
@@ -437,6 +439,12 @@ discussions:
 **`project.url`**: GitHub Projects v2 URL (e.g., `https://github.com/users/yourname/projects/1`). Used by velocity iteration/effort strategies. Not required for cycle time or WIP (those use labels). Find your project URL by navigating to your project board in GitHub.
 
 **`project.status_field`**: The visible name of the status field on your project board (usually "Status"). Used by velocity features. Run `gh velocity config discover` to find available fields and options.
+
+**`discussions.category`**: The name of a GitHub Discussions category to post to (e.g., `"General"`, `"Reports"`). Must already exist in the target repo's Discussions settings; matched case-insensitively. Required for `--post` on bulk commands.
+
+**`discussions.title`**: A Go template for the Discussion title. Available fields: `{{.Command}}` (e.g., `report`), `{{.Repo}}` (e.g., `cli/cli`), `{{.Date}}` (e.g., `2026-03-21`). Default: `gh-velocity {{.Command}}: {{.Repo}} ({{.Date}})`.
+
+**`discussions.repo`**: Post to a different repo than the one being analyzed. Must be in `owner/repo` format. The category must exist in this target repo. Default: the analyzed repo.
 
 **Unknown keys** in the config file produce warnings to stderr but do not cause errors. This lets you add comments or future fields without breaking the tool.
 

@@ -1377,6 +1377,8 @@ func renderPreflightConfig(r *PreflightResult) string {
 		b.WriteString("# CI/Actions: requires 'discussions: write' in workflow permissions.\n")
 		b.WriteString("discussions:\n")
 		b.WriteString("  category: General\n")
+		b.WriteString("  # title: \"Weekly Velocity: {{.Repo}} ({{.Date}})\"  # optional Go template\n")
+		b.WriteString("  # repo: owner/other-repo                            # optional: post to a different repo\n")
 		b.WriteString("\n")
 	}
 

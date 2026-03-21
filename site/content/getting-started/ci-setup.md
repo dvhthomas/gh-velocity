@@ -242,7 +242,7 @@ jobs:
 
 ## Real-world example
 
-The gh-velocity repo uses this pattern itself. See [`docs/examples/velocity-report.yml`](https://github.com/dvhthomas/gh-velocity/blob/main/docs/examples/velocity-report.yml) for a production-ready workflow to copy into `.github/workflows/`.
+The gh-velocity repo uses this pattern itself. See [`docs/velocity-report-workflow.yml`](https://github.com/dvhthomas/gh-velocity/blob/main/docs/velocity-report-workflow.yml) for a production-ready workflow to copy into `.github/workflows/`.
 
 ## Tips
 

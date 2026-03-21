@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
+	"time"
 
 	gh "github.com/dvhthomas/gh-velocity/internal/github"
 	"github.com/dvhthomas/gh-velocity/internal/model"
@@ -56,7 +58,30 @@ func setupPost(cmd *cobra.Command, deps *Deps, client *gh.Client, opts posting.P
 					Message: "posting to Discussions requires discussions.category in config",
 				}
 			}
-			categoryID, err := client.ResolveDiscussionCategoryID(cmd.Context(), categoryName)
+
+			// Title template from config.
+			opts.TitleTemplate = deps.Config.Discussions.Title
+
+			// Determine which client to use for posting. When discussions.repo
+			// is set, create a separate client for the target repo.
+			postClient := client
+			if targetRepo := deps.Config.Discussions.Repo; targetRepo != "" {
+				parts := strings.SplitN(targetRepo, "/", 2)
+				throttle := time.Duration(0)
+				if ts := deps.Config.APIThrottleSeconds; ts != nil {
+					throttle = time.Duration(*ts) * time.Second
+				}
+				tc, err := gh.NewClient(parts[0], parts[1], throttle)
+				if err != nil {
+					return &model.AppError{
+						Code:    model.ErrPostFailed,
+						Message: fmt.Sprintf("create client for discussions.repo %q: %v", targetRepo, err),
+					}
+				}
+				postClient = tc
+			}
+
+			categoryID, err := postClient.ResolveDiscussionCategoryID(cmd.Context(), categoryName)
 			if err != nil {
 				return &model.AppError{
 					Code:    model.ErrPostFailed,
@@ -65,7 +90,7 @@ func setupPost(cmd *cobra.Command, deps *Deps, client *gh.Client, opts posting.P
 			}
 			opts.CategoryID = categoryID
 			poster = &posting.DiscussionPoster{
-				Client: &discussionAdapter{client: client},
+				Client: &discussionAdapter{client: postClient},
 				DryRun: deps.DryRun,
 			}
 		case posting.IssueBody:

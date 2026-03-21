@@ -94,14 +94,8 @@ tasks:
       - sleep 5
       - bash scripts/generate-config.sh dvhthomas/gh-velocity --project-url https://github.com/users/dvhthomas/projects/1
 
-  e2e:configs:
-    desc: Run E2E tests with example configs against real OSS repos
-    deps: [build]
-    cmds:
-      - bash scripts/e2e-configs.sh
-
   showcase:
-    desc: Run velocity showcase against OSS repos and post to Discussions (use --dry-run to preview)
+    desc: "Run velocity showcase — CAUTION: extremely API-intensive. Use --dry-run and/or filter to a single repo."
     deps: [build]
     cmds:
       - go run ./scripts/showcase {{.CLI_ARGS}}

@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/classify"
@@ -155,6 +156,8 @@ type QualityConfig struct {
 
 type DiscussionsConfig struct {
 	Category string `yaml:"category" json:"category"`
+	Title    string `yaml:"title" json:"title,omitempty"`
+	Repo     string `yaml:"repo" json:"repo,omitempty"`
 }
 
 // Load reads and parses the config file. Returns default config if file doesn't exist.
@@ -401,6 +404,32 @@ func validate(cfg *Config) error {
 	if name := cfg.Discussions.Category; name != "" {
 		if strings.TrimSpace(name) == "" {
 			return fmt.Errorf("config: discussions.category must be a non-empty name, got %q", name)
+		}
+	}
+
+	// Discussions title template validation: parse and execute against
+	// a sample to catch unknown fields (e.g., {{.Repository}} instead of {{.Repo}}).
+	if tmpl := cfg.Discussions.Title; tmpl != "" {
+		t, err := template.New("title").Parse(tmpl)
+		if err != nil {
+			return fmt.Errorf("config: discussions.title is not a valid Go template: %v", err)
+		}
+		sample := struct {
+			Command string
+			Repo    string
+			Date    string
+		}{"report", "owner/repo", "2006-01-02"}
+		var buf strings.Builder
+		if err := t.Execute(&buf, sample); err != nil {
+			return fmt.Errorf("config: discussions.title references unknown field: %v (available: {{.Command}}, {{.Repo}}, {{.Date}})", err)
+		}
+	}
+
+	// Discussions repo validation (must be owner/repo format).
+	if repo := cfg.Discussions.Repo; repo != "" {
+		parts := strings.Split(repo, "/")
+		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+			return fmt.Errorf("config: discussions.repo must be in owner/repo format, got %q", repo)
 		}
 	}
 

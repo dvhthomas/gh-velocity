@@ -1,8 +1,10 @@
 package posting
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"text/template"
 	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/log"
@@ -25,14 +27,22 @@ const (
 
 // PostOptions configures a single post operation.
 type PostOptions struct {
-	Command    string // "lead-time", "cycle-time", "report", "release"
-	Context    string // "42", "pr-5", "30d", "v1.0", "2026-01-01..2026-02-01"
-	Content    string // markdown body (already formatted)
-	Target     Target
-	Number     int    // issue/PR number (for comment targets)
-	ForceNew   bool   // --new-post: skip search, always create
-	CategoryID string // Discussion category node ID (required for DiscussionTarget)
-	Repo       string // "owner/repo" for discussion titles
+	Command       string // "lead-time", "cycle-time", "report", "release"
+	Context       string // "42", "pr-5", "30d", "v1.0", "2026-01-01..2026-02-01"
+	Content       string // markdown body (already formatted)
+	Target        Target
+	Number        int    // issue/PR number (for comment targets)
+	ForceNew      bool   // --new-post: skip search, always create
+	CategoryID    string // Discussion category node ID (required for DiscussionTarget)
+	Repo          string // "owner/repo" for discussion titles
+	TitleTemplate string // Go template for discussion title (optional; uses default if empty)
+}
+
+// TitleData is the data available to discussion title templates.
+type TitleData struct {
+	Command string // e.g., "report", "release", "throughput"
+	Repo    string // e.g., "cli/cli"
+	Date    string // e.g., "2026-03-21"
 }
 
 // CommentClient abstracts the GitHub API calls needed by CommentPoster.
@@ -222,7 +232,13 @@ func (p *DiscussionPoster) Post(ctx context.Context, opts PostOptions) error {
 	}
 
 	body := WrapWithMarker(opts.Command, opts.Context, opts.Content)
-	title := fmt.Sprintf("gh-velocity %s: %s (%s)", opts.Command, opts.Repo, time.Now().UTC().Format("2006-01-02"))
+	title, err := renderTitle(opts)
+	if err != nil {
+		return &model.AppError{
+			Code:    model.ErrPostFailed,
+			Message: fmt.Sprintf("render discussion title: %v", err),
+		}
+	}
 
 	if opts.ForceNew {
 		if p.DryRun {
@@ -280,4 +296,29 @@ func (p *DiscussionPoster) Post(ctx context.Context, opts PostOptions) error {
 	}
 	log.Notice("Posted to %s (new discussion)", url)
 	return nil
+}
+
+// DefaultTitleTemplate is the default Go template for discussion titles.
+const DefaultTitleTemplate = "gh-velocity {{.Command}}: {{.Repo}} ({{.Date}})"
+
+// renderTitle renders the discussion title from the template or default.
+func renderTitle(opts PostOptions) (string, error) {
+	tmplStr := opts.TitleTemplate
+	if tmplStr == "" {
+		tmplStr = DefaultTitleTemplate
+	}
+	tmpl, err := template.New("title").Parse(tmplStr)
+	if err != nil {
+		return "", fmt.Errorf("parse title template: %w", err)
+	}
+	data := TitleData{
+		Command: opts.Command,
+		Repo:    opts.Repo,
+		Date:    time.Now().UTC().Format("2006-01-02"),
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("execute title template: %w (available fields: {{.Command}}, {{.Repo}}, {{.Date}})", err)
+	}
+	return buf.String(), nil
 }

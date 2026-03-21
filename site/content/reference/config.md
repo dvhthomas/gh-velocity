@@ -452,7 +452,7 @@ exclude_users:
 
 ## `discussions`
 
-Configuration for posting reports to GitHub Discussions.
+Configuration for posting reports to GitHub Discussions. See [Posting Reports]({{< relref "/guides/posting-reports" >}}) for a full guide.
 
 ### `discussions.category`
 
@@ -461,14 +461,40 @@ Configuration for posting reports to GitHub Discussions.
 | **Type** | string |
 | **Default** | `""` (none) |
 
-Discussion category name to post to (e.g., `"General"`, `"Reports"`). Must already exist in the repository's Discussions settings.
+Discussion category name to post to (e.g., `"General"`, `"Reports"`). Must already exist in the target repository's Discussions settings. The match is case-insensitive. Required when using `--post` on bulk commands.
 
 ```yaml
 discussions:
   category: General
 ```
 
-Used by the `--post` flag on bulk commands to create or update Discussion posts.
+### `discussions.title`
+
+| Property | Value |
+|---|---|
+| **Type** | string (Go template) |
+| **Default** | `"gh-velocity {{.Command}}: {{.Repo}} ({{.Date}})"` |
+
+Go template for the Discussion title. Available fields: `{{.Command}}` (e.g., `report`), `{{.Repo}}` (e.g., `cli/cli`), `{{.Date}}` (e.g., `2026-03-21`).
+
+```yaml
+discussions:
+  title: "Weekly Velocity: {{.Repo}} ({{.Date}})"
+```
+
+### `discussions.repo`
+
+| Property | Value |
+|---|---|
+| **Type** | string |
+| **Default** | `""` (analyzed repo) |
+
+Post to a different repo than the one being analyzed. Must be in `owner/repo` format. The `category` must exist in this target repo's Discussions settings.
+
+```yaml
+discussions:
+  repo: myorg/team-reports
+```
 
 ---
 
@@ -574,6 +600,8 @@ exclude_users:
 
 discussions:
   category: General
+  # title: "Weekly Velocity: {{.Repo}} ({{.Date}})"
+  # repo: myorg/team-reports
 
 api_throttle_seconds: 2
 ```
@@ -601,6 +629,8 @@ api_throttle_seconds: 2
 | `commit_ref.patterns` | `[]` |
 | `exclude_users` | `[]` |
 | `discussions.category` | `""` |
+| `discussions.title` | `"gh-velocity {{.Command}}: {{.Repo}} ({{.Date}})"` |
+| `discussions.repo` | `""` (analyzed repo) |
 | `api_throttle_seconds` | not set (no throttle) |
 
 ## See also

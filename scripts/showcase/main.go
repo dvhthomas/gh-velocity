@@ -1,13 +1,23 @@
 // Command showcase runs gh-velocity against multiple OSS repos and posts
 // results as comments on a single GitHub Discussion.
 //
+// CAUTION: This is extremely API-intensive — each repo triggers preflight
+// (category/label detection) + a full report (search queries per metric).
+// A full run against all repos in projects.yml can consume thousands of
+// API calls. Use --dry-run and/or filter to a single repo for local testing.
+//
 // It is a pure orchestrator — it shells out to gh-velocity and gh for all
 // operations. No library imports for GitHub API work.
 //
 // The repo list is read from projects.yml (next to this file by default,
 // override with --projects).
 //
-// Usage: go run ./scripts/showcase [--dry-run] [--binary ./gh-velocity] [--since 30d]
+// Usage:
+//
+//	go run ./scripts/showcase --dry-run                  # all repos, no posting
+//	go run ./scripts/showcase --dry-run "GitHub CLI"     # single repo by name
+//	go run ./scripts/showcase --dry-run cli/cli          # single repo by owner/repo
+//	go run ./scripts/showcase                            # full run (CI only)
 package main
 
 import (
@@ -33,9 +43,9 @@ type showcaseConfig struct {
 	Project string `yaml:"project"`
 }
 
-// slug derives a filesystem-safe name (e.g. "microsoft/ebpf-for-windows" → "microsoft-ebpf-for-windows").
+// slug derives a filesystem-safe name from the repo (e.g. "microsoft/ebpf-for-windows" → "microsoft-ebpf-for-windows").
 func (sc showcaseConfig) slug() string {
-	return strings.ReplaceAll(sc.Name, "/", "-")
+	return strings.ReplaceAll(sc.Repo, "/", "-")
 }
 
 // preflightFlags builds the gh-velocity flags for the preflight command.
@@ -96,6 +106,23 @@ func main() {
 	}
 	if len(configs) == 0 {
 		log.Fatal("no configs found in " + cfg.Projects)
+	}
+
+	// Filter to a single project if a positional arg is given.
+	// Matches on name ("GitHub CLI") or repo ("cli/cli").
+	// Usage: go run ./scripts/showcase "GitHub CLI"
+	if args := flag.Args(); len(args) > 0 {
+		filter := args[0]
+		var filtered []showcaseConfig
+		for _, sc := range configs {
+			if sc.Repo == filter || sc.Name == filter {
+				filtered = append(filtered, sc)
+			}
+		}
+		if len(filtered) == 0 {
+			log.Fatalf("no config matches %q — available: %s", filter, configNames(configs))
+		}
+		configs = filtered
 	}
 
 	repoRoot, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
@@ -278,6 +305,15 @@ func main() {
 
 	// Write GitHub Actions job summary with clickable links.
 	writeJobSummary(discURL, index)
+}
+
+// configNames returns a formatted list of available projects for error messages.
+func configNames(configs []showcaseConfig) string {
+	names := make([]string, len(configs))
+	for i, sc := range configs {
+		names[i] = fmt.Sprintf("%q (%s)", sc.Name, sc.Repo)
+	}
+	return strings.Join(names, ", ")
 }
 
 // loadConfigs reads the YAML config list.

@@ -2,24 +2,24 @@
 # Each config becomes a preflight + report run.
 #
 # Fields:
-#   name:    display name (required)
-#   repo:    owner/repo (optional, used with -R flag)
+#   name:    display name for reports and discussions (required)
+#   repo:    owner/repo (required, used with -R flag and as filter key)
 #   project: GitHub Projects board URL (optional, used with --project-url flag)
 #
 # Keep this list small (≤6) to stay within API rate limits.
 
 configs:
-  - name: cli/cli
+  - name: GitHub CLI
     repo: cli/cli
-  - name: kubernetes/kubernetes
+  - name: Kubernetes
     repo: kubernetes/kubernetes
-  - name: astral-sh/uv
+  - name: uv
     repo: astral-sh/uv
-  - name: facebook/react
+  - name: React
     repo: facebook/react
-  - name: grafana/k6
+  - name: k6
     repo: grafana/k6
-  - name: CalcMark/go-calcmark
+  - name: CalcMark
     repo: CalcMark/go-calcmark
-  - name: dvhthomas/gh-velocity
+  - name: gh-velocity
     repo: dvhthomas/gh-velocity

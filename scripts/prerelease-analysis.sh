@@ -144,29 +144,8 @@ check_readme() {
 check_configs() {
     section "Config Consistency"
 
-    # B1. Example configs should parse as valid YAML
-    local example_count=0
-    local example_fail=0
-    for f in docs/examples/*.yml docs/examples/*.yaml; do
-        [ -f "$f" ] || continue
-        example_count=$((example_count + 1))
-        if [ -x ./gh-velocity ]; then
-            if ! ./gh-velocity config validate --config "$f" >/dev/null 2>&1; then
-                fail "Example config fails validation: $f"
-                example_fail=$((example_fail + 1))
-            fi
-        fi
-    done
-
-    if [ "$example_count" -gt 0 ] && [ "$example_fail" -eq 0 ]; then
-        if [ -x ./gh-velocity ]; then
-            pass "All $example_count example configs validate"
-        else
-            warn "Binary not built — skipped example config validation ($example_count configs found)"
-        fi
-    elif [ "$example_count" -eq 0 ]; then
-        warn "No example configs found in docs/examples/"
-    fi
+    # B1. Example configs are generated at runtime via preflight (no static files to validate).
+    # The showcase workflow and e2e tests verify preflight output. See scripts/showcase/.
 
     # B2. Root .gh-velocity.yml validation
     if [ -f .gh-velocity.yml ] && [ -x ./gh-velocity ]; then

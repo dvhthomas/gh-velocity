@@ -6,9 +6,9 @@ bookCollapseSection: true
 
 # Examples
 
-Annotated configuration examples for popular repositories.
+Annotated configuration examples showing different workflow patterns.
 
-All example configs are in [`docs/examples/`](https://github.com/dvhthomas/gh-velocity/tree/main/docs/examples) and are validated by the E2E test suite (`task e2e:configs`).
+Configs are generated at runtime by `gh velocity config preflight`, which auto-detects labels, categories, lifecycle signals, and project boards. The [daily showcase workflow](https://github.com/dvhthomas/gh-velocity/blob/main/.github/workflows/showcase.yaml) runs preflight against multiple OSS repos — check the [Velocity Reports discussions](https://github.com/dvhthomas/gh-velocity/discussions/categories/velocity-reports) for real generated configs and reports.
 
 ## Generating your own config
 
@@ -28,20 +28,15 @@ gh velocity config preflight \
 
 Preflight auto-detects noise labels (spam, duplicate, invalid) and excludes them from the scope query.
 
-## Running examples
+## Running against a remote repo
+
+Generate a config on the fly and pipe it:
 
 ```bash
-# Release quality report
-gh velocity quality release v2.67.0 -R cli/cli \
-  --config docs/examples/cli-cli.yml
-
-# Lead time for recent work
-gh velocity flow lead-time 1234 -R cli/cli \
-  --config docs/examples/cli-cli.yml
-
-# JSON output for scripting
-gh velocity quality release v2.67.0 -R cli/cli \
-  --config docs/examples/cli-cli.yml -r json
+# Generate config, then use it immediately
+gh velocity config preflight -R cli/cli --write=/tmp/cli.yml
+gh velocity quality release v2.67.0 -R cli/cli --config /tmp/cli.yml
+gh velocity flow lead-time 1234 -R cli/cli --config /tmp/cli.yml -r json
 ```
 
 ---
@@ -163,9 +158,8 @@ lifecycle:
 
 ---
 
-## Example 3: cli/cli with velocity -- Fixed iterations for sprint tracking
+## Example 3: Fixed iterations for sprint tracking
 
-**Repo**: cli/cli with velocity tracking added
 **Strategy**: PR strategy cycle time, fixed 14-day iterations, count effort
 
 ```yaml
@@ -221,20 +215,6 @@ velocity:
 
 ---
 
-## Feature matrix
-
-| Config | Repo | Cycle time | Categories | Backlog | Project board | Velocity |
-|--------|------|-----------|:---:|:---:|:---:|:---:|
-| cli-cli.yml | cli/cli | issue | bug, feature, chore, docs | | | |
-| cli-cli-velocity.yml | cli/cli | pr | bug, feature | | | fixed (14d) |
-| dvhthomas-gh-velocity.yml | dvhthomas/gh-velocity | issue | feature, chore, docs | x | x | |
-| facebook-react.yml | facebook/react | pr | bug, feature | x | | |
-| kubernetes-kubernetes.yml | kubernetes/kubernetes | pr | bug, feature, chore, docs | x | | |
-| hashicorp-terraform.yml | hashicorp/terraform | pr | bug, feature, chore, docs | | | |
-| astral-sh-uv.yml | astral-sh/uv | pr | bug, feature, chore, docs | | | |
-
----
-
 ## CI workflow example
 
 Post a weekly velocity report to GitHub Discussions:
@@ -270,7 +250,7 @@ jobs:
           GH_VELOCITY_POST_LIVE: 'true'
 ```
 
-See [`docs/examples/velocity-report.yml`](https://github.com/dvhthomas/gh-velocity/blob/main/docs/examples/velocity-report.yml) for the full workflow file.
+See [`docs/velocity-report-workflow.yml`](https://github.com/dvhthomas/gh-velocity/blob/main/docs/velocity-report-workflow.yml) for the full workflow file.
 
 ## See also
 
