@@ -7,7 +7,9 @@
 // The repo list is read from projects.yml (next to this file by default,
 // override with --projects).
 //
-// Usage: go run ./scripts/showcase [--dry-run] [--binary ./gh-velocity] [--since 30d]
+// Usage: go run ./scripts/showcase [--dry-run] [--binary ./gh-velocity] [--since 30d] [repo]
+//
+// Pass a repo name (e.g., "cli/cli") as a positional arg to run a single repo.
 package main
 
 import (
@@ -33,9 +35,9 @@ type showcaseConfig struct {
 	Project string `yaml:"project"`
 }
 
-// slug derives a filesystem-safe name (e.g. "microsoft/ebpf-for-windows" → "microsoft-ebpf-for-windows").
+// slug derives a filesystem-safe name from the repo (e.g. "microsoft/ebpf-for-windows" → "microsoft-ebpf-for-windows").
 func (sc showcaseConfig) slug() string {
-	return strings.ReplaceAll(sc.Name, "/", "-")
+	return strings.ReplaceAll(sc.Repo, "/", "-")
 }
 
 // preflightFlags builds the gh-velocity flags for the preflight command.
@@ -96,6 +98,22 @@ func main() {
 	}
 	if len(configs) == 0 {
 		log.Fatal("no configs found in " + cfg.Projects)
+	}
+
+	// Filter to a single repo if a positional arg is given.
+	// Usage: go run ./scripts/showcase cli/cli
+	if args := flag.Args(); len(args) > 0 {
+		filter := args[0]
+		var filtered []showcaseConfig
+		for _, sc := range configs {
+			if sc.Repo == filter || sc.Name == filter {
+				filtered = append(filtered, sc)
+			}
+		}
+		if len(filtered) == 0 {
+			log.Fatalf("no config matches %q — available: %s", filter, configNames(configs))
+		}
+		configs = filtered
 	}
 
 	repoRoot, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
@@ -278,6 +296,15 @@ func main() {
 
 	// Write GitHub Actions job summary with clickable links.
 	writeJobSummary(discURL, index)
+}
+
+// configNames returns a comma-separated list of repo names for error messages.
+func configNames(configs []showcaseConfig) string {
+	names := make([]string, len(configs))
+	for i, sc := range configs {
+		names[i] = sc.Repo
+	}
+	return strings.Join(names, ", ")
 }
 
 // loadConfigs reads the YAML config list.
