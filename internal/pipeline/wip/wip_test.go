@@ -200,6 +200,66 @@ func TestGatherData_PartialFailure(t *testing.T) {
 	}
 }
 
+func TestProcessData_InjectedWithoutGatherData(t *testing.T) {
+	t.Parallel()
+
+	// Regression: cmd/report.go sets InjectedIssues/InjectedPRs and calls
+	// ProcessData() directly (without GatherData). ProcessData must use the
+	// injected data — not empty slices.
+	now := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
+
+	p := &Pipeline{
+		Owner: "owner",
+		Repo:  "repo",
+		Now:   now,
+		LifecycleConfig: config.LifecycleConfig{
+			InProgress: config.LifecycleStage{Match: []string{"label:in-progress"}},
+		},
+		EffortConfig: config.EffortConfig{Strategy: "count"},
+		WIPConfig:    config.WIPConfig{},
+		InjectedIssues: []model.Issue{
+			{
+				Number:    1,
+				Title:     "Active issue",
+				Labels:    []string{"in-progress"},
+				Assignees: []string{"alice"},
+				CreatedAt: now.Add(-48 * time.Hour),
+				UpdatedAt: now.Add(-1 * time.Hour),
+			},
+		},
+		InjectedPRs: []model.PR{
+			{
+				Number:    10,
+				Title:     "Open PR",
+				Labels:    []string{},
+				Author:    "bob",
+				Draft:     false,
+				CreatedAt: now.Add(-24 * time.Hour),
+				UpdatedAt: now,
+			},
+		},
+	}
+
+	if err := p.ProcessData(); err != nil {
+		t.Fatalf("ProcessData error: %v", err)
+	}
+
+	if len(p.Result.Items) == 0 {
+		t.Fatal("ProcessData with InjectedIssues/InjectedPRs produced 0 WIP items; want >0")
+	}
+
+	// Should find the in-progress issue
+	found := false
+	for _, item := range p.Result.Items {
+		if item.Number == 1 && item.Status == "In Progress" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected issue #1 classified as In Progress; got items: %v", p.Result.Items)
+	}
+}
+
 func TestProcessData(t *testing.T) {
 	t.Parallel()
 

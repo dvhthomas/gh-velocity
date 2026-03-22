@@ -154,7 +154,17 @@ func (p *Pipeline) GatherData(ctx context.Context) error {
 }
 
 // ProcessData classifies items, computes metrics, and generates insights.
+// When called without GatherData (e.g., from report with injected data),
+// populates working fields from InjectedIssues/InjectedPRs.
 func (p *Pipeline) ProcessData() error {
+	// Populate working fields from injected data when GatherData was not called.
+	if p.OpenIssues == nil && p.InjectedIssues != nil {
+		p.OpenIssues = p.InjectedIssues
+	}
+	if p.openPRs == nil && p.InjectedPRs != nil {
+		p.openPRs = p.InjectedPRs
+	}
+
 	inProgressMatchers := p.LifecycleConfig.InProgress.Match
 	inReviewMatchers := p.LifecycleConfig.InReview.Match
 
