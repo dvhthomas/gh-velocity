@@ -2,7 +2,6 @@ package leadtime
 
 import (
 	"embed"
-	"encoding/json"
 	"fmt"
 	"io"
 	"text/template"
@@ -37,7 +36,7 @@ type jsonSingleOutput struct {
 
 // WriteSingleJSON writes lead-time metrics for a single issue as JSON.
 func WriteSingleJSON(w io.Writer, repo string, issueNumber int, title, state, issueURL string, labels []string, m model.Metric, warnings []string) error {
-	out := jsonSingleOutput{
+	return format.WriteIndentedJSON(w, jsonSingleOutput{
 		Repository: repo,
 		Issue:      issueNumber,
 		Title:      title,
@@ -46,10 +45,7 @@ func WriteSingleJSON(w io.Writer, repo string, issueNumber int, title, state, is
 		Labels:     labels,
 		LeadTime:   format.MetricToJSON(m),
 		Warnings:   warnings,
-	}
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(out)
+	})
 }
 
 // ============================================================
@@ -57,15 +53,8 @@ func WriteSingleJSON(w io.Writer, repo string, issueNumber int, title, state, is
 // ============================================================
 
 type jsonBulkOutput struct {
-	Repository string               `json:"repository"`
-	Window     format.JSONWindow    `json:"window"`
-	SearchURL  string               `json:"search_url"`
-	Sort       format.JSONSort      `json:"sort"`
-	Insights   []format.JSONInsight `json:"insights,omitempty"`
-	Items      []jsonBulkItem       `json:"items"`
-	Stats      format.JSONStats     `json:"stats"`
-	Capped     bool                 `json:"capped,omitempty"`
-	Warnings   []string             `json:"warnings,omitempty"`
+	format.BulkEnvelope
+	Items []jsonBulkItem `json:"items"`
 }
 
 type jsonBulkItem struct {
@@ -80,20 +69,21 @@ type jsonBulkItem struct {
 // WriteBulkJSON writes bulk lead-time results as JSON.
 func WriteBulkJSON(w io.Writer, repo string, since, until time.Time, items []BulkItem, stats model.Stats, searchURL string, warnings []string, insights []model.Insight) error {
 	sorted := format.SortBy(items, "lead_time", format.Desc, func(it BulkItem) *time.Duration { return it.Metric.Duration })
-	jsonIns := format.InsightsToJSON(insights)
 	out := jsonBulkOutput{
-		Repository: repo,
-		Window: format.JSONWindow{
-			Since: since.UTC().Format(time.RFC3339),
-			Until: until.UTC().Format(time.RFC3339),
+		BulkEnvelope: format.BulkEnvelope{
+			Repository: repo,
+			Window: format.JSONWindow{
+				Since: since.UTC().Format(time.RFC3339),
+				Until: until.UTC().Format(time.RFC3339),
+			},
+			SearchURL: searchURL,
+			Sort:      sorted.JSONSort(),
+			Insights:  format.InsightsToJSON(insights),
+			Stats:     format.StatsToJSON(stats),
+			Capped:    len(items) >= 1000,
+			Warnings:  warnings,
 		},
-		SearchURL: searchURL,
-		Sort:      sorted.JSONSort(),
-		Insights:  jsonIns,
-		Items:     make([]jsonBulkItem, 0, len(sorted.Items)),
-		Stats:     format.StatsToJSON(stats),
-		Capped:    len(items) >= 1000,
-		Warnings:  warnings,
+		Items: make([]jsonBulkItem, 0, len(sorted.Items)),
 	}
 
 	for _, item := range sorted.Items {
@@ -107,9 +97,7 @@ func WriteBulkJSON(w io.Writer, repo string, since, until time.Time, items []Bul
 		})
 	}
 
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(out)
+	return format.WriteIndentedJSON(w, out)
 }
 
 // ============================================================

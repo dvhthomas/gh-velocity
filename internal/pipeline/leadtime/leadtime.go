@@ -11,6 +11,7 @@ import (
 	gh "github.com/dvhthomas/gh-velocity/internal/github"
 	"github.com/dvhthomas/gh-velocity/internal/metrics"
 	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline"
 )
 
 // Compute calculates the lead time for an issue: created → closed.
@@ -19,11 +20,8 @@ func Compute(issue model.Issue) model.Metric {
 	return metrics.LeadTime(issue)
 }
 
-// BulkItem holds a single issue's lead time result for bulk output.
-type BulkItem struct {
-	Issue  model.Issue
-	Metric model.Metric
-}
+// BulkItem is an alias for the shared pipeline.BulkItem type.
+type BulkItem = pipeline.BulkItem
 
 // SinglePipeline implements pipeline.Pipeline for single-issue lead-time.
 type SinglePipeline struct {

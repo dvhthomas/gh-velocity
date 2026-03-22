@@ -11,13 +11,11 @@ import (
 	gh "github.com/dvhthomas/gh-velocity/internal/github"
 	"github.com/dvhthomas/gh-velocity/internal/metrics"
 	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline"
 )
 
-// BulkItem holds a single issue's cycle time result for bulk output.
-type BulkItem struct {
-	Issue  model.Issue
-	Metric model.Metric
-}
+// BulkItem is an alias for the shared pipeline.BulkItem type.
+type BulkItem = pipeline.BulkItem
 
 // IssuePipeline implements pipeline.Pipeline for single-issue cycle-time.
 type IssuePipeline struct {

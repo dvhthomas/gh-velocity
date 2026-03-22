@@ -2,7 +2,6 @@ package cycletime
 
 import (
 	"embed"
-	"encoding/json"
 	"fmt"
 	"io"
 	"text/template"
@@ -52,9 +51,7 @@ func WriteIssueJSON(w io.Writer, repo string, issueNumber int, title, state, ite
 		CycleTime:  format.MetricToJSON(m),
 		Warnings:   warnings,
 	}
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(out)
+	return format.WriteIndentedJSON(w, out)
 }
 
 // WritePRJSON writes cycle-time metrics for a PR as JSON.
@@ -69,9 +66,7 @@ func WritePRJSON(w io.Writer, repo string, prNumber int, title, state, itemURL s
 		CycleTime:  format.MetricToJSON(m),
 		Warnings:   warnings,
 	}
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(out)
+	return format.WriteIndentedJSON(w, out)
 }
 
 // ============================================================
@@ -121,16 +116,9 @@ func WritePretty(rc format.RenderContext, kind string, number int, title, itemUR
 // ============================================================
 
 type jsonBulkOutput struct {
-	Repository string               `json:"repository"`
-	Window     format.JSONWindow    `json:"window"`
-	SearchURL  string               `json:"search_url"`
-	Strategy   string               `json:"strategy"`
-	Sort       format.JSONSort      `json:"sort"`
-	Insights   []format.JSONInsight `json:"insights,omitempty"`
-	Items      []jsonBulkItem       `json:"items"`
-	Stats      format.JSONStats     `json:"stats"`
-	Capped     bool                 `json:"capped,omitempty"`
-	Warnings   []string             `json:"warnings,omitempty"`
+	format.BulkEnvelope
+	Strategy string         `json:"strategy"`
+	Items    []jsonBulkItem `json:"items"`
 }
 
 type jsonBulkItem struct {
@@ -145,21 +133,22 @@ type jsonBulkItem struct {
 // WriteBulkJSON writes bulk cycle-time results as JSON.
 func WriteBulkJSON(w io.Writer, repo string, since, until time.Time, strategy string, items []BulkItem, stats model.Stats, searchURL string, warnings []string, insights []model.Insight) error {
 	sorted := format.SortBy(items, "cycle_time", format.Desc, func(it BulkItem) *time.Duration { return it.Metric.Duration })
-	jsonIns := format.InsightsToJSON(insights)
 	out := jsonBulkOutput{
-		Repository: repo,
-		Window: format.JSONWindow{
-			Since: since.UTC().Format(time.RFC3339),
-			Until: until.UTC().Format(time.RFC3339),
+		BulkEnvelope: format.BulkEnvelope{
+			Repository: repo,
+			Window: format.JSONWindow{
+				Since: since.UTC().Format(time.RFC3339),
+				Until: until.UTC().Format(time.RFC3339),
+			},
+			SearchURL: searchURL,
+			Sort:      sorted.JSONSort(),
+			Insights:  format.InsightsToJSON(insights),
+			Stats:     format.StatsToJSON(stats),
+			Capped:    len(items) >= 1000,
+			Warnings:  warnings,
 		},
-		SearchURL: searchURL,
-		Strategy:  strategy,
-		Sort:      sorted.JSONSort(),
-		Insights:  jsonIns,
-		Items:     make([]jsonBulkItem, 0, len(sorted.Items)),
-		Stats:     format.StatsToJSON(stats),
-		Capped:    len(items) >= 1000,
-		Warnings:  warnings,
+		Strategy: strategy,
+		Items:    make([]jsonBulkItem, 0, len(sorted.Items)),
 	}
 
 	for _, item := range sorted.Items {
@@ -173,9 +162,7 @@ func WriteBulkJSON(w io.Writer, repo string, since, until time.Time, strategy st
 		})
 	}
 
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(out)
+	return format.WriteIndentedJSON(w, out)
 }
 
 // ============================================================
