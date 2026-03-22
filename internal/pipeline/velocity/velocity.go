@@ -53,6 +53,9 @@ type Pipeline struct {
 // multi-line provenance block with effort strategy details.
 func (p *Pipeline) HasProvenance() bool { return true }
 
+// Warnings returns warnings accumulated in the velocity result.
+func (p *Pipeline) Warnings() []string { return p.Result.Warnings }
+
 // GatherData fetches project items and resolves iteration boundaries.
 func (p *Pipeline) GatherData(ctx context.Context) error {
 	// Build effort evaluator.

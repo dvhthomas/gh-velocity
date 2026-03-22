@@ -4,7 +4,6 @@ package cycletime
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/format"
@@ -19,6 +18,8 @@ type BulkItem = pipeline.BulkItem
 
 // IssuePipeline implements pipeline.Pipeline for single-issue cycle-time.
 type IssuePipeline struct {
+	pipeline.WarningCollector
+
 	// Constructor params
 	Client      *gh.Client
 	Owner       string
@@ -28,9 +29,8 @@ type IssuePipeline struct {
 	StrategyStr string // model.StrategyIssue or model.StrategyPR
 
 	// GatherData output
-	Issue    *model.Issue
-	PR       *model.PR // populated for PR strategy
-	Warnings []string
+	Issue *model.Issue
+	PR    *model.PR // populated for PR strategy
 
 	// ProcessData output
 	CycleTime model.Metric
@@ -47,9 +47,9 @@ func (p *IssuePipeline) GatherData(ctx context.Context) error {
 	if p.StrategyStr == model.StrategyPR {
 		pr, prErr := p.Client.GetClosingPR(ctx, p.IssueNumber)
 		if prErr != nil {
-			p.Warnings = append(p.Warnings, fmt.Sprintf("could not find closing PR: %v", prErr))
+			p.AddWarningf("could not find closing PR: %v", prErr)
 		} else if pr == nil {
-			p.Warnings = append(p.Warnings, "no closing PR found for this issue")
+			p.AddWarning("no closing PR found for this issue")
 		} else {
 			p.PR = pr
 		}
@@ -66,10 +66,10 @@ func (p *IssuePipeline) ProcessData() error {
 	if p.CycleTime.Start == nil && p.CycleTime.Duration == nil {
 		switch p.StrategyStr {
 		case model.StrategyIssue:
-			p.Warnings = append(p.Warnings, "No cycle time signal — configure lifecycle.in-progress.match for issue cycle time")
+			p.AddWarning("No cycle time signal — configure lifecycle.in-progress.match for issue cycle time")
 		case model.StrategyPR:
 			if p.PR == nil {
-				p.Warnings = append(p.Warnings, "No closing PR found — PR strategy requires PRs that reference issues with 'closes #N'")
+				p.AddWarning("No closing PR found — PR strategy requires PRs that reference issues with 'closes #N'")
 			}
 		}
 	}
@@ -81,7 +81,7 @@ func (p *IssuePipeline) Render(rc format.RenderContext) error {
 	repo := p.Owner + "/" + p.Repo
 	switch rc.Format {
 	case format.JSON:
-		return WriteIssueJSON(rc.Writer, repo, p.IssueNumber, p.Issue.Title, p.Issue.State, p.Issue.URL, p.Issue.Labels, p.CycleTime, p.Warnings)
+		return WriteIssueJSON(rc.Writer, repo, p.IssueNumber, p.Issue.Title, p.Issue.State, p.Issue.URL, p.Issue.Labels, p.CycleTime, p.Warnings())
 	case format.Markdown:
 		return WriteMarkdown(rc, "Issue", p.IssueNumber, p.Issue.Title, p.Issue.URL, p.CycleTime)
 	default:
@@ -91,6 +91,8 @@ func (p *IssuePipeline) Render(rc format.RenderContext) error {
 
 // PRPipeline implements pipeline.Pipeline for single-PR cycle-time.
 type PRPipeline struct {
+	pipeline.WarningCollector
+
 	// Constructor params
 	Client   *gh.Client
 	Owner    string
@@ -98,8 +100,7 @@ type PRPipeline struct {
 	PRNumber int
 
 	// GatherData output
-	PR       *model.PR
-	Warnings []string
+	PR *model.PR
 
 	// ProcessData output
 	CycleTime model.Metric
@@ -115,9 +116,9 @@ func (p *PRPipeline) GatherData(ctx context.Context) error {
 
 	if pr.MergedAt == nil {
 		if pr.State == "closed" {
-			p.Warnings = append(p.Warnings, "PR was closed without merging")
+			p.AddWarning("PR was closed without merging")
 		} else {
-			p.Warnings = append(p.Warnings, "PR is still open; cycle time is in progress")
+			p.AddWarning("PR is still open; cycle time is in progress")
 		}
 	}
 	return nil
@@ -135,7 +136,7 @@ func (p *PRPipeline) Render(rc format.RenderContext) error {
 	repo := p.Owner + "/" + p.Repo
 	switch rc.Format {
 	case format.JSON:
-		return WritePRJSON(rc.Writer, repo, p.PRNumber, p.PR.Title, p.PR.State, p.PR.URL, p.PR.Labels, p.CycleTime, p.Warnings)
+		return WritePRJSON(rc.Writer, repo, p.PRNumber, p.PR.Title, p.PR.State, p.PR.URL, p.PR.Labels, p.CycleTime, p.Warnings())
 	case format.Markdown:
 		return WriteMarkdown(rc, "PR", p.PRNumber, p.PR.Title, p.PR.URL, p.CycleTime)
 	default:
@@ -145,6 +146,8 @@ func (p *PRPipeline) Render(rc format.RenderContext) error {
 
 // BulkPipeline implements pipeline.Pipeline for bulk cycle-time queries.
 type BulkPipeline struct {
+	pipeline.WarningCollector
+
 	// Constructor params
 	Client      *gh.Client
 	Owner       string
@@ -163,7 +166,6 @@ type BulkPipeline struct {
 	// ProcessData output
 	Items    []BulkItem
 	Stats    model.Stats
-	Warnings []string
 	Insights []model.Insight
 }
 
@@ -201,18 +203,18 @@ func (p *BulkPipeline) ProcessData() error {
 
 	// Warn when negative durations were filtered.
 	if p.Stats.NegativeCount > 0 {
-		p.Warnings = append(p.Warnings, fmt.Sprintf(
+		p.AddWarningf(
 			"%d issues had negative cycle times — excluded from stats.",
-			p.Stats.NegativeCount))
+			p.Stats.NegativeCount)
 	}
 
 	// Warn when all items have no cycle time data.
 	if len(durations) == 0 && len(p.Items) > 0 {
 		switch p.StrategyStr {
 		case model.StrategyIssue:
-			p.Warnings = append(p.Warnings, "Cycle time unavailable for all issues — configure lifecycle.in-progress.match. Run: gh velocity config preflight --write")
+			p.AddWarning("Cycle time unavailable for all issues — configure lifecycle.in-progress.match. Run: gh velocity config preflight --write")
 		case model.StrategyPR:
-			p.Warnings = append(p.Warnings, "Cycle time unavailable — no issues had a closing PR. Ensure PRs reference issues with 'closes #N'")
+			p.AddWarning("Cycle time unavailable — no issues had a closing PR. Ensure PRs reference issues with 'closes #N'")
 		}
 	}
 
@@ -245,7 +247,7 @@ func (p *BulkPipeline) Render(rc format.RenderContext) error {
 	repo := p.Owner + "/" + p.Repo
 	switch rc.Format {
 	case format.JSON:
-		return WriteBulkJSON(rc.Writer, repo, p.Since, p.Until, p.StrategyStr, p.Items, p.Stats, p.SearchURL, p.Warnings, p.Insights)
+		return WriteBulkJSON(rc.Writer, repo, p.Since, p.Until, p.StrategyStr, p.Items, p.Stats, p.SearchURL, p.Warnings(), p.Insights)
 	case format.Markdown:
 		return WriteBulkMarkdown(rc, repo, p.Since, p.Until, p.StrategyStr, p.Items, p.Stats, p.SearchURL, p.Insights)
 	default:

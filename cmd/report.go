@@ -315,7 +315,7 @@ func runReport(cmd *cobra.Command, sinceFlag, untilFlag string, summaryOnly bool
 			result.ThroughputInsights = throughputPipeline.Insights
 		}
 		// Surface partial-failure warnings (e.g., PR search rate-limited).
-		result.Warnings = append(result.Warnings, throughputPipeline.Warnings...)
+		result.Warnings = append(result.Warnings, throughputPipeline.Warnings()...)
 	}
 
 	if velocityOK && velocityPipeline != nil {
@@ -595,7 +595,7 @@ func leadTimeArtifact(p *leadtime.BulkPipeline) artifactSection {
 	return artifactSection{
 		Name: "flow-lead-time",
 		WriteJSON: func(w *os.File) error {
-			return leadtime.WriteBulkJSON(w, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL, p.Warnings, p.Insights)
+			return leadtime.WriteBulkJSON(w, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL, p.Warnings(), p.Insights)
 		},
 		WriteMD: func(w *os.File, rc format.RenderContext) error {
 			return leadtime.WriteBulkMarkdown(rc, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL, p.Insights)
@@ -609,7 +609,7 @@ func cycleTimeArtifact(p *cycletimepipe.BulkPipeline, strategy string) artifactS
 	return artifactSection{
 		Name: "flow-cycle-time",
 		WriteJSON: func(w *os.File) error {
-			return cycletimepipe.WriteBulkJSON(w, repo, p.Since, p.Until, strategy, p.Items, p.Stats, p.SearchURL, p.Warnings, p.Insights)
+			return cycletimepipe.WriteBulkJSON(w, repo, p.Since, p.Until, strategy, p.Items, p.Stats, p.SearchURL, p.Warnings(), p.Insights)
 		},
 		WriteMD: func(w *os.File, rc format.RenderContext) error {
 			return cycletimepipe.WriteBulkMarkdown(rc, repo, p.Since, p.Until, strategy, p.Items, p.Stats, p.SearchURL, p.Insights)
@@ -622,7 +622,7 @@ func throughputArtifact(p *throughput.Pipeline) artifactSection {
 	return artifactSection{
 		Name: "flow-throughput",
 		WriteJSON: func(w *os.File) error {
-			return throughput.WriteJSON(w, p.Result, p.SearchURL, p.Warnings, p.Insights)
+			return throughput.WriteJSON(w, p.Result, p.SearchURL, p.Warnings(), p.Insights)
 		},
 		WriteMD: func(w *os.File, rc format.RenderContext) error {
 			return throughput.WriteMarkdown(w, p.Result, p.SearchURL, p.Insights)

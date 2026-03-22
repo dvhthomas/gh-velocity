@@ -89,7 +89,7 @@ func runIssueDetail(cmd *cobra.Command, arg string) error {
 	}
 
 	// Surface pipeline warnings.
-	for _, w := range p.Warnings {
+	for _, w := range p.Warnings() {
 		deps.Warn("%s", w)
 	}
 

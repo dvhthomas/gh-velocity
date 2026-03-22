@@ -113,10 +113,12 @@ linking strategy discovered for the release.`,
 			input.CycleTimeStrategy = buildCycleTimeStrategy(ctx, deps, client)
 
 			p := &release.Pipeline{
-				Owner:    deps.Owner,
-				Repo:     deps.Repo,
-				Input:    input,
-				Warnings: warnings,
+				Owner: deps.Owner,
+				Repo:  deps.Repo,
+				Input: input,
+			}
+			for _, w := range warnings {
+				p.AddWarning(w)
 			}
 
 			if err := p.ProcessData(); err != nil {

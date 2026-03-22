@@ -161,7 +161,7 @@ func WriteJSON(w io.Writer, p *Pipeline) error {
 			TimeToFirstReview: durationToJSON(p.ReviewSummary.TimeToFirstReview, "no reviews"),
 			ReviewRounds:      p.ReviewSummary.ReviewRounds,
 		},
-		Warnings: p.Warnings,
+		Warnings: p.Warnings(),
 	}
 
 	if out.Warnings == nil {

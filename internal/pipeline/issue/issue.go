@@ -5,13 +5,13 @@ package issue
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/dvhthomas/gh-velocity/internal/classify"
 	"github.com/dvhthomas/gh-velocity/internal/format"
 	gh "github.com/dvhthomas/gh-velocity/internal/github"
 	"github.com/dvhthomas/gh-velocity/internal/metrics"
 	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline"
 )
 
 // LinkedPR holds a closing PR and its cycle time.
@@ -22,6 +22,8 @@ type LinkedPR struct {
 
 // Pipeline implements pipeline.Pipeline for single-issue detail.
 type Pipeline struct {
+	pipeline.WarningCollector
+
 	// Constructor params
 	Client            *gh.Client
 	Owner             string
@@ -34,7 +36,6 @@ type Pipeline struct {
 	// GatherData output
 	Issue      *model.Issue
 	ClosingPRs []*model.PR
-	Warnings   []string
 
 	// ProcessData output
 	LeadTime          model.Metric
@@ -55,7 +56,7 @@ func (p *Pipeline) GatherData(ctx context.Context) error {
 	// Fetch closing PRs (degrade gracefully on failure).
 	prs, err := p.Client.GetClosingPRs(ctx, p.IssueNumber)
 	if err != nil {
-		p.Warnings = append(p.Warnings, fmt.Sprintf("could not fetch closing PRs: %v", err))
+		p.AddWarningf("could not fetch closing PRs: %v", err)
 	} else {
 		p.ClosingPRs = prs
 	}
@@ -78,7 +79,7 @@ func (p *Pipeline) ProcessData() error {
 		p.CycleTime = p.Strategy.Compute(context.Background(), input)
 
 		if p.CycleTime.Duration != nil && *p.CycleTime.Duration < 0 {
-			p.Warnings = append(p.Warnings, "Negative cycle time detected — filtered from results.")
+			p.AddWarning("Negative cycle time detected — filtered from results.")
 			p.CycleTime = model.Metric{}
 			p.CycleTimeFiltered = true
 		}

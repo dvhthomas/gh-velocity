@@ -9,6 +9,7 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/dvhthomas/gh-velocity/internal/format"
 )
@@ -30,17 +31,75 @@ type Pipeline interface {
 	// Render writes the processed result in the requested format.
 	// No computation — pure output. Uses rc.Format and rc.Writer.
 	Render(rc format.RenderContext) error
+
+	// Warnings returns warnings accumulated during GatherData and ProcessData.
+	Warnings() []string
+}
+
+// Optional interfaces checked by RunPipeline:
+//   - Enricher: called between GatherData and ProcessData
+//
+// Optional interfaces checked by renderPipeline in cmd/:
+//   - provenanceRenderer: controls provenance footer
+//
+// Keep this list short. If a third optional interface is needed,
+// reconsider whether the Pipeline interface itself should change.
+
+// Enricher is an optional interface. If a pipeline implements it,
+// RunPipeline calls Enrich between GatherData and ProcessData.
+// Used by WIP (IssueType enrichment) and issue detail pipeline.
+type Enricher interface {
+	Enrich(ctx context.Context) error
+}
+
+// RunResult holds the outcome of RunPipeline for the caller.
+type RunResult struct {
+	Warnings []string
 }
 
 // RunPipeline executes the three-phase lifecycle in order.
-// Post logic (--post flag) stays outside Pipeline — the command's RunE
-// wraps the writer before calling this.
-func RunPipeline(ctx context.Context, p Pipeline, rc format.RenderContext) error {
+// Standalone commands should ALWAYS use this — never call phases directly.
+// The report command is the one exception (see cmd/report.go).
+func RunPipeline(ctx context.Context, p Pipeline, rc format.RenderContext) (RunResult, error) {
 	if err := p.GatherData(ctx); err != nil {
-		return err
+		return RunResult{}, err
+	}
+	// Optional enrichment between gather and process.
+	if e, ok := p.(Enricher); ok {
+		if err := e.Enrich(ctx); err != nil {
+			return RunResult{}, err
+		}
 	}
 	if err := p.ProcessData(); err != nil {
-		return err
+		return RunResult{}, err
 	}
-	return p.Render(rc)
+	if err := p.Render(rc); err != nil {
+		return RunResult{}, err
+	}
+	return RunResult{Warnings: p.Warnings()}, nil
+}
+
+// WarningCollector provides the Warnings() method for Pipeline implementations.
+// Embed this in pipeline structs instead of manually declaring []string fields.
+//
+// Migration safety: when embedding WarningCollector in an existing struct,
+// FIRST remove any existing `Warnings []string` field. Go silently shadows
+// promoted methods when a field with the same name exists at the outer level.
+type WarningCollector struct {
+	warnings []string
+}
+
+// AddWarning appends a warning message.
+func (wc *WarningCollector) AddWarning(msg string) {
+	wc.warnings = append(wc.warnings, msg)
+}
+
+// AddWarningf appends a formatted warning message.
+func (wc *WarningCollector) AddWarningf(format string, args ...any) {
+	wc.warnings = append(wc.warnings, fmt.Sprintf(format, args...))
+}
+
+// Warnings returns accumulated warnings.
+func (wc *WarningCollector) Warnings() []string {
+	return wc.warnings
 }

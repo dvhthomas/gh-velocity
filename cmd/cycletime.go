@@ -134,7 +134,7 @@ func runCycleTimePR(cmd *cobra.Command, prNumber int) error {
 		return err
 	}
 
-	for _, warn := range p.Warnings {
+	for _, warn := range p.Warnings() {
 		deps.Warn("%s", warn)
 	}
 
@@ -180,7 +180,7 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 		return err
 	}
 
-	for _, warn := range p.Warnings {
+	for _, warn := range p.Warnings() {
 		deps.Warn("%s", warn)
 	}
 
@@ -261,9 +261,11 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 	}
 
 	// Merge pre-gather warnings (e.g., PR search failures) with pipeline warnings.
-	p.Warnings = append(preWarnings, p.Warnings...)
+	for _, w := range preWarnings {
+		p.AddWarning(w)
+	}
 
-	for _, warn := range p.Warnings {
+	for _, warn := range p.Warnings() {
 		deps.Warn("%s", warn)
 	}
 
