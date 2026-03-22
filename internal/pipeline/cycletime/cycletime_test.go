@@ -87,11 +87,11 @@ func TestIssuePipelineProcessData_WarnsOnNA_IssueStrategy(t *testing.T) {
 
 	_ = p.ProcessData()
 
-	if len(p.Warnings) == 0 {
+	if len(p.Warnings()) == 0 {
 		t.Fatal("expected warning for issue strategy with no project")
 	}
-	if !containsStr(p.Warnings[0], "lifecycle.in-progress") {
-		t.Errorf("warning should mention lifecycle.in-progress config, got: %s", p.Warnings[0])
+	if !containsStr(p.Warnings()[0], "lifecycle.in-progress") {
+		t.Errorf("warning should mention lifecycle.in-progress config, got: %s", p.Warnings()[0])
 	}
 }
 
@@ -111,11 +111,11 @@ func TestIssuePipelineProcessData_WarnsOnNA_PRStrategyNoPR(t *testing.T) {
 
 	_ = p.ProcessData()
 
-	if len(p.Warnings) == 0 {
+	if len(p.Warnings()) == 0 {
 		t.Fatal("expected warning for PR strategy with no closing PR")
 	}
-	if !containsStr(p.Warnings[0], "closing PR") {
-		t.Errorf("warning should mention closing PR, got: %s", p.Warnings[0])
+	if !containsStr(p.Warnings()[0], "closing PR") {
+		t.Errorf("warning should mention closing PR, got: %s", p.Warnings()[0])
 	}
 }
 
@@ -138,11 +138,11 @@ func TestBulkPipelineProcessData_WarnsOnAllNA(t *testing.T) {
 
 	_ = p.ProcessData()
 
-	if len(p.Warnings) == 0 {
+	if len(p.Warnings()) == 0 {
 		t.Fatal("expected warning when all items have N/A cycle time")
 	}
-	if !containsStr(p.Warnings[0], "lifecycle.in-progress") {
-		t.Errorf("warning should mention lifecycle.in-progress config, got: %s", p.Warnings[0])
+	if !containsStr(p.Warnings()[0], "lifecycle.in-progress") {
+		t.Errorf("warning should mention lifecycle.in-progress config, got: %s", p.Warnings()[0])
 	}
 }
 
@@ -200,14 +200,14 @@ func TestBulkPipelineProcessData_NegativeDurationsFiltered(t *testing.T) {
 		t.Errorf("expected Count 0 (all negatives filtered), got %d", p.Stats.Count)
 	}
 	found := false
-	for _, w := range p.Warnings {
+	for _, w := range p.Warnings() {
 		if containsStr(w, "negative cycle times") {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("expected warning about negative durations, got: %v", p.Warnings)
+		t.Errorf("expected warning about negative durations, got: %v", p.Warnings())
 	}
 }
 

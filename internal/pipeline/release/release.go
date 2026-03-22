@@ -8,6 +8,7 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/format"
 	"github.com/dvhthomas/gh-velocity/internal/metrics"
 	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline"
 )
 
 // Pipeline implements pipeline.Pipeline for the release command.
@@ -15,11 +16,12 @@ import (
 // stays in the cmd layer (gatherReleaseData). The Pipeline receives
 // the pre-built ReleaseInput and computes/renders from there.
 type Pipeline struct {
+	pipeline.WarningCollector
+
 	// Constructor params (populated by cmd layer after gatherReleaseData)
-	Owner    string
-	Repo     string
-	Input    metrics.ReleaseInput
-	Warnings []string
+	Owner string
+	Repo  string
+	Input metrics.ReleaseInput
 
 	// ProcessData output
 	Result model.ReleaseMetrics
@@ -37,7 +39,9 @@ func (p *Pipeline) ProcessData() error {
 		return err
 	}
 	p.Result = rm
-	p.Warnings = append(p.Warnings, metricWarnings...)
+	for _, w := range metricWarnings {
+		p.AddWarning(w)
+	}
 	return nil
 }
 
@@ -46,10 +50,10 @@ func (p *Pipeline) Render(rc format.RenderContext) error {
 	repo := p.Owner + "/" + p.Repo
 	switch rc.Format {
 	case format.JSON:
-		return WriteJSON(rc.Writer, repo, p.Result, p.Warnings)
+		return WriteJSON(rc.Writer, repo, p.Result, p.Warnings())
 	case format.Markdown:
-		return WriteMarkdown(rc, p.Result, p.Warnings)
+		return WriteMarkdown(rc, p.Result, p.Warnings())
 	default:
-		return WritePretty(rc, p.Result, p.Warnings)
+		return WritePretty(rc, p.Result, p.Warnings())
 	}
 }

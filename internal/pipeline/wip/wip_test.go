@@ -195,7 +195,7 @@ func TestGatherData_PartialFailure(t *testing.T) {
 	if len(p.OpenIssues) != 1 {
 		t.Errorf("openIssues = %d, want 1", len(p.OpenIssues))
 	}
-	if len(p.Warnings) == 0 {
+	if len(p.Warnings()) == 0 {
 		t.Error("expected warnings for failed search")
 	}
 }
@@ -394,7 +394,7 @@ func TestProcessData_WIPLimits(t *testing.T) {
 
 	// Warnings should include team limit exceeded (now references "human WIP").
 	var hasTeamWarning, hasPersonWarning bool
-	for _, w := range p.Warnings {
+	for _, w := range p.Warnings() {
 		if contains(w, "human WIP exceeds team limit") {
 			hasTeamWarning = true
 		}
@@ -509,7 +509,7 @@ func TestProcessData_WIPLimitsApplyToHumanOnly(t *testing.T) {
 
 	// Total effort is 4 (exceeds limit 3), but human effort is 2 (within limit 3).
 	// No team limit warning should be emitted.
-	for _, w := range p.Warnings {
+	for _, w := range p.Warnings() {
 		if contains(w, "team limit") {
 			t.Errorf("should not warn about team limit when human effort (%f) is within limit, got: %s",
 				p.Result.HumanEffort, w)

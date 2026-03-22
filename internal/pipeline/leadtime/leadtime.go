@@ -11,6 +11,7 @@ import (
 	gh "github.com/dvhthomas/gh-velocity/internal/github"
 	"github.com/dvhthomas/gh-velocity/internal/metrics"
 	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline"
 )
 
 // Compute calculates the lead time for an issue: created → closed.
@@ -19,14 +20,13 @@ func Compute(issue model.Issue) model.Metric {
 	return metrics.LeadTime(issue)
 }
 
-// BulkItem holds a single issue's lead time result for bulk output.
-type BulkItem struct {
-	Issue  model.Issue
-	Metric model.Metric
-}
+// BulkItem is an alias for the shared pipeline.BulkItem type.
+type BulkItem = pipeline.BulkItem
 
 // SinglePipeline implements pipeline.Pipeline for single-issue lead-time.
 type SinglePipeline struct {
+	pipeline.WarningCollector
+
 	// Constructor params
 	Client      *gh.Client
 	Owner       string
@@ -83,6 +83,8 @@ func (p *SinglePipeline) Render(rc format.RenderContext) error {
 
 // BulkPipeline implements pipeline.Pipeline for bulk lead-time queries.
 type BulkPipeline struct {
+	pipeline.WarningCollector
+
 	// Constructor params
 	Client       *gh.Client
 	Owner        string
@@ -100,7 +102,6 @@ type BulkPipeline struct {
 	// ProcessData output
 	Items    []BulkItem
 	Stats    model.Stats
-	Warnings []string
 	Insights []model.Insight
 }
 
@@ -152,7 +153,7 @@ func (p *BulkPipeline) Render(rc format.RenderContext) error {
 	repo := p.Owner + "/" + p.Repo
 	switch rc.Format {
 	case format.JSON:
-		return WriteBulkJSON(rc.Writer, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL, p.Warnings, p.Insights)
+		return WriteBulkJSON(rc.Writer, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL, p.Warnings(), p.Insights)
 	case format.Markdown:
 		return WriteBulkMarkdown(rc, repo, p.Since, p.Until, p.Items, p.Stats, p.SearchURL, p.Insights)
 	default:

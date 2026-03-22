@@ -353,7 +353,6 @@ func TestRenderJSON(t *testing.T) {
 		ClosedIssues: []model.Issue{
 			{Number: 119, Title: "auto-detect noise labels", URL: "https://github.com/dvhthomas/gh-velocity/issues/119"},
 		},
-		Warnings: []string{},
 	}
 
 	var buf bytes.Buffer

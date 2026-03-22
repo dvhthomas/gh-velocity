@@ -5,16 +5,18 @@ package pr
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/format"
 	gh "github.com/dvhthomas/gh-velocity/internal/github"
 	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline"
 )
 
 // Pipeline implements pipeline.Pipeline for single-PR detail.
 type Pipeline struct {
+	pipeline.WarningCollector
+
 	// Constructor params
 	Client   *gh.Client
 	Owner    string
@@ -26,7 +28,6 @@ type Pipeline struct {
 	Reviews        []model.Review
 	ClosedIssues   []model.Issue
 	CommitMessages []string
-	Warnings       []string
 
 	// ProcessData output
 	CycleTime     model.Metric
@@ -45,7 +46,7 @@ func (p *Pipeline) GatherData(ctx context.Context) error {
 	// Fetch reviews (degrade gracefully).
 	reviews, err := p.Client.GetPRReviews(ctx, p.PRNumber)
 	if err != nil {
-		p.Warnings = append(p.Warnings, fmt.Sprintf("could not fetch reviews: %v", err))
+		p.AddWarningf("could not fetch reviews: %v", err)
 	} else {
 		p.Reviews = reviews
 	}
@@ -53,7 +54,7 @@ func (p *Pipeline) GatherData(ctx context.Context) error {
 	// Fetch linked issues (degrade gracefully).
 	linked, err := p.Client.FetchPRLinkedIssues(ctx, []int{p.PRNumber})
 	if err != nil {
-		p.Warnings = append(p.Warnings, fmt.Sprintf("could not fetch closed issues: %v", err))
+		p.AddWarningf("could not fetch closed issues: %v", err)
 	} else if issues, ok := linked[p.PRNumber]; ok {
 		p.ClosedIssues = issues
 	}
@@ -61,7 +62,7 @@ func (p *Pipeline) GatherData(ctx context.Context) error {
 	// Fetch commit messages for author type detection (degrade gracefully).
 	messages, err := p.Client.GetPRCommitTrailers(ctx, p.PRNumber)
 	if err != nil {
-		p.Warnings = append(p.Warnings, fmt.Sprintf("could not fetch commit messages: %v", err))
+		p.AddWarningf("could not fetch commit messages: %v", err)
 	} else {
 		p.CommitMessages = messages
 	}

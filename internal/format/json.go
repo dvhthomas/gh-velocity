@@ -1,10 +1,21 @@
 package format
 
 import (
+	"encoding/json"
+	"io"
 	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/model"
 )
+
+// WriteIndentedJSON writes v as indented JSON to w.
+// Replaces the enc := json.NewEncoder(w); enc.SetIndent("", "  "); enc.Encode(v)
+// boilerplate that appears in every render file.
+func WriteIndentedJSON(w io.Writer, v any) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(v)
+}
 
 // JSONInsight is the JSON representation of a model.Insight.
 type JSONInsight struct {

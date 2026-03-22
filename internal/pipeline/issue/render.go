@@ -164,7 +164,7 @@ func WriteJSON(w io.Writer, p *Pipeline) error {
 			LeadTime:  metricToJSON(p.LeadTime, ltReason),
 			CycleTime: metricToJSON(p.CycleTime, ctReason),
 		},
-		Warnings: p.Warnings,
+		Warnings: p.Warnings(),
 	}
 
 	if out.Warnings == nil {

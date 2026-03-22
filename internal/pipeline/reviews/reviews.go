@@ -9,6 +9,7 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/format"
 	gh "github.com/dvhthomas/gh-velocity/internal/github"
 	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline"
 	"github.com/dvhthomas/gh-velocity/internal/scope"
 )
 
@@ -18,6 +19,8 @@ const StaleThreshold = 48 * time.Hour
 
 // Pipeline implements pipeline.Pipeline for the reviews command.
 type Pipeline struct {
+	pipeline.WarningCollector
+
 	// Constructor params
 	Client *gh.Client
 	Owner  string
@@ -30,7 +33,6 @@ type Pipeline struct {
 	// ProcessData output
 	Result    model.ReviewPressureResult
 	SearchURL string
-	Warnings  []string
 }
 
 // GatherData fetches open PRs awaiting review.
@@ -71,7 +73,7 @@ func (p *Pipeline) ProcessData() error {
 func (p *Pipeline) Render(rc format.RenderContext) error {
 	switch rc.Format {
 	case format.JSON:
-		return WriteJSON(rc.Writer, p.Result, p.SearchURL, p.Warnings)
+		return WriteJSON(rc.Writer, p.Result, p.SearchURL, p.Warnings())
 	case format.Markdown:
 		return WriteMarkdown(rc, p.Result, p.SearchURL)
 	default:

@@ -173,11 +173,11 @@ func TestGatherData_PartialFailure_OpenFetchWarning(t *testing.T) {
 	}
 
 	// Warnings should be present for failed open fetches
-	if len(p.Warnings) < 2 {
-		t.Fatalf("expected at least 2 warnings, got %d: %v", len(p.Warnings), p.Warnings)
+	if len(p.Warnings()) < 2 {
+		t.Fatalf("expected at least 2 warnings, got %d: %v", len(p.Warnings()), p.Warnings())
 	}
 	foundIssueWarn, foundPRWarn := false, false
-	for _, w := range p.Warnings {
+	for _, w := range p.Warnings() {
 		if containsStr(w, "open issue search failed") {
 			foundIssueWarn = true
 		}
@@ -230,13 +230,13 @@ func TestGatherData_TruncationWarning(t *testing.T) {
 	}
 
 	truncationWarnings := 0
-	for _, w := range p.Warnings {
+	for _, w := range p.Warnings() {
 		if containsStr(w, "truncated (1000 results)") {
 			truncationWarnings++
 		}
 	}
 	if truncationWarnings != 2 {
-		t.Errorf("expected 2 truncation warnings (issues + PRs), got %d: %v", truncationWarnings, p.Warnings)
+		t.Errorf("expected 2 truncation warnings (issues + PRs), got %d: %v", truncationWarnings, p.Warnings())
 	}
 }
 

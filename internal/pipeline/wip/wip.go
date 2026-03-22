@@ -11,6 +11,7 @@ import (
 	"github.com/dvhthomas/gh-velocity/internal/format"
 	"github.com/dvhthomas/gh-velocity/internal/metrics"
 	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline"
 )
 
 // searcher is a narrow interface for searching issues and PRs.
@@ -21,6 +22,8 @@ type searcher interface {
 
 // Pipeline implements the three-phase pipeline for WIP detail reporting.
 type Pipeline struct {
+	pipeline.WarningCollector
+
 	// Config
 	Client          searcher
 	Owner, Repo     string
@@ -42,22 +45,34 @@ type Pipeline struct {
 	// (from throughput pipeline warnings).
 	Truncated bool
 
+	// EnrichFn is an optional callback invoked between GatherData and ProcessData
+	// (via the Enricher interface). Commands set this to perform IssueType enrichment
+	// using the full gh.Client, which the pipeline doesn't depend on directly.
+	EnrichFn func(ctx context.Context) error
+
 	// Internal — OpenIssues exported for enrichment at cmd/ layer.
 	OpenIssues []model.Issue
 	openPRs    []model.PR
 
 	// Output
-	Result   model.WIPResult
-	Warnings []string
+	Result model.WIPResult
 }
 
 // warn appends a warning and calls WarnFunc if set.
 func (p *Pipeline) warn(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
-	p.Warnings = append(p.Warnings, msg)
+	p.AddWarning(msg)
 	if p.WarnFunc != nil {
 		p.WarnFunc("%s", msg)
 	}
+}
+
+// Enrich implements pipeline.Enricher. It delegates to EnrichFn if set.
+func (p *Pipeline) Enrich(ctx context.Context) error {
+	if p.EnrichFn != nil {
+		return p.EnrichFn(ctx)
+	}
+	return nil
 }
 
 // GatherData fetches open issues and PRs for WIP analysis.
@@ -283,7 +298,7 @@ func (p *Pipeline) ProcessData() error {
 		TeamLimit:      p.WIPConfig.TeamLimit,
 		PersonLimit:    p.WIPConfig.PersonLimit,
 		Truncated:      p.Truncated,
-		Warnings:       p.Warnings,
+		Warnings:       p.Warnings(),
 	}
 
 	// Generate insights.

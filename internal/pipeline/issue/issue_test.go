@@ -211,7 +211,6 @@ func TestRenderJSON(t *testing.T) {
 			&model.Event{Time: closed, Signal: model.SignalIssueClosed},
 		),
 		Category: "bug",
-		Warnings: []string{},
 	}
 
 	var buf bytes.Buffer

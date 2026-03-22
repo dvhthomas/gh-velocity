@@ -4,12 +4,12 @@ package throughput
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/format"
 	"github.com/dvhthomas/gh-velocity/internal/metrics"
 	"github.com/dvhthomas/gh-velocity/internal/model"
+	"github.com/dvhthomas/gh-velocity/internal/pipeline"
 )
 
 // searcher is the narrow interface for GitHub search operations.
@@ -21,6 +21,8 @@ type searcher interface {
 
 // Pipeline implements pipeline.Pipeline for the throughput command.
 type Pipeline struct {
+	pipeline.WarningCollector
+
 	// Constructor params
 	Client     searcher
 	Owner      string
@@ -43,7 +45,6 @@ type Pipeline struct {
 
 	// ProcessData output
 	Result   model.ThroughputResult
-	Warnings []string
 	Insights []model.Insight
 }
 
@@ -55,12 +56,12 @@ func (p *Pipeline) GatherData(ctx context.Context) error {
 	if issueErr == nil {
 		p.ClosedIssues = issues
 	} else {
-		p.Warnings = append(p.Warnings, fmt.Sprintf("issue search failed: %v", issueErr))
+		p.AddWarningf("issue search failed: %v", issueErr)
 	}
 	if prErr == nil {
 		p.MergedPRs = prs
 	} else {
-		p.Warnings = append(p.Warnings, fmt.Sprintf("PR search failed: %v", prErr))
+		p.AddWarningf("PR search failed: %v", prErr)
 	}
 
 	// Partial failure is OK — we show whatever we got
@@ -83,11 +84,11 @@ func (p *Pipeline) fetchOpenItems(ctx context.Context) {
 		for _, q := range p.OpenIssueQueries {
 			issues, err := p.Client.SearchIssues(ctx, q)
 			if err != nil {
-				p.Warnings = append(p.Warnings, fmt.Sprintf("open issue search failed: %v", err))
+				p.AddWarningf("open issue search failed: %v", err)
 				continue
 			}
 			if len(issues) >= 1000 {
-				p.Warnings = append(p.Warnings, "open item query may be truncated (1000 results)")
+				p.AddWarning("open item query may be truncated (1000 results)")
 			}
 			for _, issue := range issues {
 				if !seen[issue.Number] {
@@ -103,11 +104,11 @@ func (p *Pipeline) fetchOpenItems(ctx context.Context) {
 		for _, q := range p.OpenPRQueries {
 			prs, err := p.Client.SearchPRs(ctx, q)
 			if err != nil {
-				p.Warnings = append(p.Warnings, fmt.Sprintf("open PR search failed: %v", err))
+				p.AddWarningf("open PR search failed: %v", err)
 				continue
 			}
 			if len(prs) >= 1000 {
-				p.Warnings = append(p.Warnings, "open item query may be truncated (1000 results)")
+				p.AddWarning("open item query may be truncated (1000 results)")
 			}
 			for _, pr := range prs {
 				if !seen[pr.Number] {
@@ -141,7 +142,7 @@ func (p *Pipeline) generateInsights() {
 func (p *Pipeline) Render(rc format.RenderContext) error {
 	switch rc.Format {
 	case format.JSON:
-		return WriteJSON(rc.Writer, p.Result, p.SearchURL, p.Warnings, p.Insights)
+		return WriteJSON(rc.Writer, p.Result, p.SearchURL, p.Warnings(), p.Insights)
 	case format.Markdown:
 		return WriteMarkdown(rc.Writer, p.Result, p.SearchURL, p.Insights)
 	default:

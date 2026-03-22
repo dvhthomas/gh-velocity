@@ -41,6 +41,11 @@ type Pipeline struct {
 	Since, Until   *time.Time
 	Verbose        bool
 
+	// PostProcessFn is an optional callback invoked at the end of ProcessData,
+	// after Result is populated. Commands use this to attach provenance metadata
+	// that depends on cmd/deps (which the pipeline doesn't know about).
+	PostProcessFn func()
+
 	// Internal state
 	items         []model.VelocityItem
 	periods       PeriodStrategy
@@ -52,6 +57,9 @@ type Pipeline struct {
 // HasProvenance returns true because the velocity pipeline renders its own
 // multi-line provenance block with effort strategy details.
 func (p *Pipeline) HasProvenance() bool { return true }
+
+// Warnings returns warnings accumulated in the velocity result.
+func (p *Pipeline) Warnings() []string { return p.Result.Warnings }
 
 // GatherData fetches project items and resolves iteration boundaries.
 func (p *Pipeline) GatherData(ctx context.Context) error {
@@ -412,6 +420,11 @@ func (p *Pipeline) ProcessData() error {
 
 	// Generate insights from the computed data.
 	p.generateInsights()
+
+	// Allow the caller to attach metadata (e.g., provenance) after Result is populated.
+	if p.PostProcessFn != nil {
+		p.PostProcessFn()
+	}
 
 	return nil
 }

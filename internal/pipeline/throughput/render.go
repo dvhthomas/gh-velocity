@@ -2,7 +2,6 @@ package throughput
 
 import (
 	"embed"
-	"encoding/json"
 	"fmt"
 	"io"
 	"text/template"
@@ -21,28 +20,19 @@ var markdownTmpl = template.Must(
 
 // --- JSON ---
 
-type jsonThroughputInsight struct {
-	Type    string `json:"type"`
-	Message string `json:"message"`
-}
-
 type jsonOutput struct {
-	Repository string                  `json:"repository"`
-	Window     format.JSONWindow       `json:"window"`
-	SearchURL  string                  `json:"search_url"`
-	Insights   []jsonThroughputInsight `json:"insights,omitempty"`
-	Issues     int                     `json:"issues_closed"`
-	PRs        int                     `json:"prs_merged"`
-	Total      int                     `json:"total"`
-	Warnings   []string                `json:"warnings,omitempty"`
+	Repository string               `json:"repository"`
+	Window     format.JSONWindow    `json:"window"`
+	SearchURL  string               `json:"search_url"`
+	Insights   []format.JSONInsight `json:"insights,omitempty"`
+	Issues     int                  `json:"issues_closed"`
+	PRs        int                  `json:"prs_merged"`
+	Total      int                  `json:"total"`
+	Warnings   []string             `json:"warnings,omitempty"`
 }
 
 // WriteJSON writes throughput as JSON.
 func WriteJSON(w io.Writer, r model.ThroughputResult, searchURL string, warnings []string, insights []model.Insight) error {
-	var jsonIns []jsonThroughputInsight
-	for _, ins := range insights {
-		jsonIns = append(jsonIns, jsonThroughputInsight{Type: ins.Type, Message: ins.Message})
-	}
 	out := jsonOutput{
 		Repository: r.Repository,
 		Window: format.JSONWindow{
@@ -50,15 +40,13 @@ func WriteJSON(w io.Writer, r model.ThroughputResult, searchURL string, warnings
 			Until: r.Until.UTC().Format(time.RFC3339),
 		},
 		SearchURL: searchURL,
-		Insights:  jsonIns,
+		Insights:  format.InsightsToJSON(insights),
 		Issues:    r.IssuesClosed,
 		PRs:       r.PRsMerged,
 		Total:     r.IssuesClosed + r.PRsMerged,
 		Warnings:  warnings,
 	}
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(out)
+	return format.WriteIndentedJSON(w, out)
 }
 
 // --- Markdown ---

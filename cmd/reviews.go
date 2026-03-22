@@ -35,8 +35,7 @@ This command shows the work (PRs), not individual reviewers.`,
 }
 
 func runReviews(cmd *cobra.Command) error {
-	ctx := cmd.Context()
-	deps := DepsFromContext(ctx)
+	deps := DepsFromContext(cmd.Context())
 	if deps == nil {
 		return &model.AppError{
 			Code:    model.ErrConfigInvalid,
@@ -54,13 +53,6 @@ func runReviews(cmd *cobra.Command) error {
 		Owner:  deps.Owner,
 		Repo:   deps.Repo,
 		Now:    deps.Now(),
-	}
-
-	if err := p.GatherData(ctx); err != nil {
-		return err
-	}
-	if err := p.ProcessData(); err != nil {
-		return err
 	}
 
 	return renderPipeline(cmd, deps, p, nil, posting.PostOptions{})
