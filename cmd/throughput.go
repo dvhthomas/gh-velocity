@@ -42,26 +42,12 @@ Default window is the last 30 days.`,
 				}
 			}
 
-			now := deps.Now()
-
 			if sinceFlag == "" {
 				sinceFlag = "30d"
 			}
-			since, err := dateutil.Parse(sinceFlag, now)
+			since, until, err := parseDateWindow(sinceFlag, untilFlag, deps.Now())
 			if err != nil {
-				return &model.AppError{Code: model.ErrConfigInvalid, Message: err.Error()}
-			}
-
-			until := now
-			if untilFlag != "" {
-				until, err = dateutil.Parse(untilFlag, now)
-				if err != nil {
-					return &model.AppError{Code: model.ErrConfigInvalid, Message: err.Error()}
-				}
-			}
-
-			if err := dateutil.ValidateWindow(since, until, now); err != nil {
-				return &model.AppError{Code: model.ErrConfigInvalid, Message: err.Error()}
+				return err
 			}
 
 			client, err := deps.NewClient()

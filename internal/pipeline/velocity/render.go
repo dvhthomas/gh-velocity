@@ -28,17 +28,12 @@ func velocityFuncMap() template.FuncMap {
 
 // --- JSON ---
 
-type jsonVelocityInsight struct {
-	Type    string `json:"type"`
-	Message string `json:"message"`
-}
-
 type jsonOutput struct {
-	Repository    string                `json:"repository"`
-	Unit          string                `json:"unit"`
-	EffortUnit    string                `json:"effort_unit"`
-	Warnings      []string              `json:"warnings,omitempty"`
-	Insights      []jsonVelocityInsight `json:"insights,omitempty"`
+	Repository    string               `json:"repository"`
+	Unit          string               `json:"unit"`
+	EffortUnit    string               `json:"effort_unit"`
+	Warnings      []string             `json:"warnings,omitempty"`
+	Insights      []format.JSONInsight `json:"insights,omitempty"`
 	OffBoardItems []int                 `json:"off_board_items,omitempty"`
 	Provenance    model.Provenance      `json:"provenance"`
 	EffortDetail  jsonEffort            `json:"effort"`
@@ -128,7 +123,7 @@ func WriteJSON(w io.Writer, r model.VelocityResult) error {
 	out.Provenance = r.Provenance
 	out.OffBoardItems = r.OffBoardItems
 	for _, ins := range r.Insights {
-		out.Insights = append(out.Insights, jsonVelocityInsight{Type: ins.Type, Message: ins.Message})
+		out.Insights = append(out.Insights, format.JSONInsight{Type: ins.Type, Message: ins.Message})
 	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")

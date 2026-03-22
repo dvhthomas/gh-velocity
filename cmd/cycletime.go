@@ -203,22 +203,9 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		}
 	}
 
-	now := deps.Now()
-	since, err := dateutil.Parse(sinceStr, now)
+	since, until, err := parseDateWindow(sinceStr, untilStr, deps.Now())
 	if err != nil {
-		return &model.AppError{Code: model.ErrConfigInvalid, Message: err.Error()}
-	}
-
-	until := now
-	if untilStr != "" {
-		until, err = dateutil.Parse(untilStr, now)
-		if err != nil {
-			return &model.AppError{Code: model.ErrConfigInvalid, Message: err.Error()}
-		}
-	}
-
-	if err := dateutil.ValidateWindow(since, until, now); err != nil {
-		return &model.AppError{Code: model.ErrConfigInvalid, Message: err.Error()}
+		return err
 	}
 
 	client, err := deps.NewClient()

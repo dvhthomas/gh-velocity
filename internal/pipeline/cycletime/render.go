@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 	"text/template"
 	"time"
 
 	"github.com/dvhthomas/gh-velocity/internal/format"
-	"github.com/dvhthomas/gh-velocity/internal/metrics"
 	"github.com/dvhthomas/gh-velocity/internal/model"
 )
 
@@ -326,25 +324,11 @@ func WriteBulkPretty(rc format.RenderContext, repo string, since, until time.Tim
 
 // classifyFlags returns the applicable flag constants for a duration-based item.
 func classifyFlags(item BulkItem, stats model.Stats) []string {
-	var flags []string
-	if item.Metric.Duration != nil && *item.Metric.Duration < time.Minute {
-		flags = append(flags, format.FlagNoise)
-	}
-	if item.Metric.Duration != nil && *item.Metric.Duration <= 72*time.Hour && *item.Metric.Duration >= time.Minute {
-		flags = append(flags, format.FlagHotfix)
-	}
-	if metrics.IsOutlier(item.Metric, stats) {
-		flags = append(flags, format.FlagOutlier)
-	}
-	return flags
+	return format.ClassifyDurationFlags(item.Metric.Duration, item.Metric, stats)
 }
 
 func flagEmojis(flags []string) string {
-	var s strings.Builder
-	for _, f := range flags {
-		s.WriteString(format.FlagEmoji(f))
-	}
-	return s.String()
+	return format.FlagEmojis(flags)
 }
 
 // --- Helpers ---
