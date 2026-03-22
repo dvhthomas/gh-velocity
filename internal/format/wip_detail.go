@@ -538,17 +538,15 @@ func WriteWIPDetailPretty(rc RenderContext, result model.WIPResult) error {
 	return nil
 }
 
-// formatOwnerMarkdown returns a GitHub @handle for markdown output.
-// GitHub's renderer auto-links @mentions, so no explicit URL needed.
+// formatOwnerMarkdown renders an owner handle for markdown output without
+// triggering a live GitHub @mention notification.
 // "unassigned" is returned as-is (not a GitHub handle).
 func formatOwnerMarkdown(login string) string {
 	if login == "unassigned" {
 		return login
 	}
-	if strings.HasPrefix(login, "@") {
-		return login
-	}
-	return "@" + login
+	login = strings.TrimPrefix(login, "@")
+	return "`@" + login + "`"
 }
 
 // countByKind counts issues and PRs in the item list.
