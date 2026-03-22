@@ -45,6 +45,11 @@ type Pipeline struct {
 	// (from throughput pipeline warnings).
 	Truncated bool
 
+	// EnrichFn is an optional callback invoked between GatherData and ProcessData
+	// (via the Enricher interface). Commands set this to perform IssueType enrichment
+	// using the full gh.Client, which the pipeline doesn't depend on directly.
+	EnrichFn func(ctx context.Context) error
+
 	// Internal — OpenIssues exported for enrichment at cmd/ layer.
 	OpenIssues []model.Issue
 	openPRs    []model.PR
@@ -60,6 +65,14 @@ func (p *Pipeline) warn(format string, args ...any) {
 	if p.WarnFunc != nil {
 		p.WarnFunc("%s", msg)
 	}
+}
+
+// Enrich implements pipeline.Enricher. It delegates to EnrichFn if set.
+func (p *Pipeline) Enrich(ctx context.Context) error {
+	if p.EnrichFn != nil {
+		return p.EnrichFn(ctx)
+	}
+	return nil
 }
 
 // GatherData fetches open issues and PRs for WIP analysis.

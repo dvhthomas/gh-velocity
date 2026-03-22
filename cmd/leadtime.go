@@ -69,8 +69,7 @@ func runLeadTimeSingle(cmd *cobra.Command, arg string) error {
 		return err
 	}
 
-	ctx := cmd.Context()
-	deps := DepsFromContext(ctx)
+	deps := DepsFromContext(cmd.Context())
 	if deps == nil {
 		return &model.AppError{
 			Code:    model.ErrConfigInvalid,
@@ -90,13 +89,6 @@ func runLeadTimeSingle(cmd *cobra.Command, arg string) error {
 		IssueNumber: issueNumber,
 	}
 
-	if err := p.GatherData(ctx); err != nil {
-		return err
-	}
-	if err := p.ProcessData(); err != nil {
-		return err
-	}
-
 	return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 		Command: "lead-time",
 		Context: strconv.Itoa(issueNumber),
@@ -107,8 +99,7 @@ func runLeadTimeSingle(cmd *cobra.Command, arg string) error {
 
 // runLeadTimeBulk computes lead time for all issues closed in a date window.
 func runLeadTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
-	ctx := cmd.Context()
-	deps := DepsFromContext(ctx)
+	deps := DepsFromContext(cmd.Context())
 	if deps == nil {
 		return &model.AppError{
 			Code:    model.ErrConfigInvalid,
@@ -140,13 +131,6 @@ func runLeadTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		Until:       until,
 		SearchQuery: q.Build(),
 		SearchURL:   q.URL(),
-	}
-
-	if err := p.GatherData(ctx); err != nil {
-		return err
-	}
-	if err := p.ProcessData(); err != nil {
-		return err
 	}
 
 	return renderPipeline(cmd, deps, p, client, posting.PostOptions{

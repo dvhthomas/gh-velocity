@@ -106,8 +106,7 @@ When a signal is not available for an item, cycle time is N/A.`,
 
 // runCycleTimePR computes cycle time for a specific PR: created → merged.
 func runCycleTimePR(cmd *cobra.Command, prNumber int) error {
-	ctx := cmd.Context()
-	deps := DepsFromContext(ctx)
+	deps := DepsFromContext(cmd.Context())
 	if deps == nil {
 		return &model.AppError{
 			Code:    model.ErrConfigInvalid,
@@ -125,17 +124,6 @@ func runCycleTimePR(cmd *cobra.Command, prNumber int) error {
 		Owner:    deps.Owner,
 		Repo:     deps.Repo,
 		PRNumber: prNumber,
-	}
-
-	if err := p.GatherData(ctx); err != nil {
-		return err
-	}
-	if err := p.ProcessData(); err != nil {
-		return err
-	}
-
-	for _, warn := range p.Warnings() {
-		deps.Warn("%s", warn)
 	}
 
 	return renderPipeline(cmd, deps, p, client, posting.PostOptions{
@@ -171,17 +159,6 @@ func runCycleTimeIssue(cmd *cobra.Command, issueNumber int) error {
 		IssueNumber: issueNumber,
 		Strategy:    strat,
 		StrategyStr: deps.Config.CycleTime.Strategy,
-	}
-
-	if err := p.GatherData(ctx); err != nil {
-		return err
-	}
-	if err := p.ProcessData(); err != nil {
-		return err
-	}
-
-	for _, warn := range p.Warnings() {
-		deps.Warn("%s", warn)
 	}
 
 	return renderPipeline(cmd, deps, p, client, posting.PostOptions{
@@ -253,20 +230,10 @@ func runCycleTimeBulk(cmd *cobra.Command, sinceStr, untilStr string) error {
 		ClosingPRs:  closingPRs,
 	}
 
-	if err := p.GatherData(ctx); err != nil {
-		return err
-	}
-	if err := p.ProcessData(); err != nil {
-		return err
-	}
-
-	// Merge pre-gather warnings (e.g., PR search failures) with pipeline warnings.
+	// Merge pre-gather warnings (e.g., PR search failures) into pipeline
+	// so renderPipeline surfaces them alongside any gather/process warnings.
 	for _, w := range preWarnings {
 		p.AddWarning(w)
-	}
-
-	for _, warn := range p.Warnings() {
-		deps.Warn("%s", warn)
 	}
 
 	return renderPipeline(cmd, deps, p, client, posting.PostOptions{

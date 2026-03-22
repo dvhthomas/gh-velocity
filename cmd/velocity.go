@@ -56,8 +56,7 @@ Run 'gh velocity config preflight' to get suggested configuration.`,
   gh velocity flow velocity --verbose`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			deps := DepsFromContext(ctx)
+			deps := DepsFromContext(cmd.Context())
 			if deps == nil {
 				return &model.AppError{
 					Code:    model.ErrConfigInvalid,
@@ -121,13 +120,11 @@ Run 'gh velocity config preflight' to get suggested configuration.`,
 					cfg.Unit, cfg.Effort.Strategy, cfg.Iteration.Strategy, iterCount)
 			}
 
-			if err := p.GatherData(ctx); err != nil {
-				return err
+			// Attach provenance via PostProcessFn so it runs after ProcessData
+			// populates Result (renderPipeline calls ProcessData internally).
+			p.PostProcessFn = func() {
+				p.Result.Provenance = buildVelocityProvenance(cmd, deps, cfg)
 			}
-			if err := p.ProcessData(); err != nil {
-				return err
-			}
-			p.Result.Provenance = buildVelocityProvenance(cmd, deps, cfg)
 
 			return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 				Command: "velocity",

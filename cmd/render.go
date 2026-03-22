@@ -17,10 +17,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// renderPipeline runs a Pipeline through all requested result formats,
-// handles --write-to file routing, and posts if --post is set.
+// renderPipeline runs a Pipeline through the full lifecycle:
+// GatherData → [Enrich] → ProcessData → Warn → Render → Post.
+// Standalone commands should ALWAYS use this — never call phases directly.
+// The report command is the one exception (see cmd/report.go).
 // Pass nil for client and empty PostOptions for commands without --post.
 func renderPipeline(cmd *cobra.Command, deps *Deps, p pipeline.Pipeline, client *gh.Client, postOpts posting.PostOptions) error {
+	ctx := cmd.Context()
+
+	// Phase 1: Gather data from APIs.
+	if err := p.GatherData(ctx); err != nil {
+		return err
+	}
+	// Phase 1.5: Optional enrichment (e.g., IssueType) between gather and process.
+	if e, ok := p.(pipeline.Enricher); ok {
+		if err := e.Enrich(ctx); err != nil {
+			return err
+		}
+	}
+	// Phase 2: Compute metrics from gathered data.
+	if err := p.ProcessData(); err != nil {
+		return err
+	}
+	// Surface warnings.
+	for _, w := range p.Warnings() {
+		deps.Warn("%s", w)
+	}
+
+	// Phase 3: Render in requested format(s).
+
 	// Skip generic provenance for pipelines that render their own (e.g., velocity).
 	_, hasOwnProvenance := p.(provenanceRenderer)
 	var prov model.Provenance

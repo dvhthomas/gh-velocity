@@ -33,8 +33,7 @@ Default window is the last 30 days.`,
   gh velocity flow throughput --since 30d -R cli/cli`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			deps := DepsFromContext(ctx)
+			deps := DepsFromContext(cmd.Context())
 			if deps == nil {
 				return &model.AppError{
 					Code:    model.ErrConfigInvalid,
@@ -73,13 +72,6 @@ Default window is the last 30 days.`,
 				IssueQuery: issueQuery.Build(),
 				PRQuery:    prQuery.Build(),
 				SearchURL:  issueQuery.URL(),
-			}
-
-			if err := p.GatherData(ctx); err != nil {
-				return err
-			}
-			if err := p.ProcessData(); err != nil {
-				return err
 			}
 
 			return renderPipeline(cmd, deps, p, client, posting.PostOptions{

@@ -81,18 +81,6 @@ func runIssueDetail(cmd *cobra.Command, arg string) error {
 		HasLifecycleMatch: len(deps.Config.Lifecycle.InProgress.Match) > 0,
 	}
 
-	if err := p.GatherData(ctx); err != nil {
-		return err
-	}
-	if err := p.ProcessData(); err != nil {
-		return err
-	}
-
-	// Surface pipeline warnings.
-	for _, w := range p.Warnings() {
-		deps.Warn("%s", w)
-	}
-
 	return renderPipeline(cmd, deps, p, client, posting.PostOptions{
 		Command: "issue",
 		Context: strconv.Itoa(issueNumber),

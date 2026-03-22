@@ -42,8 +42,7 @@ func runPRDetail(cmd *cobra.Command, arg string) error {
 		return err
 	}
 
-	ctx := cmd.Context()
-	deps := DepsFromContext(ctx)
+	deps := DepsFromContext(cmd.Context())
 	if deps == nil {
 		return &model.AppError{
 			Code:    model.ErrConfigInvalid,
@@ -61,18 +60,6 @@ func runPRDetail(cmd *cobra.Command, arg string) error {
 		Owner:    deps.Owner,
 		Repo:     deps.Repo,
 		PRNumber: prNumber,
-	}
-
-	if err := p.GatherData(ctx); err != nil {
-		return err
-	}
-	if err := p.ProcessData(); err != nil {
-		return err
-	}
-
-	// Surface pipeline warnings.
-	for _, w := range p.Warnings() {
-		deps.Warn("%s", w)
 	}
 
 	return renderPipeline(cmd, deps, p, client, posting.PostOptions{

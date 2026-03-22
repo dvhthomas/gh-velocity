@@ -1,11 +1,12 @@
 package cmd
 
 import (
-	"os"
+	"context"
 	"strings"
 
 	"github.com/dvhthomas/gh-velocity/internal/model"
 	wippipe "github.com/dvhthomas/gh-velocity/internal/pipeline/wip"
+	"github.com/dvhthomas/gh-velocity/internal/posting"
 	"github.com/spf13/cobra"
 )
 
@@ -35,8 +36,7 @@ Use -R owner/repo to target a specific repo.`,
 }
 
 func runWIP(cmd *cobra.Command) error {
-	ctx := cmd.Context()
-	deps := DepsFromContext(ctx)
+	deps := DepsFromContext(cmd.Context())
 	if deps == nil {
 		return &model.AppError{Code: model.ErrConfigInvalid, Message: "internal error: missing dependencies"}
 	}
@@ -68,19 +68,15 @@ func runWIP(cmd *cobra.Command) error {
 		Now:             deps.Now(),
 		Debug:           deps.Debug,
 	}
-	if err := p.GatherData(ctx); err != nil {
-		return err
-	}
 
-	// Enrich IssueType when any lifecycle or effort matcher uses type: prefix.
+	// Set enrichment callback for IssueType when matchers use type: prefix.
 	if matchersHaveTypePrefix(cfg.Lifecycle.InProgress.Match, cfg.Lifecycle.InReview.Match) {
-		_ = client.EnrichIssueTypes(ctx, p.OpenIssues)
+		p.EnrichFn = func(ctx context.Context) error {
+			return client.EnrichIssueTypes(ctx, p.OpenIssues)
+		}
 	}
 
-	if err := p.ProcessData(); err != nil {
-		return err
-	}
-	return p.Render(deps.RenderCtx(os.Stdout))
+	return renderPipeline(cmd, deps, p, nil, posting.PostOptions{})
 }
 
 // matchersHaveTypePrefix returns true if any matcher string in any of the
