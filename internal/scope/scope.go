@@ -29,14 +29,25 @@ func (q Query) Build() string {
 	return strings.Join(parts, " ")
 }
 
+// dateRangeRe matches RFC3339 date-range qualifiers like
+// "closed:2026-03-15T16:15:14Z..2026-03-22T16:15:14Z" and captures
+// the qualifier name and date-only portions for replacement.
+var dateRangeRe = regexp.MustCompile(
+	`(closed|merged|updated|created):(\d{4}-\d{2}-\d{2})T[^\s.]+\.\.(\d{4}-\d{2}-\d{2})T\S+`)
+
 // URL returns a clickable GitHub search URL for the assembled query.
 // Uses url.PathEscape (not QueryEscape) because GitHub search URLs
 // treat '+' as literal text, not as an encoded space.
+//
+// Date qualifiers are simplified from RFC3339 to date-only format
+// (YYYY-MM-DD) because GitHub Web Search returns more inclusive results
+// with date-only ranges (end date is treated as "through end of day").
 func (q Query) URL() string {
 	query := q.Build()
 	if query == "" {
 		return ""
 	}
+	query = dateRangeRe.ReplaceAllString(query, "${1}:${2}..${3}")
 	return "https://github.com/search?q=" + url.PathEscape(query)
 }
 

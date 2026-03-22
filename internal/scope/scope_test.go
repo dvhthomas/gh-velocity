@@ -90,6 +90,89 @@ func TestQuery_URL(t *testing.T) {
 	}
 }
 
+func TestQuery_URL_DateOnly(t *testing.T) {
+	// GitHub Search web UI returns more accurate results with date-only format
+	// (YYYY-MM-DD) than with RFC3339 timestamps. Verify URLs must use date-only.
+	tests := []struct {
+		name       string
+		query      Query
+		wantInURL  []string // substrings that MUST appear in the URL
+		denyInURL  []string // substrings that must NOT appear in the URL
+		buildKeeps string   // Build() must still contain this (API format preserved)
+	}{
+		{
+			name: "closed issues: URL uses date-only, Build keeps RFC3339",
+			query: ClosedIssueQuery("repo:o/r",
+				time.Date(2026, 3, 15, 16, 15, 14, 0, time.UTC),
+				time.Date(2026, 3, 22, 16, 15, 14, 0, time.UTC)),
+			wantInURL:  []string{"closed:2026-03-15..2026-03-22"},
+			denyInURL:  []string{"T16:15:14Z"},
+			buildKeeps: "closed:2026-03-15T16:15:14Z..2026-03-22T16:15:14Z",
+		},
+		{
+			name: "merged PRs: URL uses date-only",
+			query: MergedPRQuery("repo:o/r label:bug",
+				time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+				time.Date(2026, 3, 15, 23, 59, 59, 0, time.UTC)),
+			wantInURL:  []string{"merged:2026-03-01..2026-03-15"},
+			denyInURL:  []string{"T00:00:00Z", "T23:59:59Z"},
+			buildKeeps: "merged:2026-03-01T00:00:00Z..2026-03-15T23:59:59Z",
+		},
+		{
+			name: "reviewed PRs: URL uses date-only for updated qualifier",
+			query: ReviewedPRsByAuthorQuery("repo:o/r", "user",
+				time.Date(2026, 3, 15, 10, 0, 0, 0, time.UTC),
+				time.Date(2026, 3, 22, 10, 0, 0, 0, time.UTC)),
+			wantInURL: []string{"updated:2026-03-15..2026-03-22"},
+			denyInURL: []string{"T10:00:00Z"},
+		},
+		{
+			name: "closed issues by author: URL uses date-only",
+			query: ClosedIssuesByAuthorQuery("repo:o/r", "user",
+				time.Date(2026, 3, 15, 16, 15, 14, 0, time.UTC),
+				time.Date(2026, 3, 22, 16, 15, 14, 0, time.UTC)),
+			wantInURL: []string{"closed:2026-03-15..2026-03-22", "author:user"},
+			denyInURL: []string{"T16:15:14Z"},
+		},
+		{
+			name: "merged PRs by author: URL uses date-only",
+			query: MergedPRsByAuthorQuery("repo:o/r", "user",
+				time.Date(2026, 3, 15, 16, 15, 14, 0, time.UTC),
+				time.Date(2026, 3, 22, 16, 15, 14, 0, time.UTC)),
+			wantInURL: []string{"merged:2026-03-15..2026-03-22", "author:user"},
+			denyInURL: []string{"T16:15:14Z"},
+		},
+		{
+			name:      "no dates: URL unchanged",
+			query:     OpenIssuesByAssigneeQuery("repo:o/r", "user"),
+			wantInURL: []string{"assignee:user", "is:open"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u := tt.query.URL()
+			for _, want := range tt.wantInURL {
+				if !strings.Contains(u, want) {
+					t.Errorf("URL() missing %q\n  got: %s", want, u)
+				}
+			}
+			for _, deny := range tt.denyInURL {
+				if strings.Contains(u, deny) {
+					t.Errorf("URL() must not contain %q\n  got: %s", deny, u)
+				}
+			}
+			// Verify Build() is NOT changed — API queries must keep RFC3339.
+			if tt.buildKeeps != "" {
+				b := tt.query.Build()
+				if !strings.Contains(b, tt.buildKeeps) {
+					t.Errorf("Build() must keep RFC3339: want %q in %q", tt.buildKeeps, b)
+				}
+			}
+		})
+	}
+}
+
 func TestQuery_Verbose(t *testing.T) {
 	q := Query{
 		Scope:     "repo:myorg/myrepo",
