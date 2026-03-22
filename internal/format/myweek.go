@@ -193,7 +193,7 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 	fmt.Fprintf(w, "My Week — %s (%s)\n", r.Login, repoLabel)
 	fmt.Fprintf(w, "  %s to %s\n", r.Since.Format(time.DateOnly), r.Until.Format(time.DateOnly))
 
-	// Insights
+	// Insights (prose bullets, not tabular)
 	if insights := buildInsightLines(r, ins); len(insights) > 0 {
 		fmt.Fprintf(w, "\n── Insights ────────────────────────────────\n\n")
 		for _, line := range insights {
@@ -216,17 +216,33 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 		fmt.Fprintf(w, "\n── Waiting on ──────────────────────────────\n")
 		if len(waitingPRs) > 0 {
 			fmt.Fprintf(w, "\nPRs Waiting for Review: %d\n", len(waitingPRs))
+			tp := NewTable(w, rc.IsTTY, rc.Width)
+			tp.AddHeader([]string{"#", "Title", "Age"})
 			for _, pr := range waitingPRs {
 				age := model.DaysBetween(pr.CreatedAt, r.Until)
-				ai := aiSuffix(pr.AIAssisted)
-				fmt.Fprintf(w, "  %s  %s%s  (%s, no reviews)\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title, ai, formatAge(age))
+				title := pr.Title + aiSuffix(pr.AIAssisted)
+				tp.AddField(FormatItemLink(pr.Number, pr.URL, rc))
+				tp.AddField(title)
+				tp.AddField(formatAge(age))
+				tp.EndRow()
+			}
+			if err := tp.Render(); err != nil {
+				return err
 			}
 		}
 		if len(staleIssues) > 0 {
 			fmt.Fprintf(w, "\nStale Issues: %d\n", len(staleIssues))
+			tp := NewTable(w, rc.IsTTY, rc.Width)
+			tp.AddHeader([]string{"#", "Title", "Idle"})
 			for _, iss := range staleIssues {
 				staleDays := model.DaysBetween(iss.UpdatedAt, r.Until)
-				fmt.Fprintf(w, "  %s  %s  (no update in %dd)\n", FormatItemLink(iss.Number, iss.URL, rc), iss.Title, staleDays)
+				tp.AddField(FormatItemLink(iss.Number, iss.URL, rc))
+				tp.AddField(iss.Title)
+				tp.AddField(fmt.Sprintf("%dd", staleDays))
+				tp.EndRow()
+			}
+			if err := tp.Render(); err != nil {
+				return err
 			}
 		}
 	}
@@ -237,12 +253,20 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 
 	if len(r.IssuesClosed) > 0 {
 		fmt.Fprintf(w, "\nIssues Closed: %d\n", len(r.IssuesClosed))
+		tp := NewTable(w, rc.IsTTY, rc.Width)
+		tp.AddHeader([]string{"#", "Date", "Title"})
 		for _, iss := range r.IssuesClosed {
 			dateStr := ""
 			if iss.ClosedAt != nil {
-				dateStr = iss.ClosedAt.Format(time.DateOnly) + "  "
+				dateStr = iss.ClosedAt.Format(time.DateOnly)
 			}
-			fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(iss.Number, iss.URL, rc), dateStr, iss.Title)
+			tp.AddField(FormatItemLink(iss.Number, iss.URL, rc))
+			tp.AddField(dateStr)
+			tp.AddField(iss.Title)
+			tp.EndRow()
+		}
+		if err := tp.Render(); err != nil {
+			return err
 		}
 	} else {
 		fmt.Fprintf(w, "\nIssues Closed: 0\n")
@@ -253,13 +277,21 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 
 	if len(r.PRsMerged) > 0 {
 		fmt.Fprintf(w, "\nPRs Merged: %d\n", len(r.PRsMerged))
+		tp := NewTable(w, rc.IsTTY, rc.Width)
+		tp.AddHeader([]string{"#", "Date", "Title"})
 		for _, pr := range r.PRsMerged {
 			dateStr := ""
 			if pr.MergedAt != nil {
-				dateStr = pr.MergedAt.Format(time.DateOnly) + "  "
+				dateStr = pr.MergedAt.Format(time.DateOnly)
 			}
-			ai := aiSuffix(pr.AIAssisted)
-			fmt.Fprintf(w, "  %s  %s%s%s\n", FormatItemLink(pr.Number, pr.URL, rc), dateStr, pr.Title, ai)
+			title := pr.Title + aiSuffix(pr.AIAssisted)
+			tp.AddField(FormatItemLink(pr.Number, pr.URL, rc))
+			tp.AddField(dateStr)
+			tp.AddField(title)
+			tp.EndRow()
+		}
+		if err := tp.Render(); err != nil {
+			return err
 		}
 	} else {
 		fmt.Fprintf(w, "\nPRs Merged: 0\n")
@@ -270,9 +302,16 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 
 	if len(r.PRsReviewed) > 0 {
 		fmt.Fprintf(w, "\nPRs Reviewed: %d\n", len(r.PRsReviewed))
+		tp := NewTable(w, rc.IsTTY, rc.Width)
+		tp.AddHeader([]string{"#", "Title"})
 		for _, pr := range r.PRsReviewed {
-			ai := aiSuffix(pr.AIAssisted)
-			fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title, ai)
+			title := pr.Title + aiSuffix(pr.AIAssisted)
+			tp.AddField(FormatItemLink(pr.Number, pr.URL, rc))
+			tp.AddField(title)
+			tp.EndRow()
+		}
+		if err := tp.Render(); err != nil {
+			return err
 		}
 	} else {
 		fmt.Fprintf(w, "\nPRs Reviewed: 0\n")
@@ -284,6 +323,8 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 	if hasLookback {
 		if len(r.Releases) > 0 {
 			fmt.Fprintf(w, "\nReleases: %d (published in %s)\n", len(r.Releases), r.Repo)
+			tp := NewTable(w, rc.IsTTY, rc.Width)
+			tp.AddHeader([]string{"Release", "Date"})
 			for _, rel := range r.Releases {
 				dateStr := rel.CreatedAt.Format(time.DateOnly)
 				if rel.PublishedAt != nil {
@@ -293,7 +334,12 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 				if name == "" {
 					name = rel.TagName
 				}
-				fmt.Fprintf(w, "  %s  %s\n", FormatReleaseLink(name, rel.URL, rc), dateStr)
+				tp.AddField(FormatReleaseLink(name, rel.URL, rc))
+				tp.AddField(dateStr)
+				tp.EndRow()
+			}
+			if err := tp.Render(); err != nil {
+				return err
 			}
 		} else if r.Repo == "" {
 			fmt.Fprintf(w, "\nReleases: use -R owner/repo to see releases for a specific repo.\n")
@@ -306,19 +352,35 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 
 	if len(r.IssuesOpen) > 0 {
 		fmt.Fprintf(w, "\nOpen Issues: %d\n", len(r.IssuesOpen))
+		tp := NewTable(w, rc.IsTTY, rc.Width)
+		tp.AddHeader([]string{"#", "Title", "Status"})
 		for _, iss := range r.IssuesOpen {
 			s := model.IssueStatus(iss, r.Since, r.Until)
-			fmt.Fprintf(w, "  %s  %s%s\n", FormatItemLink(iss.Number, iss.URL, rc), iss.Title, formatStatus(s))
+			tp.AddField(FormatItemLink(iss.Number, iss.URL, rc))
+			tp.AddField(iss.Title)
+			tp.AddField(strings.TrimSpace(formatStatus(s)))
+			tp.EndRow()
+		}
+		if err := tp.Render(); err != nil {
+			return err
 		}
 	}
 
 	if len(r.PRsOpen) > 0 {
 		fmt.Fprintf(w, "\nOpen PRs: %d\n", len(r.PRsOpen))
+		tp := NewTable(w, rc.IsTTY, rc.Width)
+		tp.AddHeader([]string{"#", "Title", "Status"})
 		for _, pr := range r.PRsOpen {
 			nr := model.PRNeedsReview(pr, r.PRsNeedingReview)
 			s := model.PRStatus(pr, nr, r.Since, r.Until)
-			ai := aiSuffix(pr.AIAssisted)
-			fmt.Fprintf(w, "  %s  %s%s%s\n", FormatItemLink(pr.Number, pr.URL, rc), pr.Title, ai, formatStatus(s))
+			title := pr.Title + aiSuffix(pr.AIAssisted)
+			tp.AddField(FormatItemLink(pr.Number, pr.URL, rc))
+			tp.AddField(title)
+			tp.AddField(strings.TrimSpace(formatStatus(s)))
+			tp.EndRow()
+		}
+		if err := tp.Render(); err != nil {
+			return err
 		}
 	}
 
@@ -330,14 +392,22 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 	if len(r.PRsAwaitingMyReview) > 0 {
 		fmt.Fprintf(w, "\n── Review queue ────────────────────────────\n")
 		fmt.Fprintf(w, "\nAwaiting Your Review: %d\n", len(r.PRsAwaitingMyReview))
+		tp := NewTable(w, rc.IsTTY, rc.Width)
+		tp.AddHeader([]string{"#", "Title", "Author", "Age"})
 		for _, pr := range r.PRsAwaitingMyReview {
 			age := model.DaysBetween(pr.CreatedAt, r.Until)
 			author := pr.Author
 			if author == "" {
 				author = "unknown"
 			}
-			fmt.Fprintf(w, "  %s  %s  @%s (%s)\n",
-				FormatItemLink(pr.Number, pr.URL, rc), pr.Title, author, formatAge(age))
+			tp.AddField(FormatItemLink(pr.Number, pr.URL, rc))
+			tp.AddField(pr.Title)
+			tp.AddField("@" + author)
+			tp.AddField(formatAge(age))
+			tp.EndRow()
+		}
+		if err := tp.Render(); err != nil {
+			return err
 		}
 	}
 
