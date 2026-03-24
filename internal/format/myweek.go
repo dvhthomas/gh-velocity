@@ -402,7 +402,7 @@ func WriteMyWeekPretty(rc RenderContext, r model.MyWeekResult, ins model.MyWeekI
 			}
 			tp.AddField(FormatItemLink(pr.Number, pr.URL, rc))
 			tp.AddField(pr.Title)
-			tp.AddField("@" + author)
+			tp.AddField(author)
 			tp.AddField(formatAge(age))
 			tp.EndRow()
 		}

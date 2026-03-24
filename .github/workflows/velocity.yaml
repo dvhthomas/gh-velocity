@@ -1,10 +1,12 @@
 name: Velocity Report
 
 on:
-  schedule:
-    # Weekly on Monday at 08:00 UTC
-    - cron: "0 8 * * 1"
-  workflow_dispatch: # Allow manual runs
+  # DISABLED: was spamming external users with @mentions in posted reports.
+  # See: https://github.com/dvhthomas/gh-velocity/discussions/168
+  # schedule:
+  #   # Weekly on Monday at 08:00 UTC
+  #   - cron: "0 8 * * 1"
+  workflow_dispatch: # Manual-only until @mention escaping is verified
 
 permissions:
   contents: read

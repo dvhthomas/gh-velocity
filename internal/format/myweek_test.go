@@ -166,7 +166,7 @@ func TestWriteMyWeekPretty(t *testing.T) {
 		// Review queue
 		"Review queue",
 		"Awaiting Your Review: 2",
-		"@alice", "@bob", "Add dark mode", "Update deps",
+		"alice", "bob", "Add dark mode", "Update deps",
 	} {
 		if !contains(out, want) {
 			t.Errorf("expected %q in output:\n%s", want, out)
@@ -263,7 +263,7 @@ func TestWriteMyWeekMarkdown(t *testing.T) {
 		// Review queue
 		"### Review queue",
 		"**Awaiting Your Review (2)**",
-		"@alice", "@bob",
+		"`@alice`", "`@bob`",
 	} {
 		if !contains(out, want) {
 			t.Errorf("expected %q in output:\n%s", want, out)
