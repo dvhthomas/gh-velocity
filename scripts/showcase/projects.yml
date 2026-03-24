@@ -9,16 +9,8 @@
 # Keep this list small (≤6) to stay within API rate limits.
 
 configs:
-  - name: GitHub CLI
-    repo: cli/cli
-  - name: Kubernetes
-    repo: kubernetes/kubernetes
-  - name: uv
-    repo: astral-sh/uv
-  - name: React
-    repo: facebook/react
-  - name: k6
-    repo: grafana/k6
+  # Only repos we own — external repos were spamming maintainers with @mentions.
+  # See: https://github.com/dvhthomas/gh-velocity/discussions/168
   - name: CalcMark
     repo: CalcMark/go-calcmark
   - name: gh-velocity

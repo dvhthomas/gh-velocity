@@ -1,11 +1,13 @@
 name: Item Metrics
 
 on:
-  issues:
-    types: [closed]
-  pull_request:
-    types: [closed]
-  workflow_dispatch: # Manual testing from the Actions tab
+  # DISABLED: was spamming external users with @mentions in posted comments.
+  # See: https://github.com/dvhthomas/gh-velocity/discussions/168
+  # issues:
+  #   types: [closed]
+  # pull_request:
+  #   types: [closed]
+  workflow_dispatch: # Manual-only until @mention escaping is verified
 
 permissions:
   contents: read
