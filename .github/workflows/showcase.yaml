@@ -2,8 +2,8 @@ name: Velocity Showcase
 
 on:
   schedule:
-    # Daily at 05:00 UTC (before work day — analyze results each morning)
-    - cron: "0 5 * * *"
+    # Weekly at 05:00 UTC on Mondays
+    - cron: "0 5 * * 1"
   workflow_dispatch: # Allow manual runs
 
 permissions:
